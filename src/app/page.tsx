@@ -1,32 +1,55 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
-function TennisBallIcon({ className = "" }: { className?: string }) {
+function ScrollIndicator() {
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY;
+      setIsVisible(scrollY < 100);
+    };
+
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
   return (
-    <svg
-      viewBox="0 0 100 100"
-      className={className}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
+    <div
+      className="absolute bottom-12 left-1/2 -translate-x-1/2 transition-all duration-500 ease-out"
+      style={{
+        opacity: isVisible ? 1 : 0,
+        transform: `translateX(-50%) translateY(${isVisible ? 0 : 20}px)`,
+        pointerEvents: isVisible ? "auto" : "none",
+      }}
     >
-      <circle cx="50" cy="50" r="48" className="tennis-ball-fill" />
-      <path
-        d="M50 2C50 2 30 25 30 50C30 75 50 98 50 98"
-        className="tennis-ball-stroke"
-        strokeWidth="3"
-        strokeLinecap="round"
-        fill="none"
-      />
-      <path
-        d="M50 2C50 2 70 25 70 50C70 75 50 98 50 98"
-        className="tennis-ball-stroke"
-        strokeWidth="3"
-        strokeLinecap="round"
-        fill="none"
-      />
-    </svg>
+      <div
+        className="w-7 h-11 rounded-full flex justify-center cursor-pointer hover:scale-110 transition-transform duration-300"
+        style={{
+          border: "2px solid var(--accent-color)",
+          boxShadow: "0 0 15px var(--shadow-glow)",
+        }}
+        onClick={() => {
+          document
+            .getElementById("features")
+            ?.scrollIntoView({ behavior: "smooth" });
+        }}
+      >
+        <div
+          className="w-1.5 h-3 rounded-full mt-2 animate-bounce"
+          style={{ backgroundColor: "var(--accent-color)" }}
+        />
+      </div>
+      <p
+        className="text-xs mt-2 text-center tracking-wider"
+        style={{ color: "var(--text-muted)" }}
+      >
+        SCROLL
+      </p>
+    </div>
   );
 }
 
@@ -41,11 +64,17 @@ function CourtLines() {
       </div>
       <div
         className="absolute top-0 left-[10%] w-px h-full"
-        style={{ background: "linear-gradient(to bottom, transparent, var(--border-accent), transparent)" }}
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, var(--border-accent), transparent)",
+        }}
       />
       <div
         className="absolute top-0 right-[10%] w-px h-full"
-        style={{ background: "linear-gradient(to bottom, transparent, var(--border-accent), transparent)" }}
+        style={{
+          background:
+            "linear-gradient(to bottom, transparent, var(--border-accent), transparent)",
+        }}
       />
       <div
         className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[60%] h-[40%] opacity-50"
@@ -60,7 +89,6 @@ function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <TennisBallIcon className="w-8 h-8 group-hover:animate-bounce-slow" />
           <span
             className="font-display text-2xl tracking-wider"
             style={{ color: "var(--text-primary)" }}
@@ -116,16 +144,6 @@ function HeroSection() {
       <div className="absolute top-0 right-0 w-[60%] h-[60%] gradient-overlay-top blur-3xl opacity-30" />
       <div className="absolute bottom-0 left-0 w-[40%] h-[40%] gradient-overlay-bottom blur-3xl opacity-20" />
 
-      <div className="absolute top-[15%] right-[15%] animate-float opacity-20">
-        <TennisBallIcon className="w-24 h-24" />
-      </div>
-      <div
-        className="absolute bottom-[20%] left-[10%] animate-float opacity-10"
-        style={{ animationDelay: "2s" }}
-      >
-        <TennisBallIcon className="w-16 h-16" />
-      </div>
-
       <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
         <div className="opacity-0 animate-slide-up">
           <span
@@ -165,17 +183,7 @@ function HeroSection() {
           </Link>
         </div>
 
-        <div className="absolute bottom-12 left-1/2 -translate-x-1/2 opacity-0 animate-fade-in animate-delay-500">
-          <div
-            className="w-6 h-10 rounded-full flex justify-center"
-            style={{ border: "2px solid var(--border-color)" }}
-          >
-            <div
-              className="w-1 h-2 rounded-full mt-2 animate-bounce"
-              style={{ backgroundColor: "var(--accent-color)" }}
-            />
-          </div>
-        </div>
+        <ScrollIndicator />
       </div>
     </section>
   );
@@ -635,8 +643,6 @@ function CTASection() {
       </div>
 
       <div className="relative max-w-4xl mx-auto px-6 text-center">
-        <TennisBallIcon className="w-20 h-20 mx-auto mb-8 animate-bounce-slow" />
-
         <h2
           className="font-display text-5xl md:text-7xl tracking-tight mb-6"
           style={{ color: "var(--text-primary)" }}
@@ -656,7 +662,10 @@ function CTASection() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link href="/auth/register" className="btn-primary animate-pulse-glow">
+          <Link
+            href="/auth/register"
+            className="btn-primary animate-pulse-glow"
+          >
             <span className="relative z-10">무료 회원가입</span>
           </Link>
           <Link href="/tournaments" className="btn-secondary">
@@ -675,9 +684,8 @@ function Footer() {
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
             <Link href="/" className="flex items-center gap-3 mb-6">
-              <TennisBallIcon className="w-8 h-8" />
               <span
-                className="font-display text-xl tracking-wider"
+                className="font-display text-xl font-black tracking-tight"
                 style={{ color: "var(--text-primary)" }}
               >
                 TENNIS TAB
@@ -799,7 +807,10 @@ function Footer() {
 
 export default function Home() {
   return (
-    <main className="min-h-screen" style={{ backgroundColor: "var(--bg-primary)" }}>
+    <main
+      className="min-h-screen"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
       <Navigation />
       <HeroSection />
       <StatsSection />

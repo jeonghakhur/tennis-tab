@@ -1,19 +1,118 @@
 @import "tailwindcss";
 
-@theme {
-  --color-court-green: #CCFF00;
-  --color-court-dark: #0A0A0A;
-  --color-court-line: #1A1A1A;
-  --color-court-clay: #D4744A;
-  --color-court-grass: #2D5A27;
-  --color-neon-lime: #CCFF00;
-  --color-neon-white: #F5F5F5;
+/* SUIT Font */
+@font-face {
+  font-family: "SUIT Variable";
+  src: url("/font/SUIT-Variable.woff2") format("woff2");
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
 
-  --font-display: "Bebas Neue", sans-serif;
-  --font-body: "Outfit", sans-serif;
+@font-face {
+  font-family: "SUIT";
+  src: url("/font/SUIT-Light.woff2") format("woff2");
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SUIT";
+  src: url("/font/SUIT-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SUIT";
+  src: url("/font/SUIT-Medium.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SUIT";
+  src: url("/font/SUIT-SemiBold.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SUIT";
+  src: url("/font/SUIT-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "SUIT";
+  src: url("/font/SUIT-ExtraBold.woff2") format("woff2");
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Paperlogy Font */
+@font-face {
+  font-family: "Paperlogy";
+  src:
+    url("/font/Paperlogy-4Regular.woff2") format("woff2"),
+    url("/font/Paperlogy-4Regular.woff") format("woff");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Paperlogy";
+  src:
+    url("/font/Paperlogy-5Medium.woff2") format("woff2"),
+    url("/font/Paperlogy-5Medium.woff") format("woff");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Paperlogy";
+  src:
+    url("/font/Paperlogy-6SemiBold.woff2") format("woff2"),
+    url("/font/Paperlogy-6SemiBold.woff") format("woff");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Paperlogy";
+  src:
+    url("/font/Paperlogy-7Bold.woff2") format("woff2"),
+    url("/font/Paperlogy-7Bold.woff") format("woff");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@theme {
+  --color-court-green: #ccff00;
+  --color-court-dark: #0a0a0a;
+  --color-court-line: #1a1a1a;
+  --color-court-clay: #d4744a;
+  --color-court-grass: #2d5a27;
+  --color-neon-lime: #ccff00;
+  --color-neon-white: #f5f5f5;
+
+  --font-display: "Paperlogy", sans-serif;
+  --font-body: "SUIT Variable", "SUIT", sans-serif;
 
   --animate-slide-up: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  --animate-slide-up-delay: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards;
+  --animate-slide-up-delay: slideUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) 0.1s
+    forwards;
   --animate-fade-in: fadeIn 1s ease-out forwards;
   --animate-bounce-slow: bounceSlow 3s ease-in-out infinite;
   --animate-line-draw: lineDraw 1.5s ease-out forwards;
@@ -21,73 +120,102 @@
   --animate-float: float 6s ease-in-out infinite;
 
   @keyframes slideUp {
-    0% { transform: translateY(40px); opacity: 0; }
-    100% { transform: translateY(0); opacity: 1; }
+    0% {
+      transform: translateY(40px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateY(0);
+      opacity: 1;
+    }
   }
 
   @keyframes fadeIn {
-    0% { opacity: 0; }
-    100% { opacity: 1; }
+    0% {
+      opacity: 0;
+    }
+    100% {
+      opacity: 1;
+    }
   }
 
   @keyframes bounceSlow {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
   }
 
   @keyframes lineDraw {
-    0% { stroke-dashoffset: 1000; }
-    100% { stroke-dashoffset: 0; }
+    0% {
+      stroke-dashoffset: 1000;
+    }
+    100% {
+      stroke-dashoffset: 0;
+    }
   }
 
   @keyframes pulseGlow {
-    0%, 100% { box-shadow: 0 0 20px rgba(204, 255, 0, 0.3); }
-    50% { box-shadow: 0 0 40px rgba(204, 255, 0, 0.6); }
+    0%,
+    100% {
+      box-shadow: 0 0 20px rgba(204, 255, 0, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 40px rgba(204, 255, 0, 0.6);
+    }
   }
 
   @keyframes float {
-    0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-20px) rotate(5deg); }
+    0%,
+    100% {
+      transform: translateY(0) rotate(0deg);
+    }
+    50% {
+      transform: translateY(-20px) rotate(5deg);
+    }
   }
 }
 
 /* Dark Theme (Default) */
 :root,
 [data-theme="dark"] {
-  --bg-primary: #0A0A0A;
+  --bg-primary: #0a0a0a;
   --bg-secondary: #111111;
   --bg-card: rgba(255, 255, 255, 0.02);
   --bg-card-hover: rgba(255, 255, 255, 0.05);
-  --text-primary: #F5F5F5;
+  --text-primary: #f5f5f5;
   --text-secondary: rgba(255, 255, 255, 0.6);
   --text-muted: rgba(255, 255, 255, 0.4);
-  --accent-color: #CCFF00;
-  --accent-hover: #E0FF4D;
+  --accent-color: #ccff00;
+  --accent-hover: #e0ff4d;
   --border-color: rgba(255, 255, 255, 0.05);
   --border-accent: rgba(204, 255, 0, 0.3);
   --nav-bg: rgba(10, 10, 10, 0.8);
   --shadow-glow: rgba(204, 255, 0, 0.3);
-  --court-green: #CCFF00;
-  --court-dark: #0A0A0A;
+  --court-green: #ccff00;
+  --court-dark: #0a0a0a;
 }
 
 /* Light Theme */
 [data-theme="light"] {
-  --bg-primary: #FAFAFA;
-  --bg-secondary: #FFFFFF;
+  --bg-primary: #fafafa;
+  --bg-secondary: #ffffff;
   --bg-card: rgba(0, 0, 0, 0.02);
   --bg-card-hover: rgba(0, 0, 0, 0.05);
-  --text-primary: #0A0A0A;
+  --text-primary: #0a0a0a;
   --text-secondary: rgba(0, 0, 0, 0.7);
   --text-muted: rgba(0, 0, 0, 0.5);
-  --accent-color: #2D5A27;
-  --accent-hover: #3D7A37;
+  --accent-color: #2d5a27;
+  --accent-hover: #3d7a37;
   --border-color: rgba(0, 0, 0, 0.08);
   --border-accent: rgba(45, 90, 39, 0.4);
   --nav-bg: rgba(250, 250, 250, 0.9);
   --shadow-glow: rgba(45, 90, 39, 0.2);
-  --court-green: #2D5A27;
-  --court-dark: #FAFAFA;
+  --court-green: #2d5a27;
+  --court-dark: #fafafa;
 }
 
 html {
@@ -95,10 +223,31 @@ html {
 }
 
 body {
+  font-family:
+    "SUIT Variable",
+    "SUIT",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
   background-color: var(--bg-primary);
   color: var(--text-primary);
   overflow-x: hidden;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
+}
+
+.font-display {
+  font-family: "Paperlogy", sans-serif;
+}
+
+.font-body {
+  font-family:
+    "SUIT Variable",
+    "SUIT",
+    -apple-system,
+    BlinkMacSystemFont,
+    sans-serif;
 }
 
 ::selection {
@@ -111,7 +260,9 @@ body {
   background-color: var(--nav-bg);
   backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border-color);
-  transition: background-color 0.3s ease, border-color 0.3s ease;
+  transition:
+    background-color 0.3s ease,
+    border-color 0.3s ease;
 }
 
 .nav-link {
@@ -126,7 +277,12 @@ body {
 /* Court Lines Background */
 .court-line {
   position: absolute;
-  background: linear-gradient(90deg, transparent, var(--border-accent), transparent);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    var(--border-accent),
+    transparent
+  );
   height: 1px;
   opacity: 0.5;
 }
@@ -141,6 +297,7 @@ body {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   padding: 1rem 2rem;
+  border-radius: 0.5rem;
   transition: all 0.3s ease;
 }
 
@@ -151,6 +308,7 @@ body {
   background: var(--accent-hover);
   transform: translateX(-100%);
   transition: transform 0.3s ease;
+  border-radius: 0.5rem;
 }
 
 .btn-primary:hover::before {
@@ -168,12 +326,26 @@ body {
   font-size: 1.125rem;
   letter-spacing: 0.05em;
   padding: 1rem 2rem;
+  border-radius: 0.5rem;
   transition: all 0.3s ease;
 }
 
 .btn-secondary:hover {
   background-color: var(--bg-card-hover);
   border-color: var(--accent-color);
+}
+
+/* 버튼 크기 변형 */
+.btn-sm {
+  font-size: 0.875rem;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+}
+
+.btn-lg {
+  font-size: 1.25rem;
+  padding: 1.25rem 2.5rem;
+  border-radius: 0.625rem;
 }
 
 /* Glass Card */
@@ -195,16 +367,23 @@ body {
   background-clip: text;
   -webkit-background-clip: text;
   color: transparent;
-  background-image: linear-gradient(to right, var(--accent-color), var(--text-primary), var(--accent-color));
+  background-image: linear-gradient(
+    to right,
+    var(--accent-color),
+    var(--text-primary),
+    var(--accent-color)
+  );
 }
 
 /* Hero text colors */
 .hero-text-white {
   color: var(--text-primary);
+  font-weight: 900;
 }
 
 .hero-text-accent {
   color: var(--accent-color);
+  font-weight: 900;
 }
 
 /* Section backgrounds */
@@ -228,7 +407,7 @@ body {
 }
 
 .badge-progress {
-  background-color: #D4744A;
+  background-color: #d4744a;
   color: white;
 }
 
@@ -303,9 +482,17 @@ body {
 
 /* Background gradient overlays */
 .gradient-overlay-top {
-  background: radial-gradient(ellipse at top right, var(--shadow-glow), transparent 70%);
+  background: radial-gradient(
+    ellipse at top right,
+    var(--shadow-glow),
+    transparent 70%
+  );
 }
 
 .gradient-overlay-bottom {
-  background: radial-gradient(ellipse at bottom left, var(--shadow-glow), transparent 70%);
+  background: radial-gradient(
+    ellipse at bottom left,
+    var(--shadow-glow),
+    transparent 70%
+  );
 }

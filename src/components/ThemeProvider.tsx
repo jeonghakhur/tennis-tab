@@ -14,6 +14,7 @@ interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
   toggleTheme: () => void;
+  mounted: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -35,7 +36,6 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const savedTheme = localStorage.getItem("theme") as Theme | null;
     if (savedTheme) {
       setThemeState(savedTheme);
@@ -48,6 +48,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       setThemeState(defaultTheme);
       document.documentElement.setAttribute("data-theme", defaultTheme);
     }
+    setMounted(true);
   }, []);
 
   const setTheme = (newTheme: Theme) => {
@@ -61,17 +62,11 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     setTheme(newTheme);
   };
 
-  if (!mounted) {
-    return (
-      <div style={{ visibility: "hidden" }}>
+  return (
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, mounted }}>
+      <div style={{ visibility: mounted ? "visible" : "hidden" }}>
         {children}
       </div>
-    );
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
-      {children}
     </ThemeContext.Provider>
   );
 }

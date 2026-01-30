@@ -1,20 +1,6 @@
 import type { Metadata } from "next";
-import { Bebas_Neue, Outfit } from "next/font/google";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import "./globals.css";
-
-const bebasNeue = Bebas_Neue({
-  weight: "400",
-  subsets: ["latin"],
-  variable: "--font-bebas",
-  display: "swap",
-});
-
-const outfit = Outfit({
-  subsets: ["latin"],
-  variable: "--font-outfit",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "Tennis Tab | 테니스 대회의 새로운 기준",
@@ -28,11 +14,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html
-      lang="ko"
-      className={`${bebasNeue.variable} ${outfit.variable}`}
-      suppressHydrationWarning
-    >
+    <html lang="ko">
       <body className="font-body antialiased">
         <ThemeProvider>{children}</ThemeProvider>
       </body>
