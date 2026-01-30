@@ -3,329 +3,372 @@
 ## 1. 개요
 
 ### 1.1 제품 소개
-Tennis Tab은 테니스 대회 생성, 참가 신청, 클럽 관리 및 커뮤니티 기능을 제공하는 웹 서비스입니다.
 
-### 1.2 목표
-- 테니스 대회 개최 및 참가 프로세스 간소화
-- 테니스 클럽 및 회원 관리 효율화
-- 테니스 커뮤니티 활성화를 위한 소셜 기능 제공
+Tennis Tab은 **자연어 기반 인터페이스**를 통해 테니스 대회 검색, 참가 신청, 경기 결과 등록 등을 간편하게 처리할 수 있는 웹 서비스입니다.
+
+### 1.2 핵심 가치
+
+- **자연어 인터페이스**: "이번 주 서울 대회 뭐 있어?"처럼 자연스러운 대화로 서비스 이용
+- **간편한 대회 관리**: 대회 생성부터 대진표, 결과 관리까지 원스톱 처리
+- **커뮤니티 활성화**: 테니스 동호인 간 정보 공유 및 네트워킹
 
 ### 1.3 대상 사용자
-- 테니스 대회 주최자
-- 테니스 대회 참가자
-- 테니스 클럽 운영자
-- 일반 테니스 동호인
+
+| 사용자 유형 | 설명 |
+|------------|------|
+| 비회원 | 대회 검색, 대진표/결과 조회 |
+| 일반 회원 | 대회 참가 신청, 경기 결과 등록, 커뮤니티 활동 |
+| 관리자 | 대회 생성, 대진표 관리, 참가자 승인 |
 
 ---
 
-## 2. 핵심 기능
+## 2. 자연어 처리 (NLP) 기능
 
-### 2.1 회원 관리
+### 2.1 개요
 
-#### 2.1.1 회원가입/로그인
-- 이메일 기반 회원가입
-- 소셜 로그인 (Google, Kakao)
-- 비밀번호 찾기/재설정
+사용자가 채팅 형태로 자연어를 입력하면 AI가 의도를 파악하여 적절한 액션을 수행합니다.
 
-#### 2.1.2 프로필 관리
-- 기본 정보 (이름, 프로필 이미지, 연락처)
-- 테니스 관련 정보 (실력 수준, 주 사용 손, 선호 포지션)
-- 소속 클럽 정보
-- 대회 참가 이력
+### 2.2 기술 스택
 
----
+- **LLM**: OpenAI GPT-4o-mini
+- **처리 방식**: Server-side API Route
+- **응답 형식**: Structured JSON → 액션 실행 → 자연어 응답
 
-### 2.2 대회 관리
+### 2.3 지원 기능 (Intent)
 
-#### 2.2.1 대회 생성
-- **기본 정보**
-  - 대회명
-  - 대회 설명
-  - 대회 일시 (시작일, 종료일)
-  - 대회 장소
-  - 대회 포스터 이미지
+#### 비회원 (로그인 불필요)
 
-- **참가 설정**
-  - 참가비
-  - 최대 참가 인원
-  - 참가 자격 조건 (실력 수준, 성별, 연령 등)
-  - 신청 기간
+| Intent | 설명 | 예시 입력 |
+|--------|------|----------|
+| `SEARCH_TOURNAMENT` | 대회 검색 | "이번 주 서울에서 열리는 대회 알려줘" |
+| `VIEW_BRACKET` | 대진표 조회 | "서울 오픈 대진표 보여줘" |
+| `VIEW_RESULTS` | 경기 결과 조회 | "서울 오픈 결과 알려줘" |
+| `VIEW_REQUIREMENTS` | 참가 기준 조회 | "서울 오픈 참가 조건이 뭐야?" |
+| `HELP` | 도움말 | "뭘 할 수 있어?" |
 
-- **대회 형식**
-  - 토너먼트 (싱글 엘리미네이션, 더블 엘리미네이션)
-  - 리그전
-  - 조별 리그 + 토너먼트
-  - 단식/복식/혼합복식
+#### 회원 (로그인 필요)
 
-#### 2.2.2 대회 참가 신청
-- 대회 목록 조회 (필터링: 지역, 날짜, 대회 형식)
-- 대회 상세 정보 확인
-- 참가 신청
-- 신청 취소
-- 참가비 결제 (선택적)
+| Intent | 설명 | 예시 입력 |
+|--------|------|----------|
+| `VIEW_MY_TOURNAMENTS` | 내 참가 대회 조회 | "내가 신청한 대회 목록 보여줘" |
+| `CHECK_ENTRY_STATUS` | 참가 신청 상태 확인 | "강남 오픈 신청 됐어?" |
+| `REGISTER_RESULT` | 경기 결과 등록 | "김철수한테 6-4, 6-2로 이겼어" |
+| `VIEW_MY_SCHEDULE` | 내 경기 일정/장소 조회 | "다음 경기 몇 번 코트야?" |
+| `JOIN_TOURNAMENT` | 참가 신청 | "서울 오픈 참가 신청할게" |
+| `CANCEL_ENTRY` | 참가 취소 | "서울 오픈 참가 취소해줘" |
 
-#### 2.2.3 대회 운영
-- 참가자 명단 관리
-- 대진표 생성 및 관리
-- 경기 결과 입력
-- 순위/결과 발표
+#### 관리자 (관리자 권한 필요)
 
-#### 2.2.4 대회 상태
-- `DRAFT` - 작성 중
-- `OPEN` - 모집 중
-- `CLOSED` - 모집 마감
-- `IN_PROGRESS` - 진행 중
-- `COMPLETED` - 종료
-- `CANCELLED` - 취소
+| Intent | 설명 | 예시 입력 |
+|--------|------|----------|
+| `CREATE_TOURNAMENT` | 대회 생성 | "3월 15일 강남 오픈 대회 만들어줘" |
+| `GENERATE_BRACKET` | 대진표 자동 생성 | "강남 오픈 대진표 생성해" |
+| `MANAGE_ENTRIES` | 참가자 관리 | "홍길동 참가 승인해줘" |
+| `UPDATE_TOURNAMENT` | 대회 정보 수정 | "강남 오픈 장소를 올림픽공원으로 변경해" |
 
----
+### 2.4 처리 파이프라인
 
-### 2.3 클럽 관리
+```
+1. 사용자 입력 수신
+   ↓
+2. GPT-4o-mini API 호출
+   - System Prompt: 도메인 컨텍스트 + Intent 목록 + 출력 형식
+   - User Input: 사용자 메시지
+   ↓
+3. JSON 응답 파싱
+   {
+     "intent": "SEARCH_TOURNAMENT",
+     "entities": { "location": "서울", "date": "이번 주" },
+     "confidence": 0.95
+   }
+   ↓
+4. 권한 검증
+   - 비회원 가능 Intent인지 확인
+   - 로그인 필요 시 로그인 유도
+   ↓
+5. 데이터베이스 액션 실행
+   ↓
+6. 자연어 응답 생성 후 반환
+```
 
-#### 2.3.1 클럽 생성
-- 클럽명
-- 클럽 소개
-- 클럽 로고/이미지
-- 활동 지역
-- 정기 모임 정보
+### 2.5 예상 비용
 
-#### 2.3.2 회원 관리
-- 회원 초대 (초대 링크, 이메일)
-- 회원 승인/거절
-- 회원 역할 관리 (관리자, 일반 회원)
-- 회원 탈퇴 처리
-
-#### 2.3.3 클럽 역할
-- `OWNER` - 클럽 소유자 (생성자)
-- `ADMIN` - 관리자
-- `MEMBER` - 일반 회원
+| 항목 | 수치 |
+|------|------|
+| 평균 입력 토큰 | ~300 tokens |
+| 평균 출력 토큰 | ~150 tokens |
+| 일 1,000건 요청 시 | ~$0.10/일 |
+| 월 예상 비용 | ~$3/월 |
 
 ---
 
-### 2.4 포스트 (커뮤니티)
+## 3. 회원 관리
 
-#### 2.4.1 포스트 작성
-- 제목
-- 본문 (텍스트, 이미지)
-- 카테고리 (대회 후기, 정보 공유, 자유 게시판 등)
-- 연관 대회 태그 (선택적)
+### 3.1 소셜 로그인
 
-#### 2.4.2 포스트 상호작용
-- **좋아요**
-  - 좋아요 추가/취소
-  - 좋아요 수 표시
-  - 좋아요 한 사용자 목록
+| 제공자 | 설명 |
+|--------|------|
+| **네이버** | 네이버 OAuth 2.0 |
+| **카카오** | 카카오 OAuth 2.0 |
 
-- **댓글**
-  - 댓글 작성
-  - 댓글 수정/삭제
-  - 대댓글 (1단계 depth)
-  - 댓글 좋아요
+- Supabase Auth를 통한 소셜 로그인 통합
+- 최초 로그인 시 프로필 자동 생성
 
-#### 2.4.3 포스트 관리
-- 수정/삭제 (작성자 본인)
-- 신고 기능
-- 검색 (제목, 내용)
+### 3.2 사용자 역할
+
+| 역할 | 권한 |
+|------|------|
+| `USER` | 기본 회원 (대회 참가, 결과 등록) |
+| `ADMIN` | 관리자 (대회 생성, 대진표 관리) |
+| `SUPER_ADMIN` | 슈퍼 관리자 (전체 시스템 관리) |
+
+### 3.3 프로필 정보
+
+- 이름 (닉네임)
+- 프로필 이미지
+- 연락처
+- 실력 수준 (입문/초급/중급/고급/선수)
+- 주 사용 손 (오른손/왼손/양손)
+- 소속 클럽
 
 ---
 
-## 3. 데이터 모델
+## 4. 대회 관리
 
-### 3.1 User (사용자)
+### 4.1 대회 생성 (관리자)
+
+**기본 정보**
+- 대회명
+- 대회 설명
+- 대회 일시 (시작일, 종료일)
+- 대회 장소
+- 대회 포스터 이미지
+
+**참가 설정**
+- 참가비
+- 최대 참가 인원
+- 참가 자격 조건 (실력 수준, 성별, 연령 등)
+- 신청 기간
+
+**대회 형식**
+- 토너먼트 (싱글 엘리미네이션, 더블 엘리미네이션)
+- 리그전
+- 조별 리그 + 토너먼트
+- 단식/복식/혼합복식
+
+### 4.2 대회 상태
+
+| 상태 | 설명 |
+|------|------|
+| `DRAFT` | 작성 중 |
+| `OPEN` | 참가 모집 중 |
+| `CLOSED` | 모집 마감 |
+| `IN_PROGRESS` | 대회 진행 중 |
+| `COMPLETED` | 대회 종료 |
+| `CANCELLED` | 대회 취소 |
+
+### 4.3 대진표 관리
+
+- 자동 대진표 생성 (시드 배정 옵션)
+- 수동 대진표 수정
+- 경기 일정/코트 배정
+- 실시간 결과 업데이트
+
+---
+
+## 5. 데이터 모델 (Supabase)
+
+### 5.1 users
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 고유 ID |
-| email | string | 이메일 |
-| password | string | 비밀번호 (해시) |
-| name | string | 이름 |
-| profileImage | string | 프로필 이미지 URL |
-| phone | string | 연락처 |
-| skillLevel | enum | 실력 수준 |
-| createdAt | datetime | 가입일 |
+| id | uuid | PK, Supabase Auth ID |
+| email | text | 이메일 |
+| name | text | 이름/닉네임 |
+| avatar_url | text | 프로필 이미지 |
+| phone | text | 연락처 |
+| skill_level | enum | 실력 수준 |
+| role | enum | 사용자 역할 |
+| created_at | timestamptz | 가입일 |
 
-### 3.2 Tournament (대회)
+### 5.2 tournaments
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 고유 ID |
-| title | string | 대회명 |
+| id | uuid | PK |
+| title | text | 대회명 |
 | description | text | 대회 설명 |
-| startDate | datetime | 시작일 |
-| endDate | datetime | 종료일 |
-| location | string | 장소 |
-| maxParticipants | number | 최대 참가 인원 |
-| entryFee | number | 참가비 |
+| start_date | timestamptz | 시작일 |
+| end_date | timestamptz | 종료일 |
+| location | text | 장소 |
+| address | text | 상세 주소 |
+| max_participants | int | 최대 참가 인원 |
+| entry_fee | int | 참가비 |
 | status | enum | 대회 상태 |
 | format | enum | 대회 형식 |
-| organizerId | string | 주최자 ID |
-| createdAt | datetime | 생성일 |
+| requirements | jsonb | 참가 조건 |
+| organizer_id | uuid | FK → users |
+| created_at | timestamptz | 생성일 |
 
-### 3.3 TournamentEntry (대회 참가)
+### 5.3 tournament_entries
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 고유 ID |
-| tournamentId | string | 대회 ID |
-| userId | string | 참가자 ID |
-| status | enum | 신청 상태 |
-| createdAt | datetime | 신청일 |
+| id | uuid | PK |
+| tournament_id | uuid | FK → tournaments |
+| user_id | uuid | FK → users |
+| status | enum | 신청 상태 (pending/approved/rejected) |
+| created_at | timestamptz | 신청일 |
 
-### 3.4 Club (클럽)
+### 5.4 matches
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 고유 ID |
-| name | string | 클럽명 |
-| description | text | 클럽 소개 |
-| logo | string | 로고 URL |
-| region | string | 활동 지역 |
-| ownerId | string | 소유자 ID |
-| createdAt | datetime | 생성일 |
+| id | uuid | PK |
+| tournament_id | uuid | FK → tournaments |
+| round | int | 라운드 번호 |
+| match_number | int | 경기 번호 |
+| player1_id | uuid | FK → users |
+| player2_id | uuid | FK → users |
+| winner_id | uuid | FK → users |
+| score | text | 스코어 (예: "6-4, 6-3") |
+| court_number | text | 코트 번호 |
+| scheduled_at | timestamptz | 예정 시간 |
+| completed_at | timestamptz | 완료 시간 |
 
-### 3.5 ClubMember (클럽 회원)
+### 5.5 chat_logs
+
 | 필드 | 타입 | 설명 |
 |------|------|------|
-| id | string | 고유 ID |
-| clubId | string | 클럽 ID |
-| userId | string | 회원 ID |
-| role | enum | 역할 |
-| joinedAt | datetime | 가입일 |
-
-### 3.6 Post (포스트)
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | string | 고유 ID |
-| title | string | 제목 |
-| content | text | 본문 |
-| category | enum | 카테고리 |
-| authorId | string | 작성자 ID |
-| tournamentId | string | 연관 대회 ID (선택) |
-| createdAt | datetime | 작성일 |
-| updatedAt | datetime | 수정일 |
-
-### 3.7 Like (좋아요)
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | string | 고유 ID |
-| userId | string | 사용자 ID |
-| postId | string | 포스트 ID |
-| createdAt | datetime | 생성일 |
-
-### 3.8 Comment (댓글)
-| 필드 | 타입 | 설명 |
-|------|------|------|
-| id | string | 고유 ID |
-| content | text | 댓글 내용 |
-| authorId | string | 작성자 ID |
-| postId | string | 포스트 ID |
-| parentId | string | 부모 댓글 ID (대댓글) |
-| createdAt | datetime | 작성일 |
+| id | uuid | PK |
+| user_id | uuid | FK → users (nullable) |
+| session_id | text | 세션 ID (비회원용) |
+| message | text | 사용자 입력 |
+| response | text | AI 응답 |
+| intent | text | 파악된 Intent |
+| entities | jsonb | 추출된 엔티티 |
+| created_at | timestamptz | 생성일 |
 
 ---
 
-## 4. 페이지 구조
+## 6. 페이지 구조
 
 ```
-/                           # 홈 (대회 목록, 최신 포스트)
+/                           # 홈 (자연어 입력 + 대회 목록)
 ├── /auth
-│   ├── /login              # 로그인
-│   ├── /register           # 회원가입
-│   └── /forgot-password    # 비밀번호 찾기
+│   └── /callback           # OAuth 콜백
 ├── /tournaments
 │   ├── /                   # 대회 목록
-│   ├── /create             # 대회 생성
 │   ├── /[id]               # 대회 상세
-│   └── /[id]/manage        # 대회 관리 (주최자용)
-├── /clubs
-│   ├── /                   # 클럽 목록
-│   ├── /create             # 클럽 생성
-│   ├── /[id]               # 클럽 상세
-│   └── /[id]/manage        # 클럽 관리 (관리자용)
-├── /posts
-│   ├── /                   # 포스트 목록
-│   ├── /create             # 포스트 작성
-│   └── /[id]               # 포스트 상세
-├── /profile
-│   ├── /                   # 내 프로필
-│   ├── /edit               # 프로필 수정
-│   └── /[id]               # 다른 사용자 프로필
-└── /my
-    ├── /tournaments        # 내 대회 (참가/주최)
-    └── /clubs              # 내 클럽
+│   ├── /[id]/bracket       # 대진표
+│   └── /[id]/results       # 결과
+├── /admin                  # 관리자 전용
+│   ├── /tournaments/create # 대회 생성
+│   └── /tournaments/[id]   # 대회 관리
+├── /my
+│   ├── /tournaments        # 내 대회
+│   └── /profile            # 내 프로필
+└── /api
+    ├── /chat               # 자연어 처리 API
+    └── /auth               # 인증 관련 API
 ```
 
 ---
 
-## 5. 기술 스택
+## 7. 기술 스택
 
-### 5.1 Frontend
-- **Framework**: Next.js 16 (App Router)
-- **Language**: TypeScript
-- **Styling**: Tailwind CSS
-- **State Management**: Zustand / React Query
-- **Form**: React Hook Form + Zod
+### 7.1 Frontend
 
-### 5.2 Backend
-- **API**: Next.js API Routes / Server Actions
-- **Database**: PostgreSQL
-- **ORM**: Prisma
-- **Authentication**: NextAuth.js
+| 기술 | 용도 |
+|------|------|
+| Next.js 16 | App Router 기반 프레임워크 |
+| TypeScript | 타입 안정성 |
+| Tailwind CSS | 스타일링 |
+| React Query | 서버 상태 관리 |
+| Zustand | 클라이언트 상태 관리 |
 
-### 5.3 Infrastructure
-- **Hosting**: Vercel
-- **Database**: Supabase / PlanetScale
-- **Storage**: Cloudflare R2 / AWS S3
-- **Payment**: 토스페이먼츠 (선택적)
+### 7.2 Backend
+
+| 기술 | 용도 |
+|------|------|
+| Next.js API Routes | API 엔드포인트 |
+| Supabase | 데이터베이스 + 인증 |
+| OpenAI API | GPT-4o-mini (자연어 처리) |
+
+### 7.3 Infrastructure
+
+| 기술 | 용도 |
+|------|------|
+| Vercel | 호스팅 |
+| Supabase | PostgreSQL + Auth + Storage |
+
+### 7.4 인증 (Supabase Auth)
+
+| 제공자 | 설정 |
+|--------|------|
+| 네이버 | Naver Developers 앱 등록 필요 |
+| 카카오 | Kakao Developers 앱 등록 필요 |
 
 ---
 
-## 6. MVP 범위
+## 8. MVP 범위
 
-### Phase 1 - 핵심 기능
-- [ ] 회원가입/로그인
-- [ ] 대회 생성 및 조회
-- [ ] 대회 참가 신청
+### Phase 1 - 자연어 기반 MVP
+
+- [ ] 자연어 입력 UI (홈 화면)
+- [ ] GPT-4o-mini 연동 API
+- [ ] 대회 검색 (자연어)
+- [ ] 대진표/결과 조회 (자연어)
+- [ ] 네이버/카카오 소셜 로그인
 - [ ] 기본 프로필 관리
 
-### Phase 2 - 클럽 기능
-- [ ] 클럽 생성
-- [ ] 클럽 회원 관리
-- [ ] 클럽별 대회 연동
+### Phase 2 - 대회 참가
 
-### Phase 3 - 커뮤니티 기능
-- [ ] 포스트 작성/조회
-- [ ] 좋아요 기능
-- [ ] 댓글 기능
+- [ ] 대회 참가 신청 (자연어)
+- [ ] 참가 상태 확인 (자연어)
+- [ ] 경기 결과 등록 (자연어)
+- [ ] 내 경기 일정 조회 (자연어)
+
+### Phase 3 - 관리자 기능
+
+- [ ] 대회 생성 (관리자 UI)
+- [ ] 대진표 자동 생성
+- [ ] 참가자 승인/거절
 
 ### Phase 4 - 고급 기능
-- [ ] 대진표 자동 생성
-- [ ] 결제 연동
+
+- [ ] 클럽 기능
+- [ ] 커뮤니티 (포스트)
 - [ ] 알림 기능
 - [ ] 통계/대시보드
 
 ---
 
-## 7. 비기능 요구사항
+## 9. 환경 변수
 
-### 7.1 성능
-- 페이지 로딩 시간 3초 이내
-- API 응답 시간 500ms 이내
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx
+SUPABASE_SERVICE_ROLE_KEY=eyJxxx
 
-### 7.2 보안
-- HTTPS 적용
-- 비밀번호 암호화
-- SQL Injection 방지
-- XSS 방지
+# OpenAI
+OPENAI_API_KEY=sk-xxx
 
-### 7.3 접근성
-- 모바일 반응형 디자인
-- 웹 접근성 가이드라인 준수
+# OAuth (Supabase에서 설정)
+# - 네이버: Naver Developers에서 Client ID/Secret 발급
+# - 카카오: Kakao Developers에서 REST API 키 발급
+```
 
 ---
 
-## 8. 용어 정의
+## 10. 용어 정의
 
 | 용어 | 정의 |
 |------|------|
+| Intent | 사용자의 의도 (예: 대회 검색, 결과 등록) |
+| Entity | 문장에서 추출된 정보 (예: 대회명, 날짜, 장소) |
 | Tournament | 테니스 대회 |
 | Entry | 대회 참가 신청 |
-| Club | 테니스 클럽/동호회 |
-| Post | 커뮤니티 게시글 |
 | Bracket | 대진표 |
+| Match | 개별 경기 |

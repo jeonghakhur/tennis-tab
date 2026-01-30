@@ -1,8 +1,146 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, FormEvent } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+
+const examplePrompts = [
+  { text: "이번 주 서울 대회 뭐 있어?", icon: "🔍" },
+  { text: "서울 오픈 대진표 보여줘", icon: "📊" },
+  { text: "서울 오픈 결과 알려줘", icon: "🏆" },
+  { text: "서울 오픈 참가 조건이 뭐야?", icon: "📋" },
+];
+
+function ChatInput() {
+  const [query, setQuery] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (query.trim()) {
+      // TODO: API 연동
+      console.log("Query:", query);
+    }
+  };
+
+  const handleExampleClick = (text: string) => {
+    setQuery(text);
+  };
+
+  return (
+    <div className="w-full max-w-3xl mx-auto opacity-0 animate-slide-up animate-delay-300">
+      <form onSubmit={handleSubmit} className="relative">
+        <div
+          className="relative rounded-2xl transition-all duration-300"
+          style={{
+            backgroundColor: "var(--bg-card)",
+            border: `1px solid ${isFocused ? "var(--accent-color)" : "var(--border-color)"}`,
+            boxShadow: isFocused ? "0 0 30px var(--shadow-glow)" : "none",
+          }}
+        >
+          <div className="flex items-center px-5 py-4">
+            <svg
+              className="w-6 h-6 mr-3 flex-shrink-0"
+              style={{ color: "var(--accent-color)" }}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
+              />
+            </svg>
+            <input
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setIsFocused(false)}
+              placeholder="무엇이든 물어보세요..."
+              className="flex-1 bg-transparent outline-none text-lg"
+              style={{ color: "var(--text-primary)" }}
+            />
+            <button
+              type="submit"
+              className="ml-3 p-2.5 rounded-xl transition-all duration-300 hover:scale-105"
+              style={{
+                backgroundColor: query.trim() ? "var(--accent-color)" : "var(--bg-card-hover)",
+                color: query.trim() ? "var(--bg-primary)" : "var(--text-muted)",
+              }}
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </form>
+
+      {/* Example Prompts */}
+      <div className="mt-5">
+        <p
+          className="text-sm mb-3 text-center"
+          style={{ color: "var(--text-muted)" }}
+        >
+          이런 것들을 물어볼 수 있어요
+        </p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {examplePrompts.map((prompt, index) => (
+            <button
+              key={index}
+              onClick={() => handleExampleClick(prompt.text)}
+              className="px-4 py-2 text-sm rounded-full transition-all duration-300 hover:scale-105"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border-color)",
+                color: "var(--text-secondary)",
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-accent)";
+                e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = "var(--border-color)";
+                e.currentTarget.style.backgroundColor = "var(--bg-card)";
+              }}
+            >
+              <span className="mr-2">{prompt.icon}</span>
+              {prompt.text}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Login Hint */}
+      <p
+        className="text-xs text-center mt-6"
+        style={{ color: "var(--text-muted)" }}
+      >
+        <Link
+          href="/auth/login"
+          className="underline hover:no-underline"
+          style={{ color: "var(--accent-color)" }}
+        >
+          로그인
+        </Link>
+        하면 대회 참가 신청, 경기 결과 등록 등 더 많은 기능을 사용할 수 있어요
+      </p>
+    </div>
+  );
+}
 
 function ScrollIndicator() {
   const [isVisible, setIsVisible] = useState(true);
@@ -147,41 +285,32 @@ function HeroSection() {
       <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
         <div className="opacity-0 animate-slide-up">
           <span
-            className="inline-block px-4 py-2 text-sm tracking-widest mb-8"
+            className="inline-block px-4 py-2 text-sm tracking-widest mb-6"
             style={{
               border: "1px solid var(--border-accent)",
               color: "var(--accent-color)",
             }}
           >
-            테니스 대회 플랫폼
+            자연어 기반 테니스 대회 플랫폼
           </span>
         </div>
 
-        <h1 className="font-display text-6xl md:text-8xl lg:text-9xl tracking-tight mb-6 opacity-0 animate-slide-up animate-delay-100">
-          <span className="hero-text-white">YOUR</span>
+        <h1 className="font-display text-5xl md:text-7xl lg:text-8xl tracking-tight mb-4 opacity-0 animate-slide-up animate-delay-100">
+          <span className="hero-text-white">대화로</span>
           <br />
-          <span className="hero-text-accent">COURT</span>
-          <br />
-          <span className="hero-text-white">AWAITS</span>
+          <span className="hero-text-accent">테니스를</span>
         </h1>
 
         <p
-          className="text-lg md:text-xl max-w-2xl mx-auto mb-12 opacity-0 animate-slide-up animate-delay-200 leading-relaxed"
+          className="text-lg md:text-xl max-w-2xl mx-auto mb-10 opacity-0 animate-slide-up animate-delay-200 leading-relaxed"
           style={{ color: "var(--text-secondary)" }}
         >
-          대회 생성부터 참가 신청, 클럽 관리까지.
+          대회 검색부터 참가 신청, 결과 등록까지
           <br />
-          테니스 커뮤니티를 위한 올인원 플랫폼
+          자연스러운 대화로 모든 서비스를 이용하세요
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center opacity-0 animate-slide-up animate-delay-300">
-          <Link href="/auth/register" className="btn-primary">
-            <span className="relative z-10">무료로 시작하기</span>
-          </Link>
-          <Link href="#features" className="btn-secondary">
-            자세히 알아보기
-          </Link>
-        </div>
+        <ChatInput />
 
         <ScrollIndicator />
       </div>
@@ -283,13 +412,13 @@ function FeaturesSection() {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={1.5}
-            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
           />
         </svg>
       ),
-      title: "대회 생성",
+      title: "자연어 인터페이스",
       description:
-        "토너먼트, 리그전, 조별 리그 등 다양한 형식의 대회를 쉽게 생성하고 관리하세요.",
+        "\"이번 주 서울 대회 뭐 있어?\" 처럼 자연스러운 대화로 원하는 정보를 찾고 서비스를 이용하세요.",
     },
     {
       icon: (
@@ -303,13 +432,13 @@ function FeaturesSection() {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={1.5}
-            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
           />
         </svg>
       ),
-      title: "클럽 관리",
+      title: "대회 검색",
       description:
-        "테니스 클럽을 만들고 회원들을 초대하세요. 역할 관리와 팀 운영이 간편해집니다.",
+        "지역, 날짜, 형식 등 조건을 말하면 AI가 알아서 맞춤 대회를 찾아드립니다.",
     },
     {
       icon: (
@@ -327,29 +456,9 @@ function FeaturesSection() {
           />
         </svg>
       ),
-      title: "참가 신청",
+      title: "간편 참가 신청",
       description:
-        "원하는 대회를 찾아 간편하게 참가 신청하세요. 지역, 날짜, 형식별 필터링을 제공합니다.",
-    },
-    {
-      icon: (
-        <svg
-          className="w-7 h-7 icon-accent"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-          />
-        </svg>
-      ),
-      title: "커뮤니티",
-      description:
-        "대회 후기와 팁을 공유하고, 다른 플레이어들과 소통하세요. 좋아요와 댓글로 활발하게 교류합니다.",
+        "\"서울 오픈 참가 신청할게\" 한마디로 대회 참가 신청이 완료됩니다.",
     },
     {
       icon: (
@@ -367,9 +476,9 @@ function FeaturesSection() {
           />
         </svg>
       ),
-      title: "대진표 관리",
+      title: "대진표 & 결과",
       description:
-        "자동 대진표 생성과 실시간 경기 결과 업데이트로 대회 운영이 한결 수월해집니다.",
+        "대진표 조회, 경기 결과 확인, 내 경기 일정까지 대화로 물어보세요.",
     },
     {
       icon: (
@@ -383,13 +492,33 @@ function FeaturesSection() {
             strokeLinecap="round"
             strokeLinejoin="round"
             strokeWidth={1.5}
-            d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
           />
         </svg>
       ),
-      title: "통계 & 기록",
+      title: "결과 등록",
       description:
-        "개인 전적, 대회 성적, 랭킹 등 다양한 통계를 확인하고 성장을 기록하세요.",
+        "\"김철수한테 6-4, 6-2로 이겼어\" - 경기 결과도 대화로 간편하게 등록하세요.",
+    },
+    {
+      icon: (
+        <svg
+          className="w-7 h-7 icon-accent"
+          fill="none"
+          viewBox="0 0 24 24"
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={1.5}
+            d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+          />
+        </svg>
+      ),
+      title: "대회 생성 (관리자)",
+      description:
+        "\"3월 15일 강남 오픈 대회 만들어줘\" - 관리자는 대화로 새 대회를 생성할 수 있습니다.",
     },
   ];
 
@@ -418,13 +547,13 @@ function FeaturesSection() {
             className="font-display text-5xl md:text-6xl tracking-tight mb-6"
             style={{ color: "var(--text-primary)" }}
           >
-            모든 것을 한 곳에서
+            말로 하는 테니스
           </h2>
           <p
             className="text-lg max-w-2xl mx-auto"
             style={{ color: "var(--text-muted)" }}
           >
-            테니스 대회 운영에 필요한 모든 기능을 Tennis Tab에서 경험하세요
+            복잡한 메뉴와 버튼 대신, 자연스러운 대화로 모든 것을 해결하세요
           </p>
         </div>
 
