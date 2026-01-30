@@ -5,9 +5,9 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 /**
- * 소셜 로그인 (네이버, 카카오)
+ * 소셜 로그인 (구글, 카카오, 네이버)
  */
-export async function signInWithOAuth(provider: 'kakao' | 'naver') {
+export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver') {
   const supabase = await createClient()
   const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
