@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { Navigation } from '@/components/Navigation'
 
 export default function AuthErrorPage({
   searchParams,
@@ -14,10 +15,12 @@ export default function AuthErrorPage({
   }
 
   return (
-    <main
-      className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
-    >
+    <>
+      <Navigation />
+      <main
+        className="min-h-screen flex items-center justify-center pt-20"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
       <div className="text-center px-6 max-w-md">
         <h1
           className="text-4xl font-display mb-4"
@@ -47,6 +50,7 @@ export default function AuthErrorPage({
           다시 로그인하기
         </Link>
       </div>
-    </main>
+      </main>
+    </>
   )
 }

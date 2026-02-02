@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useEffect, useState, FormEvent } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useAuth } from "@/components/AuthProvider";
+import { UserAvatar } from "@/components/UserAvatar";
 
 const examplePrompts = [
   { text: "이번 주 서울 대회 뭐 있어?", icon: "🔍" },
@@ -40,7 +42,7 @@ function ChatInput() {
         >
           <div className="flex items-center px-5 py-4">
             <svg
-              className="w-6 h-6 mr-3 flex-shrink-0"
+              className="w-6 h-6 mr-3 shrink-0"
               style={{ color: "var(--accent-color)" }}
               fill="none"
               viewBox="0 0 24 24"
@@ -223,6 +225,8 @@ function CourtLines() {
 }
 
 function Navigation() {
+  const { user, profile } = useAuth()
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
       <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
@@ -238,7 +242,7 @@ function Navigation() {
           <Link href="#features" className="nav-link text-sm tracking-wide">
             기능
           </Link>
-          <Link href="#tournaments" className="nav-link text-sm tracking-wide">
+          <Link href="/tournaments" className="nav-link text-sm tracking-wide">
             대회
           </Link>
           <Link href="#clubs" className="nav-link text-sm tracking-wide">
@@ -250,22 +254,28 @@ function Navigation() {
         </div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          <Link
-            href="/auth/login"
-            className="nav-link text-sm transition-colors duration-300"
-          >
-            로그인
-          </Link>
-          <Link
-            href="/auth/register"
-            className="px-5 py-2 font-display tracking-wider text-sm transition-all duration-300"
-            style={{
-              backgroundColor: "var(--accent-color)",
-              color: "var(--bg-primary)",
-            }}
-          >
-            시작하기
-          </Link>
+          {user && profile ? (
+            <UserAvatar />
+          ) : (
+            <>
+              <Link
+                href="/auth/login"
+                className="nav-link text-sm transition-colors duration-300"
+              >
+                로그인
+              </Link>
+              <Link
+                href="/auth/login"
+                className="px-5 py-2 font-display tracking-wider text-sm transition-all duration-300 rounded-md hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--accent-color)",
+                  color: "var(--bg-primary)",
+                }}
+              >
+                시작하기
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </nav>

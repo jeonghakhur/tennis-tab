@@ -3,6 +3,7 @@
 import { signInWithOAuth } from '@/lib/auth/actions'
 import { useState } from 'react'
 import Link from 'next/link'
+import { Navigation } from '@/components/Navigation'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState<'google' | 'kakao' | 'naver' | null>(null)
@@ -37,10 +38,12 @@ export default function LoginPage() {
   }
 
   return (
-    <main
-      className="min-h-screen flex items-center justify-center"
-      style={{ backgroundColor: 'var(--bg-primary)' }}
-    >
+    <>
+      <Navigation />
+      <main
+        className="min-h-screen flex items-center justify-center pt-20"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
       <div className="w-full max-w-md px-6">
         <div className="text-center mb-12">
           <Link href="/" className="inline-block mb-8">
@@ -161,6 +164,7 @@ export default function LoginPage() {
           에 동의하는 것으로 간주됩니다.
         </p>
       </div>
-    </main>
+      </main>
+    </>
   )
 }
