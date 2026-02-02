@@ -38,7 +38,8 @@ export function UserAvatar({
   };
 
   // 이름에서 첫 글자 추출 (한글/영문 모두 지원)
-  const getInitial = (name: string) => {
+  const getInitial = (name: string | null | undefined) => {
+    if (!name) return "?";
     return name.charAt(0).toUpperCase();
   };
 

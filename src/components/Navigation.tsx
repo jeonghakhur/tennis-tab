@@ -6,7 +6,7 @@ import { UserAvatar } from './UserAvatar'
 import { useAuth } from './AuthProvider'
 
 export function Navigation() {
-  const { user, profile } = useAuth()
+  const { user, profile, loading } = useAuth()
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
@@ -19,7 +19,7 @@ export function Navigation() {
             TENNIS TAB
           </span>
         </Link>
-        
+
         <div className="hidden md:flex items-center gap-8">
           <Link href="/#features" className="nav-link text-sm tracking-wide">
             기능
@@ -34,10 +34,15 @@ export function Navigation() {
             커뮤니티
           </Link>
         </div>
-        
+
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          {user && profile ? (
+          {loading ? (
+            <div
+              className="w-10 h-10 rounded-full animate-pulse"
+              style={{ backgroundColor: 'var(--bg-card-hover)' }}
+            />
+          ) : user && profile ? (
             <UserAvatar />
           ) : (
             <>

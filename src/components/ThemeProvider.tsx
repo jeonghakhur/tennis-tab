@@ -36,19 +36,25 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem("theme") as Theme | null;
-    if (savedTheme) {
-      setThemeState(savedTheme);
-      document.documentElement.setAttribute("data-theme", savedTheme);
-    } else {
-      const prefersDark = window.matchMedia(
-        "(prefers-color-scheme: dark)"
-      ).matches;
-      const defaultTheme = prefersDark ? "dark" : "light";
-      setThemeState(defaultTheme);
-      document.documentElement.setAttribute("data-theme", defaultTheme);
+    try {
+      const savedTheme = localStorage.getItem("theme") as Theme | null;
+      if (savedTheme) {
+        setThemeState(savedTheme);
+        document.documentElement.setAttribute("data-theme", savedTheme);
+      } else {
+        const prefersDark = window.matchMedia(
+          "(prefers-color-scheme: dark)"
+        ).matches;
+        const defaultTheme = prefersDark ? "dark" : "light";
+        setThemeState(defaultTheme);
+        document.documentElement.setAttribute("data-theme", defaultTheme);
+      }
+    } catch (error) {
+      console.error("[ThemeProvider] initialization error:", error);
+      document.documentElement.setAttribute("data-theme", "dark");
+    } finally {
+      setMounted(true);
     }
-    setMounted(true);
   }, []);
 
   const setTheme = (newTheme: Theme) => {

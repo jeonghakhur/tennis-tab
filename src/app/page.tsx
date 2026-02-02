@@ -225,7 +225,7 @@ function CourtLines() {
 }
 
 function Navigation() {
-  const { user, profile } = useAuth()
+  const { user, profile, loading } = useAuth()
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
@@ -254,7 +254,12 @@ function Navigation() {
         </div>
         <div className="flex items-center gap-4">
           <ThemeToggle />
-          {user && profile ? (
+          {loading ? (
+            <div
+              className="w-10 h-10 rounded-full animate-pulse"
+              style={{ backgroundColor: "var(--bg-card-hover)" }}
+            />
+          ) : user && profile ? (
             <UserAvatar />
           ) : (
             <>
