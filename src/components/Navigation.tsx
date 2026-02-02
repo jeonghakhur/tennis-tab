@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ThemeToggle } from './ThemeToggle'
 import { UserAvatar } from './UserAvatar'
 import { useAuth } from './AuthProvider'
+import { AvatarSkeleton } from './Skeleton'
 
 export function Navigation() {
   const { user, profile, loading } = useAuth()
@@ -38,10 +39,7 @@ export function Navigation() {
         <div className="flex items-center gap-4">
           <ThemeToggle />
           {loading ? (
-            <div
-              className="w-10 h-10 rounded-full animate-pulse"
-              style={{ backgroundColor: 'var(--bg-card-hover)' }}
-            />
+            <AvatarSkeleton size={40} />
           ) : user && profile ? (
             <UserAvatar />
           ) : (

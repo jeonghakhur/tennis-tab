@@ -39,7 +39,7 @@ export async function signOut() {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  return { success: true }
 }
 
 /**

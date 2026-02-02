@@ -406,7 +406,7 @@ export default function MyProfilePage() {
           </div>
 
           {/* 프로필 탭 */}
-          {activeTab === "profile" && stats && (
+          {activeTab === "profile" && (
             <div className="space-y-4">
               <div className="glass-card p-6">
                 <h3

@@ -3,6 +3,8 @@
 import { useAuth } from "./AuthProvider";
 import Link from "next/link";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { AvatarSkeleton } from "./Skeleton";
 
 interface UserAvatarProps {
   size?: "sm" | "md" | "lg";
@@ -13,20 +15,12 @@ export function UserAvatar({
   size = "md",
   showDropdown = true,
 }: UserAvatarProps) {
-  const { profile, loading } = useAuth();
+  const { profile, loading, refresh } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
+  const router = useRouter();
 
   if (loading) {
-    return (
-      <div
-        className="rounded-full animate-pulse"
-        style={{
-          backgroundColor: "var(--bg-card)",
-          width: size === "sm" ? "32px" : size === "md" ? "40px" : "56px",
-          height: size === "sm" ? "32px" : size === "md" ? "40px" : "56px",
-        }}
-      />
-    );
+    return <AvatarSkeleton size={size} />;
   }
 
   if (!profile) return null;
@@ -184,8 +178,11 @@ export function UserAvatar({
             >
               <button
                 onClick={async () => {
+                  setIsOpen(false);
                   const { signOut } = await import("@/lib/auth/actions");
                   await signOut();
+                  await refresh();
+                  router.push("/");
                 }}
                 className="w-full text-left px-4 py-2 text-sm transition-colors duration-200"
                 style={{ color: "var(--text-secondary)" }}
