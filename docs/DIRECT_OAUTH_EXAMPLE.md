@@ -7,7 +7,7 @@
 
 ## 📋 네이버 API 직접 사용
 
-### 1. 환경 변수 설정
+### 1. 네이버 환경 변수 설정
 
 ```env
 NAVER_CLIENT_ID=your_client_id
@@ -17,7 +17,7 @@ NAVER_CALLBACK_URL=http://localhost:3000/api/auth/naver/callback
 
 ### 2. 네이버 개발자 센터 설정
 
-1. https://developers.naver.com/apps 접속
+1. [네이버 개발자 센터](https://developers.naver.com/apps) 접속
 2. **애플리케이션 등록**
 3. 정보 입력:
    - 애플리케이션 이름: Tennis Tab
@@ -26,7 +26,7 @@ NAVER_CALLBACK_URL=http://localhost:3000/api/auth/naver/callback
    - 서비스 URL: `http://localhost:3000`
    - **Callback URL**: `http://localhost:3000/api/auth/naver/callback`
 
-### 3. API 라우트 생성
+### 3. 네이버 API 라우트 생성
 
 #### `/api/auth/naver/login/route.ts`
 
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-### 4. 로그인 버튼
+### 4. 네이버 로그인 버튼
 
 ```typescript
 'use client'
@@ -134,7 +134,7 @@ export function NaverLoginButton() {
 
 ## 📋 카카오 API 직접 사용
 
-### 1. 환경 변수 설정
+### 1. 카카오 환경 변수 설정
 
 ```env
 KAKAO_REST_API_KEY=your_rest_api_key
@@ -144,7 +144,7 @@ KAKAO_REDIRECT_URI=http://localhost:3000/api/auth/kakao/callback
 
 ### 2. 카카오 개발자 센터 설정
 
-1. https://developers.kakao.com 접속
+1. [카카오 개발자 센터](https://developers.kakao.com) 접속
 2. **내 애플리케이션** > **애플리케이션 추가하기**
 3. 설정:
    - **플랫폼** > **Web 플랫폼 등록**
@@ -153,7 +153,7 @@ KAKAO_REDIRECT_URI=http://localhost:3000/api/auth/kakao/callback
    - **Redirect URI**: `http://localhost:3000/api/auth/kakao/callback`
    - **동의 항목**: 프로필 정보, 카카오계정(이메일) 필수 동의
 
-### 3. API 라우트 생성
+### 3. 카카오 API 라우트 생성
 
 #### `/api/auth/kakao/login/route.ts`
 
@@ -236,7 +236,7 @@ export async function GET(request: NextRequest) {
 }
 ```
 
-### 4. 로그인 버튼
+### 4. 카카오 로그인 버튼
 
 ```typescript
 'use client'
@@ -266,7 +266,7 @@ export function KakaoLoginButton() {
 ## 🆚 Supabase OAuth vs 직접 구현 비교
 
 | 항목 | Supabase OAuth | 직접 구현 |
-|------|---------------|----------|
+| ------ | --------------- | ---------- |
 | **구현 난이도** | 🟢 쉬움 | 🔴 어려움 |
 | **보안** | 🟢 자동 관리 | 🟡 직접 관리 |
 | **세션 관리** | 🟢 자동 | 🔴 직접 구현 |

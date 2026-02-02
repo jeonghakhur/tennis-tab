@@ -11,7 +11,22 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'ADVANCED' | 'PROFESSIONAL'
+// 기존 값 (하위 호환) + 연차 기반 값
+export type SkillLevel =
+  | 'BEGINNER'
+  | 'INTERMEDIATE'
+  | 'ADVANCED'
+  | 'PROFESSIONAL'
+  | '1_YEAR'
+  | '2_YEARS'
+  | '3_YEARS'
+  | '4_YEARS'
+  | '5_YEARS'
+  | '6_YEARS'
+  | '7_YEARS'
+  | '8_YEARS'
+  | '9_YEARS'
+  | '10_PLUS_YEARS'
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'

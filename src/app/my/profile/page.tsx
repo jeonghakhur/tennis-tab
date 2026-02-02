@@ -5,6 +5,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/Navigation";
 
+// 전화번호 포맷팅 (010-1234-5678)
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length <= 3) {
+    return digits;
+  } else if (digits.length <= 7) {
+    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  } else {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+  }
+}
+
 interface UserStats {
   tournaments: number;
   totalMatches: number;
@@ -156,10 +168,22 @@ export default function MyProfilePage() {
   }
 
   const skillLevelLabels: Record<string, string> = {
+    // 기존 값 (하위 호환)
     BEGINNER: "입문",
     INTERMEDIATE: "중급",
     ADVANCED: "고급",
     PROFESSIONAL: "선수급",
+    // 연차 기반 값
+    "1_YEAR": "1년",
+    "2_YEARS": "2년",
+    "3_YEARS": "3년",
+    "4_YEARS": "4년",
+    "5_YEARS": "5년",
+    "6_YEARS": "6년",
+    "7_YEARS": "7년",
+    "8_YEARS": "8년",
+    "9_YEARS": "9년",
+    "10_PLUS_YEARS": "10년 이상",
   };
 
   const entryStatusLabels: Record<string, string> = {
@@ -431,16 +455,14 @@ export default function MyProfilePage() {
                   >
                     <span style={{ color: "var(--text-muted)" }}>연락처</span>
                     <span style={{ color: "var(--text-primary)" }}>
-                      {profile.phone || "미등록"}
+                      {profile.phone ? formatPhoneNumber(profile.phone) : "미등록"}
                     </span>
                   </div>
                   <div
                     className="flex justify-between py-2 border-b"
                     style={{ borderColor: "var(--border-color)" }}
                   >
-                    <span style={{ color: "var(--text-muted)" }}>
-                      실력 수준
-                    </span>
+                    <span style={{ color: "var(--text-muted)" }}>구력</span>
                     <span style={{ color: "var(--text-primary)" }}>
                       {profile.skill_level
                         ? skillLevelLabels[profile.skill_level]

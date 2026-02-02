@@ -78,21 +78,25 @@ export async function updateProfile(data: {
   club?: string
 }) {
   const supabase = await createClient()
-  const user = await getCurrentUser()
+  const profile = await getCurrentUser()
 
-  if (!user) {
+  if (!profile) {
     return { error: '로그인이 필요합니다.' }
   }
 
   const { error } = await supabase
     .from('profiles')
-    .update(data)
-    .eq('id', user.id)
+    .update({
+      ...data,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', profile.id)
 
   if (error) {
     return { error: error.message }
   }
 
   revalidatePath('/my/profile')
+  revalidatePath('/my/profile/edit')
   return { success: true }
 }
