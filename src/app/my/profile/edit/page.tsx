@@ -367,8 +367,7 @@ export default function ProfileEditPage() {
                 테니스 입문 년도
               </label>
               <Select
-                key={`start-year-${formData.start_year}`}
-                value={formData.start_year ? formData.start_year.toString() : "NONE"}
+                value={formData.start_year || "NONE"}
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
