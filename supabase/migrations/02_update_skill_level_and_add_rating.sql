@@ -25,8 +25,8 @@ WHERE skill_level IS NOT NULL;
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS skill_level;
 
 -- 4. 점수 필드 추가 (정수만 가능)
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS rating INTEGER CHECK (rating >= 1 AND rating <= 10);
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS rating INTEGER CHECK (rating >= 1 AND rating <= 100);
 
 -- 5. 컬럼 코멘트 추가
 COMMENT ON COLUMN public.profiles.start_year IS '테니스 입문 년도 (예: 2026, 2025, 2016년 이전)';
-COMMENT ON COLUMN public.profiles.rating IS '실력 점수 (1 ~ 10)';
+COMMENT ON COLUMN public.profiles.rating IS '실력 점수 (1 ~ 100)';

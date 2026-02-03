@@ -128,9 +128,9 @@ export default function ProfileEditPage() {
           : undefined;
       const rating = formData.rating ? parseInt(formData.rating, 10) : undefined;
 
-      // 점수 범위 검증 (1 ~ 10)
-      if (rating !== undefined && (rating < 1 || rating > 10)) {
-        setError("실력 점수는 1부터 10 사이여야 합니다.");
+      // 점수 범위 검증 (1 ~ 100)
+      if (rating !== undefined && (rating < 1 || rating > 100)) {
+        setError("실력 점수는 1부터 100 사이여야 합니다.");
         setIsSubmitting(false);
         return;
       }
@@ -483,7 +483,7 @@ export default function ProfileEditPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: "var(--text-secondary)" }}
               >
-                실력 점수 (1 ~ 10)
+                실력 점수 (1 ~ 100)
               </label>
               <input
                 type="text"
@@ -498,14 +498,14 @@ export default function ProfileEditPage() {
                   border: "1px solid var(--border-color)",
                   color: "var(--text-primary)",
                 }}
-                placeholder="예: 5"
-                maxLength={2}
+                placeholder="예: 50"
+                maxLength={3}
               />
               <p
                 className="text-xs mt-1"
                 style={{ color: "var(--text-muted)" }}
               >
-                실력을 1부터 10까지 숫자로 입력하세요
+                실력을 1부터 100까지 숫자로 입력하세요
               </p>
             </div>
 
