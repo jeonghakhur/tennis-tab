@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createTournament, DivisionInput } from '@/lib/tournaments/actions';
+import { createTournament, updateTournament, DivisionInput } from '@/lib/tournaments/actions';
 import { useAuth } from '../AuthProvider';
 import { UserRole, MatchType } from '@/lib/supabase/types';
 import RichTextEditor from '@/components/ui/RichTextEditor';
@@ -28,14 +28,77 @@ const emptyDivision: DivisionInput = {
     notes: null,
 };
 
-export default function TournamentForm() {
+// 날짜를 datetime-local input 형식으로 변환
+const formatDateTimeLocal = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+};
+
+export interface TournamentFormData {
+    id: string;
+    title: string;
+    description: string | null;
+    start_date: string;
+    end_date: string;
+    location: string;
+    address: string | null;
+    host: string | null;
+    organizer_name: string | null;
+    ball_type: string | null;
+    entry_start_date: string | null;
+    entry_end_date: string | null;
+    opening_ceremony: string | null;
+    match_type: MatchType | null;
+    bank_account: string | null;
+    eligibility: string | null;
+    max_participants: number;
+    entry_fee: number;
+    tournament_divisions?: Array<{
+        name: string;
+        max_teams: number | null;
+        team_member_limit: number | null;
+        match_date: string | null;
+        match_location: string | null;
+        prize_winner: string | null;
+        prize_runner_up: string | null;
+        prize_third: string | null;
+        notes: string | null;
+    }>;
+}
+
+interface TournamentFormProps {
+    mode?: 'create' | 'edit';
+    initialData?: TournamentFormData;
+}
+
+export default function TournamentForm({ mode = 'create', initialData }: TournamentFormProps) {
     const router = useRouter();
     const { user, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [description, setDescription] = useState('');
-    const [matchType, setMatchType] = useState<MatchType | ''>('');
-    const [divisions, setDivisions] = useState<DivisionInput[]>([]);
+    const [description, setDescription] = useState(initialData?.description || '');
+    const [matchType, setMatchType] = useState<MatchType | ''>(initialData?.match_type || '');
+    const [divisions, setDivisions] = useState<DivisionInput[]>(
+        initialData?.tournament_divisions?.map(div => ({
+            name: div.name,
+            max_teams: div.max_teams,
+            team_member_limit: div.team_member_limit,
+            match_date: div.match_date,
+            match_location: div.match_location,
+            prize_winner: div.prize_winner,
+            prize_runner_up: div.prize_runner_up,
+            prize_third: div.prize_third,
+            notes: div.notes,
+        })) || []
+    );
+
+    const isEditMode = mode === 'edit';
 
     const canCreateTournament = profile?.role && ALLOWED_ROLES.includes(profile.role);
     const isTeamMatch = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES';
@@ -65,7 +128,7 @@ export default function TournamentForm() {
             return;
         }
 
-        if (!canCreateTournament) {
+        if (!canCreateTournament && !isEditMode) {
             setError('대회를 생성할 권한이 없습니다.');
             setLoading(false);
             return;
@@ -74,10 +137,16 @@ export default function TournamentForm() {
         const formData = new FormData(e.currentTarget);
         formData.set('divisions', JSON.stringify(divisions));
 
-        const result = await createTournament(formData);
+        const result = isEditMode && initialData
+            ? await updateTournament(initialData.id, formData)
+            : await createTournament(formData);
 
         if (result.success) {
-            router.push('/tournaments');
+            if (isEditMode && initialData) {
+                router.push(`/tournaments/${initialData.id}`);
+            } else {
+                router.push('/tournaments');
+            }
             router.refresh();
         } else {
             setError(result.error);
@@ -114,8 +183,10 @@ export default function TournamentForm() {
     return (
         <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto p-6">
             <div className="space-y-2">
-                <h2 className="text-2xl font-bold">대회 만들기</h2>
-                <p className="text-gray-500">새로운 테니스 대회를 개설합니다.</p>
+                <h2 className="text-2xl font-bold">{isEditMode ? '대회 수정' : '대회 만들기'}</h2>
+                <p className="text-gray-500">
+                    {isEditMode ? '대회 정보를 수정합니다.' : '새로운 테니스 대회를 개설합니다.'}
+                </p>
             </div>
 
             {error && (
@@ -133,6 +204,7 @@ export default function TournamentForm() {
                     <input
                         name="title"
                         required
+                        defaultValue={initialData?.title || ''}
                         className={inputClass}
                         placeholder="예: 2024 봄맞이 테니스 대회"
                     />
@@ -144,6 +216,7 @@ export default function TournamentForm() {
                         <input
                             name="location"
                             required
+                            defaultValue={initialData?.location || ''}
                             className={inputClass}
                             placeholder="예: 올림픽공원 테니스장"
                         />
@@ -152,6 +225,7 @@ export default function TournamentForm() {
                         <label className={labelClass}>주소</label>
                         <input
                             name="address"
+                            defaultValue={initialData?.address || ''}
                             className={inputClass}
                             placeholder="상세 주소 입력"
                         />
@@ -163,6 +237,7 @@ export default function TournamentForm() {
                         <label className={labelClass}>주최</label>
                         <input
                             name="host"
+                            defaultValue={initialData?.host || ''}
                             className={inputClass}
                             placeholder="주최 기관/단체명"
                         />
@@ -171,6 +246,7 @@ export default function TournamentForm() {
                         <label className={labelClass}>주관</label>
                         <input
                             name="organizer_name"
+                            defaultValue={initialData?.organizer_name || ''}
                             className={inputClass}
                             placeholder="주관 기관/단체명"
                         />
@@ -182,6 +258,7 @@ export default function TournamentForm() {
                         <label className={labelClass}>대회 사용구</label>
                         <input
                             name="ball_type"
+                            defaultValue={initialData?.ball_type || ''}
                             className={inputClass}
                             placeholder="예: 던롭 포트"
                         />
@@ -216,6 +293,7 @@ export default function TournamentForm() {
                             type="datetime-local"
                             name="start_date"
                             required
+                            defaultValue={formatDateTimeLocal(initialData?.start_date || null)}
                             className={inputClass}
                         />
                     </div>
@@ -225,6 +303,7 @@ export default function TournamentForm() {
                             type="datetime-local"
                             name="end_date"
                             required
+                            defaultValue={formatDateTimeLocal(initialData?.end_date || null)}
                             className={inputClass}
                         />
                     </div>
@@ -236,6 +315,7 @@ export default function TournamentForm() {
                         <input
                             type="datetime-local"
                             name="entry_start_date"
+                            defaultValue={formatDateTimeLocal(initialData?.entry_start_date || null)}
                             className={inputClass}
                         />
                     </div>
@@ -244,6 +324,7 @@ export default function TournamentForm() {
                         <input
                             type="datetime-local"
                             name="entry_end_date"
+                            defaultValue={formatDateTimeLocal(initialData?.entry_end_date || null)}
                             className={inputClass}
                         />
                     </div>
@@ -254,6 +335,7 @@ export default function TournamentForm() {
                     <input
                         type="datetime-local"
                         name="opening_ceremony"
+                        defaultValue={formatDateTimeLocal(initialData?.opening_ceremony || null)}
                         className={inputClass}
                     />
                 </div>
@@ -270,7 +352,7 @@ export default function TournamentForm() {
                             type="text"
                             inputMode="numeric"
                             name="max_participants"
-                            defaultValue="32"
+                            defaultValue={initialData?.max_participants?.toString() || '32'}
                             className={inputClass}
                         />
                     </div>
@@ -280,7 +362,7 @@ export default function TournamentForm() {
                             type="text"
                             inputMode="numeric"
                             name="entry_fee"
-                            defaultValue="0"
+                            defaultValue={initialData?.entry_fee?.toString() || '0'}
                             className={inputClass}
                         />
                     </div>
@@ -290,6 +372,7 @@ export default function TournamentForm() {
                     <label className={labelClass}>입금 계좌</label>
                     <input
                         name="bank_account"
+                        defaultValue={initialData?.bank_account || ''}
                         className={inputClass}
                         placeholder="예: 국민은행 123-456-789012 홍길동"
                     />
@@ -299,6 +382,7 @@ export default function TournamentForm() {
                     <label className={labelClass}>참가 자격</label>
                     <input
                         name="eligibility"
+                        defaultValue={initialData?.eligibility || ''}
                         className={inputClass}
                         placeholder="예: NTRP 3.0 이상"
                     />
@@ -451,13 +535,22 @@ export default function TournamentForm() {
                 />
             </section>
 
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end gap-3 pt-4">
+                {isEditMode && (
+                    <button
+                        type="button"
+                        onClick={() => router.back()}
+                        className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium py-3 px-8 rounded-lg transition-colors"
+                    >
+                        취소
+                    </button>
+                )}
                 <button
                     type="submit"
                     disabled={loading}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-colors disabled:opacity-50"
                 >
-                    {loading ? '생성 중...' : '대회 생성하기'}
+                    {loading ? (isEditMode ? '수정 중...' : '생성 중...') : (isEditMode ? '대회 수정하기' : '대회 생성하기')}
                 </button>
             </div>
         </form>

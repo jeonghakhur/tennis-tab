@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { TournamentStatus, MatchType } from '@/lib/supabase/types';
+import TournamentActions from '@/components/tournaments/TournamentActions';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -10,6 +11,9 @@ interface Props {
 export default async function TournamentDetailPage({ params }: Props) {
     const { id } = await params;
     const supabase = await createClient();
+
+    // 현재 사용자 정보 가져오기
+    const { data: { user } } = await supabase.auth.getUser();
 
     const { data: tournament, error } = await supabase
         .from('tournaments')
@@ -24,6 +28,9 @@ export default async function TournamentDetailPage({ params }: Props) {
     if (error || !tournament) {
         notFound();
     }
+
+    // 주최자 본인인지 확인
+    const isOrganizer = user && tournament.organizer_id === user.id;
 
     const organizerName = tournament.profiles
         // @ts-ignore: Supabase types join
@@ -106,7 +113,10 @@ export default async function TournamentDetailPage({ params }: Props) {
                         </p>
                     </div>
 
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 flex flex-col gap-3">
+                        {isOrganizer && (
+                            <TournamentActions tournamentId={tournament.id} />
+                        )}
                         <button className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white px-8 py-3.5 rounded-xl font-bold text-lg transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 flex items-center justify-center gap-2">
                             <span>참가 신청하기</span>
                             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
