@@ -474,24 +474,22 @@ export default function MyProfilePage() {
                     style={{ borderColor: "var(--border-color)" }}
                   >
                     <span style={{ color: "var(--text-muted)" }}>
-                      주 사용 손
-                    </span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.dominant_hand === "RIGHT"
-                        ? "오른손"
-                        : profile.dominant_hand === "LEFT"
-                          ? "왼손"
-                          : profile.dominant_hand === "BOTH"
-                            ? "양손"
-                            : "미등록"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span style={{ color: "var(--text-muted)" }}>
                       소속 클럽
                     </span>
                     <span style={{ color: "var(--text-primary)" }}>
                       {profile.club || "미등록"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <span style={{ color: "var(--text-muted)" }}>
+                      클럽 지역
+                    </span>
+                    <span style={{ color: "var(--text-primary)" }}>
+                      {profile.club_city && profile.club_district
+                        ? `${profile.club_city} ${profile.club_district}`
+                        : profile.club_city
+                          ? profile.club_city
+                          : "미등록"}
                     </span>
                   </div>
                 </div>

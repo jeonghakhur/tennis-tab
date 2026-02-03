@@ -43,8 +43,9 @@ export interface Database {
           avatar_url: string | null
           phone: string | null
           skill_level: SkillLevel | null
-          dominant_hand: 'LEFT' | 'RIGHT' | 'BOTH' | null
           club: string | null
+          club_city: string | null
+          club_district: string | null
           role: UserRole | null
           created_at: string
           updated_at: string
@@ -56,8 +57,9 @@ export interface Database {
           avatar_url?: string | null
           phone?: string | null
           skill_level?: SkillLevel | null
-          dominant_hand?: 'LEFT' | 'RIGHT' | 'BOTH' | null
           club?: string | null
+          club_city?: string | null
+          club_district?: string | null
           role?: UserRole | null
           created_at?: string
           updated_at?: string
@@ -69,8 +71,9 @@ export interface Database {
           avatar_url?: string | null
           phone?: string | null
           skill_level?: SkillLevel | null
-          dominant_hand?: 'LEFT' | 'RIGHT' | 'BOTH' | null
           club?: string | null
+          club_city?: string | null
+          club_district?: string | null
           role?: UserRole | null
           updated_at?: string
         }

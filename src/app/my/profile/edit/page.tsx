@@ -14,14 +14,13 @@ import {
 } from "@/components/ui/select";
 import type { SkillLevel } from "@/lib/supabase/types";
 
-type DominantHand = "LEFT" | "RIGHT" | "BOTH";
-
 interface FormData {
   name: string;
   phone: string;
   skill_level: SkillLevel | "";
-  dominant_hand: DominantHand | "";
   club: string;
+  club_city: string;
+  club_district: string;
 }
 
 // 전화번호 포맷팅 (010-1234-5678)
@@ -48,8 +47,9 @@ export default function ProfileEditPage() {
     name: "",
     phone: "",
     skill_level: "",
-    dominant_hand: "",
     club: "",
+    club_city: "",
+    club_district: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,8 +61,9 @@ export default function ProfileEditPage() {
         name: profile.name || "",
         phone: profile.phone ? formatPhoneNumber(profile.phone) : "",
         skill_level: profile.skill_level || "",
-        dominant_hand: profile.dominant_hand || "",
         club: profile.club || "",
+        club_city: profile.club_city || "",
+        club_district: profile.club_district || "",
       });
     }
   }, [profile]);
@@ -99,16 +100,13 @@ export default function ProfileEditPage() {
         formData.skill_level && (formData.skill_level as string) !== "none"
           ? formData.skill_level
           : undefined;
-      const dominantHand =
-        formData.dominant_hand && (formData.dominant_hand as string) !== "none"
-          ? formData.dominant_hand
-          : undefined;
       const result = await updateProfile({
         name: formData.name,
         phone: phoneDigits || undefined,
         skill_level: skillLevel,
-        dominant_hand: dominantHand,
         club: formData.club || undefined,
+        club_city: formData.club_city || undefined,
+        club_district: formData.club_district || undefined,
       });
 
       if (result.error) {
@@ -208,12 +206,97 @@ export default function ProfileEditPage() {
     { value: "10_PLUS_YEARS", label: "10년 이상" },
   ];
 
-  const dominantHandOptions = [
+  // 한국 시도 데이터
+  const cityOptions = [
     { value: "", label: "선택 안함" },
-    { value: "RIGHT", label: "오른손" },
-    { value: "LEFT", label: "왼손" },
-    { value: "BOTH", label: "양손" },
+    { value: "서울특별시", label: "서울특별시" },
+    { value: "부산광역시", label: "부산광역시" },
+    { value: "대구광역시", label: "대구광역시" },
+    { value: "인천광역시", label: "인천광역시" },
+    { value: "광주광역시", label: "광주광역시" },
+    { value: "대전광역시", label: "대전광역시" },
+    { value: "울산광역시", label: "울산광역시" },
+    { value: "세종특별자치시", label: "세종특별자치시" },
+    { value: "경기도", label: "경기도" },
+    { value: "강원도", label: "강원도" },
+    { value: "충청북도", label: "충청북도" },
+    { value: "충청남도", label: "충청남도" },
+    { value: "전라북도", label: "전라북도" },
+    { value: "전라남도", label: "전라남도" },
+    { value: "경상북도", label: "경상북도" },
+    { value: "경상남도", label: "경상남도" },
+    { value: "제주특별자치도", label: "제주특별자치도" },
   ];
+
+  // 시군구 데이터 (시도별)
+  const districtOptions: Record<string, { value: string; label: string }[]> = {
+    서울특별시: [
+      { value: "", label: "선택 안함" },
+      { value: "강남구", label: "강남구" },
+      { value: "강동구", label: "강동구" },
+      { value: "강북구", label: "강북구" },
+      { value: "강서구", label: "강서구" },
+      { value: "관악구", label: "관악구" },
+      { value: "광진구", label: "광진구" },
+      { value: "구로구", label: "구로구" },
+      { value: "금천구", label: "금천구" },
+      { value: "노원구", label: "노원구" },
+      { value: "도봉구", label: "도봉구" },
+      { value: "동대문구", label: "동대문구" },
+      { value: "동작구", label: "동작구" },
+      { value: "마포구", label: "마포구" },
+      { value: "서대문구", label: "서대문구" },
+      { value: "서초구", label: "서초구" },
+      { value: "성동구", label: "성동구" },
+      { value: "성북구", label: "성북구" },
+      { value: "송파구", label: "송파구" },
+      { value: "양천구", label: "양천구" },
+      { value: "영등포구", label: "영등포구" },
+      { value: "용산구", label: "용산구" },
+      { value: "은평구", label: "은평구" },
+      { value: "종로구", label: "종로구" },
+      { value: "중구", label: "중구" },
+      { value: "중랑구", label: "중랑구" },
+    ],
+    경기도: [
+      { value: "", label: "선택 안함" },
+      { value: "수원시", label: "수원시" },
+      { value: "성남시", label: "성남시" },
+      { value: "고양시", label: "고양시" },
+      { value: "용인시", label: "용인시" },
+      { value: "부천시", label: "부천시" },
+      { value: "안산시", label: "안산시" },
+      { value: "안양시", label: "안양시" },
+      { value: "남양주시", label: "남양주시" },
+      { value: "화성시", label: "화성시" },
+      { value: "평택시", label: "평택시" },
+      { value: "의정부시", label: "의정부시" },
+      { value: "시흥시", label: "시흥시" },
+      { value: "파주시", label: "파주시" },
+      { value: "김포시", label: "김포시" },
+      { value: "광명시", label: "광명시" },
+      { value: "광주시", label: "광주시" },
+      { value: "군포시", label: "군포시" },
+      { value: "하남시", label: "하남시" },
+      { value: "오산시", label: "오산시" },
+      { value: "양주시", label: "양주시" },
+      { value: "이천시", label: "이천시" },
+      { value: "구리시", label: "구리시" },
+      { value: "안성시", label: "안성시" },
+      { value: "포천시", label: "포천시" },
+      { value: "의왕시", label: "의왕시" },
+      { value: "양평군", label: "양평군" },
+      { value: "여주시", label: "여주시" },
+      { value: "동두천시", label: "동두천시" },
+      { value: "과천시", label: "과천시" },
+      { value: "가평군", label: "가평군" },
+      { value: "연천군", label: "연천군" },
+    ],
+  };
+
+  // 선택된 시도에 따른 시군구 옵션
+  const availableDistricts =
+    districtOptions[formData.club_city] || [{ value: "", label: "시도를 먼저 선택하세요" }];
 
   return (
     <>
@@ -355,55 +438,6 @@ export default function ProfileEditPage() {
               </Select>
             </div>
 
-            {/* 주 사용 손 */}
-            <div>
-              <label
-                htmlFor="dominant_hand"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                주 사용 손
-              </label>
-              <Select
-                value={formData.dominant_hand}
-                onValueChange={(value) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    dominant_hand: value as DominantHand | "",
-                  }));
-                  setError(null);
-                  setSuccess(false);
-                }}
-              >
-                <SelectTrigger
-                  className="w-full h-12 px-4"
-                  style={{
-                    backgroundColor: "var(--bg-card)",
-                    border: "1px solid var(--border-color)",
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  <SelectValue placeholder="선택 안함" />
-                </SelectTrigger>
-                <SelectContent
-                  style={{
-                    backgroundColor: "var(--bg-secondary)",
-                    border: "1px solid var(--border-color)",
-                  }}
-                >
-                  {dominantHandOptions.map((option) => (
-                    <SelectItem
-                      key={option.value || "empty"}
-                      value={option.value || "none"}
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             {/* 소속 클럽 */}
             <div>
               <label
@@ -427,6 +461,107 @@ export default function ProfileEditPage() {
                 }}
                 placeholder="소속 클럽명을 입력하세요"
               />
+            </div>
+
+            {/* 클럽 지역 - 시도 */}
+            <div>
+              <label
+                htmlFor="club_city"
+                className="block text-sm font-medium mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                클럽 지역 - 시도
+              </label>
+              <Select
+                value={formData.club_city}
+                onValueChange={(value) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    club_city: value,
+                    club_district: "", // 시도가 변경되면 시군구 초기화
+                  }));
+                  setError(null);
+                  setSuccess(false);
+                }}
+              >
+                <SelectTrigger
+                  className="w-full h-12 px-4"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    border: "1px solid var(--border-color)",
+                    color: "var(--text-primary)",
+                  }}
+                >
+                  <SelectValue placeholder="선택 안함" />
+                </SelectTrigger>
+                <SelectContent
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                  }}
+                >
+                  {cityOptions.map((option) => (
+                    <SelectItem
+                      key={option.value || "empty"}
+                      value={option.value || "none"}
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 클럽 지역 - 시군구 */}
+            <div>
+              <label
+                htmlFor="club_district"
+                className="block text-sm font-medium mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                클럽 지역 - 시군구
+              </label>
+              <Select
+                value={formData.club_district}
+                onValueChange={(value) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    club_district: value,
+                  }));
+                  setError(null);
+                  setSuccess(false);
+                }}
+                disabled={!formData.club_city}
+              >
+                <SelectTrigger
+                  className="w-full h-12 px-4"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    border: "1px solid var(--border-color)",
+                    color: "var(--text-primary)",
+                    opacity: !formData.club_city ? 0.5 : 1,
+                  }}
+                >
+                  <SelectValue placeholder="시도를 먼저 선택하세요" />
+                </SelectTrigger>
+                <SelectContent
+                  style={{
+                    backgroundColor: "var(--bg-secondary)",
+                    border: "1px solid var(--border-color)",
+                  }}
+                >
+                  {availableDistricts.map((option) => (
+                    <SelectItem
+                      key={option.value || "empty"}
+                      value={option.value || "none"}
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {/* 에러 메시지 */}

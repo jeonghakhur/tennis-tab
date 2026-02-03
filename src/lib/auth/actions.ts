@@ -74,8 +74,9 @@ export async function updateProfile(data: {
   name?: string
   phone?: string
   skill_level?: string
-  dominant_hand?: string
   club?: string
+  club_city?: string
+  club_district?: string
 }) {
   const supabase = await createClient()
   const profile = await getCurrentUser()

@@ -20,8 +20,9 @@ CREATE TABLE profiles (
   avatar_url TEXT,
   phone TEXT,
   skill_level skill_level,
-  dominant_hand TEXT CHECK (dominant_hand IN ('LEFT', 'RIGHT', 'BOTH')),
   club TEXT,
+  club_city TEXT,
+  club_district TEXT,
   role user_role DEFAULT 'USER',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -247,4 +248,6 @@ $$;
 -- Comment 추가 (문서화)
 COMMENT ON TABLE public.profiles IS 'User profiles with extended information beyond auth.users';
 COMMENT ON COLUMN public.profiles.role IS 'User role: SUPER_ADMIN (전체 관리), ADMIN (대회 관리), MANAGER (대회 운영), USER (일반 사용자)';
+COMMENT ON COLUMN public.profiles.club_city IS '클럽 소재지 - 시도 (예: 서울특별시, 경기도)';
+COMMENT ON COLUMN public.profiles.club_district IS '클럽 소재지 - 시군구 (예: 강남구, 성남시)';
 COMMENT ON FUNCTION public.set_user_role IS 'Change user role - only SUPER_ADMIN can execute this function';
