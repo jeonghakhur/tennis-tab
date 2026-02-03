@@ -167,25 +167,6 @@ export default function MyProfilePage() {
     );
   }
 
-  const skillLevelLabels: Record<string, string> = {
-    // 기존 값 (하위 호환)
-    BEGINNER: "입문",
-    INTERMEDIATE: "중급",
-    ADVANCED: "고급",
-    PROFESSIONAL: "선수급",
-    // 연차 기반 값
-    "1_YEAR": "1년",
-    "2_YEARS": "2년",
-    "3_YEARS": "3년",
-    "4_YEARS": "4년",
-    "5_YEARS": "5년",
-    "6_YEARS": "6년",
-    "7_YEARS": "7년",
-    "8_YEARS": "8년",
-    "9_YEARS": "9년",
-    "10_PLUS_YEARS": "10년 이상",
-  };
-
   const entryStatusLabels: Record<string, string> = {
     PENDING: "대기 중",
     APPROVED: "승인됨",
@@ -260,7 +241,18 @@ export default function MyProfilePage() {
                         color: "var(--text-secondary)",
                       }}
                     >
-                      {skillLevelLabels[profile.skill_level]}
+                      🎾 {profile.skill_level}
+                    </span>
+                  )}
+                  {profile.ntrp_rating && (
+                    <span
+                      className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
+                      style={{
+                        backgroundColor: "var(--bg-card-hover)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      ⭐ NTRP {profile.ntrp_rating}
                     </span>
                   )}
                   {profile.club && (
@@ -462,11 +454,18 @@ export default function MyProfilePage() {
                     className="flex justify-between py-2 border-b"
                     style={{ borderColor: "var(--border-color)" }}
                   >
-                    <span style={{ color: "var(--text-muted)" }}>구력</span>
+                    <span style={{ color: "var(--text-muted)" }}>입문 년도</span>
                     <span style={{ color: "var(--text-primary)" }}>
-                      {profile.skill_level
-                        ? skillLevelLabels[profile.skill_level]
-                        : "미등록"}
+                      {profile.skill_level || "미등록"}
+                    </span>
+                  </div>
+                  <div
+                    className="flex justify-between py-2 border-b"
+                    style={{ borderColor: "var(--border-color)" }}
+                  >
+                    <span style={{ color: "var(--text-muted)" }}>NTRP 점수</span>
+                    <span style={{ color: "var(--text-primary)" }}>
+                      {profile.ntrp_rating || "미등록"}
                     </span>
                   </div>
                   <div

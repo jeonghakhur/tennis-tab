@@ -11,22 +11,8 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
-// 기존 값 (하위 호환) + 연차 기반 값
-export type SkillLevel =
-  | 'BEGINNER'
-  | 'INTERMEDIATE'
-  | 'ADVANCED'
-  | 'PROFESSIONAL'
-  | '1_YEAR'
-  | '2_YEARS'
-  | '3_YEARS'
-  | '4_YEARS'
-  | '5_YEARS'
-  | '6_YEARS'
-  | '7_YEARS'
-  | '8_YEARS'
-  | '9_YEARS'
-  | '10_PLUS_YEARS'
+// 입문 년도 (문자열: '2026', '2025', ..., '2016년 이전')
+export type SkillLevel = string
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
@@ -43,6 +29,7 @@ export interface Database {
           avatar_url: string | null
           phone: string | null
           skill_level: SkillLevel | null
+          ntrp_rating: number | null
           club: string | null
           club_city: string | null
           club_district: string | null
@@ -57,6 +44,7 @@ export interface Database {
           avatar_url?: string | null
           phone?: string | null
           skill_level?: SkillLevel | null
+          ntrp_rating?: number | null
           club?: string | null
           club_city?: string | null
           club_district?: string | null
@@ -71,6 +59,7 @@ export interface Database {
           avatar_url?: string | null
           phone?: string | null
           skill_level?: SkillLevel | null
+          ntrp_rating?: number | null
           club?: string | null
           club_city?: string | null
           club_district?: string | null

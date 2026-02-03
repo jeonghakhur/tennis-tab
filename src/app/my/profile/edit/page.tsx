@@ -18,6 +18,7 @@ interface FormData {
   name: string;
   phone: string;
   skill_level: SkillLevel | "";
+  ntrp_rating: string;
   club: string;
   club_city: string;
   club_district: string;
@@ -40,6 +41,22 @@ function unformatPhoneNumber(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+// 입력값 보안 검증 (XSS 방지)
+function sanitizeInput(value: string): string {
+  // HTML 태그 제거
+  const withoutTags = value.replace(/<[^>]*>/g, '');
+  // 스크립트 패턴 제거
+  const withoutScripts = withoutTags.replace(/javascript:/gi, '')
+    .replace(/on\w+\s*=/gi, '');
+  return withoutScripts.trim();
+}
+
+// 숫자 입력값 검증
+function validateNumericInput(value: string): string {
+  // 숫자와 소수점만 허용
+  return value.replace(/[^0-9.]/g, '');
+}
+
 export default function ProfileEditPage() {
   const { user, profile, loading, refresh } = useAuth();
   const router = useRouter();
@@ -47,6 +64,7 @@ export default function ProfileEditPage() {
     name: "",
     phone: "",
     skill_level: "",
+    ntrp_rating: "",
     club: "",
     club_city: "",
     club_district: "",
@@ -61,6 +79,7 @@ export default function ProfileEditPage() {
         name: profile.name || "",
         phone: profile.phone ? formatPhoneNumber(profile.phone) : "",
         skill_level: profile.skill_level || "",
+        ntrp_rating: profile.ntrp_rating ? profile.ntrp_rating.toString() : "",
         club: profile.club || "",
         club_city: profile.club_city || "",
         club_district: profile.club_district || "",
@@ -74,11 +93,17 @@ export default function ProfileEditPage() {
     const { name, value } = e.target;
 
     if (name === "phone") {
-      // 전화번호는 자동 포맷팅
+      // 전화번호는 숫자만 허용 후 자동 포맷팅
       const formatted = formatPhoneNumber(value);
       setFormData((prev) => ({ ...prev, phone: formatted }));
+    } else if (name === "ntrp_rating") {
+      // NTRP 점수는 숫자만 허용
+      const numeric = validateNumericInput(value);
+      setFormData((prev) => ({ ...prev, ntrp_rating: numeric }));
     } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      // 다른 필드는 보안 검증 적용
+      const sanitized = sanitizeInput(value);
+      setFormData((prev) => ({ ...prev, [name]: sanitized }));
     }
 
     setError(null);
@@ -100,10 +125,20 @@ export default function ProfileEditPage() {
         formData.skill_level && (formData.skill_level as string) !== "none"
           ? formData.skill_level
           : undefined;
+      const ntrpRating = formData.ntrp_rating ? parseFloat(formData.ntrp_rating) : undefined;
+      
+      // NTRP 점수 범위 검증 (1.0 ~ 7.0)
+      if (ntrpRating !== undefined && (ntrpRating < 1.0 || ntrpRating > 7.0)) {
+        setError("NTRP 점수는 1.0부터 7.0 사이여야 합니다.");
+        setIsSubmitting(false);
+        return;
+      }
+      
       const result = await updateProfile({
         name: formData.name,
         phone: phoneDigits || undefined,
         skill_level: skillLevel,
+        ntrp_rating: ntrpRating,
         club: formData.club || undefined,
         club_city: formData.club_city || undefined,
         club_district: formData.club_district || undefined,
@@ -192,18 +227,15 @@ export default function ProfileEditPage() {
     );
   }
 
-  const skillLevelOptions = [
+  // 입문 년도 옵션 생성 (현재 년도부터 10년 전까지)
+  const currentYear = new Date().getFullYear();
+  const yearOptions = [
     { value: "", label: "선택 안함" },
-    { value: "1_YEAR", label: "1년" },
-    { value: "2_YEARS", label: "2년" },
-    { value: "3_YEARS", label: "3년" },
-    { value: "4_YEARS", label: "4년" },
-    { value: "5_YEARS", label: "5년" },
-    { value: "6_YEARS", label: "6년" },
-    { value: "7_YEARS", label: "7년" },
-    { value: "8_YEARS", label: "8년" },
-    { value: "9_YEARS", label: "9년" },
-    { value: "10_PLUS_YEARS", label: "10년 이상" },
+    ...Array.from({ length: 10 }, (_, i) => {
+      const year = currentYear - i;
+      return { value: year.toString(), label: `${year}년` };
+    }),
+    { value: `${currentYear - 10}년 이전`, label: `${currentYear - 10}년 이전 (10년 이상)` },
   ];
 
   // 한국 시도 데이터
@@ -379,6 +411,7 @@ export default function ProfileEditPage() {
                 name="phone"
                 value={formData.phone}
                 onChange={handleChange}
+                inputMode="numeric"
                 className="w-full px-4 py-3 rounded-lg outline-none"
                 style={{
                   backgroundColor: "var(--bg-card)",
@@ -389,14 +422,14 @@ export default function ProfileEditPage() {
               />
             </div>
 
-            {/* 실력 수준 */}
+            {/* 입문 년도 */}
             <div>
               <label
                 htmlFor="skill_level"
                 className="block text-sm font-medium mb-2"
                 style={{ color: "var(--text-secondary)" }}
               >
-                구력 (테니스 경력)
+                테니스 입문 년도
               </label>
               <Select
                 value={formData.skill_level}
@@ -425,7 +458,7 @@ export default function ProfileEditPage() {
                     border: "1px solid var(--border-color)",
                   }}
                 >
-                  {skillLevelOptions.map((option) => (
+                  {yearOptions.map((option) => (
                     <SelectItem
                       key={option.value || "empty"}
                       value={option.value || "none"}
@@ -436,6 +469,38 @@ export default function ProfileEditPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            {/* NTRP 점수 */}
+            <div>
+              <label
+                htmlFor="ntrp_rating"
+                className="block text-sm font-medium mb-2"
+                style={{ color: "var(--text-secondary)" }}
+              >
+                NTRP 점수 (1.0 ~ 7.0)
+              </label>
+              <input
+                type="text"
+                id="ntrp_rating"
+                name="ntrp_rating"
+                value={formData.ntrp_rating}
+                onChange={handleChange}
+                inputMode="numeric"
+                className="w-full px-4 py-3 rounded-lg outline-none"
+                style={{
+                  backgroundColor: "var(--bg-card)",
+                  border: "1px solid var(--border-color)",
+                  color: "var(--text-primary)",
+                }}
+                placeholder="예: 3.5"
+              />
+              <p
+                className="text-xs mt-1"
+                style={{ color: "var(--text-muted)" }}
+              >
+                NTRP(National Tennis Rating Program) 점수를 입력하세요
+              </p>
             </div>
 
             {/* 소속 클럽 */}
