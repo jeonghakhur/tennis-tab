@@ -73,7 +73,7 @@ export async function getCurrentUser() {
 export async function updateProfile(data: {
   name?: string
   phone?: string
-  skill_level?: string
+  start_year?: string
   ntrp_rating?: number
   club?: string
   club_city?: string

@@ -12,7 +12,7 @@ export type Json =
   | Json[]
 
 // 입문 년도 (문자열: '2026', '2025', ..., '2016년 이전')
-export type SkillLevel = string
+export type StartYear = string
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
@@ -28,7 +28,7 @@ export interface Database {
           name: string
           avatar_url: string | null
           phone: string | null
-          skill_level: SkillLevel | null
+          start_year: StartYear | null
           ntrp_rating: number | null
           club: string | null
           club_city: string | null
@@ -43,7 +43,7 @@ export interface Database {
           name: string
           avatar_url?: string | null
           phone?: string | null
-          skill_level?: SkillLevel | null
+          start_year?: StartYear | null
           ntrp_rating?: number | null
           club?: string | null
           club_city?: string | null
@@ -58,7 +58,7 @@ export interface Database {
           name?: string
           avatar_url?: string | null
           phone?: string | null
-          skill_level?: SkillLevel | null
+          start_year?: StartYear | null
           ntrp_rating?: number | null
           club?: string | null
           club_city?: string | null

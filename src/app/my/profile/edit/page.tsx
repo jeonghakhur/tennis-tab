@@ -12,12 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SkillLevel } from "@/lib/supabase/types";
+import type { StartYear } from "@/lib/supabase/types";
 
 interface FormData {
   name: string;
   phone: string;
-  skill_level: SkillLevel | "";
+  start_year: StartYear | "";
   ntrp_rating: string;
   club: string;
   club_city: string;
@@ -44,17 +44,18 @@ function unformatPhoneNumber(value: string): string {
 // 입력값 보안 검증 (XSS 방지)
 function sanitizeInput(value: string): string {
   // HTML 태그 제거
-  const withoutTags = value.replace(/<[^>]*>/g, '');
+  const withoutTags = value.replace(/<[^>]*>/g, "");
   // 스크립트 패턴 제거
-  const withoutScripts = withoutTags.replace(/javascript:/gi, '')
-    .replace(/on\w+\s*=/gi, '');
+  const withoutScripts = withoutTags
+    .replace(/javascript:/gi, "")
+    .replace(/on\w+\s*=/gi, "");
   return withoutScripts.trim();
 }
 
 // 숫자 입력값 검증
 function validateNumericInput(value: string): string {
   // 숫자와 소수점만 허용
-  return value.replace(/[^0-9.]/g, '');
+  return value.replace(/[^0-9.]/g, "");
 }
 
 export default function ProfileEditPage() {
@@ -63,7 +64,7 @@ export default function ProfileEditPage() {
   const [formData, setFormData] = useState<FormData>({
     name: "",
     phone: "",
-    skill_level: "",
+    start_year: "",
     ntrp_rating: "",
     club: "",
     club_city: "",
@@ -78,7 +79,7 @@ export default function ProfileEditPage() {
       setFormData({
         name: profile.name || "",
         phone: profile.phone ? formatPhoneNumber(profile.phone) : "",
-        skill_level: profile.skill_level || "",
+        start_year: profile.start_year || "",
         ntrp_rating: profile.ntrp_rating ? profile.ntrp_rating.toString() : "",
         club: profile.club || "",
         club_city: profile.club_city || "",
@@ -88,7 +89,7 @@ export default function ProfileEditPage() {
   }, [profile]);
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
 
@@ -121,23 +122,25 @@ export default function ProfileEditPage() {
       // 전화번호는 숫자만 저장
       const phoneDigits = unformatPhoneNumber(formData.phone);
       // "none" 값은 undefined로 처리
-      const skillLevel =
-        formData.skill_level && (formData.skill_level as string) !== "none"
-          ? formData.skill_level
+      const startYear =
+        formData.start_year && (formData.start_year as string) !== "none"
+          ? formData.start_year
           : undefined;
-      const ntrpRating = formData.ntrp_rating ? parseFloat(formData.ntrp_rating) : undefined;
-      
+      const ntrpRating = formData.ntrp_rating
+        ? parseFloat(formData.ntrp_rating)
+        : undefined;
+
       // NTRP 점수 범위 검증 (1.0 ~ 7.0)
       if (ntrpRating !== undefined && (ntrpRating < 1.0 || ntrpRating > 7.0)) {
         setError("NTRP 점수는 1.0부터 7.0 사이여야 합니다.");
         setIsSubmitting(false);
         return;
       }
-      
+
       const result = await updateProfile({
         name: formData.name,
         phone: phoneDigits || undefined,
-        skill_level: skillLevel,
+        start_year: startYear,
         ntrp_rating: ntrpRating,
         club: formData.club || undefined,
         club_city: formData.club_city || undefined,
@@ -235,7 +238,10 @@ export default function ProfileEditPage() {
       const year = currentYear - i;
       return { value: year.toString(), label: `${year}년` };
     }),
-    { value: `${currentYear - 10}년 이전`, label: `${currentYear - 10}년 이전 (10년 이상)` },
+    {
+      value: `${currentYear - 10}년 이전`,
+      label: `${currentYear - 10}년 이전 (10년 이상)`,
+    },
   ];
 
   // 한국 시도 데이터
@@ -327,8 +333,9 @@ export default function ProfileEditPage() {
   };
 
   // 선택된 시도에 따른 시군구 옵션
-  const availableDistricts =
-    districtOptions[formData.club_city] || [{ value: "", label: "시도를 먼저 선택하세요" }];
+  const availableDistricts = districtOptions[formData.club_city] || [
+    { value: "", label: "시도를 먼저 선택하세요" },
+  ];
 
   return (
     <>
@@ -425,18 +432,18 @@ export default function ProfileEditPage() {
             {/* 입문 년도 */}
             <div>
               <label
-                htmlFor="skill_level"
+                htmlFor="start_year"
                 className="block text-sm font-medium mb-2"
                 style={{ color: "var(--text-secondary)" }}
               >
                 테니스 입문 년도
               </label>
               <Select
-                value={formData.skill_level}
+                value={formData.start_year}
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    skill_level: value as SkillLevel | "",
+                    start_year: value as StartYear | "",
                   }));
                   setError(null);
                   setSuccess(false);
@@ -478,7 +485,7 @@ export default function ProfileEditPage() {
                 className="block text-sm font-medium mb-2"
                 style={{ color: "var(--text-secondary)" }}
               >
-                NTRP 점수 (1.0 ~ 7.0)
+                점수(본인 협회의 점수를 입력하세요)
               </label>
               <input
                 type="text"
@@ -493,14 +500,7 @@ export default function ProfileEditPage() {
                   border: "1px solid var(--border-color)",
                   color: "var(--text-primary)",
                 }}
-                placeholder="예: 3.5"
               />
-              <p
-                className="text-xs mt-1"
-                style={{ color: "var(--text-muted)" }}
-              >
-                NTRP(National Tennis Rating Program) 점수를 입력하세요
-              </p>
             </div>
 
             {/* 소속 클럽 */}

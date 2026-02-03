@@ -19,7 +19,8 @@ CREATE TABLE profiles (
   name TEXT NOT NULL,
   avatar_url TEXT,
   phone TEXT,
-  skill_level skill_level,
+  start_year TEXT,
+  ntrp_rating DECIMAL(2,1) CHECK (ntrp_rating >= 1.0 AND ntrp_rating <= 7.0),
   club TEXT,
   club_city TEXT,
   club_district TEXT,
@@ -248,6 +249,8 @@ $$;
 -- Comment 추가 (문서화)
 COMMENT ON TABLE public.profiles IS 'User profiles with extended information beyond auth.users';
 COMMENT ON COLUMN public.profiles.role IS 'User role: SUPER_ADMIN (전체 관리), ADMIN (대회 관리), MANAGER (대회 운영), USER (일반 사용자)';
+COMMENT ON COLUMN public.profiles.start_year IS '테니스 입문 년도 (예: 2026, 2025, 2016년 이전)';
+COMMENT ON COLUMN public.profiles.ntrp_rating IS 'NTRP 점수 (1.0 ~ 7.0)';
 COMMENT ON COLUMN public.profiles.club_city IS '클럽 소재지 - 시도 (예: 서울특별시, 경기도)';
 COMMENT ON COLUMN public.profiles.club_district IS '클럽 소재지 - 시군구 (예: 강남구, 성남시)';
 COMMENT ON FUNCTION public.set_user_role IS 'Change user role - only SUPER_ADMIN can execute this function';

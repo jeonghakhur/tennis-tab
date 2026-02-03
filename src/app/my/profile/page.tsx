@@ -233,7 +233,7 @@ export default function MyProfilePage() {
                 </p>
 
                 <div className="flex flex-wrap gap-2">
-                  {profile.skill_level && (
+                  {profile.start_year && (
                     <span
                       className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
                       style={{
@@ -241,7 +241,7 @@ export default function MyProfilePage() {
                         color: "var(--text-secondary)",
                       }}
                     >
-                      🎾 {profile.skill_level}
+                      🎾 {profile.start_year}
                     </span>
                   )}
                   {profile.ntrp_rating && (
@@ -456,7 +456,7 @@ export default function MyProfilePage() {
                   >
                     <span style={{ color: "var(--text-muted)" }}>입문 년도</span>
                     <span style={{ color: "var(--text-primary)" }}>
-                      {profile.skill_level || "미등록"}
+                      {profile.start_year || "미등록"}
                     </span>
                   </div>
                   <div
