@@ -29,7 +29,7 @@ export interface Database {
           avatar_url: string | null
           phone: string | null
           start_year: StartYear | null
-          ntrp_rating: number | null
+          rating: number | null
           club: string | null
           club_city: string | null
           club_district: string | null
@@ -44,7 +44,7 @@ export interface Database {
           avatar_url?: string | null
           phone?: string | null
           start_year?: StartYear | null
-          ntrp_rating?: number | null
+          rating?: number | null
           club?: string | null
           club_city?: string | null
           club_district?: string | null
@@ -59,7 +59,7 @@ export interface Database {
           avatar_url?: string | null
           phone?: string | null
           start_year?: StartYear | null
-          ntrp_rating?: number | null
+          rating?: number | null
           club?: string | null
           club_city?: string | null
           club_district?: string | null

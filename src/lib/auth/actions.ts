@@ -74,7 +74,7 @@ export async function updateProfile(data: {
   name?: string
   phone?: string
   start_year?: string
-  ntrp_rating?: number
+  rating?: number
   club?: string
   club_city?: string
   club_district?: string

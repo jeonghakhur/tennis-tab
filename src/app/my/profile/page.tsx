@@ -244,7 +244,7 @@ export default function MyProfilePage() {
                       🎾 {profile.start_year}
                     </span>
                   )}
-                  {profile.ntrp_rating && (
+                  {profile.rating && (
                     <span
                       className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
                       style={{
@@ -252,7 +252,7 @@ export default function MyProfilePage() {
                         color: "var(--text-secondary)",
                       }}
                     >
-                      ⭐ NTRP {profile.ntrp_rating}
+                      ⭐ {profile.rating}점
                     </span>
                   )}
                   {profile.club && (
@@ -463,9 +463,9 @@ export default function MyProfilePage() {
                     className="flex justify-between py-2 border-b"
                     style={{ borderColor: "var(--border-color)" }}
                   >
-                    <span style={{ color: "var(--text-muted)" }}>NTRP 점수</span>
+                    <span style={{ color: "var(--text-muted)" }}>실력 점수</span>
                     <span style={{ color: "var(--text-primary)" }}>
-                      {profile.ntrp_rating || "미등록"}
+                      {profile.rating ? `${profile.rating}점` : "미등록"}
                     </span>
                   </div>
                   <div

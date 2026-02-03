@@ -18,7 +18,7 @@ interface FormData {
   name: string;
   phone: string;
   start_year: StartYear | "";
-  ntrp_rating: string;
+  rating: string;
   club: string;
   club_city: string;
   club_district: string;
@@ -52,10 +52,10 @@ function sanitizeInput(value: string): string {
   return withoutScripts.trim();
 }
 
-// 숫자 입력값 검증
-function validateNumericInput(value: string): string {
-  // 숫자와 소수점만 허용
-  return value.replace(/[^0-9.]/g, "");
+// 정수 입력값 검증
+function validateIntegerInput(value: string): string {
+  // 숫자만 허용 (소수점 제거)
+  return value.replace(/[^0-9]/g, "");
 }
 
 export default function ProfileEditPage() {
@@ -65,7 +65,7 @@ export default function ProfileEditPage() {
     name: "",
     phone: "",
     start_year: "",
-    ntrp_rating: "",
+    rating: "",
     club: "",
     club_city: "",
     club_district: "",
@@ -80,7 +80,7 @@ export default function ProfileEditPage() {
         name: profile.name || "",
         phone: profile.phone ? formatPhoneNumber(profile.phone) : "",
         start_year: profile.start_year || "",
-        ntrp_rating: profile.ntrp_rating ? profile.ntrp_rating.toString() : "",
+        rating: profile.rating ? profile.rating.toString() : "",
         club: profile.club || "",
         club_city: profile.club_city || "",
         club_district: profile.club_district || "",
@@ -97,10 +97,10 @@ export default function ProfileEditPage() {
       // 전화번호는 숫자만 허용 후 자동 포맷팅
       const formatted = formatPhoneNumber(value);
       setFormData((prev) => ({ ...prev, phone: formatted }));
-    } else if (name === "ntrp_rating") {
-      // NTRP 점수는 숫자만 허용
-      const numeric = validateNumericInput(value);
-      setFormData((prev) => ({ ...prev, ntrp_rating: numeric }));
+    } else if (name === "rating") {
+      // 점수는 정수만 허용
+      const integer = validateIntegerInput(value);
+      setFormData((prev) => ({ ...prev, rating: integer }));
     } else {
       // 다른 필드는 보안 검증 적용
       const sanitized = sanitizeInput(value);
@@ -126,13 +126,11 @@ export default function ProfileEditPage() {
         formData.start_year && (formData.start_year as string) !== "none"
           ? formData.start_year
           : undefined;
-      const ntrpRating = formData.ntrp_rating
-        ? parseFloat(formData.ntrp_rating)
-        : undefined;
+      const rating = formData.rating ? parseInt(formData.rating, 10) : undefined;
 
-      // NTRP 점수 범위 검증 (1.0 ~ 7.0)
-      if (ntrpRating !== undefined && (ntrpRating < 1.0 || ntrpRating > 7.0)) {
-        setError("NTRP 점수는 1.0부터 7.0 사이여야 합니다.");
+      // 점수 범위 검증 (1 ~ 10)
+      if (rating !== undefined && (rating < 1 || rating > 10)) {
+        setError("실력 점수는 1부터 10 사이여야 합니다.");
         setIsSubmitting(false);
         return;
       }
@@ -141,7 +139,7 @@ export default function ProfileEditPage() {
         name: formData.name,
         phone: phoneDigits || undefined,
         start_year: startYear,
-        ntrp_rating: ntrpRating,
+        rating: rating,
         club: formData.club || undefined,
         club_city: formData.club_city || undefined,
         club_district: formData.club_district || undefined,
@@ -478,20 +476,20 @@ export default function ProfileEditPage() {
               </Select>
             </div>
 
-            {/* NTRP 점수 */}
+            {/* 실력 점수 */}
             <div>
               <label
-                htmlFor="ntrp_rating"
+                htmlFor="rating"
                 className="block text-sm font-medium mb-2"
                 style={{ color: "var(--text-secondary)" }}
               >
-                점수(본인 협회의 점수를 입력하세요)
+                실력 점수 (1 ~ 10)
               </label>
               <input
                 type="text"
-                id="ntrp_rating"
-                name="ntrp_rating"
-                value={formData.ntrp_rating}
+                id="rating"
+                name="rating"
+                value={formData.rating}
                 onChange={handleChange}
                 inputMode="numeric"
                 className="w-full px-4 py-3 rounded-lg outline-none"
@@ -500,7 +498,15 @@ export default function ProfileEditPage() {
                   border: "1px solid var(--border-color)",
                   color: "var(--text-primary)",
                 }}
+                placeholder="예: 5"
+                maxLength={2}
               />
+              <p
+                className="text-xs mt-1"
+                style={{ color: "var(--text-muted)" }}
+              >
+                실력을 1부터 10까지 숫자로 입력하세요
+              </p>
             </div>
 
             {/* 소속 클럽 */}

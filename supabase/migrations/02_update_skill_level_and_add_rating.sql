@@ -1,4 +1,4 @@
--- 프로필 테이블 업데이트: skill_level을 start_year로 변경, NTRP 점수 필드 추가
+-- 프로필 테이블 업데이트: skill_level을 start_year로 변경, 점수 필드 추가
 
 -- 1. start_year 컬럼 추가 (입문 년도)
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS start_year TEXT;
@@ -24,9 +24,9 @@ WHERE skill_level IS NOT NULL;
 -- 3. skill_level 컬럼 삭제 (더 이상 사용하지 않음)
 ALTER TABLE public.profiles DROP COLUMN IF EXISTS skill_level;
 
--- 4. NTRP 점수 필드 추가
-ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS ntrp_rating DECIMAL(2,1) CHECK (ntrp_rating >= 1.0 AND ntrp_rating <= 7.0);
+-- 4. 점수 필드 추가 (정수만 가능)
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS rating INTEGER CHECK (rating >= 1 AND rating <= 10);
 
 -- 5. 컬럼 코멘트 추가
 COMMENT ON COLUMN public.profiles.start_year IS '테니스 입문 년도 (예: 2026, 2025, 2016년 이전)';
-COMMENT ON COLUMN public.profiles.ntrp_rating IS 'NTRP 점수 (1.0 ~ 7.0)';
+COMMENT ON COLUMN public.profiles.rating IS '실력 점수 (1 ~ 10)';
