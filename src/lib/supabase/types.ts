@@ -35,6 +35,20 @@ export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'CO
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
 export type MatchType = 'INDIVIDUAL_SINGLES' | 'INDIVIDUAL_DOUBLES' | 'TEAM_SINGLES' | 'TEAM_DOUBLES'
 export type EntryStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
+
+// 파트너 정보 (개인전 복식용)
+export interface PartnerData {
+  name: string
+  club: string
+  rating: number
+}
+
+// 팀원 정보 (단체전용)
+export interface TeamMember {
+  name: string
+  rating: number
+}
 
 export interface Database {
   public: {
@@ -224,7 +238,17 @@ export interface Database {
           id: string
           tournament_id: string
           user_id: string
+          division_id: string
           status: EntryStatus
+          phone: string
+          player_name: string
+          player_rating: number | null
+          club_name: string | null
+          team_order: string | null
+          partner_data: PartnerData | null
+          team_members: TeamMember[] | null
+          payment_status: PaymentStatus
+          payment_confirmed_at: string | null
           created_at: string
           updated_at: string
         }
@@ -232,7 +256,17 @@ export interface Database {
           id?: string
           tournament_id: string
           user_id: string
+          division_id: string
           status?: EntryStatus
+          phone: string
+          player_name: string
+          player_rating?: number | null
+          club_name?: string | null
+          team_order?: string | null
+          partner_data?: PartnerData | null
+          team_members?: TeamMember[] | null
+          payment_status?: PaymentStatus
+          payment_confirmed_at?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -240,7 +274,17 @@ export interface Database {
           id?: string
           tournament_id?: string
           user_id?: string
+          division_id?: string
           status?: EntryStatus
+          phone?: string
+          player_name?: string
+          player_rating?: number | null
+          club_name?: string | null
+          team_order?: string | null
+          partner_data?: PartnerData | null
+          team_members?: TeamMember[] | null
+          payment_status?: PaymentStatus
+          payment_confirmed_at?: string | null
           updated_at?: string
         }
       }
@@ -336,6 +380,7 @@ export interface Database {
       tournament_format: TournamentFormat
       match_type: MatchType
       entry_status: EntryStatus
+      payment_status: PaymentStatus
     }
   }
 }
