@@ -100,9 +100,14 @@ export default async function TournamentDetailPage({ params }: Props) {
                     {/* Description */}
                     <section className="bg-white dark:bg-gray-900 rounded-xl p-6 border border-gray-200 dark:border-gray-800 shadow-sm">
                         <h2 className="text-xl font-bold mb-4">📝 상세 내용</h2>
-                        <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
-                            {tournament.description || '상세 설명이 없습니다.'}
-                        </div>
+                        {tournament.description ? (
+                            <div
+                                className="prose dark:prose-invert max-w-none prose-table:border-collapse prose-th:border prose-th:border-gray-300 prose-th:p-2 prose-th:bg-gray-100 dark:prose-th:border-gray-600 dark:prose-th:bg-gray-800 prose-td:border prose-td:border-gray-300 prose-td:p-2 dark:prose-td:border-gray-600"
+                                dangerouslySetInnerHTML={{ __html: tournament.description }}
+                            />
+                        ) : (
+                            <p className="text-gray-500">상세 설명이 없습니다.</p>
+                        )}
                     </section>
                 </div>
 

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createTournament } from '@/lib/tournaments/actions';
 import { useAuth } from '../AuthProvider';
 import { UserRole } from '@/lib/supabase/types';
+import RichTextEditor from '@/components/ui/RichTextEditor';
 
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
@@ -13,6 +14,7 @@ export default function TournamentForm() {
     const { user, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [description, setDescription] = useState('');
 
     const canCreateTournament = profile?.role && ALLOWED_ROLES.includes(profile.role);
 
@@ -174,10 +176,10 @@ export default function TournamentForm() {
 
                 <div>
                     <label className="block text-sm font-medium mb-1">상세 설명</label>
-                    <textarea
-                        name="description"
-                        rows={5}
-                        className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2"
+                    <input type="hidden" name="description" value={description} />
+                    <RichTextEditor
+                        value={description}
+                        onChange={setDescription}
                         placeholder="대회 규정, 상품 등 상세 내용을 입력하세요."
                     />
                 </div>
