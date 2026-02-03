@@ -40,6 +40,17 @@ const formatDateTimeLocal = (dateStr: string | null) => {
     return `${year}-${month}-${day}T${hours}:${minutes}`;
 };
 
+// 날짜 선택 시 시간을 00:00으로 설정하는 헬퍼
+const normalizeDateTime = (value: string) => {
+    if (!value) return value;
+    // 날짜만 있고 시간이 없는 경우 (YYYY-MM-DD 형식)
+    if (value.length === 10) {
+        return `${value}T00:00`;
+    }
+    // 이미 시간이 포함된 경우 그대로 반환
+    return value;
+};
+
 export interface TournamentFormData {
     id: string;
     title: string;
@@ -294,6 +305,11 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                             name="start_date"
                             required
                             defaultValue={formatDateTimeLocal(initialData?.start_date || null)}
+                            onBlur={(e) => {
+                                if (e.target.value && !e.target.value.includes('T')) {
+                                    e.target.value = normalizeDateTime(e.target.value);
+                                }
+                            }}
                             className={inputClass}
                         />
                     </div>
@@ -304,6 +320,11 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                             name="end_date"
                             required
                             defaultValue={formatDateTimeLocal(initialData?.end_date || null)}
+                            onBlur={(e) => {
+                                if (e.target.value && !e.target.value.includes('T')) {
+                                    e.target.value = normalizeDateTime(e.target.value);
+                                }
+                            }}
                             className={inputClass}
                         />
                     </div>
@@ -316,6 +337,11 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                             type="datetime-local"
                             name="entry_start_date"
                             defaultValue={formatDateTimeLocal(initialData?.entry_start_date || null)}
+                            onBlur={(e) => {
+                                if (e.target.value && !e.target.value.includes('T')) {
+                                    e.target.value = normalizeDateTime(e.target.value);
+                                }
+                            }}
                             className={inputClass}
                         />
                     </div>
@@ -325,6 +351,11 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                             type="datetime-local"
                             name="entry_end_date"
                             defaultValue={formatDateTimeLocal(initialData?.entry_end_date || null)}
+                            onBlur={(e) => {
+                                if (e.target.value && !e.target.value.includes('T')) {
+                                    e.target.value = normalizeDateTime(e.target.value);
+                                }
+                            }}
                             className={inputClass}
                         />
                     </div>
@@ -336,6 +367,11 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                         type="datetime-local"
                         name="opening_ceremony"
                         defaultValue={formatDateTimeLocal(initialData?.opening_ceremony || null)}
+                        onBlur={(e) => {
+                            if (e.target.value && !e.target.value.includes('T')) {
+                                e.target.value = normalizeDateTime(e.target.value);
+                            }
+                        }}
                         className={inputClass}
                     />
                 </div>
@@ -466,6 +502,12 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                             type="datetime-local"
                                             value={division.match_date || ''}
                                             onChange={(e) => updateDivision(index, 'match_date', e.target.value || null)}
+                                            onBlur={(e) => {
+                                                if (e.target.value && !e.target.value.includes('T')) {
+                                                    const normalized = normalizeDateTime(e.target.value);
+                                                    updateDivision(index, 'match_date', normalized);
+                                                }
+                                            }}
                                             className={inputClass}
                                         />
                                     </div>
