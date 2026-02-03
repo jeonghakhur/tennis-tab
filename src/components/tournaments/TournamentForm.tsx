@@ -2,18 +2,19 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase/client';
-import { Database } from '@/lib/supabase/types';
-
-type TournamentFormat = Database['public']['Enums']['tournament_format'];
-
+import { createTournament } from '@/lib/tournaments/actions';
 import { useAuth } from '../AuthProvider';
+import { UserRole } from '@/lib/supabase/types';
+
+const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
 export default function TournamentForm() {
     const router = useRouter();
     const { user, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const canCreateTournament = profile?.role && ALLOWED_ROLES.includes(profile.role);
 
     const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
         e.preventDefault();
@@ -26,43 +27,46 @@ export default function TournamentForm() {
             return;
         }
 
-        if (!profile) {
-            setError('프로필을 찾을 수 없습니다.');
+        if (!canCreateTournament) {
+            setError('대회를 생성할 권한이 없습니다.');
             setLoading(false);
             return;
         }
 
         const formData = new FormData(e.currentTarget);
-        const supabase = createClient();
+        const result = await createTournament(formData);
 
-        const data = {
-            title: formData.get('title') as string,
-            description: formData.get('description') as string,
-            start_date: new Date(formData.get('start_date') as string).toISOString(),
-            end_date: new Date(formData.get('end_date') as string).toISOString(),
-            location: formData.get('location') as string,
-            address: formData.get('address') as string,
-            max_participants: parseInt(formData.get('max_participants') as string),
-            entry_fee: parseInt(formData.get('entry_fee') as string || '0'),
-            format: formData.get('format') as TournamentFormat,
-            organizer_id: profile.id,
-            status: 'OPEN' as const
-        };
-
-        const { error: insertError } = await supabase
-            .from('tournaments')
-            .insert(data);
-
-        if (insertError) {
-            console.error('Error creating tournament:', insertError);
-            setError(insertError.message);
-        } else {
+        if (result.success) {
             router.push('/tournaments');
             router.refresh();
+        } else {
+            setError(result.error);
         }
 
         setLoading(false);
     };
+
+    // 로그인하지 않은 경우
+    if (!user) {
+        return (
+            <div className="max-w-2xl mx-auto p-6">
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 p-4 rounded-lg">
+                    대회를 만들려면 로그인이 필요합니다.
+                </div>
+            </div>
+        );
+    }
+
+    // 권한이 없는 경우
+    if (!canCreateTournament) {
+        return (
+            <div className="max-w-2xl mx-auto p-6">
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg">
+                    대회를 생성할 권한이 없습니다. 관리자(ADMIN) 이상의 권한이 필요합니다.
+                </div>
+            </div>
+        );
+    }
 
     return (
         <form onSubmit={handleSubmit} className="space-y-6 max-w-2xl mx-auto p-6">
@@ -72,7 +76,7 @@ export default function TournamentForm() {
             </div>
 
             {error && (
-                <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm">
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-md text-sm">
                     {error}
                 </div>
             )}
