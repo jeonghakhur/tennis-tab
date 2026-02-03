@@ -232,7 +232,6 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      skill_level: SkillLevel
       user_role: UserRole
       tournament_status: TournamentStatus
       tournament_format: TournamentFormat
