@@ -126,7 +126,9 @@ export default function ProfileEditPage() {
         formData.start_year && (formData.start_year as string) !== "none"
           ? formData.start_year
           : undefined;
-      const rating = formData.rating ? parseInt(formData.rating, 10) : undefined;
+      const rating = formData.rating
+        ? parseInt(formData.rating, 10)
+        : undefined;
 
       // 점수 범위 검증 (1 ~ 100)
       if (rating !== undefined && (rating < 1 || rating > 100)) {
@@ -241,6 +243,7 @@ export default function ProfileEditPage() {
     },
   ];
 
+
   // 한국 시도 데이터
   const cityOptions = [
     { value: "서울특별시", label: "서울특별시" },
@@ -261,7 +264,6 @@ export default function ProfileEditPage() {
     { value: "경상남도", label: "경상남도" },
     { value: "제주특별자치도", label: "제주특별자치도" },
   ];
-
 
   return (
     <>
@@ -365,11 +367,12 @@ export default function ProfileEditPage() {
                 테니스 입문 년도
               </label>
               <Select
-                value={formData.start_year || undefined}
+                key={`start-year-${formData.start_year}`}
+                value={formData.start_year ? formData.start_year.toString() : "NONE"}
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    start_year: value as StartYear | "",
+                    start_year: value === "NONE" ? "" : (value as StartYear),
                   }));
                   setError(null);
                   setSuccess(false);
@@ -391,9 +394,16 @@ export default function ProfileEditPage() {
                     border: "1px solid var(--border-color)",
                   }}
                 >
+                  <SelectItem
+                    key="none"
+                    value="NONE"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    선택 안함
+                  </SelectItem>
                   {yearOptions.map((option) => (
                     <SelectItem
-                      key={option.value || "empty"}
+                      key={option.value}
                       value={option.value}
                       style={{ color: "var(--text-primary)" }}
                     >
@@ -472,11 +482,12 @@ export default function ProfileEditPage() {
                 클럽 지역 - 시도
               </label>
               <Select
-                value={formData.club_city || undefined}
+                key={`club-city-${formData.club_city}`}
+                value={formData.club_city || "NONE"}
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
-                    club_city: value,
+                    club_city: value === "NONE" ? "" : value,
                   }));
                   setError(null);
                   setSuccess(false);
@@ -498,9 +509,16 @@ export default function ProfileEditPage() {
                     border: "1px solid var(--border-color)",
                   }}
                 >
+                  <SelectItem
+                    key="none"
+                    value="NONE"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    선택 안함
+                  </SelectItem>
                   {cityOptions.map((option) => (
                     <SelectItem
-                      key={option.value || "empty"}
+                      key={option.value}
                       value={option.value}
                       style={{ color: "var(--text-primary)" }}
                     >
