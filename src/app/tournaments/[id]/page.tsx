@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import Link from 'next/link';
 import { TournamentStatus, MatchType } from '@/lib/supabase/types';
 import TournamentActions from '@/components/tournaments/TournamentActions';
+import TournamentMap from '@/components/tournaments/TournamentMap';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -303,13 +304,11 @@ export default async function TournamentDetailPage({ params }: Props) {
                             </div>
                         </div>
 
-                        {/* Map Placeholder */}
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl h-64 flex items-center justify-center text-gray-400 border border-gray-200 dark:border-gray-700">
-                            <div className="text-center">
-                                <span className="text-4xl block mb-2">🗺️</span>
-                                <span className="text-sm">지도 보기 (준비중)</span>
-                            </div>
-                        </div>
+                        {/* Map */}
+                        <TournamentMap 
+                            address={tournament.address} 
+                            location={tournament.location} 
+                        />
                     </div>
                 </div>
             </div>
