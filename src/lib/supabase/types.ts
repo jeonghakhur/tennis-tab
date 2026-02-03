@@ -33,6 +33,7 @@ export type DominantHand = 'LEFT' | 'RIGHT' | 'BOTH'
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
+export type MatchType = 'INDIVIDUAL_SINGLES' | 'INDIVIDUAL_DOUBLES' | 'TEAM_SINGLES' | 'TEAM_DOUBLES'
 export type EntryStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface Database {
@@ -103,6 +104,15 @@ export interface Database {
           entry_fee: number
           status: TournamentStatus
           format: TournamentFormat
+          match_type: MatchType | null
+          host: string | null
+          organizer_name: string | null
+          ball_type: string | null
+          entry_start_date: string | null
+          entry_end_date: string | null
+          opening_ceremony: string | null
+          bank_account: string | null
+          eligibility: string | null
           requirements: Json | null
           poster_url: string | null
           organizer_id: string
@@ -121,6 +131,15 @@ export interface Database {
           entry_fee?: number
           status?: TournamentStatus
           format: TournamentFormat
+          match_type?: MatchType | null
+          host?: string | null
+          organizer_name?: string | null
+          ball_type?: string | null
+          entry_start_date?: string | null
+          entry_end_date?: string | null
+          opening_ceremony?: string | null
+          bank_account?: string | null
+          eligibility?: string | null
           requirements?: Json | null
           poster_url?: string | null
           organizer_id: string
@@ -139,9 +158,64 @@ export interface Database {
           entry_fee?: number
           status?: TournamentStatus
           format?: TournamentFormat
+          match_type?: MatchType | null
+          host?: string | null
+          organizer_name?: string | null
+          ball_type?: string | null
+          entry_start_date?: string | null
+          entry_end_date?: string | null
+          opening_ceremony?: string | null
+          bank_account?: string | null
+          eligibility?: string | null
           requirements?: Json | null
           poster_url?: string | null
           organizer_id?: string
+          updated_at?: string
+        }
+      }
+      tournament_divisions: {
+        Row: {
+          id: string
+          tournament_id: string
+          name: string
+          max_teams: number | null
+          team_member_limit: number | null
+          match_date: string | null
+          match_location: string | null
+          prize_winner: string | null
+          prize_runner_up: string | null
+          prize_third: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tournament_id: string
+          name: string
+          max_teams?: number | null
+          team_member_limit?: number | null
+          match_date?: string | null
+          match_location?: string | null
+          prize_winner?: string | null
+          prize_runner_up?: string | null
+          prize_third?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tournament_id?: string
+          name?: string
+          max_teams?: number | null
+          team_member_limit?: number | null
+          match_date?: string | null
+          match_location?: string | null
+          prize_winner?: string | null
+          prize_runner_up?: string | null
+          prize_third?: string | null
+          notes?: string | null
           updated_at?: string
         }
       }
@@ -260,6 +334,7 @@ export interface Database {
       user_role: UserRole
       tournament_status: TournamentStatus
       tournament_format: TournamentFormat
+      match_type: MatchType
       entry_status: EntryStatus
     }
   }
