@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
+import { Navigation } from "@/components/Navigation";
+import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -18,7 +20,13 @@ export default function RootLayout({
     <html lang="ko" data-scroll-behavior="smooth">
       <body className="font-body antialiased">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <AuthProvider>
+            <Navigation />
+            <main className="min-h-screen pt-20">
+              {children}
+            </main>
+            <Footer />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>

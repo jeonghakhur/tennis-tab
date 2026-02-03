@@ -20,7 +20,12 @@ export function UserAvatar({
   const router = useRouter();
 
   if (loading) {
-    return <AvatarSkeleton size={size} />;
+    const sizeMap = {
+      sm: 32,
+      md: 40,
+      lg: 56,
+    };
+    return <AvatarSkeleton size={sizeMap[size] || 40} />;
   }
 
   if (!profile) return null;
@@ -150,25 +155,25 @@ export function UserAvatar({
               {(profile.role === "ADMIN" ||
                 profile.role === "MANAGER" ||
                 profile.role === "SUPER_ADMIN") && (
-                <Link
-                  href="/admin"
-                  className="block px-4 py-2 text-sm transition-colors duration-200"
-                  style={{ color: "var(--text-secondary)" }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor =
-                      "var(--bg-card-hover)";
-                    e.currentTarget.style.color = "var(--text-primary)";
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = "transparent";
-                    e.currentTarget.style.color = "var(--text-secondary)";
-                  }}
-                  onClick={() => setIsOpen(false)}
-                >
-                  <span className="mr-2">⚙️</span>
-                  관리자
-                </Link>
-              )}
+                  <Link
+                    href="/admin"
+                    className="block px-4 py-2 text-sm transition-colors duration-200"
+                    style={{ color: "var(--text-secondary)" }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.backgroundColor =
+                        "var(--bg-card-hover)";
+                      e.currentTarget.style.color = "var(--text-primary)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.backgroundColor = "transparent";
+                      e.currentTarget.style.color = "var(--text-secondary)";
+                    }}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    <span className="mr-2">⚙️</span>
+                    관리자
+                  </Link>
+                )}
             </div>
 
             {/* 로그아웃 */}

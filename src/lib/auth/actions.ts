@@ -12,7 +12,7 @@ export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver') {
   const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
 
   const { data, error } = await supabase.auth.signInWithOAuth({
-    provider,
+    provider: provider as any,
     options: {
       redirectTo: `${origin}/auth/callback`,
     },
