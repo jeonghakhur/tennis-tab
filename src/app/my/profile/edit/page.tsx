@@ -243,7 +243,6 @@ export default function ProfileEditPage() {
     },
   ];
 
-
   // 한국 시도 데이터
   const cityOptions = [
     { value: "서울특별시", label: "서울특별시" },
@@ -367,7 +366,10 @@ export default function ProfileEditPage() {
                 테니스 입문 년도
               </label>
               <Select
-                value={formData.start_year || "NONE"}
+                key={`start-year-${formData.start_year}`}
+                value={
+                  formData.start_year ? formData.start_year.toString() : "NONE"
+                }
                 onValueChange={(value) => {
                   setFormData((prev) => ({
                     ...prev,
