@@ -24,21 +24,21 @@ export default async function NewTournamentPage({ searchParams }: Props) {
             .single();
 
         if (tournament) {
-            // 템플릿 데이터 생성 (ID와 날짜는 제외)
+            // 템플릿 데이터 생성 (ID 제외, 날짜 포함)
             templateData = {
                 id: '', // 새 대회이므로 ID는 비워둠
                 title: `${tournament.title} (복사본)`,
                 description: tournament.description,
-                start_date: '', // 날짜는 사용자가 새로 입력
-                end_date: '',
+                start_date: tournament.start_date,
+                end_date: tournament.end_date,
                 location: tournament.location,
                 address: tournament.address,
                 host: tournament.host,
                 organizer_name: tournament.organizer_name,
                 ball_type: tournament.ball_type,
-                entry_start_date: '',
-                entry_end_date: '',
-                opening_ceremony: '',
+                entry_start_date: tournament.entry_start_date,
+                entry_end_date: tournament.entry_end_date,
+                opening_ceremony: tournament.opening_ceremony,
                 match_type: tournament.match_type,
                 bank_account: tournament.bank_account,
                 eligibility: tournament.eligibility,
@@ -48,7 +48,7 @@ export default async function NewTournamentPage({ searchParams }: Props) {
                     name: div.name,
                     max_teams: div.max_teams,
                     team_member_limit: div.team_member_limit,
-                    match_date: '', // 날짜는 사용자가 새로 입력
+                    match_date: div.match_date,
                     match_location: div.match_location,
                     prize_winner: div.prize_winner,
                     prize_runner_up: div.prize_runner_up,
@@ -72,7 +72,7 @@ export default async function NewTournamentPage({ searchParams }: Props) {
                                 템플릿 사용 중
                             </h3>
                             <p className="text-sm text-blue-700 dark:text-blue-300">
-                                이전 대회의 정보를 불러왔습니다. 날짜 정보는 새로 입력해주세요.
+                                이전 대회의 정보를 불러왔습니다. 필요한 내용을 수정하세요.
                             </p>
                         </div>
                     </div>

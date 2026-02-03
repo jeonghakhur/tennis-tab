@@ -115,7 +115,11 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const isTeamMatch = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES';
 
     const addDivision = () => {
-        setDivisions([...divisions, { ...emptyDivision }]);
+        // 기존 부서가 있으면 마지막 부서를 복사, 없으면 빈 부서
+        const template = divisions.length > 0
+            ? { ...divisions[divisions.length - 1], name: '' }  // 마지막 부서 복사 (이름은 비움)
+            : { ...emptyDivision };
+        setDivisions([...divisions, template]);
     };
 
     const removeDivision = (index: number) => {
@@ -500,7 +504,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                         <label className={labelClass}>시합 일시</label>
                                         <input
                                             type="datetime-local"
-                                            value={division.match_date || ''}
+                                            value={division.match_date ? formatDateTimeLocal(division.match_date) : ''}
                                             onChange={(e) => updateDivision(index, 'match_date', e.target.value || null)}
                                             onBlur={(e) => {
                                                 if (e.target.value && !e.target.value.includes('T')) {
