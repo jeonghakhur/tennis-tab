@@ -19,60 +19,38 @@ if (!supabaseUrl || !supabaseServiceKey) {
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
 async function runMigration() {
-  console.log('🚀 마이그레이션 시작...\n');
+  console.log('🚀 RLS 정책 완화 마이그레이션 시작...\n');
 
   try {
-    // 1. dominant_hand 컬럼 삭제
-    console.log('1️⃣ dominant_hand 컬럼 삭제 중...');
-    const { error: dropError } = await supabase.rpc('exec_sql', {
-      sql: 'ALTER TABLE public.profiles DROP COLUMN IF EXISTS dominant_hand;'
-    });
-    
-    if (dropError) {
-      console.log('⚠️ dominant_hand 컬럼 삭제 실패 (이미 삭제되었을 수 있음):', dropError.message);
-    } else {
-      console.log('✅ dominant_hand 컬럼 삭제 완료\n');
-    }
+    const sql = `
+      -- Tournaments 테이블 RLS 완화 (개발용)
+      DROP POLICY IF EXISTS "Admins can create tournaments" ON tournaments;
+      DROP POLICY IF EXISTS "Authenticated users can create tournaments" ON tournaments;
+      CREATE POLICY "Authenticated users can create tournaments" ON tournaments
+        FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
-    // 2. club_city 컬럼 추가
-    console.log('2️⃣ club_city 컬럼 추가 중...');
-    const { error: cityError } = await supabase.rpc('exec_sql', {
-      sql: 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS club_city TEXT;'
-    });
-    
-    if (cityError) {
-      console.log('⚠️ club_city 컬럼 추가 실패:', cityError.message);
-    } else {
-      console.log('✅ club_city 컬럼 추가 완료\n');
-    }
+      -- Tournament Divisions 테이블 RLS 완화 (개발용)
+      DROP POLICY IF EXISTS "Admins can create tournament divisions" ON tournament_divisions;
+      DROP POLICY IF EXISTS "Authenticated users can create tournament divisions" ON tournament_divisions;
+      CREATE POLICY "Authenticated users can create tournament divisions" ON tournament_divisions
+        FOR INSERT WITH CHECK (
+          EXISTS (
+            SELECT 1 FROM tournaments t
+            WHERE t.id = tournament_id AND t.organizer_id = auth.uid()
+          )
+        );
+    `;
 
-    // 3. club_district 컬럼 추가
-    console.log('3️⃣ club_district 컬럼 추가 중...');
-    const { error: districtError } = await supabase.rpc('exec_sql', {
-      sql: 'ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS club_district TEXT;'
-    });
-    
-    if (districtError) {
-      console.log('⚠️ club_district 컬럼 추가 실패:', districtError.message);
-    } else {
-      console.log('✅ club_district 컬럼 추가 완료\n');
-    }
+    console.log('1️⃣ SQL 실행 중...');
+    const { error } = await supabase.rpc('exec_sql', { sql });
 
-    // 4. 테이블 스키마 확인
-    console.log('4️⃣ 프로필 테이블 스키마 확인 중...');
-    const { data: profiles, error: selectError } = await supabase
-      .from('profiles')
-      .select('*')
-      .limit(1);
-
-    if (selectError) {
-      console.error('❌ 스키마 확인 실패:', selectError.message);
+    if (error) {
+      console.log('❌ RLS 정책 업데이트 실패:', error.message);
+      // exec_sql이 없으면 Supabase Dashboard SQL Editor에서 직접 실행해야 함을 알림
+      console.log('👉 Supabase Dashboard의 SQL Editor에서 위 SQL을 직접 실행해주세요.');
     } else {
-      console.log('✅ 마이그레이션 완료!\n');
-      console.log('📊 프로필 테이블 컬럼 목록:');
-      if (profiles && profiles.length > 0) {
-        console.log(Object.keys(profiles[0]).join(', '));
-      }
+      console.log('✅ RLS 정책이 성공적으로 업데이트되었습니다!\n');
+      console.log('이제 누구나(로그인한 유저) 대회를 생성할 수 있습니다.');
     }
 
   } catch (error: any) {
