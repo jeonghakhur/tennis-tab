@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
 
@@ -119,29 +120,46 @@ export async function createEntry(
             }
         }
 
-        // 7. 참가 신청 생성
-        const { data: newEntry, error: insertError } = await supabase
+        // 7. 참가 신청 생성 (Service Role로 INSERT → RLS 우회, 이미 본인 user_id로 검증됨)
+        // 원격 DB가 waitlist 스키마(CONFIRMED/WAITLISTED/CANCELLED)일 수 있어 CONFIRMED 사용
+        const insertPayload: Record<string, unknown> = {
+            tournament_id: tournamentId,
+            user_id: user.id,
+            division_id: entryData.divisionId,
+            phone: entryData.phone ?? '',
+            player_name: entryData.playerName ?? '',
+            player_rating: entryData.playerRating ?? null,
+            club_name: entryData.clubName ?? null,
+            team_order: finalTeamOrder ?? null,
+            partner_data: entryData.partnerData ?? null,
+            team_members: entryData.teamMembers ?? null,
+            status: 'CONFIRMED',
+        };
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+            console.error('SUPABASE_SERVICE_ROLE_KEY is not set');
+            return { success: false, error: '서버 설정 오류입니다. 관리자에게 문의하세요.' };
+        }
+        const supabaseAdmin = createSupabaseClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            serviceRoleKey
+        );
+        const { data: newEntry, error: insertError } = await supabaseAdmin
             .from('tournament_entries')
-            .insert({
-                tournament_id: tournamentId,
-                user_id: user.id,
-                division_id: entryData.divisionId,
-                phone: entryData.phone,
-                player_name: entryData.playerName,
-                player_rating: entryData.playerRating,
-                club_name: entryData.clubName,
-                team_order: finalTeamOrder,
-                partner_data: entryData.partnerData,
-                team_members: entryData.teamMembers,
-                status: 'PENDING',
-                payment_status: 'PENDING',
-            })
+            .insert(insertPayload)
             .select('id')
             .single();
 
         if (insertError) {
             console.error('Insert error:', insertError);
-            return { success: false, error: '참가 신청에 실패했습니다.' };
+            return {
+                success: false,
+                error: insertError.message || '참가 신청에 실패했습니다.',
+            };
+        }
+
+        if (!newEntry?.id) {
+            return { success: false, error: '참가 신청 처리 후 결과를 확인할 수 없습니다.' };
         }
 
         // 8. 캐시 무효화

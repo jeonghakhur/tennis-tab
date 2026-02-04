@@ -122,9 +122,9 @@ export default function TournamentEntryActions({
     }
   };
 
-  // 신청 상태에 따른 배지 스타일
+  // 신청 상태에 따른 배지 스타일 (PENDING/APPROVED/REJECTED + waitlist: CONFIRMED/WAITLISTED/CANCELLED)
   const getStatusBadge = (status: string) => {
-    const badges = {
+    const badges: Record<string, { text: string; className: string }> = {
       PENDING: {
         text: "승인 대기중",
         className:
@@ -140,9 +140,24 @@ export default function TournamentEntryActions({
         className:
           "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
       },
+      CONFIRMED: {
+        text: "확정",
+        className:
+          "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+      },
+      WAITLISTED: {
+        text: "대기자",
+        className:
+          "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+      },
+      CANCELLED: {
+        text: "취소됨",
+        className:
+          "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+      },
     };
 
-    const badge = badges[status as keyof typeof badges] || badges.PENDING;
+    const badge = badges[status] || badges.PENDING;
 
     return (
       <span
@@ -166,10 +181,13 @@ export default function TournamentEntryActions({
               {getStatusBadge(currentEntry.status)}
             </div>
 
-            {currentEntry.status === "PENDING" && tournamentStatus === "OPEN" && (
+            {(currentEntry.status === "PENDING" || currentEntry.status === "CONFIRMED") &&
+              tournamentStatus === "OPEN" && (
               <>
                 <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-                  주최자의 승인을 기다리고 있습니다.
+                  {currentEntry.status === "PENDING"
+                    ? "주최자의 승인을 기다리고 있습니다."
+                    : "참가 신청이 확정되었습니다."}
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -190,9 +208,18 @@ export default function TournamentEntryActions({
               </>
             )}
 
-            {currentEntry.status === "PENDING" && tournamentStatus !== "OPEN" && (
+            {(currentEntry.status === "PENDING" || currentEntry.status === "CONFIRMED") &&
+              tournamentStatus !== "OPEN" && (
               <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-                주최자의 승인을 기다리고 있습니다.
+                {currentEntry.status === "PENDING"
+                  ? "주최자의 승인을 기다리고 있습니다."
+                  : "참가 신청이 확정되었습니다."}
+              </p>
+            )}
+
+            {currentEntry.status === "WAITLISTED" && (
+              <p className="text-sm text-center text-amber-600 dark:text-amber-400">
+                대기자 목록에 등록되었습니다. 순번이 되면 연락드립니다.
               </p>
             )}
 
@@ -205,6 +232,12 @@ export default function TournamentEntryActions({
             {currentEntry.status === "REJECTED" && (
               <p className="text-sm text-center text-red-600 dark:text-red-400">
                 참가 신청이 거절되었습니다.
+              </p>
+            )}
+
+            {currentEntry.status === "CANCELLED" && (
+              <p className="text-sm text-center text-gray-500 dark:text-gray-400">
+                참가 신청이 취소되었습니다.
               </p>
             )}
           </div>

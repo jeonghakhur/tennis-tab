@@ -18,7 +18,7 @@ export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
 export type MatchType = 'INDIVIDUAL_SINGLES' | 'INDIVIDUAL_DOUBLES' | 'TEAM_SINGLES' | 'TEAM_DOUBLES'
-export type EntryStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
+export type EntryStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONFIRMED' | 'WAITLISTED' | 'CANCELLED'
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
 // 파트너 정보 (개인전 복식용)
