@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { MatchType, PartnerData, TeamMember } from "@/lib/supabase/types";
 
@@ -24,10 +25,14 @@ interface TournamentEntryFormProps {
   matchType: MatchType | null;
   divisions: Division[];
   userProfile: UserProfile;
+  entryFee: number;
+  bankAccount: string | null;
   onClose: () => void;
   onSubmit: (
     data: EntryFormData,
   ) => Promise<{ success: boolean; error?: string }>;
+  editMode?: boolean;
+  initialData?: EntryFormData;
 }
 
 export interface EntryFormData {
@@ -42,34 +47,58 @@ export interface EntryFormData {
 }
 
 export default function TournamentEntryForm({
-  tournamentId,
   tournamentTitle,
   matchType,
   divisions,
   userProfile,
+  entryFee,
+  bankAccount,
   onClose,
   onSubmit,
+  editMode = false,
+  initialData,
 }: TournamentEntryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // 폼 상태
-  const [divisionId, setDivisionId] = useState("");
-  const [phone, setPhone] = useState(userProfile.phone || "");
-  const [playerName, setPlayerName] = useState(userProfile.name);
-  const [playerRating, setPlayerRating] = useState<number | null>(
-    userProfile.rating,
+  // Portal을 위한 마운트 상태
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // 폼 상태 (수정 모드일 경우 initialData 사용)
+  const [divisionId, setDivisionId] = useState(initialData?.divisionId || "");
+  const [phone, setPhone] = useState(
+    initialData?.phone || userProfile.phone || ""
   );
-  const [clubName, setClubName] = useState(userProfile.club || "");
-  const [teamOrder, setTeamOrder] = useState("");
+  const [playerName, setPlayerName] = useState(
+    initialData?.playerName || userProfile.name
+  );
+  const [playerRating, setPlayerRating] = useState<number | null>(
+    initialData?.playerRating ?? userProfile.rating
+  );
+  const [clubName, setClubName] = useState(
+    initialData?.clubName || userProfile.club || ""
+  );
+  const [teamOrder, setTeamOrder] = useState(initialData?.teamOrder || "");
 
   // 파트너 정보 (개인전 복식)
-  const [partnerName, setPartnerName] = useState("");
-  const [partnerClub, setPartnerClub] = useState("");
-  const [partnerRating, setPartnerRating] = useState<number | null>(null);
+  const [partnerName, setPartnerName] = useState(
+    initialData?.partnerData?.name || ""
+  );
+  const [partnerClub, setPartnerClub] = useState(
+    initialData?.partnerData?.club || ""
+  );
+  const [partnerRating, setPartnerRating] = useState<number | null>(
+    initialData?.partnerData?.rating ?? null
+  );
 
   // 팀원 정보 (단체전)
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(
+    initialData?.teamMembers || []
+  );
 
   // 선택된 division 정보
   const selectedDivision = divisions.find((d) => d.id === divisionId);
@@ -169,11 +198,11 @@ export default function TournamentEntryForm({
     setIsSubmitting(false);
 
     if (result.success) {
-      alert("참가 신청이 완료되었습니다!");
+      alert(editMode ? "신청 정보가 수정되었습니다!" : "참가 신청이 완료되었습니다!");
       router.refresh();
       onClose();
     } else {
-      alert(result.error || "참가 신청에 실패했습니다.");
+      alert(result.error || (editMode ? "신청 수정에 실패했습니다." : "참가 신청에 실패했습니다."));
     }
   };
 
@@ -182,9 +211,12 @@ export default function TournamentEntryForm({
   const labelClass =
     "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2";
 
-  return (
+  // SSR에서는 렌더링하지 않음
+  if (!mounted) return null;
+
+  const modalContent = (
     <div
-      className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto"
+      className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 overflow-y-auto backdrop-brightness-50"
       style={{ zIndex: 9999 }}
     >
       <div
@@ -194,7 +226,7 @@ export default function TournamentEntryForm({
         <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              참가 신청
+              {editMode ? "신청 수정" : "참가 신청"}
             </h2>
             <button
               onClick={onClose}
@@ -466,11 +498,44 @@ export default function TournamentEntryForm({
             </>
           )}
 
-          {/* 결제 안내 */}
-          <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-xl border border-yellow-200 dark:border-yellow-800">
-            <p className="text-sm text-yellow-800 dark:text-yellow-200">
-              💡 참가비 결제는 신청 승인 후 별도 안내드립니다.
-            </p>
+          {/* 참가비 결제 */}
+          <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                참가비
+              </h3>
+              <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                {entryFee === 0 ? "무료" : `${entryFee.toLocaleString()}원`}
+              </span>
+            </div>
+
+            {entryFee > 0 && bankAccount && (
+              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 space-y-2">
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  입금 계좌
+                </p>
+                <p className="font-medium text-gray-900 dark:text-white">
+                  {bankAccount}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard.writeText(bankAccount);
+                    alert("계좌번호가 복사되었습니다.");
+                  }}
+                  className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  계좌번호 복사
+                </button>
+              </div>
+            )}
+
+            {entryFee > 0 && (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                * 참가 신청 후 위 계좌로 참가비를 입금해주세요.
+                <br />* 입금자명은 신청자 이름과 동일하게 해주세요.
+              </p>
+            )}
           </div>
 
           {/* 제출 버튼 */}
@@ -487,11 +552,15 @@ export default function TournamentEntryForm({
               disabled={isSubmitting}
               className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isSubmitting ? "신청 중..." : "참가 신청하기"}
+              {isSubmitting
+                ? (editMode ? "수정 중..." : "신청 중...")
+                : (editMode ? "수정하기" : "참가 신청하기")}
             </button>
           </div>
         </form>
       </div>
     </div>
   );
+
+  return createPortal(modalContent, document.body);
 }

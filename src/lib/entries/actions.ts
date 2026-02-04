@@ -276,6 +276,139 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
 }
 
 /**
+ * 참가 신청 수정 (본인용)
+ */
+export async function updateEntry(
+    entryId: string,
+    entryData: {
+        divisionId: string;
+        phone: string;
+        playerName: string;
+        playerRating: number | null;
+        clubName?: string | null;
+        teamOrder?: string | null;
+        partnerData?: { name: string; club: string; rating: number } | null;
+        teamMembers?: Array<{ name: string; rating: number }> | null;
+    }
+): Promise<UpdateEntryResult> {
+    try {
+        const supabase = await createClient();
+
+        // 1. 사용자 인증 확인
+        const {
+            data: { user },
+            error: authError,
+        } = await supabase.auth.getUser();
+
+        if (authError || !user) {
+            return { success: false, error: '로그인이 필요합니다.' };
+        }
+
+        // 2. 신청 정보 조회 (권한 확인용)
+        const { data: entry, error: entryError } = await supabase
+            .from('tournament_entries')
+            .select('*, tournaments!inner(status, match_type)')
+            .eq('id', entryId)
+            .single();
+
+        if (entryError || !entry) {
+            return { success: false, error: '신청 정보를 찾을 수 없습니다.' };
+        }
+
+        // 3. 본인 신청인지 확인
+        if (entry.user_id !== user.id) {
+            return { success: false, error: '본인의 신청만 수정할 수 있습니다.' };
+        }
+
+        // 4. 대회 상태 확인 (OPEN 상태에서만 수정 가능)
+        if (entry.tournaments.status !== 'OPEN') {
+            return { success: false, error: '접수 기간에만 수정할 수 있습니다.' };
+        }
+
+        // 5. 부서 정보 확인
+        const { data: division, error: divisionError } = await supabase
+            .from('tournament_divisions')
+            .select('*')
+            .eq('id', entryData.divisionId)
+            .eq('tournament_id', entry.tournament_id)
+            .single();
+
+        if (divisionError || !division) {
+            return { success: false, error: '참가 부서를 찾을 수 없습니다.' };
+        }
+
+        // 6. 부서 변경 시 중복 체크 (다른 부서로 변경하는 경우)
+        if (entryData.divisionId !== entry.division_id) {
+            const { data: existingEntry } = await supabase
+                .from('tournament_entries')
+                .select('id')
+                .eq('tournament_id', entry.tournament_id)
+                .eq('user_id', user.id)
+                .eq('division_id', entryData.divisionId)
+                .neq('id', entryId)
+                .maybeSingle();
+
+            if (existingEntry) {
+                return { success: false, error: '이미 해당 부서에 참가 신청을 하셨습니다.' };
+            }
+        }
+
+        // 7. 팀 순서 자동 설정 (단체전이고 teamOrder가 없는 경우)
+        let finalTeamOrder = entryData.teamOrder;
+        const matchType = entry.tournaments.match_type;
+        if ((matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES') &&
+            entryData.clubName && !entryData.teamOrder) {
+            // 같은 클럽이 이미 등록되어 있는지 확인 (자기 자신 제외)
+            const { data: existingClubEntries } = await supabase
+                .from('tournament_entries')
+                .select('team_order')
+                .eq('tournament_id', entry.tournament_id)
+                .eq('division_id', entryData.divisionId)
+                .eq('club_name', entryData.clubName)
+                .neq('id', entryId)
+                .order('team_order', { ascending: false })
+                .limit(1);
+
+            if (existingClubEntries && existingClubEntries.length > 0) {
+                const lastOrder = existingClubEntries[0].team_order;
+                const orders = ['가', '나', '다', '라', '마', '바', '사', '아'];
+                const lastIndex = lastOrder ? orders.indexOf(lastOrder) : -1;
+                finalTeamOrder = orders[lastIndex + 1] || '가';
+            }
+        }
+
+        // 8. 신청 정보 업데이트
+        const { error: updateError } = await supabase
+            .from('tournament_entries')
+            .update({
+                division_id: entryData.divisionId,
+                phone: entryData.phone,
+                player_name: entryData.playerName,
+                player_rating: entryData.playerRating,
+                club_name: entryData.clubName,
+                team_order: finalTeamOrder,
+                partner_data: entryData.partnerData,
+                team_members: entryData.teamMembers,
+            })
+            .eq('id', entryId);
+
+        if (updateError) {
+            console.error('Update error:', updateError);
+            return { success: false, error: '신청 수정에 실패했습니다.' };
+        }
+
+        // 9. 캐시 무효화
+        revalidatePath(`/tournaments/${entry.tournament_id}`);
+        revalidatePath('/my/entries');
+
+        return { success: true };
+    } catch (error) {
+        console.error('Update entry error:', error);
+        return { success: false, error: '신청 수정 중 오류가 발생했습니다.' };
+    }
+}
+
+/**
  * 사용자의 특정 대회 신청 정보 조회
  */
 export async function getUserEntry(tournamentId: string) {

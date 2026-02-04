@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { createEntry, deleteEntry } from "@/lib/entries/actions";
+import { createEntry, deleteEntry, updateEntry } from "@/lib/entries/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
 
@@ -20,18 +21,30 @@ interface UserProfile {
   club: string | null;
 }
 
+interface CurrentEntry {
+  id: string;
+  status: string;
+  division_id: string | null;
+  phone: string | null;
+  player_name: string | null;
+  player_rating: number | null;
+  club_name: string | null;
+  team_order: string | null;
+  partner_data: { name: string; club: string; rating: number } | null;
+  team_members: Array<{ name: string; rating: number }> | null;
+}
+
 interface TournamentEntryActionsProps {
   tournamentId: string;
   tournamentTitle: string;
   tournamentStatus: string;
   matchType: MatchType | null;
   divisions: Division[];
-  currentEntry: {
-    id: string;
-    status: string;
-  } | null;
+  currentEntry: CurrentEntry | null;
   isLoggedIn: boolean;
   userProfile: UserProfile | null;
+  entryFee: number;
+  bankAccount: string | null;
 }
 
 export default function TournamentEntryActions({
@@ -43,15 +56,42 @@ export default function TournamentEntryActions({
   currentEntry,
   isLoggedIn,
   userProfile,
+  entryFee,
+  bankAccount,
 }: TournamentEntryActionsProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
+  const [showEditForm, setShowEditForm] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
-  // 참가 신청 폼 제출 처리
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
+
+  // 참가 신청 폼 제출 처리 (신규)
   const handleSubmit = async (data: EntryFormData) => {
     const result = await createEntry(tournamentId, {
+      divisionId: data.divisionId,
+      phone: data.phone,
+      playerName: data.playerName,
+      playerRating: data.playerRating,
+      clubName: data.clubName,
+      teamOrder: data.teamOrder,
+      partnerData: data.partnerData,
+      teamMembers: data.teamMembers,
+    });
+
+    return result;
+  };
+
+  // 참가 신청 수정 처리
+  const handleUpdate = async (data: EntryFormData) => {
+    if (!currentEntry) return { success: false, error: "신청 정보가 없습니다." };
+
+    const result = await updateEntry(currentEntry.id, {
       divisionId: data.divisionId,
       phone: data.phone,
       playerName: data.playerName,
@@ -126,19 +166,34 @@ export default function TournamentEntryActions({
               {getStatusBadge(currentEntry.status)}
             </div>
 
-            {currentEntry.status === "PENDING" && (
+            {currentEntry.status === "PENDING" && tournamentStatus === "OPEN" && (
               <>
                 <p className="text-sm text-center text-gray-600 dark:text-gray-400">
                   주최자의 승인을 기다리고 있습니다.
                 </p>
-                <button
-                  onClick={() => setShowCancelModal(true)}
-                  disabled={isSubmitting}
-                  className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isSubmitting ? "처리 중..." : "신청 취소"}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowEditForm(true)}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    신청 수정
+                  </button>
+                  <button
+                    onClick={() => setShowCancelModal(true)}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {isSubmitting ? "처리 중..." : "신청 취소"}
+                  </button>
+                </div>
               </>
+            )}
+
+            {currentEntry.status === "PENDING" && tournamentStatus !== "OPEN" && (
+              <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+                주최자의 승인을 기다리고 있습니다.
+              </p>
             )}
 
             {currentEntry.status === "APPROVED" && (
@@ -156,38 +211,72 @@ export default function TournamentEntryActions({
         </div>
 
         {/* 취소 확인 모달 */}
-        {showCancelModal && (
-          <div
-            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4"
-            style={{ zIndex: 9999 }}
-          >
+        {showCancelModal &&
+          mounted &&
+          createPortal(
             <div
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative"
-              style={{ zIndex: 10000 }}
+              className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4"
+              style={{ zIndex: 9999 }}
             >
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-                신청 취소 확인
-              </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
-                정말로 참가 신청을 취소하시겠습니까?
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowCancelModal(false)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
-                >
-                  아니오
-                </button>
-                <button
-                  onClick={handleCancel}
-                  disabled={isSubmitting}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50"
-                >
-                  {isSubmitting ? "처리 중..." : "예, 취소합니다"}
-                </button>
+              <div
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative"
+                style={{ zIndex: 10000 }}
+              >
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  신청 취소 확인
+                </h3>
+                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                  정말로 참가 신청을 취소하시겠습니까?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowCancelModal(false)}
+                    className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
+                  >
+                    아니오
+                  </button>
+                  <button
+                    onClick={handleCancel}
+                    disabled={isSubmitting}
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50"
+                  >
+                    {isSubmitting ? "처리 중..." : "예, 취소합니다"}
+                  </button>
+                </div>
               </div>
-            </div>
-          </div>
+            </div>,
+            document.body
+          )}
+
+        {/* 신청 수정 폼 모달 */}
+        {showEditForm && currentEntry && (
+          <TournamentEntryForm
+            tournamentId={tournamentId}
+            tournamentTitle={tournamentTitle}
+            matchType={matchType}
+            divisions={divisions}
+            userProfile={{
+              name: currentEntry.player_name || "",
+              phone: currentEntry.phone || null,
+              rating: currentEntry.player_rating || null,
+              club: currentEntry.club_name || null,
+            }}
+            entryFee={entryFee}
+            bankAccount={bankAccount}
+            onClose={() => setShowEditForm(false)}
+            onSubmit={handleUpdate}
+            editMode={true}
+            initialData={{
+              divisionId: currentEntry.division_id || "",
+              phone: currentEntry.phone || "",
+              playerName: currentEntry.player_name || "",
+              playerRating: currentEntry.player_rating,
+              clubName: currentEntry.club_name,
+              teamOrder: currentEntry.team_order,
+              partnerData: currentEntry.partner_data,
+              teamMembers: currentEntry.team_members,
+            }}
+          />
         )}
       </>
     );
@@ -252,6 +341,8 @@ export default function TournamentEntryActions({
           matchType={matchType}
           divisions={divisions}
           userProfile={userProfile}
+          entryFee={entryFee}
+          bankAccount={bankAccount}
           onClose={() => setShowEntryForm(false)}
           onSubmit={handleSubmit}
         />
