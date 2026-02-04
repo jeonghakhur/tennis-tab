@@ -4,6 +4,8 @@ import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { MatchType, PartnerData, TeamMember } from "@/lib/supabase/types";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { unformatPhoneNumber } from "@/lib/utils/phone";
 
 interface Division {
   id: string;
@@ -174,7 +176,7 @@ export default function TournamentEntryForm({
 
     const formData: EntryFormData = {
       divisionId,
-      phone,
+      phone: unformatPhoneNumber(phone),
       playerName,
       playerRating,
     };
@@ -296,13 +298,11 @@ export default function TournamentEntryForm({
               <label className={labelClass}>
                 전화번호 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="tel"
+              <PhoneInput
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="010-1234-5678"
-                className={inputClass}
+                onChange={setPhone}
                 required
+                className={inputClass}
               />
             </div>
 

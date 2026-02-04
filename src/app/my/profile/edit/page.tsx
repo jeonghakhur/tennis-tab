@@ -12,6 +12,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import PhoneInput from "@/components/ui/PhoneInput";
+import { formatPhoneNumber, unformatPhoneNumber } from "@/lib/utils/phone";
 import type { StartYear } from "@/lib/supabase/types";
 
 interface FormData {
@@ -22,23 +24,6 @@ interface FormData {
   club: string;
   club_city: string;
   club_district: string;
-}
-
-// 전화번호 포맷팅 (010-1234-5678)
-function formatPhoneNumber(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (digits.length <= 3) {
-    return digits;
-  } else if (digits.length <= 7) {
-    return `${digits.slice(0, 3)}-${digits.slice(3)}`;
-  } else {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
-  }
-}
-
-// 전화번호에서 숫자만 추출
-function unformatPhoneNumber(value: string): string {
-  return value.replace(/\D/g, "");
 }
 
 // 입력값 보안 검증 (XSS 방지)
@@ -93,11 +78,7 @@ export default function ProfileEditPage() {
   ) => {
     const { name, value } = e.target;
 
-    if (name === "phone") {
-      // 전화번호는 숫자만 허용 후 자동 포맷팅
-      const formatted = formatPhoneNumber(value);
-      setFormData((prev) => ({ ...prev, phone: formatted }));
-    } else if (name === "rating") {
+    if (name === "rating") {
       // 점수는 정수만 허용
       const integer = validateIntegerInput(value);
       setFormData((prev) => ({ ...prev, rating: integer }));
@@ -339,20 +320,13 @@ export default function ProfileEditPage() {
               >
                 연락처
               </label>
-              <input
-                type="tel"
-                id="phone"
-                name="phone"
+              <PhoneInput
                 value={formData.phone}
-                onChange={handleChange}
-                inputMode="numeric"
-                className="w-full px-4 py-3 rounded-lg outline-none"
-                style={{
-                  backgroundColor: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  color: "var(--text-primary)",
+                onChange={(value) => {
+                  setFormData((prev) => ({ ...prev, phone: value }));
+                  setError(null);
+                  setSuccess(false);
                 }}
-                placeholder="010-0000-0000"
               />
             </div>
 

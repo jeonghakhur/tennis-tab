@@ -3,7 +3,12 @@
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { createEntry, deleteEntry, updateEntry, getUserEntry } from "@/lib/entries/actions";
+import {
+  createEntry,
+  deleteEntry,
+  updateEntry,
+  getUserEntry,
+} from "@/lib/entries/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
 
@@ -77,22 +82,22 @@ export default function TournamentEntryActions({
 
   useEffect(() => {
     if (!mounted || !isLoggedIn || !tournamentId) return;
-    
+
     console.clear();
-    console.log('🔍 참가 신청 상태 확인 시작...');
-    console.log('tournamentId:', tournamentId);
-    console.log('isLoggedIn:', isLoggedIn);
-    
+    console.log("🔍 참가 신청 상태 확인 시작...");
+    console.log("tournamentId:", tournamentId);
+    console.log("isLoggedIn:", isLoggedIn);
+
     getUserEntry(tournamentId).then((e) => {
-      console.log('📋 서버에서 가져온 참가 신청 정보:', e);
+      console.log("📋 서버에서 가져온 참가 신청 정보:", e);
       if (e) {
-        console.log('✅ 참가 신청이 되어있습니다.');
-        console.log('   - 신청 ID:', e.id);
-        console.log('   - 상태:', e.status);
-        console.log('   - 부서 ID:', e.division_id);
+        console.log("✅ 참가 신청이 되어있습니다.");
+        console.log("   - 신청 ID:", e.id);
+        console.log("   - 상태:", e.status);
+        console.log("   - 부서 ID:", e.division_id);
         setEntry(e as CurrentEntry);
       } else {
-        console.log('❌ 참가 신청이 없습니다.');
+        console.log("❌ 참가 신청이 없습니다.");
         setEntry(null);
       }
     });
@@ -225,7 +230,7 @@ export default function TournamentEntryActions({
                 </p>
               </div>
               <button
-                onClick={() => router.push("/login")}
+                onClick={() => router.push("/auth/login")}
                 className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
               >
                 로그인하기
@@ -237,22 +242,30 @@ export default function TournamentEntryActions({
               {/* 신청 정보 요약 */}
               <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 space-y-3">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">신청 순서</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    신청 순서
+                  </span>
                   <span className="font-bold text-blue-600 dark:text-blue-400">
                     {entry.current_rank ?? "-"}번째
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">신청 상태</span>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    신청 상태
+                  </span>
                   {getStatusBadge(entry.status)}
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">결제 여부</span>
-                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    entry.payment_status === "PAID"
-                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                  }`}>
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    결제 여부
+                  </span>
+                  <span
+                    className={`px-3 py-1 rounded-full text-sm font-medium ${
+                      entry.payment_status === "PAID"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                    }`}
+                  >
                     {entry.payment_status === "PAID" ? "결제 완료" : "미결제"}
                   </span>
                 </div>
@@ -261,9 +274,12 @@ export default function TournamentEntryActions({
               {canEditOrCancel && (
                 <>
                   <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-                    {entry.status === "PENDING" && "주최자의 승인을 기다리고 있습니다."}
-                    {entry.status === "CONFIRMED" && "참가 신청이 확정되었습니다."}
-                    {(entry.status === "APPROVED" || entry.status === "WAITLISTED") &&
+                    {entry.status === "PENDING" &&
+                      "주최자의 승인을 기다리고 있습니다."}
+                    {entry.status === "CONFIRMED" &&
+                      "참가 신청이 확정되었습니다."}
+                    {(entry.status === "APPROVED" ||
+                      entry.status === "WAITLISTED") &&
                       "참가 신청이 접수되었습니다."}
                   </p>
                   <div className="flex gap-2">
@@ -378,7 +394,7 @@ export default function TournamentEntryActions({
               </div>
             </div>
           </div>,
-          document.body
+          document.body,
         )}
 
       {/* 참가 신청 폼 모달 */}
