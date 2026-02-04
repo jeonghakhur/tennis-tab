@@ -270,15 +270,21 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
             return { success: false, error: '본인의 신청만 취소할 수 있습니다.' };
         }
 
-        // 4. 신청 삭제
-        const { error: deleteError } = await supabase
+        // 4. 신청 삭제 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+            return { success: false, error: '서버 설정 오류입니다.' };
+        }
+        const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey);
+        const { error: deleteError } = await supabaseAdmin
             .from('tournament_entries')
             .delete()
-            .eq('id', entryId);
+            .eq('id', entryId)
+            .eq('user_id', user.id);
 
         if (deleteError) {
             console.error('Delete error:', deleteError);
-            return { success: false, error: '신청 취소에 실패했습니다.' };
+            return { success: false, error: deleteError.message || '신청 취소에 실패했습니다.' };
         }
 
         // 5. 캐시 무효화
@@ -395,24 +401,30 @@ export async function updateEntry(
             }
         }
 
-        // 8. 신청 정보 업데이트
-        const { error: updateError } = await supabase
+        // 8. 신청 정보 업데이트 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
+        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!serviceRoleKey) {
+            return { success: false, error: '서버 설정 오류입니다.' };
+        }
+        const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey);
+        const { error: updateError } = await supabaseAdmin
             .from('tournament_entries')
             .update({
                 division_id: entryData.divisionId,
                 phone: entryData.phone,
                 player_name: entryData.playerName,
                 player_rating: entryData.playerRating,
-                club_name: entryData.clubName,
-                team_order: finalTeamOrder,
-                partner_data: entryData.partnerData,
-                team_members: entryData.teamMembers,
+                club_name: entryData.clubName ?? null,
+                team_order: finalTeamOrder ?? null,
+                partner_data: entryData.partnerData ?? null,
+                team_members: entryData.teamMembers ?? null,
             })
-            .eq('id', entryId);
+            .eq('id', entryId)
+            .eq('user_id', user.id);
 
         if (updateError) {
             console.error('Update error:', updateError);
-            return { success: false, error: '신청 수정에 실패했습니다.' };
+            return { success: false, error: updateError.message || '신청 수정에 실패했습니다.' };
         }
 
         // 9. 캐시 무효화
@@ -441,7 +453,6 @@ export async function getUserEntry(tournamentId: string) {
         if (authError || !user) {
             return null;
         }
-
         const { data: entry, error } = await supabase
             .from('tournament_entries')
             .select('*')

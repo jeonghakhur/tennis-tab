@@ -10,6 +10,8 @@ interface Props {
   params: Promise<{ id: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export default async function TournamentDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
@@ -51,15 +53,17 @@ export default async function TournamentDetailPage({ params }: Props) {
 
     userProfile = profile;
 
-    // 현재 참가 신청 상태 확인 (수정을 위해 전체 정보 포함)
+    // 현재 참가 신청 상태 확인 (여러 부서 신청 시 최신 1건, 수정/취소용)
     const { data: entry } = await supabase
       .from("tournament_entries")
       .select("*")
       .eq("tournament_id", id)
       .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    currentEntry = entry;
+    currentEntry = entry ?? null;
   }
 
   const organizerName = tournament.profiles
