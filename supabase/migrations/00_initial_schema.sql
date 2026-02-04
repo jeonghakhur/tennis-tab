@@ -15,7 +15,7 @@ CREATE TYPE match_type AS ENUM (
   'TEAM_SINGLES',
   'TEAM_DOUBLES'
 );
-CREATE TYPE entry_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+CREATE TYPE entry_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CONFIRMED', 'WAITLISTED', 'CANCELLED');
 CREATE TYPE payment_status AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- =============================================================================

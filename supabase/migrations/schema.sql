@@ -1,5 +1,5 @@
--- Tennis Tab 데이터베이스 스키마
--- 현재 마이그레이션(00_initial_schema.sql) 기준. 원격 DB 덤프는 scripts/dump-schema.sh 사용.
+-- Tennis Tab 데이터베이스 스키마 (00_initial_schema.sql과 동일)
+-- 원격 DB 덤프 시 scripts/dump-schema.sh 실행 시 이 파일이 덮어씌워짐.
 
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
@@ -15,7 +15,7 @@ CREATE TYPE match_type AS ENUM (
   'TEAM_SINGLES',
   'TEAM_DOUBLES'
 );
-CREATE TYPE entry_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
+CREATE TYPE entry_status AS ENUM ('PENDING', 'APPROVED', 'REJECTED', 'CONFIRMED', 'WAITLISTED', 'CANCELLED');
 CREATE TYPE payment_status AS ENUM ('PENDING', 'COMPLETED', 'FAILED', 'CANCELLED');
 
 -- =============================================================================
