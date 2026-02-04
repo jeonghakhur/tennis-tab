@@ -3,16 +3,19 @@
 import { signInWithOAuth } from '@/lib/auth/actions'
 import { useState } from 'react'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 import { Navigation } from '@/components/Navigation'
 
 export default function LoginPage() {
   const [loading, setLoading] = useState<'google' | 'kakao' | 'naver' | null>(null)
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirect') || '/'
 
   // 구글 로그인 (Supabase OAuth)
   const handleGoogleLogin = async () => {
     setLoading('google')
     try {
-      await signInWithOAuth('google')
+      await signInWithOAuth('google', redirectTo)
     } catch (error) {
       console.error('구글 로그인 에러:', error)
       setLoading(null)
@@ -23,7 +26,7 @@ export default function LoginPage() {
   const handleKakaoLogin = async () => {
     setLoading('kakao')
     try {
-      await signInWithOAuth('kakao')
+      await signInWithOAuth('kakao', redirectTo)
     } catch (error) {
       console.error('카카오 로그인 에러:', error)
       setLoading(null)
@@ -33,8 +36,8 @@ export default function LoginPage() {
   // 네이버 로그인 (직접 구현)
   const handleNaverLogin = () => {
     setLoading('naver')
-    // 네이버 API 라우트로 리다이렉트
-    window.location.href = '/api/auth/naver/login'
+    // 네이버 API 라우트로 리다이렉트 (redirect 파라미터 포함)
+    window.location.href = `/api/auth/naver/login?redirect=${encodeURIComponent(redirectTo)}`
   }
 
   return (

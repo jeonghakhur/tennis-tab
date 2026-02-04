@@ -7,14 +7,17 @@ import { redirect } from 'next/navigation'
 /**
  * 소셜 로그인 (구글, 카카오, 네이버)
  */
-export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver') {
+export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver', redirectTo?: string) {
   const supabase = await createClient()
   const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const callbackUrl = redirectTo
+    ? `${origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
+    : `${origin}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: provider as any,
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: callbackUrl,
     },
   })
 

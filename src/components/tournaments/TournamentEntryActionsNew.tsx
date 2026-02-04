@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import {
   createEntry,
   deleteEntry,
@@ -67,6 +67,7 @@ export default function TournamentEntryActions({
   bankAccount,
 }: TournamentEntryActionsProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
@@ -230,7 +231,7 @@ export default function TournamentEntryActions({
                 </p>
               </div>
               <button
-                onClick={() => router.push("/auth/login")}
+                onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)}
                 className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
               >
                 로그인하기

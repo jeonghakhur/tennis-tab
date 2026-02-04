@@ -12,6 +12,17 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state')
   const error = searchParams.get('error')
 
+  // state에서 redirect 정보 추출
+  let redirectTo = '/'
+  if (state) {
+    try {
+      const stateData = JSON.parse(Buffer.from(state, 'base64').toString())
+      redirectTo = stateData.redirect || '/'
+    } catch {
+      // state 파싱 실패 시 기본값 사용
+    }
+  }
+
   // 에러 처리
   if (error || !code) {
     console.error('Naver OAuth Error:', error)
@@ -146,8 +157,8 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // 7. 홈으로 리다이렉트
-    return NextResponse.redirect(new URL('/', request.url))
+    // 7. 원래 페이지로 리다이렉트
+    return NextResponse.redirect(new URL(redirectTo, request.url))
   } catch (error) {
     console.error('Naver OAuth Callback Error:', error)
     return NextResponse.redirect(
