@@ -14,22 +14,6 @@ export type Json =
 // 입문 년도 (문자열: '2026', '2025', ..., '2016년 이전')
 export type StartYear = string
 
-// 연차 기반 skill_level
-export type SkillLevel =
-  | '1_YEAR'
-  | '2_YEARS'
-  | '3_YEARS'
-  | '4_YEARS'
-  | '5_YEARS'
-  | '6_YEARS'
-  | '7_YEARS'
-  | '8_YEARS'
-  | '9_YEARS'
-  | '10_PLUS_YEARS'
-
-// 주 사용 손
-export type DominantHand = 'LEFT' | 'RIGHT' | 'BOTH'
-
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
@@ -62,8 +46,6 @@ export interface Database {
           phone: string | null
           start_year: StartYear | null
           rating: number | null
-          skill_level: SkillLevel | null
-          dominant_hand: DominantHand | null
           club: string | null
           club_city: string | null
           club_district: string | null
@@ -79,8 +61,6 @@ export interface Database {
           phone?: string | null
           start_year?: StartYear | null
           rating?: number | null
-          skill_level?: SkillLevel | null
-          dominant_hand?: DominantHand | null
           club?: string | null
           club_city?: string | null
           club_district?: string | null
@@ -96,8 +76,6 @@ export interface Database {
           phone?: string | null
           start_year?: StartYear | null
           rating?: number | null
-          skill_level?: SkillLevel | null
-          dominant_hand?: DominantHand | null
           club?: string | null
           club_city?: string | null
           club_district?: string | null
@@ -373,8 +351,6 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      skill_level: SkillLevel
-      dominant_hand: DominantHand
       user_role: UserRole
       tournament_status: TournamentStatus
       tournament_format: TournamentFormat
