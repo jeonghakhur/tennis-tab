@@ -82,9 +82,7 @@ export default function PhoneInput({
         <p
           className="text-xs mt-1"
           style={{ color: error && touched ? "#ef4444" : "var(--text-muted)" }}
-        >
-          {error && touched ? error : "휴대폰 번호를 입력하세요 (예: 010-1234-5678)"}
-        </p>
+        ></p>
       )}
     </div>
   );
