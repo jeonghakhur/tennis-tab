@@ -32,6 +32,8 @@ interface CurrentEntry {
   team_order: string | null;
   partner_data: { name: string; club: string; rating: number } | null;
   team_members: Array<{ name: string; rating: number }> | null;
+  current_rank?: number;
+  payment_status?: string;
 }
 
 interface TournamentEntryActionsProps {
@@ -232,8 +234,28 @@ export default function TournamentEntryActions({
           ) : entry?.id ? (
             // 이미 신청한 경우
             <>
-              <div className="text-center py-4">
-                {getStatusBadge(entry.status)}
+              {/* 신청 정보 요약 */}
+              <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">신청 순서</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">
+                    {entry.current_rank ?? "-"}번째
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">신청 상태</span>
+                  {getStatusBadge(entry.status)}
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">결제 여부</span>
+                  <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    entry.payment_status === "PAID"
+                      ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                  }`}>
+                    {entry.payment_status === "PAID" ? "결제 완료" : "미결제"}
+                  </span>
+                </div>
               </div>
 
               {canEditOrCancel && (

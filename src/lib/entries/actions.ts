@@ -133,7 +133,8 @@ export async function createEntry(
             team_order: finalTeamOrder ?? null,
             partner_data: entryData.partnerData ?? null,
             team_members: entryData.teamMembers ?? null,
-            status: 'CONFIRMED',
+            status: 'PENDING',
+            payment_status: 'UNPAID',
         };
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (!serviceRoleKey) {
@@ -439,7 +440,7 @@ export async function updateEntry(
 }
 
 /**
- * 사용자의 특정 대회 신청 정보 조회
+ * 사용자의 특정 대회 신청 정보 조회 (순위 포함)
  */
 export async function getUserEntry(tournamentId: string) {
     try {
@@ -453,6 +454,8 @@ export async function getUserEntry(tournamentId: string) {
         if (authError || !user) {
             return null;
         }
+
+        // 순위 계산을 위한 RPC 호출 또는 직접 쿼리
         const { data: entry, error } = await supabase
             .from('tournament_entries')
             .select('*')
@@ -460,12 +463,23 @@ export async function getUserEntry(tournamentId: string) {
             .eq('user_id', user.id)
             .maybeSingle();
 
-        if (error) {
-            console.error('Get user entry error:', error);
+        if (error || !entry) {
             return null;
         }
 
-        return entry;
+        // 현재 순위 계산 (취소되지 않은 신청 중 created_at 기준)
+        const { count } = await supabase
+            .from('tournament_entries')
+            .select('*', { count: 'exact', head: true })
+            .eq('tournament_id', tournamentId)
+            .eq('division_id', entry.division_id)
+            .neq('status', 'CANCELLED')
+            .lte('created_at', entry.created_at);
+
+        return {
+            ...entry,
+            current_rank: count ?? 1,
+        };
     } catch (error) {
         console.error('Get user entry error:', error);
         return null;
