@@ -1,13 +1,14 @@
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 
-export default function AuthErrorPage({
+export default async function AuthErrorPage({
   searchParams,
 }: {
-  searchParams: { provider?: string; error?: string }
+  searchParams: Promise<{ provider?: string; error?: string }>
 }) {
-  const provider = searchParams.provider || '알 수 없음'
-  const errorMessage = searchParams.error
+  const params = await searchParams
+  const provider = params.provider || '알 수 없음'
+  const errorMessage = params.error
 
   const providerNames: Record<string, string> = {
     naver: '네이버',
