@@ -43,7 +43,6 @@ interface EntriesManagerProps {
   tournamentId: string
   entries: Entry[]
   divisions: Division[]
-  maxParticipants: number
 }
 
 type SortField = 'created_at' | 'player_name' | 'status' | 'payment_status' | 'division'
@@ -101,7 +100,6 @@ export function EntriesManager({
   tournamentId,
   entries,
   divisions,
-  maxParticipants,
 }: EntriesManagerProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('created_at')
@@ -272,8 +270,99 @@ export function EntriesManager({
     paid: entries.filter((e) => e.payment_status === 'COMPLETED').length,
   }
 
+  // 부서별 신청 현황
+  const divisionStats = divisions.map((division) => {
+    const divisionEntries = entries.filter((e) => e.division_id === division.id)
+    return {
+      id: division.id,
+      name: division.name,
+      maxTeams: division.max_teams,
+      total: divisionEntries.length,
+      approved: divisionEntries.filter((e) => normalizeStatus(e.status) === 'APPROVED').length,
+      paid: divisionEntries.filter((e) => e.payment_status === 'COMPLETED').length,
+    }
+  })
+
   return (
     <div className="space-y-6">
+      {/* 부서별 모집 현황 */}
+      {divisions.length > 0 && (
+        <div className="glass-card rounded-xl p-5">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-display font-semibold text-[var(--text-primary)]">
+              부서별 모집 현황
+            </h3>
+            {divisionFilter !== 'ALL' && (
+              <button
+                onClick={() => setDivisionFilter('ALL')}
+                className="text-sm text-[var(--accent-color)] hover:underline"
+              >
+                전체 보기
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {divisionStats.map((div) => {
+              const fillPercent = div.maxTeams ? Math.min((div.total / div.maxTeams) * 100, 100) : 0
+              const isFull = div.maxTeams && div.total >= div.maxTeams
+              const isSelected = divisionFilter === div.id
+
+              return (
+                <button
+                  key={div.id}
+                  onClick={() => setDivisionFilter(isSelected ? 'ALL' : div.id)}
+                  className={`p-4 rounded-xl border text-left transition-all ${
+                    isSelected
+                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 ring-2 ring-[var(--accent-color)]/30'
+                      : isFull
+                        ? 'border-rose-500/30 bg-rose-500/5 hover:border-rose-500/50'
+                        : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-accent)]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-medium text-[var(--text-primary)]">{div.name}</span>
+                    <div className="flex items-center gap-1">
+                      {isSelected && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-color)]/20 text-[var(--accent-color)]">
+                          선택됨
+                        </span>
+                      )}
+                      {isFull && !isSelected && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400">
+                          마감
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-baseline gap-1 mb-2">
+                    <span className="text-2xl font-display font-bold text-[var(--text-primary)]">
+                      {div.total}
+                    </span>
+                    {div.maxTeams && (
+                      <span className="text-sm text-[var(--text-muted)]">/ {div.maxTeams}팀</span>
+                    )}
+                  </div>
+                  {div.maxTeams && (
+                    <div className="h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden mb-2">
+                      <div
+                        className={`h-full transition-all ${
+                          isFull ? 'bg-rose-500' : 'bg-[var(--accent-color)]'
+                        }`}
+                        style={{ width: `${fillPercent}%` }}
+                      />
+                    </div>
+                  )}
+                  <div className="flex gap-3 text-xs text-[var(--text-muted)]">
+                    <span>승인 <span className="text-emerald-500">{div.approved}</span></span>
+                    <span>결제 <span className="text-sky-500">{div.paid}</span></span>
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Stats */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="glass-card rounded-xl p-5 text-center">

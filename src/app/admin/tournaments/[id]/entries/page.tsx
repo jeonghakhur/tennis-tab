@@ -114,7 +114,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
                 <span>
-                  {entries?.length ?? 0} / {tournament.max_participants}명
+                  총 {entries?.length ?? 0}팀 신청
                 </span>
               </div>
             </div>
@@ -149,7 +149,6 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         tournamentId={tournament.id}
         entries={entries ?? []}
         divisions={tournament.tournament_divisions ?? []}
-        maxParticipants={tournament.max_participants}
       />
     </div>
   )

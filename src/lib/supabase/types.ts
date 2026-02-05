@@ -21,6 +21,11 @@ export type MatchType = 'INDIVIDUAL_SINGLES' | 'INDIVIDUAL_DOUBLES' | 'TEAM_SING
 export type EntryStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONFIRMED' | 'WAITLISTED' | 'CANCELLED'
 export type PaymentStatus = 'PENDING' | 'COMPLETED' | 'FAILED' | 'CANCELLED'
 
+// 대진표 시스템 타입
+export type BracketStatus = 'DRAFT' | 'PRELIMINARY' | 'MAIN' | 'COMPLETED'
+export type MatchPhase = 'PRELIMINARY' | 'ROUND_128' | 'ROUND_64' | 'ROUND_32' | 'ROUND_16' | 'QUARTER' | 'SEMI' | 'FINAL' | 'THIRD_PLACE'
+export type MatchStatus = 'SCHEDULED' | 'IN_PROGRESS' | 'COMPLETED' | 'BYE'
+
 // 파트너 정보 (개인전 복식용)
 export interface PartnerData {
   name: string
@@ -343,6 +348,173 @@ export interface Database {
           entities?: Json | null
         }
       }
+      // 대진표 시스템 테이블
+      bracket_configs: {
+        Row: {
+          id: string
+          division_id: string
+          has_preliminaries: boolean
+          third_place_match: boolean
+          bracket_size: number | null
+          status: BracketStatus
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          division_id: string
+          has_preliminaries?: boolean
+          third_place_match?: boolean
+          bracket_size?: number | null
+          status?: BracketStatus
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          division_id?: string
+          has_preliminaries?: boolean
+          third_place_match?: boolean
+          bracket_size?: number | null
+          status?: BracketStatus
+          updated_at?: string
+        }
+      }
+      preliminary_groups: {
+        Row: {
+          id: string
+          bracket_config_id: string
+          name: string
+          display_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          bracket_config_id: string
+          name: string
+          display_order: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          bracket_config_id?: string
+          name?: string
+          display_order?: number
+        }
+      }
+      group_teams: {
+        Row: {
+          id: string
+          group_id: string
+          entry_id: string
+          seed_number: number | null
+          final_rank: number | null
+          wins: number
+          losses: number
+          points_for: number
+          points_against: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          group_id: string
+          entry_id: string
+          seed_number?: number | null
+          final_rank?: number | null
+          wins?: number
+          losses?: number
+          points_for?: number
+          points_against?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          group_id?: string
+          entry_id?: string
+          seed_number?: number | null
+          final_rank?: number | null
+          wins?: number
+          losses?: number
+          points_for?: number
+          points_against?: number
+          updated_at?: string
+        }
+      }
+      bracket_matches: {
+        Row: {
+          id: string
+          bracket_config_id: string
+          phase: MatchPhase
+          group_id: string | null
+          bracket_position: number | null
+          round_number: number | null
+          match_number: number
+          team1_entry_id: string | null
+          team2_entry_id: string | null
+          team1_score: number | null
+          team2_score: number | null
+          winner_entry_id: string | null
+          next_match_id: string | null
+          next_match_slot: number | null
+          loser_next_match_id: string | null
+          loser_next_match_slot: number | null
+          status: MatchStatus
+          scheduled_time: string | null
+          completed_at: string | null
+          notes: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          bracket_config_id: string
+          phase: MatchPhase
+          group_id?: string | null
+          bracket_position?: number | null
+          round_number?: number | null
+          match_number: number
+          team1_entry_id?: string | null
+          team2_entry_id?: string | null
+          team1_score?: number | null
+          team2_score?: number | null
+          winner_entry_id?: string | null
+          next_match_id?: string | null
+          next_match_slot?: number | null
+          loser_next_match_id?: string | null
+          loser_next_match_slot?: number | null
+          status?: MatchStatus
+          scheduled_time?: string | null
+          completed_at?: string | null
+          notes?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          bracket_config_id?: string
+          phase?: MatchPhase
+          group_id?: string | null
+          bracket_position?: number | null
+          round_number?: number | null
+          match_number?: number
+          team1_entry_id?: string | null
+          team2_entry_id?: string | null
+          team1_score?: number | null
+          team2_score?: number | null
+          winner_entry_id?: string | null
+          next_match_id?: string | null
+          next_match_slot?: number | null
+          loser_next_match_id?: string | null
+          loser_next_match_slot?: number | null
+          status?: MatchStatus
+          scheduled_time?: string | null
+          completed_at?: string | null
+          notes?: string | null
+          updated_at?: string
+        }
+      }
     }
     Views: {
       [_ in never]: never
@@ -357,6 +529,9 @@ export interface Database {
       match_type: MatchType
       entry_status: EntryStatus
       payment_status: PaymentStatus
+      bracket_status: BracketStatus
+      match_phase: MatchPhase
+      match_status: MatchStatus
     }
   }
 }

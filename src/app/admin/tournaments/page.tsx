@@ -31,7 +31,8 @@ export default async function AdminTournamentsPage() {
     .select(`
       *,
       profiles:organizer_id (name, email),
-      tournament_entries (id, status, payment_status)
+      tournament_entries (id, status, payment_status, division_id),
+      tournament_divisions (id, name, max_teams)
     `)
     .order('created_at', { ascending: false })
 

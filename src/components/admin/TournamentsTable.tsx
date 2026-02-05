@@ -17,7 +17,8 @@ import type { Database, TournamentStatus, EntryStatus, PaymentStatus } from '@/l
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
-  tournament_entries: { id: string; status: EntryStatus; payment_status: PaymentStatus }[]
+  tournament_entries: { id: string; status: EntryStatus; payment_status: PaymentStatus; division_id: string }[]
+  tournament_divisions: { id: string; name: string; max_teams: number | null }[]
 }
 
 interface TournamentsTableProps {
@@ -126,13 +127,19 @@ export function TournamentsTable({
     )
   }
 
-  const getEntryCounts = (entries: Tournament['tournament_entries']) => {
+  const getEntryCounts = (
+    entries: Tournament['tournament_entries'],
+    divisions: Tournament['tournament_divisions']
+  ) => {
     const total = entries?.length ?? 0
     const pending = entries?.filter((e) => e.status === 'PENDING').length ?? 0
     const approved = entries?.filter((e) => ['APPROVED', 'CONFIRMED'].includes(e.status)).length ?? 0
     const paid = entries?.filter((e) => e.payment_status === 'COMPLETED').length ?? 0
 
-    return { total, pending, approved, paid }
+    // 부서별 모집팀 총합
+    const totalMaxTeams = divisions?.reduce((sum, d) => sum + (d.max_teams ?? 0), 0) ?? 0
+
+    return { total, pending, approved, paid, totalMaxTeams }
   }
 
   return (
@@ -237,7 +244,7 @@ export function TournamentsTable({
             <tbody>
               {filteredAndSortedTournaments.length > 0 ? (
                 filteredAndSortedTournaments.map((tournament) => {
-                  const counts = getEntryCounts(tournament.tournament_entries)
+                  const counts = getEntryCounts(tournament.tournament_entries, tournament.tournament_divisions)
 
                   return (
                     <tr
@@ -288,9 +295,11 @@ export function TournamentsTable({
                             <Users className="w-4 h-4 text-[var(--text-muted)]" />
                             <span className="text-sm font-medium text-[var(--text-primary)]">
                               {counts.total}
-                              <span className="text-[var(--text-muted)] font-normal">
-                                /{tournament.max_participants}
-                              </span>
+                              {counts.totalMaxTeams > 0 && (
+                                <span className="text-[var(--text-muted)] font-normal">
+                                  /{counts.totalMaxTeams}팀
+                                </span>
+                              )}
                             </span>
                           </div>
                           <div className="flex gap-2 text-xs">
@@ -316,6 +325,13 @@ export function TournamentsTable({
                             title="참가팀 관리"
                           >
                             <Users className="w-5 h-5" />
+                          </Link>
+                          <Link
+                            href={`/admin/tournaments/${tournament.id}/bracket`}
+                            className="p-2 rounded-lg hover:bg-[var(--bg-card)] text-amber-400 transition-colors"
+                            title="대진표 관리"
+                          >
+                            <Trophy className="w-5 h-5" />
                           </Link>
                           <Link
                             href={`/tournaments/${tournament.id}/edit`}

@@ -71,6 +71,7 @@ export interface TournamentFormData {
     max_participants: number;
     entry_fee: number;
     tournament_divisions?: Array<{
+        id?: string;  // 기존 부서는 id 포함
         name: string;
         max_teams: number | null;
         team_member_limit: number | null;
@@ -97,6 +98,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const [matchType, setMatchType] = useState<MatchType | ''>(initialData?.match_type || '');
     const [divisions, setDivisions] = useState<DivisionInput[]>(
         initialData?.tournament_divisions?.map(div => ({
+            id: div.id,  // 기존 부서 id 보존
             name: div.name,
             max_teams: div.max_teams,
             team_member_limit: div.team_member_limit,
@@ -117,7 +119,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const addDivision = () => {
         // 기존 부서가 있으면 마지막 부서를 복사, 없으면 빈 부서
         const template = divisions.length > 0
-            ? { ...divisions[divisions.length - 1], name: '' }  // 마지막 부서 복사 (이름은 비움)
+            ? { ...divisions[divisions.length - 1], id: undefined, name: '' }  // 마지막 부서 복사 (id와 이름은 비움)
             : { ...emptyDivision };
         setDivisions([...divisions, template]);
     };

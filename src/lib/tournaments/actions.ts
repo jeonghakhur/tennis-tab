@@ -13,6 +13,7 @@ export type CreateTournamentResult =
   | { success: false; error: string }
 
 export type DivisionInput = {
+  id?: string  // 기존 부서는 id 포함, 새 부서는 id 없음
   name: string
   max_teams: number | null
   team_member_limit: number | null
@@ -279,19 +280,39 @@ export async function updateTournament(
     return { success: false, error: '대회 수정에 실패했습니다. 다시 시도해주세요.' }
   }
 
-  // 6. 기존 참가부서 삭제
-  await supabaseAdmin
-    .from('tournament_divisions')
-    .delete()
-    .eq('tournament_id', tournamentId)
-
-  // 7. 새 참가부서 생성
+  // 6. 참가부서 처리 (기존 부서 업데이트, 삭제된 부서 제거, 새 부서 추가)
   const divisionsJson = formData.get('divisions') as string
   if (divisionsJson) {
     try {
       const divisions: DivisionInput[] = JSON.parse(divisionsJson)
-      if (divisions.length > 0) {
-        const divisionData = divisions.map(div => ({
+
+      // 기존 부서 ID 목록 가져오기
+      const { data: existingDivisions } = await supabaseAdmin
+        .from('tournament_divisions')
+        .select('id')
+        .eq('tournament_id', tournamentId)
+
+      const existingIds = existingDivisions?.map(d => d.id) || []
+      const submittedIds = divisions.filter(d => d.id).map(d => d.id as string)
+
+      // 삭제할 부서 ID (기존에 있지만 제출된 목록에 없는 것)
+      const idsToDelete = existingIds.filter(id => !submittedIds.includes(id))
+
+      // 기존 부서 삭제 (ON DELETE CASCADE로 관련 참가 신청도 함께 삭제됨)
+      if (idsToDelete.length > 0) {
+        const { error: deleteError } = await supabaseAdmin
+          .from('tournament_divisions')
+          .delete()
+          .in('id', idsToDelete)
+
+        if (deleteError) {
+          console.error('Error deleting divisions:', deleteError)
+        }
+      }
+
+      // 기존 부서 업데이트 및 새 부서 추가
+      for (const div of divisions) {
+        const divisionData = {
           tournament_id: tournamentId,
           name: div.name,
           max_teams: div.max_teams,
@@ -302,14 +323,27 @@ export async function updateTournament(
           prize_runner_up: div.prize_runner_up,
           prize_third: div.prize_third,
           notes: div.notes,
-        }))
+        }
 
-        const { error: divisionError } = await supabaseAdmin
-          .from('tournament_divisions')
-          .insert(divisionData)
+        if (div.id && existingIds.includes(div.id)) {
+          // 기존 부서 업데이트
+          const { error: updateError } = await supabaseAdmin
+            .from('tournament_divisions')
+            .update(divisionData)
+            .eq('id', div.id)
 
-        if (divisionError) {
-          console.error('Error creating divisions:', divisionError)
+          if (updateError) {
+            console.error('Error updating division:', updateError)
+          }
+        } else {
+          // 새 부서 추가
+          const { error: insertError } = await supabaseAdmin
+            .from('tournament_divisions')
+            .insert(divisionData)
+
+          if (insertError) {
+            console.error('Error inserting division:', insertError)
+          }
         }
       }
     } catch (e) {
