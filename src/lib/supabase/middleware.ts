@@ -46,16 +46,22 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
-  // 관리자 페이지 보호
-  if (request.nextUrl.pathname.startsWith('/admin') && user) {
+  // 관리자 페이지 보호 (보안: 권한 없으면 404로 리다이렉트하여 페이지 존재 자체를 숨김)
+  if (request.nextUrl.pathname.startsWith('/admin')) {
+    if (!user) {
+      // 비로그인 사용자는 404로 리다이렉트 (페이지 존재 숨김)
+      return NextResponse.rewrite(new URL('/not-found', request.url))
+    }
+
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    
+
     if (!profile?.role || !['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(profile.role)) {
-      return NextResponse.redirect(new URL('/', request.url))
+      // 권한 없는 사용자는 404로 리다이렉트 (페이지 존재 숨김)
+      return NextResponse.rewrite(new URL('/not-found', request.url))
     }
   }
 

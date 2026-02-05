@@ -1,12 +1,12 @@
 'use client'
 
 import { signInWithOAuth } from '@/lib/auth/actions'
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Navigation } from '@/components/Navigation'
 
-export default function LoginPage() {
+function LoginContent() {
   const [loading, setLoading] = useState<'google' | 'kakao' | 'naver' | null>(null)
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') || '/'
@@ -169,5 +169,38 @@ export default function LoginPage() {
       </div>
       </main>
     </>
+  )
+}
+
+function LoginLoading() {
+  return (
+    <>
+      <Navigation />
+      <main
+        className="min-h-screen flex items-center justify-center pt-20"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
+        <div className="w-full max-w-md px-6 text-center">
+          <div className="animate-pulse">
+            <div className="h-8 bg-[var(--bg-card)] rounded w-48 mx-auto mb-8" />
+            <div className="h-6 bg-[var(--bg-card)] rounded w-32 mx-auto mb-3" />
+            <div className="h-4 bg-[var(--bg-card)] rounded w-48 mx-auto mb-12" />
+            <div className="space-y-4">
+              <div className="h-14 bg-[var(--bg-card)] rounded-xl" />
+              <div className="h-14 bg-[var(--bg-card)] rounded-xl" />
+              <div className="h-14 bg-[var(--bg-card)] rounded-xl" />
+            </div>
+          </div>
+        </div>
+      </main>
+    </>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginContent />
+    </Suspense>
   )
 }

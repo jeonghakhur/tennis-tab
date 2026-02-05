@@ -2,11 +2,13 @@
 
 import { createClient } from '@/lib/supabase/server'
 import type { UserRole } from '@/lib/supabase/types'
-import { isSuperAdmin } from './roles'
+import { isSuperAdmin, isAdmin } from './roles'
 import { revalidatePath } from 'next/cache'
 
 /**
- * 사용자 권한 변경 (SUPER_ADMIN만 가능)
+ * 사용자 권한 변경
+ * - SUPER_ADMIN: 모든 사용자 권한 변경 가능 (다른 SUPER_ADMIN 제외)
+ * - ADMIN: MANAGER, USER 권한만 변경 가능
  */
 export async function changeUserRole(userId: string, newRole: UserRole) {
   const supabase = await createClient()
@@ -27,8 +29,11 @@ export async function changeUserRole(userId: string, newRole: UserRole) {
     .eq('id', user.id)
     .single()
 
-  if (!isSuperAdmin(currentUserProfile?.role)) {
-    return { error: 'SUPER_ADMIN 권한이 필요합니다.' }
+  const currentRole = currentUserProfile?.role
+
+  // ADMIN 이상만 권한 변경 가능
+  if (!isAdmin(currentRole)) {
+    return { error: 'ADMIN 권한이 필요합니다.' }
   }
 
   // 대상 사용자 권한 확인
@@ -38,9 +43,29 @@ export async function changeUserRole(userId: string, newRole: UserRole) {
     .eq('id', userId)
     .single()
 
-  // SUPER_ADMIN은 다른 SUPER_ADMIN의 권한을 변경할 수 없음
-  if (targetProfile?.role === 'SUPER_ADMIN' && userId !== user.id) {
-    return { error: '다른 SUPER_ADMIN의 권한은 변경할 수 없습니다.' }
+  const targetRole = targetProfile?.role
+
+  // 자기 자신의 권한은 변경 불가
+  if (userId === user.id) {
+    return { error: '자신의 권한은 변경할 수 없습니다.' }
+  }
+
+  // SUPER_ADMIN의 경우
+  if (isSuperAdmin(currentRole)) {
+    // 다른 SUPER_ADMIN의 권한은 변경 불가
+    if (targetRole === 'SUPER_ADMIN') {
+      return { error: '다른 SUPER_ADMIN의 권한은 변경할 수 없습니다.' }
+    }
+  } else {
+    // ADMIN의 경우: MANAGER, USER만 변경 가능
+    // 대상이 SUPER_ADMIN이나 ADMIN이면 변경 불가
+    if (targetRole === 'SUPER_ADMIN' || targetRole === 'ADMIN') {
+      return { error: '상위 권한 사용자의 권한은 변경할 수 없습니다.' }
+    }
+    // ADMIN은 SUPER_ADMIN, ADMIN으로 권한 부여 불가
+    if (newRole === 'SUPER_ADMIN' || newRole === 'ADMIN') {
+      return { error: 'MANAGER 또는 USER 권한만 부여할 수 있습니다.' }
+    }
   }
 
   // 권한 변경
