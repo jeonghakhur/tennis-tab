@@ -2,6 +2,13 @@
 
 import { createAdminClient } from '@/lib/supabase/admin'
 
+// 에러 메시지 추출 헬퍼
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message
+  if (typeof error === 'string') return error
+  return '알 수 없는 오류가 발생했습니다.'
+}
+
 export async function uploadImage(
   formData: FormData
 ): Promise<{ url: string | null; error: string | null }> {
@@ -19,7 +26,8 @@ export async function uploadImage(
     return { url: null, error: 'JPG, PNG, WebP, GIF 형식만 지원됩니다.' }
   }
 
-  if (file.size > 5 * 1024 * 1024) {
+  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+  if (file.size > MAX_FILE_SIZE) {
     return { url: null, error: '파일 크기는 5MB 이하여야 합니다.' }
   }
 
@@ -44,7 +52,6 @@ export async function uploadImage(
       })
 
     if (uploadError) {
-      console.error('Upload error:', uploadError)
       return { url: null, error: uploadError.message }
     }
 
@@ -54,9 +61,8 @@ export async function uploadImage(
       .getPublicUrl(fileName)
 
     return { url: publicUrl, error: null }
-  } catch (err: any) {
-    console.error('Upload error:', err)
-    return { url: null, error: err.message || '업로드에 실패했습니다.' }
+  } catch (err: unknown) {
+    return { url: null, error: getErrorMessage(err) }
   }
 }
 
@@ -82,13 +88,11 @@ export async function deleteImage(
       .remove([filePath])
 
     if (error) {
-      console.error('Delete error:', error)
       return { error: error.message }
     }
 
     return { error: null }
-  } catch (err: any) {
-    console.error('Delete error:', err)
-    return { error: err.message || '삭제에 실패했습니다.' }
+  } catch (err: unknown) {
+    return { error: getErrorMessage(err) }
   }
 }

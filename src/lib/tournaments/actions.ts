@@ -25,6 +25,33 @@ export type DivisionInput = {
   notes: string | null
 }
 
+// 대회 데이터 타입 (DB Insert/Update용)
+type TournamentData = {
+  title: string
+  description: string | null
+  poster_url: string | null
+  start_date: string
+  end_date: string
+  location: string
+  address: string | null
+  host: string | null
+  organizer_name: string | null
+  ball_type: string | null
+  entry_start_date: string | null
+  entry_end_date: string | null
+  opening_ceremony: string | null
+  match_type: MatchType | null
+  bank_account: string | null
+  eligibility: string | null
+  max_participants: number
+  entry_fee: number
+  team_match_count?: number | null
+  requirements: { team_match_count: number | null }
+  format?: 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
+  organizer_id?: string
+  status?: 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+}
+
 export async function createTournament(formData: FormData): Promise<CreateTournamentResult> {
   const supabase = await createClient()
 
@@ -101,7 +128,7 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
 
   // 4. 대회 생성
   const posterUrl = formData.get('poster_url') as string
-  const tournamentData: any = {
+  const tournamentData: TournamentData = {
     title: title.trim(),
     description: (formData.get('description') as string) || null,
     poster_url: posterUrl || null,
@@ -139,7 +166,6 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
 
   // team_match_count 컬럼이 없는 경우 재시도
   if (insertError && insertError.message.includes('team_match_count')) {
-    console.warn('⚠️ team_match_count 컬럼이 없어 제외하고 재시도합니다.');
     const { team_match_count, ...fallbackData } = tournamentData
     const { data: retryData, error: retryError } = await supabaseAdmin
       .from('tournaments')
@@ -151,7 +177,6 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
   }
 
   if (insertError) {
-    console.error('Error creating tournament:', insertError)
     return { success: false, error: '대회 생성에 실패했습니다. 다시 시도해주세요.' }
   }
 
@@ -179,13 +204,11 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
           .from('tournament_divisions')
           .insert(divisionData)
 
-        if (divisionError) {
-          console.error('Error creating divisions:', divisionError)
-          // 참가부서 생성 실패해도 대회는 이미 생성됨
-        }
+        // 참가부서 생성 실패해도 대회는 이미 생성됨
+        void divisionError
       }
-    } catch (e) {
-      console.error('Error parsing divisions:', e)
+    } catch {
+      // JSON 파싱 실패 시 무시
     }
   }
 
@@ -277,7 +300,7 @@ export async function updateTournament(
 
   // 5. 대회 업데이트
   const posterUrl = formData.get('poster_url') as string
-  const tournamentData: any = {
+  const tournamentData: TournamentData = {
     title: title.trim(),
     description: (formData.get('description') as string) || null,
     poster_url: posterUrl || null,
@@ -310,7 +333,6 @@ export async function updateTournament(
 
   // team_match_count 컬럼이 없는 경우 재시도
   if (updateError && updateError.message.includes('team_match_count')) {
-    console.warn('⚠️ team_match_count 컬럼이 없어 제외하고 재시도합니다.');
     const { team_match_count, ...fallbackData } = tournamentData
     const { error: retryError } = await supabaseAdmin
       .from('tournaments')
@@ -320,10 +342,8 @@ export async function updateTournament(
   }
 
   if (updateError) {
-    console.error('Error updating tournament:', updateError)
-    // 구체적인 에러 메시지 포함 (메시지에 'column' 키워드가 있으면 컬럼 부재 가능성 높음)
     const errorMsg = updateError.message || '대회 수정에 실패했습니다.'
-    return { success: false, error: `${errorMsg} (에러 메시지를 알려주시면 해결이 더 빠릅니다)` }
+    return { success: false, error: errorMsg }
   }
 
   // 6. 참가부서 처리 (기존 부서 업데이트, 삭제된 부서 제거, 새 부서 추가)
@@ -351,9 +371,8 @@ export async function updateTournament(
           .delete()
           .in('id', idsToDelete)
 
-        if (deleteError) {
-          console.error('Error deleting divisions:', deleteError)
-        }
+        // 부서 삭제 실패 시 무시
+        void deleteError
       }
 
       // 기존 부서 업데이트 및 새 부서 추가
@@ -373,27 +392,19 @@ export async function updateTournament(
 
         if (div.id && existingIds.includes(div.id)) {
           // 기존 부서 업데이트
-          const { error: updateError } = await supabaseAdmin
+          await supabaseAdmin
             .from('tournament_divisions')
             .update(divisionData)
             .eq('id', div.id)
-
-          if (updateError) {
-            console.error('Error updating division:', updateError)
-          }
         } else {
           // 새 부서 추가
-          const { error: insertError } = await supabaseAdmin
+          await supabaseAdmin
             .from('tournament_divisions')
             .insert(divisionData)
-
-          if (insertError) {
-            console.error('Error inserting division:', insertError)
-          }
         }
       }
-    } catch (e) {
-      console.error('Error parsing divisions:', e)
+    } catch {
+      // JSON 파싱 실패 시 무시
     }
   }
 
@@ -453,7 +464,6 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
     .eq('id', tournamentId)
 
   if (deleteError) {
-    console.error('Error deleting tournament:', deleteError)
     return { success: false, error: '대회 삭제에 실패했습니다. 다시 시도해주세요.' }
   }
 
