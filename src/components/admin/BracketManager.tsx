@@ -607,7 +607,13 @@ export function BracketManager({
           </div>
 
           {/* Tab Content */}
-          <div className="glass-card rounded-xl p-6">
+          <div
+            className={`rounded-xl p-6 border border-(--border-color) ${
+              activeTab === "groups"
+                ? "bg-(--bg-card)"
+                : "glass-card"
+            }`}
+          >
             {loading && (
               <div className="flex items-center justify-center py-8">
                 <RefreshCw className="w-8 h-8 animate-spin text-(--accent-color)" />
