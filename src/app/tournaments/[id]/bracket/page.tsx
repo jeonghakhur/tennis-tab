@@ -47,7 +47,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       {/* Breadcrumb */}
       <Link
         href={`/tournaments/${id}`}
-        className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-color)] transition-colors mb-6"
+        className="inline-flex items-center gap-1 text-sm text-(--text-secondary) hover:text-(--accent-color) transition-colors mb-6"
       >
         <ChevronLeft className="w-4 h-4" />
         대회 정보로 돌아가기
@@ -55,21 +55,21 @@ export default async function TournamentBracketPage({ params }: PageProps) {
 
       {/* Header */}
       <div className="glass-card rounded-xl p-6 mb-8">
-        <h1 className="font-display text-2xl md:text-3xl font-bold text-[var(--text-primary)] flex items-center gap-3">
-          <Trophy className="w-8 h-8 text-[var(--accent-color)]" />
+        <h1 className="font-display text-2xl md:text-3xl font-bold text-(--text-primary) flex items-center gap-3">
+          <Trophy className="w-8 h-8 text-(--accent-color)" />
           {tournament.title}
         </h1>
-        <p className="text-[var(--text-secondary)] mt-2">대진표</p>
+        <p className="text-(--text-secondary) mt-2">대진표</p>
       </div>
 
       {/* Bracket View */}
       {divisionsWithBracket.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
-          <Users className="w-16 h-16 mx-auto text-[var(--text-muted)] mb-4" />
-          <h2 className="font-display text-xl font-semibold text-[var(--text-primary)] mb-2">
+          <Users className="w-16 h-16 mx-auto text-(--text-muted) mb-4" />
+          <h2 className="font-display text-xl font-semibold text-(--text-primary) mb-2">
             대진표가 아직 없습니다
           </h2>
-          <p className="text-[var(--text-secondary)]">
+          <p className="text-(--text-secondary)">
             대진표가 생성되면 이곳에서 확인할 수 있습니다.
           </p>
         </div>

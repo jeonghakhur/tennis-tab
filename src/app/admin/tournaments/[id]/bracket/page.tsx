@@ -55,7 +55,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       {/* Breadcrumb */}
       <Link
         href="/admin/tournaments"
-        className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-color)] transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-(--text-secondary) hover:text-(--accent-color) transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
         대회 목록으로
@@ -63,10 +63,10 @@ export default async function TournamentBracketPage({ params }: PageProps) {
 
       {/* Header */}
       <div className="glass-card rounded-xl p-6">
-        <h1 className="font-display text-2xl font-bold text-[var(--text-primary)]">
+        <h1 className="font-display text-2xl font-bold text-(--text-primary)">
           {tournament.title} - 대진표 관리
         </h1>
-        <p className="text-[var(--text-secondary)] mt-1">
+        <p className="text-(--text-secondary) mt-1">
           부서별 대진표를 설정하고 경기 결과를 입력하세요.
         </p>
       </div>

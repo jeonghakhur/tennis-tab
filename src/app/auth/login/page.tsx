@@ -182,13 +182,13 @@ function LoginLoading() {
       >
         <div className="w-full max-w-md px-6 text-center">
           <div className="animate-pulse">
-            <div className="h-8 bg-[var(--bg-card)] rounded w-48 mx-auto mb-8" />
-            <div className="h-6 bg-[var(--bg-card)] rounded w-32 mx-auto mb-3" />
-            <div className="h-4 bg-[var(--bg-card)] rounded w-48 mx-auto mb-12" />
+            <div className="h-8 bg-(--bg-card) rounded w-48 mx-auto mb-8" />
+            <div className="h-6 bg-(--bg-card) rounded w-32 mx-auto mb-3" />
+            <div className="h-4 bg-(--bg-card) rounded w-48 mx-auto mb-12" />
             <div className="space-y-4">
-              <div className="h-14 bg-[var(--bg-card)] rounded-xl" />
-              <div className="h-14 bg-[var(--bg-card)] rounded-xl" />
-              <div className="h-14 bg-[var(--bg-card)] rounded-xl" />
+              <div className="h-14 bg-(--bg-card) rounded-xl" />
+              <div className="h-14 bg-(--bg-card) rounded-xl" />
+              <div className="h-14 bg-(--bg-card) rounded-xl" />
             </div>
           </div>
         </div>

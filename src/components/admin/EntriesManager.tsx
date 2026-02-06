@@ -202,19 +202,30 @@ export function EntriesManager({
       filtered = filtered.filter((e) => e.division_id === divisionFilter)
     }
 
-    // 항상 참가 신청 순(created_at 오름차순) 유지
-    return [...filtered].sort(
-      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-    )
+    // 항상 참가 신청 순(created_at → id) 고정. 동일 created_at이어도 id로 순서 유지
+    return [...filtered].sort((a, b) => {
+      const t1 = new Date(a.created_at).getTime()
+      const t2 = new Date(b.created_at).getTime()
+      if (t1 !== t2) return t1 - t2
+      return a.id.localeCompare(b.id)
+    })
   }, [entries, searchQuery, statusFilter, paymentFilter, divisionFilter])
 
-  // Stats
+  // 선택된 부서별 신청 현황 (부서 선택 시 해당 부서만, 전체 선택 시 전체)
+  const entriesForStats =
+    divisionFilter === 'ALL'
+      ? entries
+      : entries.filter((e) => e.division_id === divisionFilter)
   const stats = {
-    total: entries.length,
-    pending: entries.filter((e) => normalizeStatus(e.status) === 'PENDING').length,
-    approved: entries.filter((e) => normalizeStatus(e.status) === 'APPROVED').length,
-    paid: entries.filter((e) => e.payment_status === 'COMPLETED').length,
+    total: entriesForStats.length,
+    pending: entriesForStats.filter((e) => normalizeStatus(e.status) === 'PENDING').length,
+    approved: entriesForStats.filter((e) => normalizeStatus(e.status) === 'APPROVED').length,
+    paid: entriesForStats.filter((e) => e.payment_status === 'COMPLETED').length,
   }
+  const selectedDivisionName =
+    divisionFilter === 'ALL'
+      ? null
+      : divisions.find((d) => d.id === divisionFilter)?.name ?? null
 
   // 부서별 신청 현황
   const divisionStats = divisions.map((division) => {
@@ -235,13 +246,13 @@ export function EntriesManager({
       {divisions.length > 0 && (
         <div className="glass-card rounded-xl p-5">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display font-semibold text-[var(--text-primary)]">
+            <h3 className="font-display font-semibold text-(--text-primary)">
               부서별 모집 현황
             </h3>
             {divisionFilter !== 'ALL' && (
               <button
                 onClick={() => setDivisionFilter('ALL')}
-                className="text-sm text-[var(--accent-color)] hover:underline"
+                className="text-sm text-(--accent-color) hover:underline"
               >
                 전체 보기
               </button>
@@ -259,17 +270,17 @@ export function EntriesManager({
                   onClick={() => setDivisionFilter(isSelected ? 'ALL' : div.id)}
                   className={`p-4 rounded-xl border text-left transition-all ${
                     isSelected
-                      ? 'border-[var(--accent-color)] bg-[var(--accent-color)]/10 ring-2 ring-[var(--accent-color)]/30'
+                      ? 'border-(--accent-color) bg-(--accent-color)/10 ring-2 ring-(--accent-color)/30'
                       : isFull
                         ? 'border-rose-500/30 bg-rose-500/5 hover:border-rose-500/50'
-                        : 'border-[var(--border-color)] bg-[var(--bg-card)] hover:border-[var(--border-accent)]'
+                        : 'border-(--border-color) bg-(--bg-card) hover:border-(--border-accent)'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <span className="font-medium text-[var(--text-primary)]">{div.name}</span>
+                    <span className="font-medium text-(--text-primary)">{div.name}</span>
                     <div className="flex items-center gap-1">
                       {isSelected && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--accent-color)]/20 text-[var(--accent-color)]">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-(--accent-color)/20 text-(--accent-color)">
                           선택됨
                         </span>
                       )}
@@ -281,24 +292,24 @@ export function EntriesManager({
                     </div>
                   </div>
                   <div className="flex items-baseline gap-1 mb-2">
-                    <span className="text-2xl font-display font-bold text-[var(--text-primary)]">
+                    <span className="text-2xl font-display font-bold text-(--text-primary)">
                       {div.total}
                     </span>
                     {div.maxTeams && (
-                      <span className="text-sm text-[var(--text-muted)]">/ {div.maxTeams}팀</span>
+                      <span className="text-sm text-(--text-muted)">/ {div.maxTeams}팀</span>
                     )}
                   </div>
                   {div.maxTeams && (
-                    <div className="h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden mb-2">
+                    <div className="h-2 bg-(--bg-secondary) rounded-full overflow-hidden mb-2">
                       <div
                         className={`h-full transition-all ${
-                          isFull ? 'bg-rose-500' : 'bg-[var(--accent-color)]'
+                          isFull ? 'bg-rose-500' : 'bg-(--accent-color)'
                         }`}
                         style={{ width: `${fillPercent}%` }}
                       />
                     </div>
                   )}
-                  <div className="flex gap-3 text-xs text-[var(--text-muted)]">
+                  <div className="flex gap-3 text-xs text-(--text-muted)">
                     <span>승인 <span className="text-emerald-500">{div.approved}</span></span>
                     <span>결제 <span className="text-sky-500">{div.paid}</span></span>
                   </div>
@@ -309,31 +320,38 @@ export function EntriesManager({
         </div>
       )}
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="glass-card rounded-xl p-5 text-center">
-          <p className="text-3xl font-display font-bold text-[var(--text-primary)]">
-            {stats.total}
+      {/* Stats (선택된 부서별) */}
+      <div className="space-y-2">
+        {selectedDivisionName && (
+          <p className="text-sm font-medium text-(--text-secondary)">
+            {selectedDivisionName} 신청 현황
           </p>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">전체 신청</p>
-        </div>
-        <div className="glass-card rounded-xl p-5 text-center">
-          <p className="text-3xl font-display font-bold text-amber-500">
-            {stats.pending}
-          </p>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">승인 대기</p>
-        </div>
-        <div className="glass-card rounded-xl p-5 text-center">
-          <p className="text-3xl font-display font-bold text-emerald-500">
-            {stats.approved}
-          </p>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">승인 완료</p>
-        </div>
-        <div className="glass-card rounded-xl p-5 text-center">
-          <p className="text-3xl font-display font-bold text-sky-500">
-            {stats.paid}
-          </p>
-          <p className="text-sm text-[var(--text-secondary)] mt-1">결제 완료</p>
+        )}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+          <div className="glass-card rounded-xl p-5 text-center">
+            <p className="text-3xl font-display font-bold text-(--text-primary)">
+              {stats.total}
+            </p>
+            <p className="text-sm text-(--text-secondary) mt-1">전체 신청</p>
+          </div>
+          <div className="glass-card rounded-xl p-5 text-center">
+            <p className="text-3xl font-display font-bold text-amber-500">
+              {stats.pending}
+            </p>
+            <p className="text-sm text-(--text-secondary) mt-1">승인 대기</p>
+          </div>
+          <div className="glass-card rounded-xl p-5 text-center">
+            <p className="text-3xl font-display font-bold text-emerald-500">
+              {stats.approved}
+            </p>
+            <p className="text-sm text-(--text-secondary) mt-1">승인 완료</p>
+          </div>
+          <div className="glass-card rounded-xl p-5 text-center">
+            <p className="text-3xl font-display font-bold text-sky-500">
+              {stats.paid}
+            </p>
+            <p className="text-sm text-(--text-secondary) mt-1">결제 완료</p>
+          </div>
         </div>
       </div>
 
@@ -341,13 +359,13 @@ export function EntriesManager({
       <div className="flex flex-col lg:flex-row gap-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-(--text-muted)" />
           <input
             type="text"
             placeholder="이름, 이메일, 전화번호, 클럽명으로 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-12 pr-4 py-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] text-base placeholder:text-[var(--text-muted)] focus:border-[var(--accent-color)] focus:outline-none transition-colors"
+            className="w-full pl-12 pr-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base placeholder:text-(--text-muted) focus:border-(--accent-color) focus:outline-none transition-colors"
           />
         </div>
 
@@ -356,7 +374,7 @@ export function EntriesManager({
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL')}
-            className="px-4 py-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] text-base focus:border-[var(--accent-color)] focus:outline-none transition-colors"
+            className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
           >
             <option value="ALL">모든 상태</option>
             {Object.entries(entryStatusConfig).map(([key, { label }]) => (
@@ -372,7 +390,7 @@ export function EntriesManager({
             onChange={(e) =>
               setPaymentFilter(e.target.value as 'PENDING' | 'COMPLETED' | 'ALL')
             }
-            className="px-4 py-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] text-base focus:border-[var(--accent-color)] focus:outline-none transition-colors"
+            className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
           >
             <option value="ALL">모든 결제</option>
             {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
@@ -387,7 +405,7 @@ export function EntriesManager({
             <select
               value={divisionFilter}
               onChange={(e) => setDivisionFilter(e.target.value)}
-              className="px-4 py-3 rounded-xl bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] text-base focus:border-[var(--accent-color)] focus:outline-none transition-colors"
+              className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
             >
               <option value="ALL">모든 부서</option>
               {divisions.map((div) => (
@@ -401,16 +419,16 @@ export function EntriesManager({
       </div>
 
       {/* Results count */}
-      <div className="flex items-center justify-between text-base text-[var(--text-secondary)]">
+      <div className="flex items-center justify-between text-base text-(--text-secondary)">
         <span>
           검색 결과:{' '}
-          <strong className="text-[var(--text-primary)]">
+          <strong className="text-(--text-primary)">
             {filteredAndSortedEntries.length}
           </strong>
           명
         </span>
         {selectedEntries.length > 0 && (
-          <span className="text-[var(--accent-color)] font-medium">
+          <span className="text-(--accent-color) font-medium">
             {selectedEntries.length}명 선택됨
           </span>
         )}
@@ -421,7 +439,7 @@ export function EntriesManager({
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border-color)] bg-[var(--bg-card)]">
+              <tr className="border-b border-(--border-color) bg-(--bg-card)">
                 <th className="p-4 w-14">
                   <input
                     type="checkbox"
@@ -430,29 +448,29 @@ export function EntriesManager({
                       filteredAndSortedEntries.length > 0
                     }
                     onChange={toggleSelectAll}
-                    className="w-5 h-5 rounded border-[var(--border-color)]"
+                    className="w-5 h-5 rounded border-(--border-color)"
                   />
                 </th>
                 <th className="text-left p-4 w-16">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">#</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">#</span>
                 </th>
                 <th className="text-left p-4">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">참가자 정보</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">참가자 정보</span>
                 </th>
                 <th className="text-left p-4 hidden lg:table-cell">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">부서</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">부서</span>
                 </th>
                 <th className="text-left p-4">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">상태</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">상태</span>
                 </th>
                 <th className="text-left p-4">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">결제</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">결제</span>
                 </th>
                 <th className="text-left p-4 hidden sm:table-cell">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">신청일</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">신청일</span>
                 </th>
                 <th className="p-4 w-20">
-                  <span className="text-base font-semibold text-[var(--text-secondary)]">관리</span>
+                  <span className="text-base font-semibold text-(--text-secondary)">관리</span>
                 </th>
               </tr>
             </thead>
@@ -466,10 +484,10 @@ export function EntriesManager({
                   return (
                     <tr
                       key={entry.id}
-                      className={`border-b border-[var(--border-color)] last:border-b-0 transition-colors ${
+                      className={`border-b border-(--border-color) last:border-b-0 transition-colors ${
                         selectedEntries.includes(entry.id)
-                          ? 'bg-[var(--accent-color)]/5'
-                          : 'hover:bg-[var(--bg-card-hover)]'
+                          ? 'bg-(--accent-color)/5'
+                          : 'hover:bg-(--bg-card-hover)'
                       } ${isProcessing ? 'opacity-50' : ''}`}
                     >
                       <td className="p-4">
@@ -477,11 +495,11 @@ export function EntriesManager({
                           type="checkbox"
                           checked={selectedEntries.includes(entry.id)}
                           onChange={() => toggleSelect(entry.id)}
-                          className="w-5 h-5 rounded border-[var(--border-color)]"
+                          className="w-5 h-5 rounded border-(--border-color)"
                         />
                       </td>
                       <td className="p-4">
-                        <span className="text-base font-semibold text-[var(--text-muted)]">
+                        <span className="text-base font-semibold text-(--text-muted)">
                           {index + 1}
                         </span>
                       </td>
@@ -500,7 +518,7 @@ export function EntriesManager({
                               )}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-base font-semibold text-[var(--text-primary)]">
+                              <p className="text-base font-semibold text-(--text-primary)">
                                 {entry.player_name}
                                 {entry.player_rating && (
                                   <span className="ml-2 text-sm font-medium text-sky-600 dark:text-sky-400">
@@ -508,30 +526,30 @@ export function EntriesManager({
                                   </span>
                                 )}
                               </p>
-                              <p className="text-sm text-[var(--text-secondary)]">
+                              <p className="text-sm text-(--text-secondary)">
                                 {entry.club_name || entry.profiles?.club || '-'}
                               </p>
                             </div>
                           </div>
                           {/* Partner/Team info */}
                           {entry.partner_data && (
-                            <p className="text-sm text-[var(--text-secondary)] pl-13 ml-13">
+                            <p className="text-sm text-(--text-secondary) pl-13 ml-13">
                               파트너: {(entry.partner_data as PartnerData).name}
                             </p>
                           )}
                           {entry.team_members && (entry.team_members as TeamMember[]).length > 0 && (
-                            <p className="text-sm text-[var(--text-secondary)] pl-13 ml-13">
+                            <p className="text-sm text-(--text-secondary) pl-13 ml-13">
                               팀원: {(entry.team_members as TeamMember[]).map((m) => m.name).join(', ')}
                             </p>
                           )}
-                          <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                          <div className="flex items-center gap-2 text-sm text-(--text-secondary)">
                             <Phone className="w-4 h-4" />
                             {entry.phone}
                           </div>
                         </div>
                       </td>
                       <td className="p-4 hidden lg:table-cell">
-                        <span className="text-base text-[var(--text-primary)]">
+                        <span className="text-base text-(--text-primary)">
                           {entry.tournament_divisions?.name || '-'}
                         </span>
                       </td>
@@ -577,10 +595,10 @@ export function EntriesManager({
                         </select>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
-                        <p className="text-base text-[var(--text-primary)]">
+                        <p className="text-base text-(--text-primary)">
                           {new Date(entry.created_at).toLocaleDateString('ko-KR')}
                         </p>
-                        <p className="text-sm text-[var(--text-secondary)]">
+                        <p className="text-sm text-(--text-secondary)">
                           {new Date(entry.created_at).toLocaleTimeString('ko-KR', {
                             hour: '2-digit',
                             minute: '2-digit',
@@ -603,7 +621,7 @@ export function EntriesManager({
               ) : (
                 <tr>
                   <td colSpan={8} className="p-12 text-center">
-                    <div className="flex flex-col items-center gap-3 text-[var(--text-muted)]">
+                    <div className="flex flex-col items-center gap-3 text-(--text-muted)">
                       <Users className="w-16 h-16 opacity-50" />
                       <p className="text-lg">참가 신청이 없습니다.</p>
                     </div>

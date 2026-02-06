@@ -148,13 +148,13 @@ export function TournamentsTable({
       <div className="flex flex-col sm:flex-row gap-4">
         {/* Search */}
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--text-muted)]" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-(--text-muted)" />
           <input
             type="text"
             placeholder="대회명, 장소, 주최자로 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] focus:border-[var(--accent-color)] focus:outline-none transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary) placeholder:text-(--text-muted) focus:border-(--accent-color) focus:outline-none transition-colors"
           />
         </div>
 
@@ -164,7 +164,7 @@ export function TournamentsTable({
           onChange={(e) =>
             setStatusFilter(e.target.value as TournamentStatus | 'ALL')
           }
-          className="px-4 py-2.5 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)] focus:border-[var(--accent-color)] focus:outline-none transition-colors"
+          className="px-4 py-2.5 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary) focus:border-(--accent-color) focus:outline-none transition-colors"
         >
           <option value="ALL">모든 상태</option>
           {Object.entries(statusConfig).map(([key, { label }]) => (
@@ -176,15 +176,15 @@ export function TournamentsTable({
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-4 text-sm text-[var(--text-secondary)]">
+      <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
         <span>
-          총 <strong className="text-[var(--text-primary)]">{tournaments.length}</strong>
+          총 <strong className="text-(--text-primary)">{tournaments.length}</strong>
           개 대회
         </span>
         {(searchQuery || statusFilter !== 'ALL') && (
           <span>
             검색 결과:{' '}
-            <strong className="text-[var(--accent-color)]">
+            <strong className="text-(--accent-color)">
               {filteredAndSortedTournaments.length}
             </strong>
             개
@@ -197,11 +197,11 @@ export function TournamentsTable({
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border-color)]">
+              <tr className="border-b border-(--border-color)">
                 <th className="text-left p-4">
                   <button
                     onClick={() => handleSort('title')}
-                    className="flex items-center gap-1 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
                   >
                     대회 정보
                     <SortIcon field="title" />
@@ -210,7 +210,7 @@ export function TournamentsTable({
                 <th className="text-left p-4">
                   <button
                     onClick={() => handleSort('status')}
-                    className="flex items-center gap-1 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
                   >
                     상태
                     <SortIcon field="status" />
@@ -219,7 +219,7 @@ export function TournamentsTable({
                 <th className="text-left p-4 hidden lg:table-cell">
                   <button
                     onClick={() => handleSort('start_date')}
-                    className="flex items-center gap-1 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
                   >
                     일정
                     <SortIcon field="start_date" />
@@ -228,14 +228,14 @@ export function TournamentsTable({
                 <th className="text-left p-4">
                   <button
                     onClick={() => handleSort('entries')}
-                    className="flex items-center gap-1 font-medium text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
                   >
                     참가 현황
                     <SortIcon field="entries" />
                   </button>
                 </th>
                 <th className="text-left p-4 hidden sm:table-cell">
-                  <span className="font-medium text-[var(--text-secondary)]">
+                  <span className="font-medium text-(--text-secondary)">
                     관리
                   </span>
                 </th>
@@ -249,19 +249,19 @@ export function TournamentsTable({
                   return (
                     <tr
                       key={tournament.id}
-                      className="border-b border-[var(--border-color)] last:border-b-0 hover:bg-[var(--bg-card-hover)] transition-colors"
+                      className="border-b border-(--border-color) last:border-b-0 hover:bg-(--bg-card-hover) transition-colors"
                     >
                       <td className="p-4">
                         <div className="space-y-1">
-                          <p className="font-medium text-[var(--text-primary)]">
+                          <p className="font-medium text-(--text-primary)">
                             {tournament.title}
                           </p>
-                          <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
+                          <div className="flex items-center gap-2 text-xs text-(--text-muted)">
                             <MapPin className="w-3 h-3" />
                             {tournament.location}
                           </div>
                           {showOrganizer && tournament.profiles && (
-                            <p className="text-xs text-[var(--text-muted)]">
+                            <p className="text-xs text-(--text-muted)">
                               주최: {tournament.profiles.name}
                             </p>
                           )}
@@ -277,14 +277,14 @@ export function TournamentsTable({
                         </span>
                       </td>
                       <td className="p-4 hidden lg:table-cell">
-                        <div className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
+                        <div className="flex items-center gap-2 text-sm text-(--text-secondary)">
                           <Calendar className="w-4 h-4" />
                           <span>
                             {new Date(tournament.start_date).toLocaleDateString('ko-KR')}
                           </span>
                         </div>
                         {tournament.start_date !== tournament.end_date && (
-                          <p className="text-xs text-[var(--text-muted)] mt-0.5">
+                          <p className="text-xs text-(--text-muted) mt-0.5">
                             ~ {new Date(tournament.end_date).toLocaleDateString('ko-KR')}
                           </p>
                         )}
@@ -292,11 +292,11 @@ export function TournamentsTable({
                       <td className="p-4">
                         <div className="space-y-1">
                           <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-[var(--text-muted)]" />
-                            <span className="text-sm font-medium text-[var(--text-primary)]">
+                            <Users className="w-4 h-4 text-(--text-muted)" />
+                            <span className="text-sm font-medium text-(--text-primary)">
                               {counts.total}
                               {counts.totalMaxTeams > 0 && (
-                                <span className="text-[var(--text-muted)] font-normal">
+                                <span className="text-(--text-muted) font-normal">
                                   /{counts.totalMaxTeams}팀
                                 </span>
                               )}
@@ -321,28 +321,28 @@ export function TournamentsTable({
                         <div className="flex items-center gap-2">
                           <Link
                             href={`/admin/tournaments/${tournament.id}/entries`}
-                            className="p-2 rounded-lg hover:bg-[var(--bg-card)] text-[var(--accent-color)] transition-colors"
+                            className="p-2 rounded-lg hover:bg-(--bg-card) text-(--accent-color) transition-colors"
                             title="참가팀 관리"
                           >
                             <Users className="w-5 h-5" />
                           </Link>
                           <Link
                             href={`/admin/tournaments/${tournament.id}/bracket`}
-                            className="p-2 rounded-lg hover:bg-[var(--bg-card)] text-amber-400 transition-colors"
+                            className="p-2 rounded-lg hover:bg-(--bg-card) text-amber-400 transition-colors"
                             title="대진표 관리"
                           >
                             <Trophy className="w-5 h-5" />
                           </Link>
                           <Link
                             href={`/tournaments/${tournament.id}/edit`}
-                            className="p-2 rounded-lg hover:bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                            className="p-2 rounded-lg hover:bg-(--bg-card) text-(--text-secondary) hover:text-(--text-primary) transition-colors"
                             title="대회 수정"
                           >
                             <Edit className="w-5 h-5" />
                           </Link>
                           <Link
                             href={`/tournaments/${tournament.id}`}
-                            className="p-2 rounded-lg hover:bg-[var(--bg-card)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
+                            className="p-2 rounded-lg hover:bg-(--bg-card) text-(--text-secondary) hover:text-(--text-primary) transition-colors"
                             title="대회 상세"
                             target="_blank"
                           >
@@ -356,7 +356,7 @@ export function TournamentsTable({
               ) : (
                 <tr>
                   <td colSpan={5} className="p-8 text-center">
-                    <div className="flex flex-col items-center gap-2 text-[var(--text-muted)]">
+                    <div className="flex flex-col items-center gap-2 text-(--text-muted)">
                       <Trophy className="w-12 h-12 opacity-50" />
                       <p>검색 결과가 없습니다.</p>
                     </div>
@@ -377,7 +377,7 @@ export function TournamentsTable({
             className="block p-4 glass-card rounded-xl"
           >
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-[var(--text-primary)]">
+              <span className="text-sm font-medium text-(--text-primary)">
                 {tournament.title}
               </span>
               <span
@@ -388,7 +388,7 @@ export function TournamentsTable({
                 {statusConfig[tournament.status].label}
               </span>
             </div>
-            <p className="text-xs text-[var(--accent-color)] mt-1">
+            <p className="text-xs text-(--accent-color) mt-1">
               참가팀 관리하기 →
             </p>
           </Link>

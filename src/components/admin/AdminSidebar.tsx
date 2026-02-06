@@ -52,7 +52,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-[var(--bg-card)] border border-[var(--border-color)] text-[var(--text-primary)]"
+        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary)"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -69,7 +69,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
       <aside
         className={`
           fixed top-0 left-0 z-40 h-screen w-64
-          bg-[var(--bg-secondary)] border-r border-[var(--border-color)]
+          bg-(--bg-secondary) border-r border-(--border-color)
           transform transition-transform duration-300 ease-in-out
           lg:translate-x-0
           ${isOpen ? 'translate-x-0' : '-translate-x-full'}
@@ -77,27 +77,27 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
       >
         <div className="flex flex-col h-full">
           {/* Logo & Close button */}
-          <div className="flex items-center justify-between p-6 border-b border-[var(--border-color)]">
+          <div className="flex items-center justify-between p-6 border-b border-(--border-color)">
             <Link href="/admin" className="flex items-center gap-2">
-              <span className="font-display text-xl font-bold text-[var(--accent-color)]">
+              <span className="font-display text-xl font-bold text-(--accent-color)">
                 Tennis Tab
               </span>
-              <span className="text-xs px-2 py-0.5 rounded bg-[var(--accent-color)] text-[var(--bg-primary)] font-medium">
+              <span className="text-xs px-2 py-0.5 rounded bg-(--accent-color) text-(--bg-primary) font-medium">
                 Admin
               </span>
             </Link>
             <button
               onClick={() => setIsOpen(false)}
-              className="lg:hidden p-1 rounded hover:bg-[var(--bg-card)]"
+              className="lg:hidden p-1 rounded hover:bg-(--bg-card)"
             >
-              <ChevronLeft className="w-5 h-5 text-[var(--text-secondary)]" />
+              <ChevronLeft className="w-5 h-5 text-(--text-secondary)" />
             </button>
           </div>
 
           {/* Role Badge */}
-          <div className="px-6 py-3 border-b border-[var(--border-color)]">
-            <span className="text-xs text-[var(--text-muted)]">권한</span>
-            <p className="text-sm font-medium text-[var(--text-primary)]">
+          <div className="px-6 py-3 border-b border-(--border-color)">
+            <span className="text-xs text-(--text-muted)">권한</span>
+            <p className="text-sm font-medium text-(--text-primary)">
               {ROLE_LABELS[currentRole]}
             </p>
           </div>
@@ -120,8 +120,8 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
                     transition-all duration-200
                     ${
                       isActive
-                        ? 'bg-[var(--accent-color)] text-[var(--bg-primary)]'
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)]'
+                        ? 'bg-(--accent-color) text-(--bg-primary)'
+                        : 'text-(--text-secondary) hover:bg-(--bg-card) hover:text-(--text-primary)'
                     }
                   `}
                 >
@@ -133,10 +133,10 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
           </nav>
 
           {/* Back to main site */}
-          <div className="p-4 border-t border-[var(--border-color)]">
+          <div className="p-4 border-t border-(--border-color)">
             <Link
               href="/"
-              className="flex items-center gap-3 px-4 py-3 rounded-lg text-[var(--text-secondary)] hover:bg-[var(--bg-card)] hover:text-[var(--text-primary)] transition-all duration-200"
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-(--text-secondary) hover:bg-(--bg-card) hover:text-(--text-primary) transition-all duration-200"
             >
               <ChevronLeft className="w-5 h-5" />
               <span className="font-medium">메인 사이트로</span>

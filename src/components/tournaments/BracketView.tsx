@@ -117,8 +117,8 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
   if (divisions.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 text-center">
-        <Trophy className="w-12 h-12 mx-auto text-[var(--text-muted)] mb-4" />
-        <p className="text-[var(--text-secondary)]">참가 부서가 없습니다.</p>
+        <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+        <p className="text-(--text-secondary)">참가 부서가 없습니다.</p>
       </div>
     )
   }
@@ -134,10 +134,10 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
           <button
             key={division.id}
             onClick={() => setSelectedDivision(division)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+            className={`px-4 py-2 rounded-lg font-medium transition-all text-white ${
               selectedDivision?.id === division.id
-                ? 'bg-[var(--accent-color)] text-black'
-                : 'bg-[var(--bg-card)] text-[var(--text-secondary)] hover:bg-[var(--bg-card-hover)]'
+                ? 'bg-(--accent-color)'
+                : 'bg-(--bg-card) hover:bg-(--bg-card-hover)'
             }`}
           >
             {division.name}
@@ -147,12 +147,12 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
 
       {loading ? (
         <div className="flex items-center justify-center py-16">
-          <RefreshCw className="w-8 h-8 animate-spin text-[var(--accent-color)]" />
+          <RefreshCw className="w-8 h-8 animate-spin text-(--accent-color)" />
         </div>
       ) : !config ? (
         <div className="glass-card rounded-xl p-8 text-center">
-          <Trophy className="w-12 h-12 mx-auto text-[var(--text-muted)] mb-4" />
-          <p className="text-[var(--text-secondary)]">
+          <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+          <p className="text-(--text-secondary)">
             이 부서의 대진표가 아직 생성되지 않았습니다.
           </p>
         </div>
@@ -160,13 +160,13 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
         <>
           {/* Phase Tabs (if has preliminaries) */}
           {config.has_preliminaries && (
-            <div className="flex gap-1 p-1 bg-[var(--bg-card)] rounded-xl w-fit">
+            <div className="flex gap-1 p-1 bg-(--bg-card) rounded-xl w-fit">
               <button
                 onClick={() => setActiveTab('preliminary')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-white ${
                   activeTab === 'preliminary'
-                    ? 'bg-[var(--accent-color)] text-black'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    ? 'bg-(--accent-color)'
+                    : 'hover:bg-white/10'
                 }`}
               >
                 <Users className="w-4 h-4" />
@@ -174,10 +174,10 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
               </button>
               <button
                 onClick={() => setActiveTab('main')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-white ${
                   activeTab === 'main'
-                    ? 'bg-[var(--accent-color)] text-black'
-                    : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                    ? 'bg-(--accent-color)'
+                    : 'hover:bg-white/10'
                 }`}
               >
                 <Trophy className="w-4 h-4" />
@@ -214,8 +214,8 @@ function PreliminaryView({
   if (groups.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 text-center">
-        <Users className="w-12 h-12 mx-auto text-[var(--text-muted)] mb-4" />
-        <p className="text-[var(--text-secondary)]">예선 조 편성이 없습니다.</p>
+        <Users className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+        <p className="text-(--text-secondary)">예선 조 편성이 없습니다.</p>
       </div>
     )
   }
@@ -233,7 +233,7 @@ function PreliminaryView({
 
         return (
           <div key={group.id} className="glass-card rounded-xl p-6">
-            <h3 className="font-display text-lg font-semibold text-[var(--text-primary)] mb-4">
+            <h3 className="font-display text-lg font-semibold text-(--text-primary) mb-4">
               {group.name}조
             </h3>
 
@@ -241,7 +241,7 @@ function PreliminaryView({
             <div className="overflow-x-auto mb-4">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="text-[var(--text-muted)] border-b border-[var(--border-color)]">
+                  <tr className="text-(--text-muted) border-b border-(--border-color)">
                     <th className="text-left py-2 px-2">순위</th>
                     <th className="text-left py-2 px-2">팀</th>
                     <th className="text-center py-2 px-2">승</th>
@@ -251,25 +251,25 @@ function PreliminaryView({
                 </thead>
                 <tbody>
                   {standings?.map((team, index) => (
-                    <tr key={team.id} className="border-b border-[var(--border-color)]">
+                    <tr key={team.id} className="border-b border-(--border-color)">
                       <td className="py-2 px-2">
                         <span className={`w-6 h-6 inline-flex items-center justify-center rounded-full text-xs font-bold ${
-                          index < 2 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-[var(--bg-secondary)] text-[var(--text-muted)]'
+                          index < 2 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-(--bg-secondary) text-(--text-muted)'
                         }`}>
                           {index + 1}
                         </span>
                       </td>
                       <td className="py-2 px-2">
-                        <p className="font-medium text-[var(--text-primary)]">
+                        {team.entry?.club_name && (
+                          <p className="font-medium text-(--text-primary)">{team.entry.club_name}</p>
+                        )}
+                        <p className={team.entry?.club_name ? 'text-xs text-(--text-muted)' : 'font-medium text-(--text-primary)'}>
                           {team.entry?.player_name}
                         </p>
-                        {team.entry?.club_name && (
-                          <p className="text-xs text-[var(--text-muted)]">{team.entry.club_name}</p>
-                        )}
                       </td>
                       <td className="py-2 px-2 text-center text-emerald-400 font-medium">{team.wins}</td>
                       <td className="py-2 px-2 text-center text-rose-400 font-medium">{team.losses}</td>
-                      <td className="py-2 px-2 text-center text-[var(--text-secondary)]">
+                      <td className="py-2 px-2 text-center text-(--text-secondary)">
                         {team.points_for}/{team.points_against}
                       </td>
                     </tr>
@@ -280,7 +280,7 @@ function PreliminaryView({
 
             {/* Match Results */}
             <div className="space-y-2">
-              <h4 className="text-sm font-medium text-[var(--text-muted)] mb-2">경기 결과</h4>
+              <h4 className="text-sm font-medium text-(--text-muted) mb-2">경기 결과</h4>
               {groupMatches.map((match) => (
                 <MatchCard key={match.id} match={match} />
               ))}
@@ -305,8 +305,8 @@ function MainBracketView({
   if (matches.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 text-center">
-        <Trophy className="w-12 h-12 mx-auto text-[var(--text-muted)] mb-4" />
-        <p className="text-[var(--text-secondary)]">본선 대진표가 아직 생성되지 않았습니다.</p>
+        <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+        <p className="text-(--text-secondary)">본선 대진표가 아직 생성되지 않았습니다.</p>
       </div>
     )
   }
@@ -336,7 +336,7 @@ function MainBracketView({
 
             return (
               <div key={phase} className="flex flex-col gap-4">
-                <h4 className="text-center font-semibold text-[var(--text-primary)] sticky top-0 bg-[var(--bg-card)] py-2">
+                <h4 className="text-center font-semibold text-(--text-primary) sticky top-0 bg-(--bg-card) py-2">
                   {phaseLabels[phase]}
                 </h4>
                 <div className="flex flex-col gap-4 justify-around flex-1">
@@ -357,7 +357,7 @@ function MainBracketView({
 
           return (
             <div key={phase}>
-              <h4 className="font-display font-semibold text-[var(--text-primary)] mb-3">
+              <h4 className="font-display font-semibold text-(--text-primary) mb-3">
                 {phaseLabels[phase]}
               </h4>
               <div className="space-y-2">
@@ -376,44 +376,51 @@ function MainBracketView({
 // ============================================================================
 // 경기 카드 (목록용)
 // ============================================================================
+function teamLabel(team: { player_name: string; club_name: string | null } | undefined, fallback: string) {
+  if (!team) return fallback
+  return team.club_name ? `${team.club_name} ${team.player_name}` : (team.player_name || fallback)
+}
+
 function MatchCard({ match }: { match: BracketMatch }) {
   const isCompleted = match.status === 'COMPLETED'
   const isBye = match.status === 'BYE'
+  const team1Label = teamLabel(match.team1, 'TBD')
+  const team2Label = teamLabel(match.team2, 'TBD')
 
   if (isBye) {
     return (
-      <div className="flex items-center gap-3 p-3 rounded-lg bg-[var(--bg-secondary)] opacity-60">
-        <span className="text-[var(--text-primary)] text-sm">
-          {match.team1?.player_name}
+      <div className="flex items-center gap-3 p-3 rounded-lg bg-(--bg-secondary) opacity-60">
+        <span className="text-(--text-primary) text-sm">
+          {team1Label}
         </span>
-        <span className="text-xs text-[var(--text-muted)]">(부전승)</span>
+        <span className="text-xs text-(--text-muted)">(부전승)</span>
       </div>
     )
   }
 
   return (
     <div className={`p-3 rounded-lg ${
-      isCompleted ? 'bg-emerald-500/5 border border-emerald-500/20' : 'bg-[var(--bg-secondary)]'
+      isCompleted ? 'bg-emerald-500/5 border border-emerald-500/20' : 'bg-(--bg-secondary)'
     }`}>
       <div className="flex items-center justify-between gap-2">
         <div className={`flex-1 ${
-          match.winner_entry_id === match.team1_entry_id ? 'font-bold text-emerald-400' : 'text-[var(--text-primary)]'
+          match.winner_entry_id === match.team1_entry_id ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
         }`}>
-          <span className="text-sm">{match.team1?.player_name || 'TBD'}</span>
+          <span className="text-sm">{team1Label}</span>
         </div>
-        <div className="flex items-center gap-1 px-2 py-1 rounded bg-[var(--bg-card)]">
-          <span className="font-mono text-sm text-[var(--text-primary)]">
+        <div className="flex items-center gap-1 px-2 py-1 rounded bg-(--bg-card)">
+          <span className="font-mono text-sm text-(--text-primary)">
             {match.team1_score ?? '-'}
           </span>
-          <span className="text-[var(--text-muted)]">:</span>
-          <span className="font-mono text-sm text-[var(--text-primary)]">
+          <span className="text-(--text-muted)">:</span>
+          <span className="font-mono text-sm text-(--text-primary)">
             {match.team2_score ?? '-'}
           </span>
         </div>
         <div className={`flex-1 text-right ${
-          match.winner_entry_id === match.team2_entry_id ? 'font-bold text-emerald-400' : 'text-[var(--text-primary)]'
+          match.winner_entry_id === match.team2_entry_id ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
         }`}>
-          <span className="text-sm">{match.team2?.player_name || 'TBD'}</span>
+          <span className="text-sm">{team2Label}</span>
         </div>
       </div>
     </div>
@@ -426,19 +433,21 @@ function MatchCard({ match }: { match: BracketMatch }) {
 function BracketMatchCard({ match }: { match: BracketMatch }) {
   const isCompleted = match.status === 'COMPLETED'
   const isBye = match.status === 'BYE'
+  const team1Label = teamLabel(match.team1, isBye ? '-' : 'TBD')
+  const team2Label = teamLabel(match.team2, 'TBD')
 
   return (
     <div className={`w-48 rounded-lg overflow-hidden border ${
-      isCompleted ? 'border-emerald-500/30' : 'border-[var(--border-color)]'
+      isCompleted ? 'border-emerald-500/30' : 'border-(--border-color)'
     }`}>
       {/* Team 1 */}
       <div className={`flex items-center justify-between px-3 py-2 ${
         match.winner_entry_id === match.team1_entry_id
           ? 'bg-emerald-500/20 text-emerald-400 font-bold'
-          : 'bg-[var(--bg-card)] text-[var(--text-primary)]'
+          : 'bg-(--bg-card) text-(--text-primary)'
       }`}>
         <span className="text-sm truncate flex-1">
-          {match.team1?.player_name || (isBye ? '-' : 'TBD')}
+          {team1Label}
         </span>
         <span className="font-mono text-sm ml-2">
           {isBye ? 'W' : (match.team1_score ?? '-')}
@@ -446,16 +455,16 @@ function BracketMatchCard({ match }: { match: BracketMatch }) {
       </div>
 
       {/* Divider */}
-      <div className="h-px bg-[var(--border-color)]" />
+      <div className="h-px bg-(--border-color)" />
 
       {/* Team 2 */}
       <div className={`flex items-center justify-between px-3 py-2 ${
         match.winner_entry_id === match.team2_entry_id
           ? 'bg-emerald-500/20 text-emerald-400 font-bold'
-          : 'bg-[var(--bg-card)] text-[var(--text-primary)]'
+          : 'bg-(--bg-card) text-(--text-primary)'
       }`}>
         <span className="text-sm truncate flex-1">
-          {match.team2?.player_name || 'TBD'}
+          {team2Label}
         </span>
         <span className="font-mono text-sm ml-2">
           {match.team2_score ?? '-'}

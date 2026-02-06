@@ -12,18 +12,18 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon, href, description }: StatCardProps) {
   const content = (
-    <div className="glass-card rounded-xl p-6 transition-all duration-300 hover:border-[var(--border-accent)]">
+    <div className="glass-card rounded-xl p-6 transition-all duration-300 hover:border-(--border-accent)">
       <div className="flex items-start justify-between">
         <div className="space-y-2">
-          <p className="text-sm text-[var(--text-secondary)]">{title}</p>
-          <p className="font-display text-3xl font-bold text-[var(--text-primary)]">
+          <p className="text-sm text-(--text-secondary)">{title}</p>
+          <p className="font-display text-3xl font-bold text-(--text-primary)">
             {value}
           </p>
           {description && (
-            <p className="text-xs text-[var(--text-muted)]">{description}</p>
+            <p className="text-xs text-(--text-muted)">{description}</p>
           )}
         </div>
-        <div className="p-3 rounded-lg bg-[var(--accent-color)]/10 text-[var(--accent-color)]">
+        <div className="p-3 rounded-lg bg-(--accent-color)/10 text-(--accent-color)">
           {icon}
         </div>
       </div>
@@ -86,10 +86,10 @@ export default async function AdminDashboard() {
     <div className="space-y-8">
       {/* Page Header */}
       <div>
-        <h1 className="font-display text-2xl font-bold text-[var(--text-primary)]">
+        <h1 className="font-display text-2xl font-bold text-(--text-primary)">
           대시보드
         </h1>
-        <p className="text-[var(--text-secondary)] mt-1">
+        <p className="text-(--text-secondary) mt-1">
           Tennis Tab 서비스 현황을 한눈에 확인하세요.
         </p>
       </div>
@@ -131,12 +131,12 @@ export default async function AdminDashboard() {
         {/* Recent Tournaments */}
         <div className="glass-card rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-lg font-semibold text-[var(--text-primary)]">
+            <h2 className="font-display text-lg font-semibold text-(--text-primary)">
               최근 대회
             </h2>
             <Link
               href="/admin/tournaments"
-              className="text-sm text-[var(--accent-color)] hover:underline"
+              className="text-sm text-(--accent-color) hover:underline"
             >
               전체보기
             </Link>
@@ -147,13 +147,13 @@ export default async function AdminDashboard() {
                 <Link
                   key={tournament.id}
                   href={`/admin/tournaments/${tournament.id}/entries`}
-                  className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-card)] hover:bg-[var(--bg-card-hover)] transition-colors"
+                  className="flex items-center justify-between p-3 rounded-lg bg-(--bg-card) hover:bg-(--bg-card-hover) transition-colors"
                 >
                   <div className="space-y-1">
-                    <p className="font-medium text-[var(--text-primary)]">
+                    <p className="font-medium text-(--text-primary)">
                       {tournament.title}
                     </p>
-                    <p className="text-xs text-[var(--text-muted)]">
+                    <p className="text-xs text-(--text-muted)">
                       {tournament.location} · {tournament.start_date}
                     </p>
                   </div>
@@ -167,7 +167,7 @@ export default async function AdminDashboard() {
                 </Link>
               ))
             ) : (
-              <p className="text-center py-8 text-[var(--text-muted)]">
+              <p className="text-center py-8 text-(--text-muted)">
                 등록된 대회가 없습니다.
               </p>
             )}
@@ -177,12 +177,12 @@ export default async function AdminDashboard() {
         {/* Recent Users */}
         <div className="glass-card rounded-xl p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="font-display text-lg font-semibold text-[var(--text-primary)]">
+            <h2 className="font-display text-lg font-semibold text-(--text-primary)">
               최근 가입 회원
             </h2>
             <Link
               href="/admin/users"
-              className="text-sm text-[var(--accent-color)] hover:underline"
+              className="text-sm text-(--accent-color) hover:underline"
             >
               전체보기
             </Link>
@@ -192,28 +192,28 @@ export default async function AdminDashboard() {
               recentUsers.map((user) => (
                 <div
                   key={user.id}
-                  className="flex items-center justify-between p-3 rounded-lg bg-[var(--bg-card)]"
+                  className="flex items-center justify-between p-3 rounded-lg bg-(--bg-card)"
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-[var(--accent-color)]/20 flex items-center justify-center text-[var(--accent-color)] font-display font-bold">
+                    <div className="w-10 h-10 rounded-full bg-(--accent-color)/20 flex items-center justify-center text-(--accent-color) font-display font-bold">
                       {user.name?.charAt(0).toUpperCase() || '?'}
                     </div>
                     <div className="space-y-0.5">
-                      <p className="font-medium text-[var(--text-primary)]">
+                      <p className="font-medium text-(--text-primary)">
                         {user.name}
                       </p>
-                      <p className="text-xs text-[var(--text-muted)]">
+                      <p className="text-xs text-(--text-muted)">
                         {user.email}
                       </p>
                     </div>
                   </div>
-                  <p className="text-xs text-[var(--text-muted)]">
+                  <p className="text-xs text-(--text-muted)">
                     {new Date(user.created_at).toLocaleDateString('ko-KR')}
                   </p>
                 </div>
               ))
             ) : (
-              <p className="text-center py-8 text-[var(--text-muted)]">
+              <p className="text-center py-8 text-(--text-muted)">
                 가입한 회원이 없습니다.
               </p>
             )}

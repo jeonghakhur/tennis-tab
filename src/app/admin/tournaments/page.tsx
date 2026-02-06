@@ -46,10 +46,10 @@ export default async function AdminTournamentsPage() {
     <div className="space-y-6">
       {/* Page Header */}
       <div>
-        <h1 className="font-display text-2xl font-bold text-[var(--text-primary)]">
+        <h1 className="font-display text-2xl font-bold text-(--text-primary)">
           대회 관리
         </h1>
-        <p className="text-[var(--text-secondary)] mt-1">
+        <p className="text-(--text-secondary) mt-1">
           {isAdminOrHigher
             ? '모든 대회를 조회하고 관리할 수 있습니다.'
             : '내가 등록한 대회를 조회하고 관리할 수 있습니다.'}

@@ -32,7 +32,7 @@ export default async function AdminLayout({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--bg-primary)] overflow-hidden">
+    <div className="fixed inset-0 z-50 bg-(--bg-primary) overflow-hidden">
       <div className="flex h-full">
         <AdminSidebar currentRole={profile.role} />
         <div className="flex-1 lg:ml-64 flex flex-col h-full overflow-hidden">

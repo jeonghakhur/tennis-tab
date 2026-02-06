@@ -16,7 +16,9 @@ alwaysApply: false
 ## Styling
 
 - **Utility**: Use `cn()` from `@/lib/utils` to merge class names (clsx + tailwind-merge).
-- **Theme**: Prefer CSS variables: `var(--bg-card)`, `var(--text-primary)`, `var(--accent-color)`, `var(--border-color)` for light/dark.
+- **Theme**: Prefer CSS variables for light/dark. In **Tailwind class names** use the shorthand: `(--token)` not `[var(--token)]`.
+  - O: `text-(--text-muted)`, `bg-(--bg-card)`, `border-(--border-color)`, `focus:border-(--accent-color)`, `bg-(--accent-color)/10`
+  - X: `text-[var(--text-muted)]`, `bg-[var(--bg-card)]`
 - **UI**: shadcn/ui (new-york style) in `@/components/ui`; add with `npx shadcn@latest add <component>`.
 
 ## Data & types

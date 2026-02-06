@@ -3,7 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { EntriesManager } from '@/components/admin/EntriesManager'
 import Link from 'next/link'
-import { ChevronLeft, Calendar, MapPin, Users } from 'lucide-react'
+import { ChevronLeft, Calendar, MapPin, Users, ListTree } from 'lucide-react'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -52,7 +52,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
     redirect('/admin/tournaments')
   }
 
-  // 참가 신청 조회
+  // 참가 신청 조회 (참가 신청 순 고정: created_at → id)
   const { data: entries } = await supabase
     .from('tournament_entries')
     .select(`
@@ -62,6 +62,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
     `)
     .eq('tournament_id', id)
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
 
   const statusConfig: Record<string, { label: string; className: string }> = {
     DRAFT: { label: '초안', className: 'bg-gray-500/20 text-gray-400' },
@@ -77,7 +78,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
       {/* Breadcrumb */}
       <Link
         href="/admin/tournaments"
-        className="inline-flex items-center gap-1 text-sm text-[var(--text-secondary)] hover:text-[var(--accent-color)] transition-colors"
+        className="inline-flex items-center gap-1 text-sm text-(--text-secondary) hover:text-(--accent-color) transition-colors"
       >
         <ChevronLeft className="w-4 h-4" />
         대회 목록으로
@@ -88,7 +89,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <h1 className="font-display text-2xl font-bold text-[var(--text-primary)]">
+              <h1 className="font-display text-2xl font-bold text-(--text-primary)">
                 {tournament.title}
               </h1>
               <span
@@ -100,7 +101,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-4 text-sm text-[var(--text-secondary)]">
+            <div className="flex flex-wrap items-center gap-4 text-sm text-(--text-secondary)">
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
                 <span>
@@ -122,13 +123,20 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
             </div>
 
             {tournament.profiles && (
-              <p className="text-xs text-[var(--text-muted)]">
+              <p className="text-xs text-(--text-muted)">
                 주최: {tournament.profiles.name} ({tournament.profiles.email})
               </p>
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Link
+              href={`/admin/tournaments/${tournament.id}/bracket`}
+              className="btn-primary btn-sm inline-flex items-center gap-1.5"
+            >
+              <ListTree className="w-4 h-4" />
+              <span className="relative z-10">대진표 작성</span>
+            </Link>
             <Link
               href={`/tournaments/${tournament.id}`}
               target="_blank"
@@ -138,7 +146,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
             </Link>
             <Link
               href={`/tournaments/${tournament.id}/edit`}
-              className="btn-primary btn-sm"
+              className="btn-secondary btn-sm"
             >
               <span className="relative z-10">대회 수정</span>
             </Link>
