@@ -33,6 +33,7 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { LoadingOverlay } from "@/components/common/LoadingOverlay";
 import {
   getOrCreateBracketConfig,
   updateBracketConfig,
@@ -607,19 +608,13 @@ export function BracketManager({
 
           {/* Tab Content */}
           <div
-            className={`rounded-xl p-6 border border-(--border-color) ${
-              activeTab === "groups"
-                ? "bg-(--bg-card)"
-                : "glass-card"
+            className={`rounded-xl p-6 border border-(--border-color) relative ${
+              activeTab === "groups" ? "bg-(--bg-card)" : "glass-card"
             }`}
           >
-            {loading && (
-              <div className="flex items-center justify-center py-8">
-                <RefreshCw className="w-8 h-8 animate-spin text-(--accent-color)" />
-              </div>
-            )}
+            {loading && <LoadingOverlay message="불러오는 중..." />}
 
-            {!loading && activeTab === "settings" && (
+            {activeTab === "settings" && (
               <SettingsTab
                 config={config}
                 onUpdate={handleConfigUpdate}
@@ -627,7 +622,7 @@ export function BracketManager({
               />
             )}
 
-            {!loading && activeTab === "groups" && (
+            {activeTab === "groups" && (
               <GroupsTab
                 groups={groups}
                 onAutoGenerate={() => {
@@ -644,7 +639,7 @@ export function BracketManager({
               />
             )}
 
-            {!loading && activeTab === "preliminary" && (
+            {activeTab === "preliminary" && (
               <PreliminaryTab
                 groups={groups}
                 matches={preliminaryMatches}
@@ -653,7 +648,7 @@ export function BracketManager({
               />
             )}
 
-            {!loading && activeTab === "main" && (
+            {activeTab === "main" && (
               <MainBracketTab
                 config={config}
                 matches={mainMatches}
@@ -1143,19 +1138,8 @@ function DroppableGroup({ group }: { group: PreliminaryGroup }) {
 }
 
 // Sortable 팀 컴포넌트
-function SortableTeam({
-  team,
-  index,
-}: {
-  team: GroupTeam;
-  index: number;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    isDragging,
-  } = useSortable({
+function SortableTeam({ team, index }: { team: GroupTeam; index: number }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: team.id,
     data: {
       type: "team",
@@ -1175,7 +1159,7 @@ function SortableTeam({
       {...listeners}
       className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover)"
     >
-      <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
+      {/* <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" /> */}
       <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
         {index + 1}
       </span>
