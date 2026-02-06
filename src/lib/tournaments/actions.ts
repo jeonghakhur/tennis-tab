@@ -100,9 +100,11 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
   )
 
   // 4. 대회 생성
+  const posterUrl = formData.get('poster_url') as string
   const tournamentData: any = {
     title: title.trim(),
     description: (formData.get('description') as string) || null,
+    poster_url: posterUrl || null,
     start_date: new Date(startDate).toISOString(),
     end_date: new Date(endDate).toISOString(),
     location: location.trim(),
@@ -274,9 +276,11 @@ export async function updateTournament(
   )
 
   // 5. 대회 업데이트
+  const posterUrl = formData.get('poster_url') as string
   const tournamentData: any = {
     title: title.trim(),
     description: (formData.get('description') as string) || null,
+    poster_url: posterUrl || null,
     start_date: new Date(startDate).toISOString(),
     end_date: new Date(endDate).toISOString(),
     location: location.trim(),

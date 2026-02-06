@@ -41,6 +41,7 @@ export default async function TournamentEditPage({ params }: Props) {
         id: tournament.id,
         title: tournament.title,
         description: tournament.description,
+        poster_url: tournament.poster_url,
         start_date: tournament.start_date,
         end_date: tournament.end_date,
         location: tournament.location,

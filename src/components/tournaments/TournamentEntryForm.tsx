@@ -318,7 +318,7 @@ export default function TournamentEntryForm({
                 }
                 className={inputClass}
                 min="1"
-                max="100"
+                max="9999"
               />
             </div>
           </div>
@@ -370,7 +370,7 @@ export default function TournamentEntryForm({
                   }
                   className={inputClass}
                   min="1"
-                  max="100"
+                  max="9999"
                   required
                 />
               </div>
@@ -482,7 +482,7 @@ export default function TournamentEntryForm({
                         }
                         className={inputClass}
                         min="1"
-                        max="100"
+                        max="9999"
                         required
                       />
                     </div>

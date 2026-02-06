@@ -29,6 +29,7 @@ export default async function NewTournamentPage({ searchParams }: Props) {
                 id: '', // 새 대회이므로 ID는 비워둠
                 title: `${tournament.title} (복사본)`,
                 description: tournament.description,
+                poster_url: tournament.poster_url, // 포스터 이미지도 복사
                 start_date: tournament.start_date,
                 end_date: tournament.end_date,
                 location: tournament.location,

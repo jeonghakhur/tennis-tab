@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import Image from "next/image";
 import { TournamentStatus, MatchType } from "@/lib/supabase/types";
 import TournamentActions from "@/components/tournaments/TournamentActions";
 import TournamentMap from "@/components/tournaments/TournamentMap";
@@ -196,6 +197,20 @@ export default async function TournamentDetailPage({ params }: Props) {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Main Content Column */}
         <div className="lg:col-span-2 space-y-8">
+          {/* Poster Image */}
+          {tournament.poster_url && (
+            <div className="relative aspect-[2/1] rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800">
+              <Image
+                src={tournament.poster_url}
+                alt={tournament.title}
+                fill
+                className="object-cover"
+                priority
+                unoptimized
+              />
+            </div>
+          )}
+
           {/* Key Info Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-100 dark:border-gray-700 shadow-sm">
@@ -364,13 +379,21 @@ export default async function TournamentDetailPage({ params }: Props) {
                   </div>
                   <div className="grid grid-cols-3 gap-4 px-6 py-4">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      최대 참가 인원
+                    </dt>
+                    <dd className="text-sm text-gray-900 dark:text-white col-span-2">
+                      {tournament.max_participants}명
+                    </dd>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 px-6 py-4 bg-gray-50 dark:bg-gray-900/50">
+                    <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       개회식
                     </dt>
                     <dd className="text-sm text-gray-900 dark:text-white col-span-2">
                       {formatDate(tournament.opening_ceremony)}
                     </dd>
                   </div>
-                  <div className="grid grid-cols-3 gap-4 px-6 py-4 bg-gray-50 dark:bg-gray-900/50">
+                  <div className="grid grid-cols-3 gap-4 px-6 py-4">
                     <dt className="text-sm font-medium text-gray-500 dark:text-gray-400">
                       문의
                     </dt>

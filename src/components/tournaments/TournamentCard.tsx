@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Database } from '@/lib/supabase/types';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
@@ -63,10 +64,19 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     >
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-blue-500/30">
         <div className="aspect-[3/2] bg-gray-100 dark:bg-gray-800 relative">
-          {/* Placeholder for image */}
-          <div className="absolute inset-0 flex items-center justify-center text-4xl">
-            🎾
-          </div>
+          {tournament.poster_url ? (
+            <Image
+              src={tournament.poster_url}
+              alt={tournament.title}
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center text-4xl">
+              🎾
+            </div>
+          )}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
             <button
               onClick={handleCopyTemplate}

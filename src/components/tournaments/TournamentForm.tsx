@@ -6,6 +6,7 @@ import { createTournament, updateTournament, DivisionInput } from '@/lib/tournam
 import { useAuth } from '../AuthProvider';
 import { UserRole, MatchType } from '@/lib/supabase/types';
 import RichTextEditor from '@/components/ui/RichTextEditor';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
@@ -55,6 +56,7 @@ export interface TournamentFormData {
     id: string;
     title: string;
     description: string | null;
+    poster_url: string | null;
     start_date: string;
     end_date: string;
     location: string;
@@ -96,6 +98,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [description, setDescription] = useState(initialData?.description || '');
+    const [posterUrl, setPosterUrl] = useState<string | null>(initialData?.poster_url || null);
     const [matchType, setMatchType] = useState<MatchType | ''>(initialData?.match_type || '');
     const [divisions, setDivisions] = useState<DivisionInput[]>(
         initialData?.tournament_divisions?.map(div => ({
@@ -154,6 +157,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
 
         const formData = new FormData(e.currentTarget);
         formData.set('divisions', JSON.stringify(divisions));
+        formData.set('poster_url', posterUrl || '');
 
         const result = isEditMode && initialData
             ? await updateTournament(initialData.id, formData)
@@ -212,6 +216,18 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                     {error}
                 </div>
             )}
+
+            {/* 대표 이미지 섹션 */}
+            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
+                <h3 className="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">대표 이미지</h3>
+                <ImageUpload
+                    value={posterUrl}
+                    onChange={setPosterUrl}
+                    bucket="tournaments"
+                    folder="posters"
+                />
+                <p className="text-xs text-gray-500">대회 목록 및 상세 페이지에 표시될 대표 이미지입니다.</p>
+            </section>
 
             {/* 기본 정보 섹션 */}
             <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
