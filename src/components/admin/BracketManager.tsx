@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Settings, Users, Trophy, Play, Check, RefreshCw } from "lucide-react";
+import { AlertDialog, ConfirmDialog } from "@/components/common/AlertDialog";
 import {
   getOrCreateBracketConfig,
   updateBracketConfig,
@@ -12,6 +13,10 @@ import {
   generateMainBracket,
   getMainBracketMatches,
   updateMatchResult,
+  deleteBracketConfig,
+  deletePreliminaryGroups,
+  deletePreliminaryMatches,
+  deleteMainBracket,
 } from "@/lib/bracket/actions";
 import type {
   BracketStatus,
@@ -109,6 +114,28 @@ export function BracketManager({
     "settings" | "groups" | "preliminary" | "main"
   >("settings");
 
+  // Dialog states
+  const [showAutoGenerateConfirm, setShowAutoGenerateConfirm] = useState(false);
+  const [showGeneratePrelimConfirm, setShowGeneratePrelimConfirm] =
+    useState(false);
+  const [showGenerateMainConfirm, setShowGenerateMainConfirm] = useState(false);
+  const [showDeleteGroupsConfirm, setShowDeleteGroupsConfirm] = useState(false);
+  const [showDeletePrelimConfirm, setShowDeletePrelimConfirm] = useState(false);
+  const [showDeleteMainConfirm, setShowDeleteMainConfirm] = useState(false);
+  const [showDeleteBracketConfirm, setShowDeleteBracketConfirm] =
+    useState(false);
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "error" | "success";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
+
   // 부서 변경 시 데이터 로드
   useEffect(() => {
     if (selectedDivision) {
@@ -154,7 +181,6 @@ export function BracketManager({
 
   const handleConfigUpdate = async (updates: Partial<BracketConfig>) => {
     if (!config) return;
-    setLoading(true);
 
     try {
       const { data } = await updateBracketConfig(config.id, updates);
@@ -163,15 +189,11 @@ export function BracketManager({
       }
     } catch (error) {
       console.error("Failed to update config:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleAutoGenerateGroups = async () => {
     if (!config || !selectedDivision) return;
-    if (!confirm("자동 조 편성을 하시겠습니까? 기존 조 편성이 삭제됩니다."))
-      return;
 
     setLoading(true);
     try {
@@ -180,41 +202,75 @@ export function BracketManager({
         selectedDivision.id,
       );
       if (error) {
-        alert(error);
+        setAlertDialog({
+          isOpen: true,
+          title: "조 편성 실패",
+          message: error,
+          type: "error",
+        });
       } else {
         await loadBracketData();
         setActiveTab("groups");
+        setAlertDialog({
+          isOpen: true,
+          title: "조 편성 완료",
+          message: "자동 조 편성이 완료되었습니다.",
+          type: "success",
+        });
       }
     } catch (error) {
       console.error("Failed to generate groups:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "조 편성 중 오류가 발생했습니다.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
+      setShowAutoGenerateConfirm(false);
     }
   };
 
   const handleGeneratePreliminaryMatches = async () => {
     if (!config) return;
-    if (!confirm("예선 경기를 생성하시겠습니까?")) return;
 
     setLoading(true);
     try {
       const { error } = await generatePreliminaryMatches(config.id);
       if (error) {
-        alert(error);
+        setAlertDialog({
+          isOpen: true,
+          title: "예선 경기 생성 실패",
+          message: error,
+          type: "error",
+        });
       } else {
         await loadBracketData();
         setActiveTab("preliminary");
+        setAlertDialog({
+          isOpen: true,
+          title: "예선 경기 생성 완료",
+          message: "예선 경기가 생성되었습니다.",
+          type: "success",
+        });
       }
     } catch (error) {
       console.error("Failed to generate preliminary matches:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "예선 경기 생성 중 오류가 발생했습니다.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
+      setShowGeneratePrelimConfirm(false);
     }
   };
 
   const handleGenerateMainBracket = async () => {
     if (!config || !selectedDivision) return;
-    if (!confirm("본선 대진표를 생성하시겠습니까?")) return;
 
     setLoading(true);
     try {
@@ -223,18 +279,33 @@ export function BracketManager({
         selectedDivision.id,
       );
       if (error) {
-        alert(error);
+        setAlertDialog({
+          isOpen: true,
+          title: "본선 대진표 생성 실패",
+          message: error,
+          type: "error",
+        });
       } else {
-        alert(
-          `본선 대진표가 생성되었습니다. (${data?.bracketSize}강, ${data?.teamCount}팀)`,
-        );
         await loadBracketData();
         setActiveTab("main");
+        setAlertDialog({
+          isOpen: true,
+          title: "본선 대진표 생성 완료",
+          message: `본선 대진표가 생성되었습니다.\n(${data?.bracketSize}강, ${data?.teamCount}팀)`,
+          type: "success",
+        });
       }
     } catch (error) {
       console.error("Failed to generate main bracket:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "본선 대진표 생성 중 오류가 발생했습니다.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
+      setShowGenerateMainConfirm(false);
     }
   };
 
@@ -251,14 +322,169 @@ export function BracketManager({
         team2Score,
       );
       if (error) {
-        alert(error);
+        setAlertDialog({
+          isOpen: true,
+          title: "경기 결과 입력 실패",
+          message: error,
+          type: "error",
+        });
       } else {
         await loadBracketData();
       }
     } catch (error) {
       console.error("Failed to update match result:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "경기 결과 입력 중 오류가 발생했습니다.",
+        type: "error",
+      });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteGroups = async () => {
+    if (!config) return;
+
+    setLoading(true);
+    try {
+      const { error } = await deletePreliminaryGroups(config.id);
+      if (error) {
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 실패",
+          message: error,
+          type: "error",
+        });
+      } else {
+        await loadBracketData();
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 완료",
+          message: "조 편성이 삭제되었습니다.",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete groups:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "삭제 중 오류가 발생했습니다.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+      setShowDeleteGroupsConfirm(false);
+    }
+  };
+
+  const handleDeletePreliminaryMatches = async () => {
+    if (!config) return;
+
+    setLoading(true);
+    try {
+      const { error } = await deletePreliminaryMatches(config.id);
+      if (error) {
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 실패",
+          message: error,
+          type: "error",
+        });
+      } else {
+        await loadBracketData();
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 완료",
+          message: "예선 경기가 삭제되었습니다.",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete preliminary matches:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "삭제 중 오류가 발생했습니다.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+      setShowDeletePrelimConfirm(false);
+    }
+  };
+
+  const handleDeleteMainBracket = async () => {
+    if (!config) return;
+
+    setLoading(true);
+    try {
+      const { error } = await deleteMainBracket(config.id);
+      if (error) {
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 실패",
+          message: error,
+          type: "error",
+        });
+      } else {
+        await loadBracketData();
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 완료",
+          message: "본선 대진표가 삭제되었습니다.",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete main bracket:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "삭제 중 오류가 발생했습니다.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+      setShowDeleteMainConfirm(false);
+    }
+  };
+
+  const handleDeleteBracket = async () => {
+    if (!config) return;
+
+    setLoading(true);
+    try {
+      const { error } = await deleteBracketConfig(config.id);
+      if (error) {
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 실패",
+          message: error,
+          type: "error",
+        });
+      } else {
+        await loadBracketData();
+        setAlertDialog({
+          isOpen: true,
+          title: "삭제 완료",
+          message: "전체 대진표가 삭제되었습니다.",
+          type: "success",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to delete bracket:", error);
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "삭제 중 오류가 발생했습니다.",
+        type: "error",
+      });
+    } finally {
+      setLoading(false);
+      setShowDeleteBracketConfirm(false);
     }
   };
 
@@ -353,14 +579,19 @@ export function BracketManager({
             )}
 
             {!loading && activeTab === "settings" && (
-              <SettingsTab config={config} onUpdate={handleConfigUpdate} />
+              <SettingsTab
+                config={config}
+                onUpdate={handleConfigUpdate}
+                onDelete={() => setShowDeleteBracketConfirm(true)}
+              />
             )}
 
             {!loading && activeTab === "groups" && (
               <GroupsTab
                 groups={groups}
-                onAutoGenerate={handleAutoGenerateGroups}
-                onGenerateMatches={handleGeneratePreliminaryMatches}
+                onAutoGenerate={() => setShowAutoGenerateConfirm(true)}
+                onGenerateMatches={() => setShowGeneratePrelimConfirm(true)}
+                onDelete={() => setShowDeleteGroupsConfirm(true)}
               />
             )}
 
@@ -369,6 +600,7 @@ export function BracketManager({
                 groups={groups}
                 matches={preliminaryMatches}
                 onMatchResult={handleMatchResult}
+                onDelete={() => setShowDeletePrelimConfirm(true)}
               />
             )}
 
@@ -376,13 +608,94 @@ export function BracketManager({
               <MainBracketTab
                 config={config}
                 matches={mainMatches}
-                onGenerateBracket={handleGenerateMainBracket}
+                onGenerateBracket={() => setShowGenerateMainConfirm(true)}
                 onMatchResult={handleMatchResult}
+                onDelete={() => setShowDeleteMainConfirm(true)}
               />
             )}
           </div>
         </>
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+      />
+
+      {/* Confirm Dialogs */}
+      <ConfirmDialog
+        isOpen={showAutoGenerateConfirm}
+        onClose={() => setShowAutoGenerateConfirm(false)}
+        onConfirm={handleAutoGenerateGroups}
+        title="자동 조 편성"
+        message={`자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`}
+        type="warning"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showGeneratePrelimConfirm}
+        onClose={() => setShowGeneratePrelimConfirm(false)}
+        onConfirm={handleGeneratePreliminaryMatches}
+        title="예선 경기 생성"
+        message="예선 경기를 생성하시겠습니까?"
+        type="info"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showGenerateMainConfirm}
+        onClose={() => setShowGenerateMainConfirm(false)}
+        onConfirm={handleGenerateMainBracket}
+        title="본선 대진표 생성"
+        message="본선 대진표를 생성하시겠습니까?"
+        type="info"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteGroupsConfirm}
+        onClose={() => setShowDeleteGroupsConfirm(false)}
+        onConfirm={handleDeleteGroups}
+        title="조 편성 삭제"
+        message={`조 편성을 삭제하시겠습니까?\n조 배정 및 예선 경기가 모두 삭제됩니다.`}
+        type="error"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeletePrelimConfirm}
+        onClose={() => setShowDeletePrelimConfirm(false)}
+        onConfirm={handleDeletePreliminaryMatches}
+        title="예선 경기 삭제"
+        message={`예선 경기를 삭제하시겠습니까?\n조 편성은 유지됩니다.`}
+        type="error"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteMainConfirm}
+        onClose={() => setShowDeleteMainConfirm(false)}
+        onConfirm={handleDeleteMainBracket}
+        title="본선 대진표 삭제"
+        message={`본선 대진표를 삭제하시겠습니까?\n예선은 유지됩니다.`}
+        type="error"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteBracketConfirm}
+        onClose={() => setShowDeleteBracketConfirm(false)}
+        onConfirm={handleDeleteBracket}
+        title="전체 대진표 설정 삭제"
+        message={`전체 대진표 설정을 삭제하시겠습니까?\n모든 조 편성, 예선, 본선 데이터가 영구적으로 삭제됩니다.`}
+        type="error"
+        isLoading={loading}
+      />
     </div>
   );
 }
@@ -393,9 +706,11 @@ export function BracketManager({
 function SettingsTab({
   config,
   onUpdate,
+  onDelete,
 }: {
   config: BracketConfig;
   onUpdate: (updates: Partial<BracketConfig>) => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -456,6 +771,19 @@ function SettingsTab({
           </p>
         )}
       </div>
+
+      <div className="pt-4 border-t border-(--border-color)">
+        <button
+          onClick={onDelete}
+          className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+        >
+          전체 대진표 설정 삭제
+        </button>
+        <p className="text-xs text-(--text-muted) mt-2">
+          모든 조 편성, 예선, 본선 데이터가 영구적으로 삭제되며, 대진표 설정이
+          초기화됩니다.
+        </p>
+      </div>
     </div>
   );
 }
@@ -467,10 +795,12 @@ function GroupsTab({
   groups,
   onAutoGenerate,
   onGenerateMatches,
+  onDelete,
 }: {
   groups: PreliminaryGroup[];
   onAutoGenerate: () => void;
   onGenerateMatches: () => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="space-y-6">
@@ -483,9 +813,20 @@ function GroupsTab({
             <span className="relative z-10">자동 편성</span>
           </button>
           {groups.length > 0 && (
-            <button onClick={onGenerateMatches} className="btn-primary btn-sm">
-              <span className="relative z-10">예선 경기 생성</span>
-            </button>
+            <>
+              <button
+                onClick={onGenerateMatches}
+                className="btn-primary btn-sm"
+              >
+                <span className="relative z-10">예선 경기 생성</span>
+              </button>
+              <button
+                onClick={onDelete}
+                className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+              >
+                조 편성 삭제
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -544,6 +885,7 @@ function PreliminaryTab({
   groups,
   matches,
   onMatchResult,
+  onDelete,
 }: {
   groups: PreliminaryGroup[];
   matches: BracketMatch[];
@@ -552,12 +894,23 @@ function PreliminaryTab({
     team1Score: number,
     team2Score: number,
   ) => void;
+  onDelete: () => void;
 }) {
   return (
     <div className="space-y-6">
-      <h3 className="font-display text-lg font-semibold text-(--text-primary)">
-        예선 경기
-      </h3>
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-lg font-semibold text-(--text-primary)">
+          예선 경기
+        </h3>
+        {matches.length > 0 && (
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+          >
+            예선 경기 삭제
+          </button>
+        )}
+      </div>
 
       {matches.length === 0 ? (
         <div className="text-center py-8 text-(--text-muted)">
@@ -671,6 +1024,7 @@ function MainBracketTab({
   matches,
   onGenerateBracket,
   onMatchResult,
+  onDelete,
 }: {
   config: BracketConfig;
   matches: BracketMatch[];
@@ -680,6 +1034,7 @@ function MainBracketTab({
     team1Score: number,
     team2Score: number,
   ) => void;
+  onDelete: () => void;
 }) {
   // 라운드별로 경기 그룹화
   const matchesByPhase = matches.reduce(
@@ -713,11 +1068,21 @@ function MainBracketTab({
             </span>
           )}
         </h3>
-        {(config.status === "DRAFT" || config.status === "PRELIMINARY") && (
-          <button onClick={onGenerateBracket} className="btn-primary btn-sm">
-            <span className="relative z-10">본선 대진표 생성</span>
-          </button>
-        )}
+        <div className="flex gap-2">
+          {(config.status === "DRAFT" || config.status === "PRELIMINARY") && (
+            <button onClick={onGenerateBracket} className="btn-primary btn-sm">
+              <span className="relative z-10">본선 대진표 생성</span>
+            </button>
+          )}
+          {matches.length > 0 && (
+            <button
+              onClick={onDelete}
+              className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+            >
+              본선 대진표 삭제
+            </button>
+          )}
+        </div>
       </div>
 
       {matches.length === 0 ? (

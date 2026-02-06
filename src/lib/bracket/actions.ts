@@ -848,3 +848,123 @@ export async function getBracketData(divisionId: string) {
 
   return { config, groups, matches }
 }
+
+/**
+ * 대진표 삭제 (조편성 및 모든 관련 데이터 삭제)
+ */
+/**
+ * 예선 조 편성 삭제 (조 배정 및 예선 경기도 함께 삭제됨)
+ */
+export async function deletePreliminaryGroups(configId: string) {
+  const supabaseAdmin = createAdminClient()
+
+  try {
+    // preliminary_groups 삭제 (CASCADE로 group_teams와 예선 bracket_matches도 삭제됨)
+    const { error } = await supabaseAdmin
+      .from('preliminary_groups')
+      .delete()
+      .eq('bracket_config_id', configId)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/tournaments')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류'
+    return { success: false, error: message }
+  }
+}
+
+/**
+ * 예선 경기만 삭제 (조 편성은 유지)
+ */
+export async function deletePreliminaryMatches(configId: string) {
+  const supabaseAdmin = createAdminClient()
+
+  try {
+    // 예선 경기만 삭제
+    const { error } = await supabaseAdmin
+      .from('bracket_matches')
+      .delete()
+      .eq('bracket_config_id', configId)
+      .eq('phase', 'PRELIMINARY')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/tournaments')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류'
+    return { success: false, error: message }
+  }
+}
+
+/**
+ * 본선 대진표 삭제 (본선 경기만 삭제, 예선은 유지)
+ */
+export async function deleteMainBracket(configId: string) {
+  const supabaseAdmin = createAdminClient()
+
+  try {
+    // 본선 경기 삭제 (예선 제외)
+    const { error } = await supabaseAdmin
+      .from('bracket_matches')
+      .delete()
+      .eq('bracket_config_id', configId)
+      .neq('phase', 'PRELIMINARY')
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    // bracket_size와 status 초기화
+    const { error: updateError } = await supabaseAdmin
+      .from('bracket_configs')
+      .update({
+        bracket_size: null,
+        status: 'PRELIMINARY',
+      })
+      .eq('id', configId)
+
+    if (updateError) {
+      return { success: false, error: updateError.message }
+    }
+
+    revalidatePath('/admin/tournaments')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류'
+    return { success: false, error: message }
+  }
+}
+
+/**
+ * 전체 대진표 설정 삭제 (모든 조편성, 경기 데이터 삭제)
+ */
+export async function deleteBracketConfig(configId: string) {
+  const supabaseAdmin = createAdminClient()
+
+  try {
+    // bracket_configs 삭제 (CASCADE로 관련 데이터 자동 삭제됨)
+    // - preliminary_groups → group_teams
+    // - bracket_matches
+    const { error } = await supabaseAdmin
+      .from('bracket_configs')
+      .delete()
+      .eq('id', configId)
+
+    if (error) {
+      return { success: false, error: error.message }
+    }
+
+    revalidatePath('/admin/tournaments')
+    return { success: true }
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : '알 수 없는 오류'
+    return { success: false, error: message }
+  }
+}
