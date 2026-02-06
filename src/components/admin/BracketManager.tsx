@@ -33,7 +33,6 @@ import {
   arrayMove,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { LoadingOverlay } from "@/components/common/LoadingOverlay";
 import {
   getOrCreateBracketConfig,
   updateBracketConfig,
@@ -865,7 +864,6 @@ function GroupsTab({
   const [localGroups, setLocalGroups] = useState(groups);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
-  const [loading, setLoading] = useState(false);
 
   // groups prop이 변경되면 로컬 상태 업데이트
   useEffect(() => {
@@ -968,7 +966,6 @@ function GroupsTab({
   };
 
   const handleSave = async () => {
-    setLoading(true);
     try {
       // 변경된 팀들을 찾아서 저장 (조 간 이동만 처리)
       const promises: Promise<{ error: any }>[] = [];
@@ -987,7 +984,6 @@ function GroupsTab({
 
       if (promises.length === 0) {
         setHasChanges(false);
-        setLoading(false);
         return;
       }
 
@@ -1002,8 +998,6 @@ function GroupsTab({
       setHasChanges(false);
     } catch (error) {
       console.error("Failed to save changes:", error);
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -1020,9 +1014,7 @@ function GroupsTab({
     : null;
 
   return (
-    <div className="space-y-6 relative">
-      {loading && <LoadingOverlay message="저장 중..." />}
-
+    <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
           예선 조 편성
