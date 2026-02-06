@@ -54,13 +54,68 @@ CLAUDE.md
 - 단일 책임 원칙
 
 ## UI 컴포넌트
-- **Alert/Confirm 다이얼로그**: `alert()`, `confirm()` 대신 `/src/components/common/AlertDialog.tsx` 사용
-  - `AlertDialog`: 확인 버튼만 있는 알럿 (성공/실패 메시지)
-  - `ConfirmDialog`: 확인/취소 버튼이 있는 확인 다이얼로그
-  - 타입 지원: `info` (파란색), `warning` (주황색), `error` (빨간색), `success` (초록색)
-  - 줄바꿈: 템플릿 리터럴에서 `\n` 사용 가능
-  - 로딩 상태: `isLoading` prop으로 처리 중 표시
-  - 일관된 UX 제공 및 다크모드 지원
+
+### Alert/Confirm 다이얼로그
+`alert()`, `confirm()` 대신 `/src/components/common/AlertDialog.tsx` 사용
+- `AlertDialog`: 확인 버튼만 있는 알럿 (성공/실패 메시지)
+- `ConfirmDialog`: 확인/취소 버튼이 있는 확인 다이얼로그
+- 타입 지원: `info` (파란색), `warning` (주황색), `error` (빨간색), `success` (초록색)
+- 줄바꿈: 템플릿 리터럴에서 `\n` 사용 가능
+- 로딩 상태: `isLoading` prop으로 처리 중 표시
+- 일관된 UX 제공 및 다크모드 지원
+
+### LoadingOverlay
+데이터 로딩/저장 중 화면 전체를 덮는 오버레이 - `/src/components/common/LoadingOverlay.tsx`
+
+**특징:**
+- `position: fixed`로 viewport 전체를 덮음
+- 반투명 검은색 배경 (`bg-black/40`)
+- 중앙에 회전 스피너와 메시지 표시
+- 다크모드 지원
+
+**사용 케이스:**
+1. **전체 페이지 데이터 로딩**
+   ```tsx
+   function MyPage() {
+     const [loading, setLoading] = useState(true);
+
+     return (
+       <div>
+         {loading && <LoadingOverlay message="데이터를 불러오는 중..." />}
+         {/* 페이지 컨텐츠 */}
+       </div>
+     );
+   }
+   ```
+
+2. **비동기 작업 중 사용자 입력 차단**
+   ```tsx
+   const handleSubmit = async () => {
+     setLoading(true);
+     try {
+       await saveData();
+     } finally {
+       setLoading(false);
+     }
+   };
+
+   return (
+     <>
+       {loading && <LoadingOverlay message="저장 중..." />}
+       <form onSubmit={handleSubmit}>...</form>
+     </>
+   );
+   ```
+
+**주의사항:**
+- `LoadingOverlay`는 화면 전체를 덮으므로 모든 상호작용이 차단됨
+- 짧은 작업(< 500ms)에는 사용하지 않음 (깜빡임 방지)
+- 긴 작업(> 5초)에는 진행률 표시를 고려
+- 컴포넌트 내부 로딩에는 로컬 스피너 사용 권장
+
+**vs 로컬 스피너:**
+- `LoadingOverlay`: 전체 화면 차단, 중요한 비동기 작업
+- 로컬 스피너: 특정 영역만, 다른 UI 사용 가능
 
 # Response Guidelines
 
