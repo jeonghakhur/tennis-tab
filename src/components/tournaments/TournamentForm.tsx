@@ -66,6 +66,7 @@ export interface TournamentFormData {
     entry_end_date: string | null;
     opening_ceremony: string | null;
     match_type: MatchType | null;
+    team_match_count: number | null;
     bank_account: string | null;
     eligibility: string | null;
     max_participants: number;
@@ -297,6 +298,24 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                         </select>
                     </div>
                 </div>
+
+                {isTeamMatch && (
+                    <div className="animate-in fade-in slide-in-from-top-1 duration-200">
+                        <label className={labelClass}>참가팀 수 (단체전용) *</label>
+                        <input
+                            type="text"
+                            inputMode="numeric"
+                            name="team_match_count"
+                            required={isTeamMatch}
+                            defaultValue={initialData?.team_match_count || '3'}
+                            className={inputClass}
+                            placeholder="예: 3 (3복식/3단식 등)"
+                        />
+                        <p className="text-xs text-gray-500 mt-1">
+                            단체전 승패를 결정하기 위해 한 팀 매치당 진행되는 총 참가팀(단식/복식) 수를 입력하세요.
+                        </p>
+                    </div>
+                )}
             </section>
 
             {/* 일정 섹션 */}
@@ -475,7 +494,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                         />
                                     </div>
                                     <div>
-                                        <label className={labelClass}>참가팀 수</label>
+                                        <label className={labelClass}>모집 팀 수</label>
                                         <input
                                             type="text"
                                             inputMode="numeric"

@@ -44,6 +44,7 @@ export default async function NewTournamentPage({ searchParams }: Props) {
                 eligibility: tournament.eligibility,
                 max_participants: tournament.max_participants,
                 entry_fee: tournament.entry_fee,
+                team_match_count: tournament.team_match_count,
                 tournament_divisions: tournament.tournament_divisions?.map((div: any) => ({
                     name: div.name,
                     max_teams: div.max_teams,

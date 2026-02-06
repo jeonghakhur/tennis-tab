@@ -68,7 +68,7 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   const organizerName = tournament.profiles
     ? // @ts-ignore: Supabase types join
-      tournament.profiles.name || "Unknown Organizer"
+    tournament.profiles.name || "Unknown Organizer"
     : "Unknown";
 
   // Date formatter helper
@@ -105,8 +105,13 @@ export default async function TournamentDetailPage({ params }: Props) {
     TEAM_DOUBLES: "단체전 복식",
   };
 
+  const isTeamMatch = tournament.match_type === 'TEAM_SINGLES' || tournament.match_type === 'TEAM_DOUBLES';
+  const matchSuffix = tournament.match_type?.includes('SINGLES') ? '단식' : '복식';
+
   const formattedMatchType = tournament.match_type
-    ? MATCH_TYPE_LABELS[tournament.match_type] || tournament.match_type
+    ? isTeamMatch && tournament.team_match_count
+      ? `${tournament.team_match_count}${matchSuffix}`
+      : MATCH_TYPE_LABELS[tournament.match_type] || tournament.match_type
     : "";
 
   return (
@@ -138,13 +143,12 @@ export default async function TournamentDetailPage({ params }: Props) {
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <span
                 className={`px-2.5 py-0.5 rounded-full text-sm font-medium border
-                ${
-                  tournament.status === "OPEN"
+                ${tournament.status === "OPEN"
                     ? "bg-green-100 text-green-800 border-green-200 dark:bg-green-900/30 dark:text-green-400 dark:border-green-800"
                     : tournament.status === "CLOSED"
                       ? "bg-red-100 text-red-800 border-red-200 dark:bg-red-900/30 dark:text-red-400 dark:border-red-800"
                       : "bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800"
-                }`}
+                  }`}
               >
                 {tournament.status === "OPEN"
                   ? "접수중"
@@ -251,7 +255,7 @@ export default async function TournamentDetailPage({ params }: Props) {
             </h2>
 
             {tournament.tournament_divisions &&
-            tournament.tournament_divisions.length > 0 ? (
+              tournament.tournament_divisions.length > 0 ? (
               <div className="grid gap-4">
                 {tournament.tournament_divisions.map((division: any) => (
                   <div

@@ -112,6 +112,7 @@ export interface Database {
           eligibility: string | null
           requirements: Json | null
           poster_url: string | null
+          team_match_count: number | null
           organizer_id: string
           created_at: string
           updated_at: string
@@ -139,6 +140,7 @@ export interface Database {
           eligibility?: string | null
           requirements?: Json | null
           poster_url?: string | null
+          team_match_count?: number | null
           organizer_id: string
           created_at?: string
           updated_at?: string
@@ -166,6 +168,7 @@ export interface Database {
           eligibility?: string | null
           requirements?: Json | null
           poster_url?: string | null
+          team_match_count?: number | null
           organizer_id?: string
           updated_at?: string
         }
