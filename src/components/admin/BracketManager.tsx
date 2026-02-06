@@ -536,7 +536,9 @@ export function BracketManager({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {loading && <LoadingOverlay message="불러오는 중..." />}
+
       {/* Division Selector */}
       <div className="flex flex-wrap gap-2">
         {divisions.map((division) => (
@@ -608,12 +610,10 @@ export function BracketManager({
 
           {/* Tab Content */}
           <div
-            className={`rounded-xl p-6 border border-(--border-color) relative ${
+            className={`rounded-xl p-6 border border-(--border-color) ${
               activeTab === "groups" ? "bg-(--bg-card)" : "glass-card"
             }`}
           >
-            {loading && <LoadingOverlay message="불러오는 중..." />}
-
             {activeTab === "settings" && (
               <SettingsTab
                 config={config}
