@@ -1039,9 +1039,13 @@ function GroupsTab({
             ))}
           </div>
           <DragOverlay
+            adjustScale={false}
             dropAnimation={{
               duration: 200,
               easing: "ease",
+            }}
+            style={{
+              transformOrigin: "0 0",
             }}
           >
             {activeTeam && <DraggableTeamOverlay team={activeTeam} />}
