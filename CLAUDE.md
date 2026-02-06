@@ -55,14 +55,52 @@ CLAUDE.md
 
 ## UI 컴포넌트
 
-### Alert/Confirm 다이얼로그
+### Alert/Confirm 다이얼로그 & Toast
 `alert()`, `confirm()` 대신 `/src/components/common/AlertDialog.tsx` 사용
-- `AlertDialog`: 확인 버튼만 있는 알럿 (성공/실패 메시지)
-- `ConfirmDialog`: 확인/취소 버튼이 있는 확인 다이얼로그
+
+**AlertDialog** - 확인 버튼만 있는 알럿 (성공/실패 메시지)
+**ConfirmDialog** - 확인/취소 버튼이 있는 확인 다이얼로그
+**Toast** - 자동으로 사라지는 알림 (성공 메시지, 간단한 피드백)
+
+**공통 기능:**
 - 타입 지원: `info` (파란색), `warning` (주황색), `error` (빨간색), `success` (초록색)
-- 줄바꿈: 템플릿 리터럴에서 `\n` 사용 가능
-- 로딩 상태: `isLoading` prop으로 처리 중 표시
-- 일관된 UX 제공 및 다크모드 지원
+- 다크모드 지원
+- React Portal로 렌더링
+
+**AlertDialog vs Toast 선택:**
+- `AlertDialog`: 사용자가 반드시 확인해야 하는 중요한 메시지 (에러, 경고)
+- `Toast`: 작업 완료, 저장 성공 등 즉각적인 피드백
+
+**Toast 사용 예시:**
+```tsx
+const [toast, setToast] = useState({
+  isOpen: false,
+  message: "",
+  type: "success" as const,
+});
+
+const handleSave = async () => {
+  await saveData();
+  setToast({
+    isOpen: true,
+    message: "저장되었습니다.",
+    type: "success",
+  });
+};
+
+return (
+  <>
+    <button onClick={handleSave}>저장</button>
+    <Toast
+      isOpen={toast.isOpen}
+      onClose={() => setToast({ ...toast, isOpen: false })}
+      message={toast.message}
+      type={toast.type}
+      duration={3000} // 기본값: 3초
+    />
+  </>
+);
+```
 
 ### LoadingOverlay
 데이터 로딩/저장 중 화면 전체를 덮는 오버레이 - `/src/components/common/LoadingOverlay.tsx`
