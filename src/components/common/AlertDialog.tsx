@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Check, X, AlertCircle, Info } from "lucide-react";
 
 interface AlertDialogProps {
   isOpen: boolean;
@@ -150,6 +151,102 @@ export function ConfirmDialog({
           </button>
         </div>
       </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Toast 알림 (자동으로 사라짐)
+ */
+interface ToastProps {
+  isOpen: boolean;
+  onClose: () => void;
+  message: string;
+  type?: "info" | "warning" | "error" | "success";
+  duration?: number; // 밀리초, 기본 3초
+}
+
+export function Toast({
+  isOpen,
+  onClose,
+  message,
+  type = "success",
+  duration = 3000,
+}: ToastProps) {
+  const [mounted, setMounted] = useState(false);
+  const [isExiting, setIsExiting] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const timer = setTimeout(() => {
+      setIsExiting(true);
+      setTimeout(onClose, 300); // 애니메이션 시간
+    }, duration);
+
+    return () => clearTimeout(timer);
+  }, [isOpen, duration, onClose]);
+
+  if (!isOpen || !mounted) return null;
+
+  const icons = {
+    success: <Check className="w-5 h-5" />,
+    error: <X className="w-5 h-5" />,
+    warning: <AlertCircle className="w-5 h-5" />,
+    info: <Info className="w-5 h-5" />,
+  };
+
+  const styles = {
+    success: "bg-emerald-600 text-white",
+    error: "bg-red-600 text-white",
+    warning: "bg-amber-600 text-white",
+    info: "bg-blue-600 text-white",
+  };
+
+  return createPortal(
+    <div
+      className="fixed top-4 right-4 flex items-center justify-center p-4"
+      style={{ zIndex: 10001 }}
+    >
+      <div
+        className={`${styles[type]} rounded-xl px-6 py-4 shadow-2xl flex items-center gap-3 min-w-[300px] max-w-md transition-all duration-300 ${
+          isExiting
+            ? "opacity-0 translate-y-[-20px]"
+            : "opacity-100 translate-y-0"
+        }`}
+        style={{
+          animation: isExiting ? "none" : "slideInDown 0.3s ease-out",
+        }}
+      >
+        <div className="flex-shrink-0">{icons[type]}</div>
+        <p className="flex-1 font-medium">{message}</p>
+        <button
+          onClick={() => {
+            setIsExiting(true);
+            setTimeout(onClose, 300);
+          }}
+          className="flex-shrink-0 hover:opacity-80 transition-opacity"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <style jsx>{`
+        @keyframes slideInDown {
+          from {
+            opacity: 0;
+            transform: translateY(-20px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+      `}</style>
     </div>,
     document.body,
   );

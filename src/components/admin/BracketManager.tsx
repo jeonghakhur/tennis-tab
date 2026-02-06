@@ -2,7 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Settings, Users, Trophy, Play, Check, RefreshCw } from "lucide-react";
-import { AlertDialog, ConfirmDialog } from "@/components/common/AlertDialog";
+import {
+  AlertDialog,
+  ConfirmDialog,
+  Toast,
+} from "@/components/common/AlertDialog";
 import {
   getOrCreateBracketConfig,
   updateBracketConfig,
@@ -116,6 +120,8 @@ export function BracketManager({
 
   // Dialog states
   const [showAutoGenerateConfirm, setShowAutoGenerateConfirm] = useState(false);
+  const [autoGenerateConfirmMessage, setAutoGenerateConfirmMessage] =
+    useState("");
   const [showGeneratePrelimConfirm, setShowGeneratePrelimConfirm] =
     useState(false);
   const [showGenerateMainConfirm, setShowGenerateMainConfirm] = useState(false);
@@ -134,6 +140,15 @@ export function BracketManager({
     title: "",
     message: "",
     type: "info",
+  });
+  const [toast, setToast] = useState<{
+    isOpen: boolean;
+    message: string;
+    type: "info" | "warning" | "error" | "success";
+  }>({
+    isOpen: false,
+    message: "",
+    type: "success",
   });
 
   // 부서 변경 시 데이터 로드
@@ -211,9 +226,8 @@ export function BracketManager({
       } else {
         await loadBracketData();
         setActiveTab("groups");
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "조 편성 완료",
           message: "자동 조 편성이 완료되었습니다.",
           type: "success",
         });
@@ -248,9 +262,8 @@ export function BracketManager({
       } else {
         await loadBracketData();
         setActiveTab("preliminary");
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "예선 경기 생성 완료",
           message: "예선 경기가 생성되었습니다.",
           type: "success",
         });
@@ -288,10 +301,9 @@ export function BracketManager({
       } else {
         await loadBracketData();
         setActiveTab("main");
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "본선 대진표 생성 완료",
-          message: `본선 대진표가 생성되었습니다.\n(${data?.bracketSize}강, ${data?.teamCount}팀)`,
+          message: `본선 대진표가 생성되었습니다. (${data?.bracketSize}강, ${data?.teamCount}팀)`,
           type: "success",
         });
       }
@@ -359,9 +371,8 @@ export function BracketManager({
         });
       } else {
         await loadBracketData();
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "삭제 완료",
           message: "조 편성이 삭제되었습니다.",
           type: "success",
         });
@@ -395,9 +406,8 @@ export function BracketManager({
         });
       } else {
         await loadBracketData();
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "삭제 완료",
           message: "예선 경기가 삭제되었습니다.",
           type: "success",
         });
@@ -431,9 +441,8 @@ export function BracketManager({
         });
       } else {
         await loadBracketData();
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "삭제 완료",
           message: "본선 대진표가 삭제되었습니다.",
           type: "success",
         });
@@ -467,9 +476,8 @@ export function BracketManager({
         });
       } else {
         await loadBracketData();
-        setAlertDialog({
+        setToast({
           isOpen: true,
-          title: "삭제 완료",
           message: "전체 대진표가 삭제되었습니다.",
           type: "success",
         });
@@ -589,7 +597,14 @@ export function BracketManager({
             {!loading && activeTab === "groups" && (
               <GroupsTab
                 groups={groups}
-                onAutoGenerate={() => setShowAutoGenerateConfirm(true)}
+                onAutoGenerate={() => {
+                  setAutoGenerateConfirmMessage(
+                    groups.length > 0
+                      ? `자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`
+                      : `자동 조 편성을 하시겠습니까?`,
+                  );
+                  setShowAutoGenerateConfirm(true);
+                }}
                 onGenerateMatches={() => setShowGeneratePrelimConfirm(true)}
                 onDelete={() => setShowDeleteGroupsConfirm(true)}
               />
@@ -626,13 +641,21 @@ export function BracketManager({
         type={alertDialog.type}
       />
 
+      {/* Toast */}
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type={toast.type}
+      />
+
       {/* Confirm Dialogs */}
       <ConfirmDialog
         isOpen={showAutoGenerateConfirm}
         onClose={() => setShowAutoGenerateConfirm(false)}
         onConfirm={handleAutoGenerateGroups}
         title="자동 조 편성"
-        message={`자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`}
+        message={autoGenerateConfirmMessage}
         type="warning"
         isLoading={loading}
       />
