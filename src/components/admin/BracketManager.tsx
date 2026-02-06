@@ -17,7 +17,6 @@ import {
 } from "@/components/common/AlertDialog";
 import {
   DndContext,
-  DragOverlay,
   closestCorners,
   PointerSensor,
   useSensor,
@@ -28,12 +27,6 @@ import {
   useDroppable,
   useDraggable,
 } from "@dnd-kit/core";
-import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import { LoadingOverlay } from "@/components/common/LoadingOverlay";
 import {
   getOrCreateBracketConfig,
@@ -1038,18 +1031,6 @@ function GroupsTab({
               <DroppableGroup key={group.id} group={group} />
             ))}
           </div>
-          <DragOverlay
-            adjustScale={false}
-            dropAnimation={{
-              duration: 200,
-              easing: "ease",
-            }}
-            style={{
-              transformOrigin: "0 0",
-            }}
-          >
-            {activeTeam && <DraggableTeamOverlay team={activeTeam} />}
-          </DragOverlay>
         </DndContext>
       )}
     </div>
@@ -1102,8 +1083,16 @@ function DraggableTeam({
     });
 
   const style: React.CSSProperties = {
-    opacity: isDragging ? 0 : 1,
-    transition: "opacity 200ms ease",
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
+    zIndex: isDragging ? 1000 : "auto",
+    position: isDragging ? "relative" : "static",
+    opacity: isDragging ? 0.9 : 1,
+    boxShadow: isDragging
+      ? "0 10px 30px rgba(0, 0, 0, 0.3)"
+      : undefined,
+    transition: isDragging ? "none" : "all 200ms ease",
   };
 
   return (
@@ -1112,7 +1101,9 @@ function DraggableTeam({
       style={style}
       {...attributes}
       {...listeners}
-      className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors"
+      className={`flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) ${
+        isDragging ? "scale-105 border-2 border-(--accent-color)" : ""
+      }`}
     >
       <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
       <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
@@ -1135,29 +1126,6 @@ function DraggableTeam({
 }
 
 // 드래그 오버레이 컴포넌트
-function DraggableTeamOverlay({ team }: { team: GroupTeam }) {
-  return (
-    <div className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) border-2 border-(--accent-color) shadow-2xl">
-      <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
-      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
-        •
-      </span>
-      <div className="flex-1 min-w-0">
-        {team.entry?.club_name && (
-          <p className="text-sm font-medium text-(--text-primary) truncate">
-            {team.entry.club_name}
-          </p>
-        )}
-        <p
-          className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
-        >
-          {team.entry?.player_name}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // ============================================================================
 // 예선 탭
 // ============================================================================
