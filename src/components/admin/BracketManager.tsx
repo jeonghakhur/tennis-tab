@@ -17,16 +17,22 @@ import {
 } from "@/components/common/AlertDialog";
 import {
   DndContext,
-  closestCorners,
+  closestCenter,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
   DragOverEvent,
-  useDroppable,
-  useDraggable,
+  DragOverlay,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { LoadingOverlay } from "@/components/common/LoadingOverlay";
 import {
   getOrCreateBracketConfig,
@@ -869,41 +875,81 @@ function GroupsTab({
     }),
   );
 
+  // 팀 또는 그룹 ID로 어느 그룹에 속하는지 찾기
+  const findGroupByItemId = (id: string) => {
+    // 팀 ID로 찾기
+    const groupWithTeam = localGroups.find((g) =>
+      g.group_teams?.some((t) => t.id === id),
+    );
+    if (groupWithTeam) return groupWithTeam;
+
+    // 그룹 ID로 찾기
+    return localGroups.find((g) => g.id === id);
+  };
+
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
   };
 
   const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
+    if (!over) return;
 
-    if (!over || active.id === over.id) return;
+    const activeId = active.id as string;
+    const overId = over.id as string;
 
-    const teamId = active.id as string;
-    const overGroupId = over.id as string;
+    if (activeId === overId) return;
 
     setLocalGroups((prevGroups) => {
-      const newGroups = prevGroups.map((g) => ({ ...g }));
-
-      // 팀의 현재 조 찾기
-      let sourceGroup = newGroups.find((g) =>
-        g.group_teams?.some((t) => t.id === teamId),
+      const activeGroup = prevGroups.find((g) =>
+        g.group_teams?.some((t) => t.id === activeId),
       );
-      if (!sourceGroup) return prevGroups;
+      const overGroup = findGroupByItemId(overId);
 
-      // 팀 찾기
-      const team = sourceGroup.group_teams?.find((t) => t.id === teamId);
-      if (!team) return prevGroups;
+      if (!activeGroup || !overGroup) return prevGroups;
 
-      // 대상 조 찾기
-      const targetGroup = newGroups.find((g) => g.id === overGroupId);
-      if (!targetGroup || sourceGroup.id === targetGroup.id) return prevGroups;
+      const activeTeamIndex =
+        activeGroup.group_teams?.findIndex((t) => t.id === activeId) ?? -1;
+      if (activeTeamIndex === -1) return prevGroups;
 
-      // 팀 이동
-      sourceGroup.group_teams = sourceGroup.group_teams?.filter(
-        (t) => t.id !== teamId,
-      );
-      if (!targetGroup.group_teams) targetGroup.group_teams = [];
-      targetGroup.group_teams.push({ ...team, group_id: overGroupId });
+      const activeTeam = activeGroup.group_teams![activeTeamIndex];
+
+      // 같은 그룹 내에서 순서 변경
+      if (activeGroup.id === overGroup.id) {
+        const overTeamIndex =
+          overGroup.group_teams?.findIndex((t) => t.id === overId) ?? -1;
+        if (overTeamIndex === -1) return prevGroups;
+
+        const newGroups = prevGroups.map((g) => {
+          if (g.id === activeGroup.id) {
+            const newTeams = [...(g.group_teams || [])];
+            const [removed] = newTeams.splice(activeTeamIndex, 1);
+            newTeams.splice(overTeamIndex, 0, removed);
+            return { ...g, group_teams: newTeams };
+          }
+          return g;
+        });
+
+        return newGroups;
+      }
+
+      // 다른 그룹으로 이동
+      const newGroups = prevGroups.map((g) => {
+        if (g.id === activeGroup.id) {
+          // 원본 그룹에서 제거
+          return {
+            ...g,
+            group_teams: g.group_teams?.filter((t) => t.id !== activeId),
+          };
+        }
+        if (g.id === overGroup.id) {
+          // 대상 그룹에 추가
+          const newTeams = [...(g.group_teams || [])];
+          newTeams.push(activeTeam);
+          return { ...g, group_teams: newTeams };
+        }
+        return g;
+      });
 
       return newGroups;
     });
@@ -918,7 +964,7 @@ function GroupsTab({
   const handleSave = async () => {
     setLoading(true);
     try {
-      // 변경된 팀들을 찾아서 저장
+      // 변경된 팀들을 찾아서 저장 (조 간 이동만 처리)
       const promises: Promise<{ error: any }>[] = [];
 
       localGroups.forEach((group) => {
@@ -933,18 +979,23 @@ function GroupsTab({
         });
       });
 
+      if (promises.length === 0) {
+        setHasChanges(false);
+        setLoading(false);
+        return;
+      }
+
       const results = await Promise.all(promises);
       const errors = results.filter((r) => r.error);
 
       if (errors.length > 0) {
-        alert(`일부 팀 이동에 실패했습니다: ${errors[0].error.message}`);
-      } else {
-        await onTeamMove();
-        setHasChanges(false);
+        console.error("Save errors:", errors);
       }
+
+      await onTeamMove();
+      setHasChanges(false);
     } catch (error) {
       console.error("Failed to save changes:", error);
-      alert("저장 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -1021,7 +1072,7 @@ function GroupsTab({
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={closestCenter}
           onDragStart={handleDragStart}
           onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
@@ -1031,6 +1082,28 @@ function GroupsTab({
               <DroppableGroup key={group.id} group={group} />
             ))}
           </div>
+          <DragOverlay>
+            {activeId && activeTeam ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) border-2 border-(--accent-color) shadow-2xl opacity-90">
+                <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
+                <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
+                  •
+                </span>
+                <div className="flex-1 min-w-0">
+                  {activeTeam.entry?.club_name && (
+                    <p className="text-sm font-medium text-(--text-primary) truncate">
+                      {activeTeam.entry.club_name}
+                    </p>
+                  )}
+                  <p
+                    className={`truncate ${activeTeam.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+                  >
+                    {activeTeam.entry?.player_name}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
         </DndContext>
       )}
     </div>
@@ -1039,60 +1112,66 @@ function GroupsTab({
 
 // Droppable 조 컴포넌트
 function DroppableGroup({ group }: { group: PreliminaryGroup }) {
-  const { setNodeRef, isOver } = useDroppable({
+  const teamIds = group.group_teams?.map((t) => t.id) || [];
+
+  const { setNodeRef } = useSortable({
     id: group.id,
+    data: {
+      type: "group",
+    },
   });
 
   return (
     <div
       ref={setNodeRef}
-      className={`p-4 rounded-xl border transition-all ${
-        isOver
-          ? "border-(--accent-color) bg-(--accent-color)/5"
-          : "border-(--border-color) bg-(--bg-card)"
-      }`}
+      className="p-4 rounded-xl border border-(--border-color) bg-(--bg-card) transition-all"
     >
       <h4 className="font-display font-semibold text-(--text-primary) mb-3">
         {group.name}조
       </h4>
-      <div className="space-y-2 min-h-[100px]">
-        {group.group_teams?.map((team, index) => (
-          <DraggableTeam key={team.id} team={team} index={index} />
-        ))}
-        {(!group.group_teams || group.group_teams.length === 0) && (
-          <div className="text-center py-4 text-(--text-muted) text-sm">
-            팀을 여기로 드래그하세요
-          </div>
-        )}
-      </div>
+      <SortableContext items={teamIds} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2 min-h-[100px]">
+          {group.group_teams?.map((team, index) => (
+            <SortableTeam key={team.id} team={team} index={index} />
+          ))}
+          {(!group.group_teams || group.group_teams.length === 0) && (
+            <div className="text-center py-4 text-(--text-muted) text-sm">
+              팀을 여기로 드래그하세요
+            </div>
+          )}
+        </div>
+      </SortableContext>
     </div>
   );
 }
 
-// Draggable 팀 컴포넌트
-function DraggableTeam({
+// Sortable 팀 컴포넌트
+function SortableTeam({
   team,
   index,
 }: {
   team: GroupTeam;
   index: number;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: team.id,
-    });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: team.id,
+    data: {
+      type: "team",
+      team,
+    },
+  });
 
   const style: React.CSSProperties = {
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    zIndex: isDragging ? 1000 : "auto",
-    position: isDragging ? "relative" : "static",
-    opacity: isDragging ? 0.9 : 1,
-    boxShadow: isDragging
-      ? "0 10px 30px rgba(0, 0, 0, 0.3)"
-      : undefined,
-    transition: isDragging ? "none" : "all 200ms ease",
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
   };
 
   return (
@@ -1101,9 +1180,7 @@ function DraggableTeam({
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) ${
-        isDragging ? "scale-105 border-2 border-(--accent-color)" : ""
-      }`}
+      className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors"
     >
       <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
       <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
@@ -1124,8 +1201,6 @@ function DraggableTeam({
     </div>
   );
 }
-
-// 드래그 오버레이 컴포넌트
 // ============================================================================
 // 예선 탭
 // ============================================================================
