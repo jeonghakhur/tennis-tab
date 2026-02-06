@@ -472,3 +472,61 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
 
   return { success: true }
 }
+
+export type CloseTournamentResult =
+  | { success: true }
+  | { success: false; error: string }
+
+export async function closeTournament(tournamentId: string): Promise<CloseTournamentResult> {
+  const supabase = await createClient()
+
+  // 1. 현재 사용자 확인
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { success: false, error: '로그인이 필요합니다.' }
+  }
+
+  // 2. 대회 확인 및 권한 체크
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('organizer_id, status')
+    .eq('id', tournamentId)
+    .single()
+
+  if (tournamentError || !tournament) {
+    return { success: false, error: '대회를 찾을 수 없습니다.' }
+  }
+
+  // 3. 주최자 본인인지 확인
+  if (tournament.organizer_id !== user.id) {
+    return { success: false, error: '대회를 마감할 권한이 없습니다.' }
+  }
+
+  // 4. 이미 마감 상태인지 확인
+  if (tournament.status === 'CLOSED') {
+    return { success: false, error: '이미 마감된 대회입니다.' }
+  }
+
+  // Admin Client 생성
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_DecDZr1nAkc4vX_fn_Ur9Q_xgTv4_V3'
+  )
+
+  // 5. 대회 상태를 CLOSED로 변경
+  const { error: updateError } = await supabaseAdmin
+    .from('tournaments')
+    .update({ status: 'CLOSED' })
+    .eq('id', tournamentId)
+
+  if (updateError) {
+    return { success: false, error: '대회 마감에 실패했습니다. 다시 시도해주세요.' }
+  }
+
+  // 6. 캐시 무효화
+  revalidatePath('/tournaments')
+  revalidatePath(`/tournaments/${tournamentId}`)
+
+  return { success: true }
+}

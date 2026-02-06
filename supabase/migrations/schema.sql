@@ -30,7 +30,8 @@ CREATE TABLE profiles (
   avatar_url TEXT,
   phone TEXT,
   start_year TEXT,
-  rating INTEGER CHECK (rating IS NULL OR (rating >= 1 AND rating <= 100)),
+  rating INTEGER CHECK (rating IS NULL OR (rating >= 1 AND rating <= 9999)),
+  gender TEXT CHECK (gender IS NULL OR gender IN ('M', 'F')),
   club TEXT,
   club_city TEXT,
   club_district TEXT,
@@ -301,7 +302,8 @@ CREATE POLICY "Anyone can insert chat logs" ON chat_logs FOR INSERT WITH CHECK (
 COMMENT ON TABLE public.profiles IS 'User profiles with extended information beyond auth.users';
 COMMENT ON COLUMN public.profiles.role IS 'User role: SUPER_ADMIN, ADMIN, MANAGER, USER';
 COMMENT ON COLUMN public.profiles.start_year IS '테니스 입문 년도 (예: 2026, 2025, 2016년 이전)';
-COMMENT ON COLUMN public.profiles.rating IS '실력 점수 (1 ~ 100)';
+COMMENT ON COLUMN public.profiles.rating IS '실력 점수 (1 ~ 9999)';
+COMMENT ON COLUMN public.profiles.gender IS '성별 (M: 남성, F: 여성)';
 COMMENT ON COLUMN public.profiles.club_city IS '클럽 소재지 - 시도';
 COMMENT ON COLUMN public.profiles.club_district IS '클럽 소재지 - 시군구';
 COMMENT ON TABLE tournament_divisions IS '대회 참가부서 정보';

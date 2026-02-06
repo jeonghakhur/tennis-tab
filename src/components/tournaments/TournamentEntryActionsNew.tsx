@@ -9,6 +9,7 @@ import {
   updateEntry,
   getUserEntry,
 } from "@/lib/entries/actions";
+import { closeTournament } from "@/lib/tournaments/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
 
@@ -52,6 +53,9 @@ interface TournamentEntryActionsProps {
   userProfile: UserProfile | null;
   entryFee: number;
   bankAccount: string | null;
+  entryStartDate: string | null;
+  entryEndDate: string | null;
+  isOrganizer: boolean;
 }
 
 export default function TournamentEntryActions({
@@ -65,11 +69,15 @@ export default function TournamentEntryActions({
   userProfile,
   entryFee,
   bankAccount,
+  entryStartDate,
+  entryEndDate,
+  isOrganizer,
 }: TournamentEntryActionsProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -84,25 +92,29 @@ export default function TournamentEntryActions({
   useEffect(() => {
     if (!mounted || !isLoggedIn || !tournamentId) return;
 
-    console.clear();
-    console.log("🔍 참가 신청 상태 확인 시작...");
-    console.log("tournamentId:", tournamentId);
-    console.log("isLoggedIn:", isLoggedIn);
-
     getUserEntry(tournamentId).then((e) => {
-      console.log("📋 서버에서 가져온 참가 신청 정보:", e);
       if (e) {
-        console.log("✅ 참가 신청이 되어있습니다.");
-        console.log("   - 신청 ID:", e.id);
-        console.log("   - 상태:", e.status);
-        console.log("   - 부서 ID:", e.division_id);
         setEntry(e as CurrentEntry);
       } else {
-        console.log("❌ 참가 신청이 없습니다.");
         setEntry(null);
       }
     });
   }, [mounted, isLoggedIn, tournamentId]);
+
+  // 참가 기간 확인
+  const isWithinEntryPeriod = () => {
+    const now = new Date();
+    if (entryStartDate && new Date(entryStartDate) > now) {
+      return false; // 아직 접수 시작 전
+    }
+    if (entryEndDate && new Date(entryEndDate) < now) {
+      return false; // 접수 기간 종료
+    }
+    return true;
+  };
+
+  const withinPeriod = isWithinEntryPeriod();
+  const canAcceptEntry = tournamentStatus === "OPEN" && withinPeriod;
 
   // 참가 신청 폼 제출 처리 (신규)
   const handleSubmit = async (data: EntryFormData) => {
@@ -163,6 +175,23 @@ export default function TournamentEntryActions({
     }
   };
 
+  // 참가 마감 처리
+  const handleClose = async () => {
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    const result = await closeTournament(tournamentId);
+    setIsSubmitting(false);
+    setShowCloseModal(false);
+
+    if (result.success) {
+      alert("참가 접수가 마감되었습니다.");
+      router.refresh();
+    } else {
+      alert(result.error || "마감 처리에 실패했습니다.");
+    }
+  };
+
   // 신청 상태에 따른 배지 스타일 (PENDING/APPROVED/REJECTED + waitlist: CONFIRMED/WAITLISTED/CANCELLED)
   const getStatusBadge = (status: string) => {
     const badges: Record<string, { text: string; className: string }> = {
@@ -212,7 +241,7 @@ export default function TournamentEntryActions({
   // 이미 신청한 경우: 수정하기·참가 취소하기 표시
   const canEditOrCancel =
     entry?.id &&
-    tournamentStatus === "OPEN" &&
+    canAcceptEntry &&
     !["CANCELLED", "REJECTED"].includes(entry.status);
 
   return (
@@ -302,7 +331,7 @@ export default function TournamentEntryActions({
                 </>
               )}
 
-              {!canEditOrCancel && tournamentStatus !== "OPEN" && (
+              {!canEditOrCancel && !canAcceptEntry && (
                 <p className="text-sm text-center text-gray-600 dark:text-gray-400">
                   접수 기간이 아닙니다. 수정·취소는 접수 중에만 가능합니다.
                 </p>
@@ -332,7 +361,7 @@ export default function TournamentEntryActions({
                 </p>
               )}
             </>
-          ) : tournamentStatus === "OPEN" ? (
+          ) : canAcceptEntry ? (
             // 로그인한 사용자 & 접수 중인 대회 & 신청 안 한 경우
             <>
               <button
@@ -354,10 +383,28 @@ export default function TournamentEntryActions({
                 {tournamentStatus === "IN_PROGRESS" && "대회가 진행 중입니다."}
                 {tournamentStatus === "COMPLETED" && "종료된 대회입니다."}
                 {tournamentStatus === "CANCELLED" && "취소된 대회입니다."}
+                {tournamentStatus === "OPEN" && !withinPeriod && entryStartDate && new Date(entryStartDate) > new Date() && "접수 시작 전입니다."}
+                {tournamentStatus === "OPEN" && !withinPeriod && entryEndDate && new Date(entryEndDate) < new Date() && "접수 기간이 종료되었습니다."}
               </p>
             </div>
           )}
         </div>
+
+        {/* 주최자용 마감 버튼 */}
+        {isOrganizer && tournamentStatus === "OPEN" && (
+          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+            <button
+              onClick={() => setShowCloseModal(true)}
+              disabled={isSubmitting}
+              className="w-full bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              참가 접수 마감
+            </button>
+            <p className="text-xs text-center text-gray-500 mt-2">
+              마감 후에는 참가 신청을 받을 수 없습니다.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* 취소 확인 모달 */}
@@ -391,6 +438,44 @@ export default function TournamentEntryActions({
                   className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50"
                 >
                   {isSubmitting ? "처리 중..." : "예, 취소합니다"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* 마감 확인 모달 */}
+      {showCloseModal &&
+        mounted &&
+        createPortal(
+          <div
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm flex items-center justify-center p-4"
+            style={{ zIndex: 9999 }}
+          >
+            <div
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative"
+              style={{ zIndex: 10000 }}
+            >
+              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                참가 접수 마감
+              </h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                참가 접수를 마감하시겠습니까? 마감 후에는 더 이상 참가 신청을 받을 수 없습니다.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowCloseModal(false)}
+                  className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleClose}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? "처리 중..." : "마감하기"}
                 </button>
               </div>
             </div>
