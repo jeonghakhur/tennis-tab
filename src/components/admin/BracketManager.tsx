@@ -536,7 +536,7 @@ export function BracketManager({
   }
 
   return (
-    <div className="space-y-6 relative">
+    <div className="space-y-6">
       {loading && <LoadingOverlay message="불러오는 중..." />}
 
       {/* Division Selector */}
