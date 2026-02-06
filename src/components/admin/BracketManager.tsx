@@ -1,12 +1,33 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Settings, Users, Trophy, Play, Check, RefreshCw } from "lucide-react";
+import {
+  Settings,
+  Users,
+  Trophy,
+  Play,
+  Check,
+  RefreshCw,
+  GripVertical,
+} from "lucide-react";
 import {
   AlertDialog,
   ConfirmDialog,
   Toast,
 } from "@/components/common/AlertDialog";
+import {
+  DndContext,
+  DragOverlay,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  useDroppable,
+  useDraggable,
+} from "@dnd-kit/core";
+import { CSS } from "@dnd-kit/utilities";
 import {
   getOrCreateBracketConfig,
   updateBracketConfig,
@@ -21,6 +42,7 @@ import {
   deletePreliminaryGroups,
   deletePreliminaryMatches,
   deleteMainBracket,
+  moveTeamToGroup,
 } from "@/lib/bracket/actions";
 import type {
   BracketStatus,
@@ -607,6 +629,7 @@ export function BracketManager({
                 }}
                 onGenerateMatches={() => setShowGeneratePrelimConfirm(true)}
                 onDelete={() => setShowDeleteGroupsConfirm(true)}
+                onTeamMove={loadBracketData}
               />
             )}
 
@@ -819,17 +842,77 @@ function GroupsTab({
   onAutoGenerate,
   onGenerateMatches,
   onDelete,
+  onTeamMove,
 }: {
   groups: PreliminaryGroup[];
   onAutoGenerate: () => void;
   onGenerateMatches: () => void;
   onDelete: () => void;
+  onTeamMove: () => Promise<void>;
 }) {
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8, // 8px 이동 후 드래그 시작
+      },
+    }),
+  );
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    setActiveId(null);
+
+    if (!over || active.id === over.id) return;
+
+    // active.id는 팀 ID, over.id는 조 ID
+    const teamId = active.id as string;
+    const newGroupId = over.id as string;
+
+    // 같은 조 내 이동은 무시
+    const currentTeam = groups
+      .flatMap((g) => g.group_teams || [])
+      .find((t) => t.id === teamId);
+    if (currentTeam?.group_id === newGroupId) return;
+
+    setLoading(true);
+    try {
+      const { error } = await moveTeamToGroup(teamId, newGroupId);
+      if (error) {
+        alert(`팀 이동 실패: ${error.message}`);
+      } else {
+        // 부모 컴포넌트에서 데이터 새로고침
+        await onTeamMove();
+      }
+    } catch (error) {
+      console.error("Failed to move team:", error);
+      alert("팀 이동 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 드래그 중인 팀 찾기
+  const activeTeam = activeId
+    ? groups
+        .flatMap((g) => g.group_teams || [])
+        .find((t) => t.id === activeId)
+    : null;
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
           예선 조 편성
+          {loading && (
+            <span className="ml-2 text-sm text-(--text-muted)">저장 중...</span>
+          )}
         </h3>
         <div className="flex gap-2">
           <button onClick={onAutoGenerate} className="btn-secondary btn-sm">
@@ -860,43 +943,126 @@ function GroupsTab({
           <p>조 편성이 없습니다. 자동 편성 버튼을 클릭하세요.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {groups.map((group) => (
-            <div
-              key={group.id}
-              className="p-4 rounded-xl border border-(--border-color) bg-(--bg-card)"
-            >
-              <h4 className="font-display font-semibold text-(--text-primary) mb-3">
-                {group.name}조
-              </h4>
-              <div className="space-y-2">
-                {group.group_teams?.map((team, index) => (
-                  <div
-                    key={team.id}
-                    className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary)"
-                  >
-                    <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold">
-                      {index + 1}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      {team.entry?.club_name && (
-                        <p className="text-sm font-medium text-(--text-primary) truncate">
-                          {team.entry.club_name}
-                        </p>
-                      )}
-                      <p
-                        className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
-                      >
-                        {team.entry?.player_name}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {groups.map((group) => (
+              <DroppableGroup key={group.id} group={group} />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeTeam && <DraggableTeamOverlay team={activeTeam} />}
+          </DragOverlay>
+        </DndContext>
       )}
+    </div>
+  );
+}
+
+// Droppable 조 컴포넌트
+function DroppableGroup({ group }: { group: PreliminaryGroup }) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: group.id,
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`p-4 rounded-xl border transition-all ${
+        isOver
+          ? "border-(--accent-color) bg-(--accent-color)/5"
+          : "border-(--border-color) bg-(--bg-card)"
+      }`}
+    >
+      <h4 className="font-display font-semibold text-(--text-primary) mb-3">
+        {group.name}조
+      </h4>
+      <div className="space-y-2 min-h-[100px]">
+        {group.group_teams?.map((team, index) => (
+          <DraggableTeam key={team.id} team={team} index={index} />
+        ))}
+        {(!group.group_teams || group.group_teams.length === 0) && (
+          <div className="text-center py-4 text-(--text-muted) text-sm">
+            팀을 여기로 드래그하세요
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Draggable 팀 컴포넌트
+function DraggableTeam({
+  team,
+  index,
+}: {
+  team: GroupTeam;
+  index: number;
+}) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: team.id,
+    });
+
+  const style = transform
+    ? {
+        transform: CSS.Translate.toString(transform),
+        opacity: isDragging ? 0.5 : 1,
+      }
+    : undefined;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors"
+    >
+      <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
+      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
+        {index + 1}
+      </span>
+      <div className="flex-1 min-w-0">
+        {team.entry?.club_name && (
+          <p className="text-sm font-medium text-(--text-primary) truncate">
+            {team.entry.club_name}
+          </p>
+        )}
+        <p
+          className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+        >
+          {team.entry?.player_name}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// 드래그 오버레이 컴포넌트
+function DraggableTeamOverlay({ team }: { team: GroupTeam }) {
+  return (
+    <div className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) border-2 border-(--accent-color) shadow-2xl">
+      <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
+      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
+        •
+      </span>
+      <div className="flex-1 min-w-0">
+        {team.entry?.club_name && (
+          <p className="text-sm font-medium text-(--text-primary) truncate">
+            {team.entry.club_name}
+          </p>
+        )}
+        <p
+          className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+        >
+          {team.entry?.player_name}
+        </p>
+      </div>
     </div>
   );
 }
