@@ -18,16 +18,23 @@ import {
 import {
   DndContext,
   DragOverlay,
-  closestCenter,
+  closestCorners,
   PointerSensor,
   useSensor,
   useSensors,
   DragStartEvent,
   DragEndEvent,
+  DragOverEvent,
   useDroppable,
   useDraggable,
 } from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { LoadingOverlay } from "@/components/common/LoadingOverlay";
 import {
   getOrCreateBracketConfig,
   updateBracketConfig,
@@ -850,13 +857,21 @@ function GroupsTab({
   onDelete: () => void;
   onTeamMove: () => Promise<void>;
 }) {
+  const [localGroups, setLocalGroups] = useState(groups);
   const [activeId, setActiveId] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  // groups prop이 변경되면 로컬 상태 업데이트
+  useEffect(() => {
+    setLocalGroups(groups);
+    setHasChanges(false);
+  }, [groups]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
       activationConstraint: {
-        distance: 8, // 8px 이동 후 드래그 시작
+        distance: 8,
       },
     }),
   );
@@ -865,61 +880,129 @@ function GroupsTab({
     setActiveId(event.active.id as string);
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragOver = (event: DragOverEvent) => {
     const { active, over } = event;
-    setActiveId(null);
 
     if (!over || active.id === over.id) return;
 
-    // active.id는 팀 ID, over.id는 조 ID
     const teamId = active.id as string;
-    const newGroupId = over.id as string;
+    const overGroupId = over.id as string;
 
-    // 같은 조 내 이동은 무시
-    const currentTeam = groups
-      .flatMap((g) => g.group_teams || [])
-      .find((t) => t.id === teamId);
-    if (currentTeam?.group_id === newGroupId) return;
+    setLocalGroups((prevGroups) => {
+      const newGroups = prevGroups.map((g) => ({ ...g }));
 
+      // 팀의 현재 조 찾기
+      let sourceGroup = newGroups.find((g) =>
+        g.group_teams?.some((t) => t.id === teamId),
+      );
+      if (!sourceGroup) return prevGroups;
+
+      // 팀 찾기
+      const team = sourceGroup.group_teams?.find((t) => t.id === teamId);
+      if (!team) return prevGroups;
+
+      // 대상 조 찾기
+      const targetGroup = newGroups.find((g) => g.id === overGroupId);
+      if (!targetGroup || sourceGroup.id === targetGroup.id) return prevGroups;
+
+      // 팀 이동
+      sourceGroup.group_teams = sourceGroup.group_teams?.filter(
+        (t) => t.id !== teamId,
+      );
+      if (!targetGroup.group_teams) targetGroup.group_teams = [];
+      targetGroup.group_teams.push({ ...team, group_id: overGroupId });
+
+      return newGroups;
+    });
+
+    setHasChanges(true);
+  };
+
+  const handleDragEnd = () => {
+    setActiveId(null);
+  };
+
+  const handleSave = async () => {
     setLoading(true);
     try {
-      const { error } = await moveTeamToGroup(teamId, newGroupId);
-      if (error) {
-        alert(`팀 이동 실패: ${error.message}`);
+      // 변경된 팀들을 찾아서 저장
+      const promises: Promise<{ error: any }>[] = [];
+
+      localGroups.forEach((group) => {
+        group.group_teams?.forEach((team) => {
+          // 원래 조와 다른 경우에만 저장
+          const originalGroup = groups.find((g) =>
+            g.group_teams?.some((t) => t.id === team.id),
+          );
+          if (originalGroup && originalGroup.id !== group.id) {
+            promises.push(moveTeamToGroup(team.id, group.id));
+          }
+        });
+      });
+
+      const results = await Promise.all(promises);
+      const errors = results.filter((r) => r.error);
+
+      if (errors.length > 0) {
+        alert(`일부 팀 이동에 실패했습니다: ${errors[0].error.message}`);
       } else {
-        // 부모 컴포넌트에서 데이터 새로고침
         await onTeamMove();
+        setHasChanges(false);
       }
     } catch (error) {
-      console.error("Failed to move team:", error);
-      alert("팀 이동 중 오류가 발생했습니다.");
+      console.error("Failed to save changes:", error);
+      alert("저장 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
   };
 
+  const handleReset = () => {
+    setLocalGroups(groups);
+    setHasChanges(false);
+  };
+
   // 드래그 중인 팀 찾기
   const activeTeam = activeId
-    ? groups
+    ? localGroups
         .flatMap((g) => g.group_teams || [])
         .find((t) => t.id === activeId)
     : null;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 relative">
+      {loading && <LoadingOverlay message="저장 중..." />}
+
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
           예선 조 편성
-          {loading && (
-            <span className="ml-2 text-sm text-(--text-muted)">저장 중...</span>
+          {hasChanges && (
+            <span className="ml-2 text-sm text-amber-500">• 저장되지 않음</span>
           )}
         </h3>
         <div className="flex gap-2">
           <button onClick={onAutoGenerate} className="btn-secondary btn-sm">
             <span className="relative z-10">자동 편성</span>
           </button>
-          {groups.length > 0 && (
+          {localGroups.length > 0 && (
             <>
+              {hasChanges && (
+                <>
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-2 rounded-lg bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20 border border-gray-500/30 transition-colors text-sm font-medium"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={loading}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium disabled:opacity-50"
+                  >
+                    저장하기
+                  </button>
+                </>
+              )}
               <button
                 onClick={onGenerateMatches}
                 className="btn-primary btn-sm"
@@ -937,7 +1020,7 @@ function GroupsTab({
         </div>
       </div>
 
-      {groups.length === 0 ? (
+      {localGroups.length === 0 ? (
         <div className="text-center py-8 text-(--text-muted)">
           <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>조 편성이 없습니다. 자동 편성 버튼을 클릭하세요.</p>
@@ -945,12 +1028,13 @@ function GroupsTab({
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={closestCorners}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {groups.map((group) => (
+            {localGroups.map((group) => (
               <DroppableGroup key={group.id} group={group} />
             ))}
           </div>
@@ -1008,12 +1092,13 @@ function DraggableTeam({
       id: team.id,
     });
 
-  const style = transform
-    ? {
-        transform: CSS.Translate.toString(transform),
-        opacity: isDragging ? 0.5 : 1,
-      }
-    : undefined;
+  const style: React.CSSProperties = {
+    transform: transform
+      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+      : undefined,
+    opacity: isDragging ? 0.3 : 1,
+    transition: isDragging ? "none" : "transform 200ms ease, opacity 200ms ease",
+  };
 
   return (
     <div
@@ -1021,7 +1106,9 @@ function DraggableTeam({
       style={style}
       {...attributes}
       {...listeners}
-      className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors"
+      className={`flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors ${
+        isDragging ? "z-50" : ""
+      }`}
     >
       <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
       <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
