@@ -1038,7 +1038,12 @@ function GroupsTab({
               <DroppableGroup key={group.id} group={group} />
             ))}
           </div>
-          <DragOverlay>
+          <DragOverlay
+            dropAnimation={{
+              duration: 200,
+              easing: "ease",
+            }}
+          >
             {activeTeam && <DraggableTeamOverlay team={activeTeam} />}
           </DragOverlay>
         </DndContext>
@@ -1093,11 +1098,8 @@ function DraggableTeam({
     });
 
   const style: React.CSSProperties = {
-    transform: transform
-      ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
-      : undefined,
-    opacity: isDragging ? 0.3 : 1,
-    transition: isDragging ? "none" : "transform 200ms ease, opacity 200ms ease",
+    opacity: isDragging ? 0 : 1,
+    transition: "opacity 200ms ease",
   };
 
   return (
@@ -1106,9 +1108,7 @@ function DraggableTeam({
       style={style}
       {...attributes}
       {...listeners}
-      className={`flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors ${
-        isDragging ? "z-50" : ""
-      }`}
+      className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover) transition-colors"
     >
       <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
       <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
