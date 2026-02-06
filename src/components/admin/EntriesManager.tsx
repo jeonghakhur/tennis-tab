@@ -15,6 +15,7 @@ import {
   updatePaymentStatus,
   deleteEntry,
 } from '@/lib/admin/entries'
+import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 
 type Entry = Database['public']['Tables']['tournament_entries']['Row'] & {
   profiles: {
@@ -101,6 +102,24 @@ export function EntriesManager({
   const [divisionFilter, setDivisionFilter] = useState<string>('ALL')
   const [selectedEntries, setSelectedEntries] = useState<string[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    type: 'info' | 'warning' | 'error' | 'success'
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+  })
+  const [confirmDialog, setConfirmDialog] = useState<{
+    isOpen: boolean
+    entryId: string | null
+  }>({
+    isOpen: false,
+    entryId: null,
+  })
 
   const handleStatusChange = async (entryId: string, status: EntryStatus) => {
     if (processing) return
@@ -108,12 +127,22 @@ export function EntriesManager({
     try {
       const result = await updateEntryStatus(entryId, status)
       if (result.error) {
-        alert(result.error)
+        setAlertDialog({
+          isOpen: true,
+          title: '상태 변경 실패',
+          message: result.error,
+          type: 'error',
+        })
       } else {
         router.refresh()
       }
     } catch {
-      alert('상태 변경 중 오류가 발생했습니다.')
+      setAlertDialog({
+        isOpen: true,
+        title: '오류',
+        message: '상태 변경 중 오류가 발생했습니다.',
+        type: 'error',
+      })
     } finally {
       setProcessing(null)
     }
@@ -125,33 +154,59 @@ export function EntriesManager({
     try {
       const result = await updatePaymentStatus(entryId, status)
       if (result.error) {
-        alert(result.error)
+        setAlertDialog({
+          isOpen: true,
+          title: '결제 상태 변경 실패',
+          message: result.error,
+          type: 'error',
+        })
       } else {
         router.refresh()
       }
     } catch {
-      alert('결제 상태 변경 중 오류가 발생했습니다.')
+      setAlertDialog({
+        isOpen: true,
+        title: '오류',
+        message: '결제 상태 변경 중 오류가 발생했습니다.',
+        type: 'error',
+      })
     } finally {
       setProcessing(null)
     }
   }
 
-  const handleDelete = async (entryId: string) => {
-    if (processing) return
-    if (!confirm('정말로 이 참가 신청을 삭제하시겠습니까?')) return
+  const handleDeleteConfirm = async () => {
+    if (processing || !confirmDialog.entryId) return
 
-    setProcessing(entryId)
+    setProcessing(confirmDialog.entryId)
     try {
-      const result = await deleteEntry(entryId)
+      const result = await deleteEntry(confirmDialog.entryId)
       if (result.error) {
-        alert(result.error)
+        setAlertDialog({
+          isOpen: true,
+          title: '삭제 실패',
+          message: result.error,
+          type: 'error',
+        })
       } else {
         router.refresh()
+        setAlertDialog({
+          isOpen: true,
+          title: '삭제 완료',
+          message: '참가 신청이 삭제되었습니다.',
+          type: 'success',
+        })
       }
     } catch {
-      alert('삭제 중 오류가 발생했습니다.')
+      setAlertDialog({
+        isOpen: true,
+        title: '오류',
+        message: '삭제 중 오류가 발생했습니다.',
+        type: 'error',
+      })
     } finally {
       setProcessing(null)
+      setConfirmDialog({ isOpen: false, entryId: null })
     }
   }
 
@@ -607,7 +662,7 @@ export function EntriesManager({
                       </td>
                       <td className="p-4">
                         <button
-                          onClick={() => handleDelete(entry.id)}
+                          onClick={() => setConfirmDialog({ isOpen: true, entryId: entry.id })}
                           disabled={isProcessing}
                           className="p-2.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-500 transition-colors"
                           title="삭제"
@@ -632,6 +687,26 @@ export function EntriesManager({
           </table>
         </div>
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+      />
+
+      {/* Confirm Dialog */}
+      <ConfirmDialog
+        isOpen={confirmDialog.isOpen}
+        onClose={() => setConfirmDialog({ isOpen: false, entryId: null })}
+        onConfirm={handleDeleteConfirm}
+        title="참가 신청 삭제"
+        message="정말로 이 참가 신청을 삭제하시겠습니까?"
+        type="error"
+        isLoading={processing !== null}
+      />
     </div>
   )
 }

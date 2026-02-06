@@ -1144,12 +1144,13 @@ function MatchRow({
     match.team2_score?.toString() || "",
   );
   const [editing, setEditing] = useState(false);
+  const [showTieWarning, setShowTieWarning] = useState(false);
 
   const handleSubmit = () => {
     const s1 = parseInt(team1Score) || 0;
     const s2 = parseInt(team2Score) || 0;
     if (s1 === s2) {
-      alert("동점은 허용되지 않습니다.");
+      setShowTieWarning(true);
       return;
     }
     onResult(match.id, s1, s2);
@@ -1251,6 +1252,15 @@ function MatchRow({
       >
         <span className="text-sm">{team2Label}</span>
       </div>
+
+      {/* Tie Warning Dialog */}
+      <AlertDialog
+        isOpen={showTieWarning}
+        onClose={() => setShowTieWarning(false)}
+        title="경고"
+        message="동점은 허용되지 않습니다."
+        type="warning"
+      />
     </div>
   );
 }

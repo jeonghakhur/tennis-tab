@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useState } from 'react';
 import { deleteTournament } from '@/lib/tournaments/actions';
 import Link from 'next/link';
+import { AlertDialog } from '@/components/common/AlertDialog';
 
 interface TournamentActionsProps {
     tournamentId: string;
@@ -13,6 +14,15 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [alertDialog, setAlertDialog] = useState<{
+        isOpen: boolean;
+        title: string;
+        message: string;
+    }>({
+        isOpen: false,
+        title: '',
+        message: '',
+    });
 
     const handleDelete = async () => {
         setLoading(true);
@@ -22,7 +32,12 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
             router.push('/tournaments');
             router.refresh();
         } else {
-            alert(result.error);
+            setShowDeleteConfirm(false);
+            setAlertDialog({
+                isOpen: true,
+                title: '삭제 실패',
+                message: result.error || '대회 삭제에 실패했습니다.',
+            });
             setLoading(false);
         }
     };
@@ -87,6 +102,15 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
                     </div>
                 </div>
             )}
+
+            {/* Alert Dialog */}
+            <AlertDialog
+                isOpen={alertDialog.isOpen}
+                onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+                title={alertDialog.title}
+                message={alertDialog.message}
+                type="error"
+            />
         </div>
     );
 }

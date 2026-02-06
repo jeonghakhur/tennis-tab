@@ -53,6 +53,15 @@ CLAUDE.md
 - 조기 반환(Early Return)으로 중첩 감소
 - 단일 책임 원칙
 
+## UI 컴포넌트
+- **Alert/Confirm 다이얼로그**: `alert()`, `confirm()` 대신 `/src/components/common/AlertDialog.tsx` 사용
+  - `AlertDialog`: 확인 버튼만 있는 알럿 (성공/실패 메시지)
+  - `ConfirmDialog`: 확인/취소 버튼이 있는 확인 다이얼로그
+  - 타입 지원: `info` (파란색), `warning` (주황색), `error` (빨간색), `success` (초록색)
+  - 줄바꿈: 템플릿 리터럴에서 `\n` 사용 가능
+  - 로딩 상태: `isLoading` prop으로 처리 중 표시
+  - 일관된 UX 제공 및 다크모드 지원
+
 # Response Guidelines
 
 ## 코드 제공 시

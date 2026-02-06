@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { MatchType, PartnerData, TeamMember } from "@/lib/supabase/types";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { unformatPhoneNumber } from "@/lib/utils/phone";
+import { AlertDialog } from "@/components/common/AlertDialog";
 
 interface Division {
   id: string;
@@ -63,6 +64,17 @@ export default function TournamentEntryForm({
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "error" | "success";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   // Portal을 위한 마운트 상태
   useEffect(() => {
@@ -109,9 +121,12 @@ export default function TournamentEntryForm({
   const addTeamMember = () => {
     if (!selectedDivision?.team_member_limit) return;
     if (teamMembers.length >= selectedDivision.team_member_limit) {
-      alert(
-        `최대 ${selectedDivision.team_member_limit}명까지 등록 가능합니다.`,
-      );
+      setAlertDialog({
+        isOpen: true,
+        title: "팀원 추가 불가",
+        message: `최대 ${selectedDivision.team_member_limit}명까지 등록 가능합니다.`,
+        type: "warning",
+      });
       return;
     }
     setTeamMembers([...teamMembers, { name: "", rating: 0 }]);
@@ -138,35 +153,65 @@ export default function TournamentEntryForm({
     e.preventDefault();
 
     if (!divisionId) {
-      alert("참가 부서를 선택해주세요.");
+      setAlertDialog({
+        isOpen: true,
+        title: "입력 필요",
+        message: "참가 부서를 선택해주세요.",
+        type: "warning",
+      });
       return;
     }
 
     if (!phone) {
-      alert("전화번호를 입력해주세요.");
+      setAlertDialog({
+        isOpen: true,
+        title: "입력 필요",
+        message: "전화번호를 입력해주세요.",
+        type: "warning",
+      });
       return;
     }
 
     // 경기 타입별 유효성 검사
     if (matchType === "INDIVIDUAL_DOUBLES") {
       if (!partnerName || !partnerClub || partnerRating === null) {
-        alert("파트너 정보를 모두 입력해주세요.");
+        setAlertDialog({
+          isOpen: true,
+          title: "입력 필요",
+          message: "파트너 정보를 모두 입력해주세요.",
+          type: "warning",
+        });
         return;
       }
     }
 
     if (matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") {
       if (!clubName) {
-        alert("클럽명을 입력해주세요.");
+        setAlertDialog({
+          isOpen: true,
+          title: "입력 필요",
+          message: "클럽명을 입력해주세요.",
+          type: "warning",
+        });
         return;
       }
       if (teamMembers.length === 0) {
-        alert("최소 1명의 팀원을 등록해주세요.");
+        setAlertDialog({
+          isOpen: true,
+          title: "입력 필요",
+          message: "최소 1명의 팀원을 등록해주세요.",
+          type: "warning",
+        });
         return;
       }
       for (const member of teamMembers) {
         if (!member.name || member.rating === null) {
-          alert("모든 팀원의 정보를 입력해주세요.");
+          setAlertDialog({
+            isOpen: true,
+            title: "입력 필요",
+            message: "모든 팀원의 정보를 입력해주세요.",
+            type: "warning",
+          });
           return;
         }
       }
@@ -200,11 +245,21 @@ export default function TournamentEntryForm({
     setIsSubmitting(false);
 
     if (result.success) {
-      alert(editMode ? "신청 정보가 수정되었습니다!" : "참가 신청이 완료되었습니다!");
+      setAlertDialog({
+        isOpen: true,
+        title: editMode ? "수정 완료" : "신청 완료",
+        message: editMode ? "신청 정보가 수정되었습니다!" : "참가 신청이 완료되었습니다!",
+        type: "success",
+      });
       router.refresh();
-      onClose();
+      setTimeout(() => onClose(), 1500);
     } else {
-      alert(result.error || (editMode ? "신청 수정에 실패했습니다." : "참가 신청에 실패했습니다."));
+      setAlertDialog({
+        isOpen: true,
+        title: editMode ? "수정 실패" : "신청 실패",
+        message: result.error || (editMode ? "신청 수정에 실패했습니다." : "참가 신청에 실패했습니다."),
+        type: "error",
+      });
     }
   };
 
@@ -521,7 +576,12 @@ export default function TournamentEntryForm({
                   type="button"
                   onClick={() => {
                     navigator.clipboard.writeText(bankAccount);
-                    alert("계좌번호가 복사되었습니다.");
+                    setAlertDialog({
+                      isOpen: true,
+                      title: "복사 완료",
+                      message: "계좌번호가 복사되었습니다.",
+                      type: "success",
+                    });
                   }}
                   className="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                 >
@@ -558,6 +618,15 @@ export default function TournamentEntryForm({
             </button>
           </div>
         </form>
+
+        {/* Alert Dialog */}
+        <AlertDialog
+          isOpen={alertDialog.isOpen}
+          onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+          title={alertDialog.title}
+          message={alertDialog.message}
+          type={alertDialog.type}
+        />
       </div>
     </div>
   );

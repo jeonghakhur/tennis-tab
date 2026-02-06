@@ -12,6 +12,7 @@ import {
 import { closeTournament } from "@/lib/tournaments/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
+import { AlertDialog } from "@/components/common/AlertDialog";
 
 interface Division {
   id: string;
@@ -83,6 +84,17 @@ export default function TournamentEntryActions({
   const [mounted, setMounted] = useState(false);
   // 서버에서 currentEntry가 null로 올 수 있어, 클라이언트에서 한 번 더 조회
   const [entry, setEntry] = useState<CurrentEntry | null>(currentEntry);
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: "info" | "warning" | "error" | "success";
+  }>({
+    isOpen: false,
+    title: "",
+    message: "",
+    type: "info",
+  });
 
   useEffect(() => {
     setMounted(true);
@@ -168,10 +180,20 @@ export default function TournamentEntryActions({
 
     if (result.success) {
       setEntry(null); // 즉각적인 UI 반영
-      alert("참가 신청이 취소되었습니다.");
+      setAlertDialog({
+        isOpen: true,
+        title: "취소 완료",
+        message: "참가 신청이 취소되었습니다.",
+        type: "success",
+      });
       router.refresh();
     } else {
-      alert(result.error || "신청 취소에 실패했습니다.");
+      setAlertDialog({
+        isOpen: true,
+        title: "취소 실패",
+        message: result.error || "신청 취소에 실패했습니다.",
+        type: "error",
+      });
     }
   };
 
@@ -185,10 +207,20 @@ export default function TournamentEntryActions({
     setShowCloseModal(false);
 
     if (result.success) {
-      alert("참가 접수가 마감되었습니다.");
+      setAlertDialog({
+        isOpen: true,
+        title: "마감 완료",
+        message: "참가 접수가 마감되었습니다.",
+        type: "success",
+      });
       router.refresh();
     } else {
-      alert(result.error || "마감 처리에 실패했습니다.");
+      setAlertDialog({
+        isOpen: true,
+        title: "마감 실패",
+        message: result.error || "마감 처리에 실패했습니다.",
+        type: "error",
+      });
     }
   };
 
@@ -528,6 +560,15 @@ export default function TournamentEntryActions({
           }}
         />
       )}
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+      />
     </>
   );
 }

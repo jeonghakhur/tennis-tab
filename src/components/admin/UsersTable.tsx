@@ -6,6 +6,7 @@ import type { Database } from '@/lib/supabase/types'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS, isSuperAdmin, isAdmin } from '@/lib/auth/roles'
 import { changeUserRole } from '@/lib/auth/admin'
+import { AlertDialog } from '@/components/common/AlertDialog'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -30,6 +31,17 @@ export function UsersTable({
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [roleFilter, setRoleFilter] = useState<UserRole | 'ALL'>('ALL')
   const [changingRole, setChangingRole] = useState<string | null>(null)
+  const [alertDialog, setAlertDialog] = useState<{
+    isOpen: boolean
+    title: string
+    message: string
+    type: 'info' | 'warning' | 'error' | 'success'
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'info',
+  })
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -47,10 +59,20 @@ export function UsersTable({
     try {
       const result = await changeUserRole(userId, newRole)
       if (result.error) {
-        alert(result.error)
+        setAlertDialog({
+          isOpen: true,
+          title: '권한 변경 실패',
+          message: result.error,
+          type: 'error',
+        })
       }
     } catch {
-      alert('권한 변경 중 오류가 발생했습니다.')
+      setAlertDialog({
+        isOpen: true,
+        title: '오류',
+        message: '권한 변경 중 오류가 발생했습니다.',
+        type: 'error',
+      })
     } finally {
       setChangingRole(null)
     }
@@ -341,6 +363,15 @@ export function UsersTable({
           </table>
         </div>
       </div>
+
+      {/* Alert Dialog */}
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+      />
     </div>
   )
 }
