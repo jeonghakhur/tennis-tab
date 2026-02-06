@@ -1038,8 +1038,7 @@ function GroupsTab({
                   </button>
                   <button
                     onClick={handleSave}
-                    disabled={loading}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium disabled:opacity-50"
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium"
                   >
                     저장하기
                   </button>
