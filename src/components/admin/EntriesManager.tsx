@@ -1,14 +1,8 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import {
-  Search,
-  ChevronDown,
-  ChevronUp,
-  Users,
-  Phone,
-  Trash2,
-} from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Search, Users, Phone, Trash2 } from 'lucide-react'
 import type {
   Database,
   EntryStatus,
@@ -45,8 +39,7 @@ interface EntriesManagerProps {
   divisions: Division[]
 }
 
-type SortField = 'created_at' | 'player_name' | 'status' | 'payment_status' | 'division'
-type SortOrder = 'asc' | 'desc'
+// 목록은 항상 참가 신청 순(created_at 오름차순)으로 고정
 
 // 프론트 페이지와 동일한 상태 값만 사용
 const entryStatusConfig: Record<
@@ -101,23 +94,13 @@ export function EntriesManager({
   entries,
   divisions,
 }: EntriesManagerProps) {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortField, setSortField] = useState<SortField>('created_at')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc')
   const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL')
   const [paymentFilter, setPaymentFilter] = useState<'PENDING' | 'COMPLETED' | 'ALL'>('ALL')
   const [divisionFilter, setDivisionFilter] = useState<string>('ALL')
   const [selectedEntries, setSelectedEntries] = useState<string[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
-
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')
-    } else {
-      setSortField(field)
-      setSortOrder('asc')
-    }
-  }
 
   const handleStatusChange = async (entryId: string, status: EntryStatus) => {
     if (processing) return
@@ -126,6 +109,8 @@ export function EntriesManager({
       const result = await updateEntryStatus(entryId, status)
       if (result.error) {
         alert(result.error)
+      } else {
+        router.refresh()
       }
     } catch {
       alert('상태 변경 중 오류가 발생했습니다.')
@@ -141,6 +126,8 @@ export function EntriesManager({
       const result = await updatePaymentStatus(entryId, status)
       if (result.error) {
         alert(result.error)
+      } else {
+        router.refresh()
       }
     } catch {
       alert('결제 상태 변경 중 오류가 발생했습니다.')
@@ -158,6 +145,8 @@ export function EntriesManager({
       const result = await deleteEntry(entryId)
       if (result.error) {
         alert(result.error)
+      } else {
+        router.refresh()
       }
     } catch {
       alert('삭제 중 오류가 발생했습니다.')
@@ -213,54 +202,11 @@ export function EntriesManager({
       filtered = filtered.filter((e) => e.division_id === divisionFilter)
     }
 
-    // Sort
-    return [...filtered].sort((a, b) => {
-      let aVal: string | number = ''
-      let bVal: string | number = ''
-
-      switch (sortField) {
-        case 'player_name':
-          aVal = a.player_name ?? ''
-          bVal = b.player_name ?? ''
-          break
-        case 'status':
-          aVal = entryStatusConfig[normalizeStatus(a.status)].order
-          bVal = entryStatusConfig[normalizeStatus(b.status)].order
-          break
-        case 'payment_status':
-          aVal = a.payment_status === 'COMPLETED' ? 1 : 0
-          bVal = b.payment_status === 'COMPLETED' ? 1 : 0
-          break
-        case 'division':
-          aVal = a.tournament_divisions?.name ?? ''
-          bVal = b.tournament_divisions?.name ?? ''
-          break
-        case 'created_at':
-          aVal = new Date(a.created_at).getTime()
-          bVal = new Date(b.created_at).getTime()
-          break
-      }
-
-      if (typeof aVal === 'string' && typeof bVal === 'string') {
-        return sortOrder === 'asc'
-          ? aVal.localeCompare(bVal)
-          : bVal.localeCompare(aVal)
-      }
-
-      return sortOrder === 'asc'
-        ? (aVal as number) - (bVal as number)
-        : (bVal as number) - (aVal as number)
-    })
-  }, [entries, searchQuery, sortField, sortOrder, statusFilter, paymentFilter, divisionFilter])
-
-  const SortIcon = ({ field }: { field: SortField }) => {
-    if (sortField !== field) return null
-    return sortOrder === 'asc' ? (
-      <ChevronUp className="w-4 h-4" />
-    ) : (
-      <ChevronDown className="w-4 h-4" />
+    // 항상 참가 신청 순(created_at 오름차순) 유지
+    return [...filtered].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
     )
-  }
+  }, [entries, searchQuery, statusFilter, paymentFilter, divisionFilter])
 
   // Stats
   const stats = {
@@ -491,49 +437,19 @@ export function EntriesManager({
                   <span className="text-base font-semibold text-[var(--text-secondary)]">#</span>
                 </th>
                 <th className="text-left p-4">
-                  <button
-                    onClick={() => handleSort('player_name')}
-                    className="flex items-center gap-2 text-base font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    참가자 정보
-                    <SortIcon field="player_name" />
-                  </button>
+                  <span className="text-base font-semibold text-[var(--text-secondary)]">참가자 정보</span>
                 </th>
                 <th className="text-left p-4 hidden lg:table-cell">
-                  <button
-                    onClick={() => handleSort('division')}
-                    className="flex items-center gap-2 text-base font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    부서
-                    <SortIcon field="division" />
-                  </button>
+                  <span className="text-base font-semibold text-[var(--text-secondary)]">부서</span>
                 </th>
                 <th className="text-left p-4">
-                  <button
-                    onClick={() => handleSort('status')}
-                    className="flex items-center gap-2 text-base font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    상태
-                    <SortIcon field="status" />
-                  </button>
+                  <span className="text-base font-semibold text-[var(--text-secondary)]">상태</span>
                 </th>
                 <th className="text-left p-4">
-                  <button
-                    onClick={() => handleSort('payment_status')}
-                    className="flex items-center gap-2 text-base font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    결제
-                    <SortIcon field="payment_status" />
-                  </button>
+                  <span className="text-base font-semibold text-[var(--text-secondary)]">결제</span>
                 </th>
                 <th className="text-left p-4 hidden sm:table-cell">
-                  <button
-                    onClick={() => handleSort('created_at')}
-                    className="flex items-center gap-2 text-base font-semibold text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-colors"
-                  >
-                    신청일
-                    <SortIcon field="created_at" />
-                  </button>
+                  <span className="text-base font-semibold text-[var(--text-secondary)]">신청일</span>
                 </th>
                 <th className="p-4 w-20">
                   <span className="text-base font-semibold text-[var(--text-secondary)]">관리</span>

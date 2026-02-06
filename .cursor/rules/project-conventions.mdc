@@ -1,0 +1,30 @@
+---
+description: Tennis-tab conventions (App Router, Supabase, styling)
+globs: src/**/*
+alwaysApply: false
+---
+
+# Project Conventions
+
+## Structure
+
+- **App Router**: Pages under `src/app/`; dynamic routes use `[id]`. Use `export const dynamic = "force-dynamic"` when fresh data is required.
+- **Server vs client**: Use `"use client"` only for interactivity (forms, theme, modals). Prefer server components and Server Actions.
+- **Server Actions**: Top of file `'use server'`; import `createClient` from `@/lib/supabase/server`; return `{ success: boolean, error?: string }` (and optional ids). Call `revalidatePath()` after mutations.
+- **Path alias**: Use `@/` for `src/` (e.g. `@/lib/supabase/server`, `@/components/ui`).
+
+## Styling
+
+- **Utility**: Use `cn()` from `@/lib/utils` to merge class names (clsx + tailwind-merge).
+- **Theme**: Prefer CSS variables: `var(--bg-card)`, `var(--text-primary)`, `var(--accent-color)`, `var(--border-color)` for light/dark.
+- **UI**: shadcn/ui (new-york style) in `@/components/ui`; add with `npx shadcn@latest add <component>`.
+
+## Data & types
+
+- **Types**: Use `src/lib/supabase/types.ts` (UserRole, TournamentStatus, MatchType, EntryStatus, Database). Keep in sync with Supabase schema.
+- **RLS**: If insert/update fails with RLS, verify user first with anon client; then use Service Role only for the write, never for untrusted input.
+
+## MUST NOT (project-specific)
+
+- Do not use `APPROVED`/`REJECTED` for `entry_status` if the remote DB enum does not include them (use CONFIRMED/WAITLISTED etc. as per actual schema).
+- Do not skip server-side validation for forms; follow `docs/SECURITY_INPUT_GUIDE.md` for sanitization and input types.

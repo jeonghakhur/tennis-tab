@@ -1,0 +1,56 @@
+---
+description: Supabase RLS and admin writes - when DB does not persist despite "success"
+globs: src/lib/**/*.ts
+alwaysApply: false
+---
+
+# Supabase RLS and Admin/Manager Writes
+
+## When This Applies
+
+- **Symptom**: Frontend or server action reports success, but the database row is not updated or deleted.
+- **Context**: Admin/manager pages (e.g. entry status, payment status, delete) using the **anon** Supabase client.
+
+## Root Cause
+
+RLS allows only certain roles (e.g. row owner or tournament organizer). **ADMIN/SUPER_ADMIN** (or MANAGER on others’ tournaments) are not in the policy, so UPDATE/DELETE affects **0 rows**. PostgREST returns **no error** for 0 rows affected, so the app treats it as success.
+
+## MUST (fix pattern)
+
+1. **Keep auth and authorization checks** with the anon client (e.g. `createClient()` from `@/lib/supabase/server`): verify user, role, and that they can manage the resource (e.g. organizer or admin).
+2. **Perform the write with Service Role** after checks pass: create a second client with `SUPABASE_SERVICE_ROLE_KEY` and run the UPDATE or DELETE with that client. Do not send untrusted input; only use IDs and values already validated.
+3. **Require Service Role key**: If `SUPABASE_SERVICE_ROLE_KEY` is missing, return a clear error (e.g. "서버 설정 오류입니다") instead of falling back to anon.
+
+## MUST NOT
+
+- Do not assume "no error" means "row was updated". With RLS, 0 rows updated still returns success.
+- Do not use Service Role without verifying the acting user and their permission first.
+- Do not add raw user input into Service Role calls; only use server-validated IDs and payloads.
+
+## When Suspected: Steps
+
+1. **Confirm**: User has permission in app logic (e.g. canManageTournaments) but is not the row owner or organizer.
+2. **Check RLS**: Inspect policies for the table (SELECT/INSERT/UPDATE/DELETE). If UPDATE/DELETE allow only owner or organizer, admin role will not match.
+3. **Fix**: After all permission checks with anon client, perform the write with a Service Role client. Leave reads and permission logic on the anon client.
+4. **Revalidate**: Call `revalidatePath` (or equivalent) after the write so the UI can refresh.
+
+## Example (pattern only)
+
+```ts
+// 1) Auth + permission with anon client
+const supabase = await createClient()
+const { data: { user } } = await supabase.auth.getUser()
+// ... load profile, entry, check organizer or admin ...
+
+// 2) Write with Service Role
+const supabaseAdmin = createSupabaseClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+const { error } = await supabaseAdmin
+  .from('tournament_entries')
+  .update({ status: dbStatus, updated_at: new Date().toISOString() })
+  .eq('id', entryId)
+```
+
+Apply the same pattern for DELETE and for payment_status (or any other admin-only write) when RLS would otherwise block the anon user.

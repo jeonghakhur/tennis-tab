@@ -1,0 +1,36 @@
+---
+description: Must / Must-not rules and step-by-step error resolution (tennis-tab)
+alwaysApply: true
+---
+
+# Core Rules: MUST, MUST NOT, and Error Resolution
+
+## 1. MUST (always follow)
+
+- **Type safety**: TypeScript strict; use `unknown` instead of `any`. Define types for args and return values.
+- **Errors**: Handle failures explicitly (try/catch or Result shape); server actions return `{ success, error? }`.
+- **Security**: Validate and sanitize all user input on the server; never rely on client-only checks.
+- **Single responsibility**: Keep components and functions focused; split large logic into smaller units or hooks.
+- **Constants**: Extract magic numbers and status strings into named constants or enums.
+- **Supabase**: Use `createClient()` from `@/lib/supabase/server` for server; use Service Role only after auth checks for writes that bypass RLS.
+
+## 2. MUST NOT (never do)
+
+- **No `any`**: Do not use `any`; use `unknown` or proper types.
+- **No leftover `console.log`**: Remove or replace with proper logging before committing.
+- **No nested ternaries**: Use `if/else` or early returns instead.
+- **No unvalidated user input in DB or HTML**: Always validate/sanitize before persisting or rendering.
+- **No silent catch**: Never use empty `catch (e) {}`; log and/or rethrow or return a structured error.
+- **No giant components**: Refactor when a component does multiple unrelated things.
+- **No direct RLS bypass**: Do not use Service Role without verifying the acting user first (e.g. auth.uid() check).
+
+## 3. When an error occurs: fix step-by-step
+
+1. **Reproduce**: Identify exact action, input, and environment that trigger the error.
+2. **Locate**: Pinpoint the failing code path (stack trace, logs, or breakpoints).
+3. **Classify**: Decide if it is a type error, runtime error, auth/RLS, or invalid data.
+4. **Fix**: Apply the smallest change that addresses the root cause (types, validation, null checks, RLS).
+5. **Verify**: Re-run the same scenario and related flows to confirm the fix.
+6. **Guard**: Add a test or a short comment so the same mistake does not recur.
+
+Do not guess; follow this order every time an error is reported or encountered.

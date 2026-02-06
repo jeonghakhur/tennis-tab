@@ -1,9 +1,20 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { EntryStatus, PaymentStatus } from '@/lib/supabase/types'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+
+/** Map UI status to DB enum (remote may only have PENDING, CONFIRMED, WAITLISTED, CANCELLED) */
+function toDbEntryStatus(status: EntryStatus): 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'CANCELLED' {
+  if (status === 'APPROVED') return 'CONFIRMED'
+  if (status === 'REJECTED') return 'CANCELLED'
+  if (status === 'PENDING' || status === 'CONFIRMED' || status === 'WAITLISTED' || status === 'CANCELLED') {
+    return status
+  }
+  return 'PENDING'
+}
 
 /**
  * 참가 신청 상태 변경
@@ -17,7 +28,6 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
     return { error: '로그인이 필요합니다.' }
   }
 
-  // 현재 사용자 권한 확인
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -28,7 +38,6 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
     return { error: '권한이 없습니다.' }
   }
 
-  // 엔트리 조회 및 권한 확인
   const { data: entry } = await supabase
     .from('tournament_entries')
     .select('tournament_id, tournaments!inner(organizer_id)')
@@ -39,7 +48,6 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
     return { error: '참가 신청을 찾을 수 없습니다.' }
   }
 
-  // MANAGER는 자신이 만든 대회만, ADMIN 이상은 모든 대회
   const isAdminOrHigher = ['ADMIN', 'SUPER_ADMIN'].includes(profile?.role ?? '')
   const tournament = entry.tournaments as unknown as { organizer_id: string }
 
@@ -47,10 +55,19 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
     return { error: '이 대회의 참가 신청을 관리할 권한이 없습니다.' }
   }
 
-  // 상태 변경
-  const { error } = await supabase
+  // RLS: UPDATE는 본인/주최자만 허용. ADMIN·SUPER_ADMIN은 주최자가 아니면 0건 갱신되므로 Service Role로 실행
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    return { error: '서버 설정 오류입니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.' }
+  }
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
+  const dbStatus = toDbEntryStatus(status)
+  const { error } = await supabaseAdmin
     .from('tournament_entries')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status: dbStatus, updated_at: new Date().toISOString() })
     .eq('id', entryId)
 
   if (error) {
@@ -76,7 +93,6 @@ export async function updatePaymentStatus(
     return { error: '로그인이 필요합니다.' }
   }
 
-  // 현재 사용자 권한 확인
   const { data: profile } = await supabase
     .from('profiles')
     .select('role')
@@ -87,7 +103,6 @@ export async function updatePaymentStatus(
     return { error: '권한이 없습니다.' }
   }
 
-  // 엔트리 조회 및 권한 확인
   const { data: entry } = await supabase
     .from('tournament_entries')
     .select('tournament_id, tournaments!inner(organizer_id)')
@@ -98,7 +113,6 @@ export async function updatePaymentStatus(
     return { error: '참가 신청을 찾을 수 없습니다.' }
   }
 
-  // MANAGER는 자신이 만든 대회만, ADMIN 이상은 모든 대회
   const isAdminOrHigher = ['ADMIN', 'SUPER_ADMIN'].includes(profile?.role ?? '')
   const tournament = entry.tournaments as unknown as { organizer_id: string }
 
@@ -106,19 +120,20 @@ export async function updatePaymentStatus(
     return { error: '이 대회의 참가 신청을 관리할 권한이 없습니다.' }
   }
 
-  // 결제 상태 변경
-  const updateData: { payment_status: PaymentStatus; updated_at: string; payment_confirmed_at?: string } = {
-    payment_status: paymentStatus,
-    updated_at: new Date().toISOString(),
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    return { error: '서버 설정 오류입니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.' }
   }
-
-  if (paymentStatus === 'COMPLETED') {
-    updateData.payment_confirmed_at = new Date().toISOString()
-  }
-
-  const { error } = await supabase
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
+  const { error } = await supabaseAdmin
     .from('tournament_entries')
-    .update(updateData)
+    .update({
+      payment_status: paymentStatus,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', entryId)
 
   if (error) {
@@ -155,10 +170,18 @@ export async function bulkUpdateEntryStatus(
     return { error: '권한이 없습니다.' }
   }
 
-  // 상태 변경
-  const { error } = await supabase
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    return { error: '서버 설정 오류입니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.' }
+  }
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
+  const dbStatus = toDbEntryStatus(status)
+  const { error } = await supabaseAdmin
     .from('tournament_entries')
-    .update({ status, updated_at: new Date().toISOString() })
+    .update({ status: dbStatus, updated_at: new Date().toISOString() })
     .in('id', entryIds)
 
   if (error) {
@@ -210,8 +233,16 @@ export async function deleteEntry(entryId: string) {
     return { error: '이 대회의 참가 신청을 관리할 권한이 없습니다.' }
   }
 
-  // 삭제
-  const { error } = await supabase
+  // 삭제 (RLS에 주최자/관리자 DELETE 정책이 없어 Service Role로 실행)
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    return { error: '서버 설정 오류입니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.' }
+  }
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
+  const { error } = await supabaseAdmin
     .from('tournament_entries')
     .delete()
     .eq('id', entryId)
