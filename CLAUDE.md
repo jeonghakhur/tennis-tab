@@ -322,3 +322,62 @@ function EditUserModal({ user, isOpen, onClose, onSave }) {
 - 간결하게 핵심만 전달
 - 불필요한 예의 표현 최소화 ("도움이 되었으면 좋겠습니다" 등)
 - 불렛 포인트는 필요한 경우에만 사용
+
+# Architecture Context
+
+## 프로젝트 구조
+- Next.js 16 (Turbopack), Supabase, TypeScript strict
+- Server Actions: `src/lib/bracket/actions.ts` (대진표), `src/lib/auth/actions.ts` (인증)
+- Admin Client: `src/lib/supabase/admin.ts` — Service Role Key로 RLS 우회
+- 권한 체계: `src/lib/auth/roles.ts` — SUPER_ADMIN > ADMIN > MANAGER > USER
+
+## BracketManager 컴포넌트 구조
+```
+src/components/admin/BracketManager/
+├── index.tsx              # 메인 (상태관리, 다이얼로그)
+├── types.ts               # 공유 타입 + phaseLabels
+├── SettingsTab.tsx         # 대진표 설정 (예선 여부, 조별 팀수, 3/4위전)
+├── GroupsTab.tsx           # 조편성 DnD (예선/본선 공통 사용)
+├── PreliminaryTab.tsx      # 예선 경기 목록 + 순위표
+├── MainBracketTab.tsx      # 본선 대진표
+├── MatchRow.tsx            # 경기 행 (점수 입력, onTieWarning 콜백)
+└── MatchDetailModal.tsx    # 단체전 세트별 결과 입력 모달
+```
+
+## 핵심 워크플로우
+- **조편성 → 대진표 생성** 흐름이 예선/본선 공통
+  - GroupsTab은 `has_preliminaries` 여부와 무관하게 항상 표시
+  - `group_size=2`: 각 조 2팀 → 조별 대진이 본선 1라운드 매치
+  - `group_size=3`: 각 조 3팀 풀리그 → 상위 2팀 본선 진출
+- **단체전(TEAM_SINGLES/TEAM_DOUBLES)**: `sets_detail: SetDetail[]`로 세트별 선수 배정 + 점수 저장
+  - Best-of-N: `winsNeeded = Math.ceil(teamMatchCount / 2)`
+
+## 적용된 보안 패턴
+- Server Actions mutation은 반드시 `checkBracketManagementAuth()` 호출
+- 환경변수 미설정 시 throw (fallback 키 금지)
+- 입력값: `validateId()`, `validateNonNegativeInteger()`, 동점 서버 사이드 검증
+
+## DEV 전용 기능
+- **자동 결과 입력** (`autoFillPreliminaryResults`, `autoFillMainBracketResults`)
+  - `process.env.NODE_ENV === "development"`일 때만 UI 버튼 표시
+  - 개인전: 랜덤 점수 생성
+  - 단체전: `getTeamMatchInfo()` → `buildEntriesMap()` → `generateTeamMatchAutoResult()`로 세트별 상세 결과 자동 생성
+
+# Recent Development Log
+> 이 섹션은 작업 연속성을 위해 최근 개발 맥락을 기록합니다. 오래된 항목은 정리해주세요.
+
+## 2025-02-10 작업 내역
+1. **조편성 기반 본선 대진표 생성 워크플로우 통합** (`567fa5b`)
+   - SeedingList 별도 컴포넌트 대신 기존 GroupsTab을 본선에도 재사용
+   - `group_size` 설정을 SettingsTab에서 항상 표시 (예선 여부 무관)
+   - `generateMainBracket`이 그룹 데이터 읽어서 시드 배치
+
+2. **예선/본선 자동 결과 입력 기능 추가** (`30165c6`)
+   - DEV 전용 버튼으로 SCHEDULED 경기에 랜덤 결과 일괄 입력
+   - 본선은 라운드별 반복 처리 (승자/패자 전파 포함)
+
+3. **단체전 자동 결과 입력 세트 상세 지원** (`f1c738a`)
+   - `getTeamMatchInfo()`: configId → tournament 단체전 정보 조회
+   - `buildEntriesMap()`: division 엔트리 선수 목록 맵 구축
+   - `generateTeamMatchAutoResult()`: Best-of-N 세트별 선수 배정 + 점수 자동 생성
+   - 개인전은 기존 로직 유지 (하위 호환)
