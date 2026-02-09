@@ -18,6 +18,8 @@ import {
   generateMainBracket,
   getMainBracketMatches,
   updateMatchResult,
+  autoFillPreliminaryResults,
+  autoFillMainBracketResults,
   deleteBracketConfig,
   deletePreliminaryGroups,
   deletePreliminaryMatches,
@@ -228,6 +230,44 @@ export function BracketManager({
     } finally {
       setLoading(false);
       setShowGenerateMainConfirm(false);
+    }
+  };
+
+  // 테스트용: 예선 자동 결과 입력
+  const handleAutoFillPreliminary = async () => {
+    if (!config) return;
+    setLoading(true);
+    try {
+      const { data, error } = await autoFillPreliminaryResults(config.id);
+      if (error) {
+        showError("자동 입력 실패", error);
+      } else {
+        await loadBracketData();
+        showSuccess(`예선 ${data?.filledCount}경기 결과가 자동 입력되었습니다.`);
+      }
+    } catch {
+      showError("오류", "자동 결과 입력 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 테스트용: 본선 자동 결과 입력
+  const handleAutoFillMain = async () => {
+    if (!config) return;
+    setLoading(true);
+    try {
+      const { data, error } = await autoFillMainBracketResults(config.id);
+      if (error) {
+        showError("자동 입력 실패", error);
+      } else {
+        await loadBracketData();
+        showSuccess(`본선 ${data?.filledCount}경기 결과가 자동 입력되었습니다.`);
+      }
+    } catch {
+      showError("오류", "자동 결과 입력 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -492,6 +532,7 @@ export function BracketManager({
                 groups={groups}
                 matches={preliminaryMatches}
                 onMatchResult={handleMatchResult}
+                onAutoFill={handleAutoFillPreliminary}
                 onDelete={() => setShowDeletePrelimConfirm(true)}
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
@@ -504,6 +545,7 @@ export function BracketManager({
                 config={config}
                 matches={mainMatches}
                 onGenerateBracket={() => setShowGenerateMainConfirm(true)}
+                onAutoFill={handleAutoFillMain}
                 onMatchResult={handleMatchResult}
                 onDelete={() => setShowDeleteMainConfirm(true)}
                 onTieWarning={handleTieWarning}

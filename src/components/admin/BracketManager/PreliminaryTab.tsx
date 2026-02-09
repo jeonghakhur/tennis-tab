@@ -12,6 +12,7 @@ interface PreliminaryTabProps {
     team1Score: number,
     team2Score: number,
   ) => void;
+  onAutoFill: () => void;
   onDelete: () => void;
   onTieWarning: () => void;
   isTeamMatch?: boolean;
@@ -22,25 +23,38 @@ export function PreliminaryTab({
   groups,
   matches,
   onMatchResult,
+  onAutoFill,
   onDelete,
   onTieWarning,
   isTeamMatch,
   onOpenDetail,
 }: PreliminaryTabProps) {
+  // SCHEDULED 경기가 존재하는지 확인
+  const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
           예선 경기
         </h3>
-        {matches.length > 0 && (
-          <button
-            onClick={onDelete}
-            className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
-          >
-            예선 경기 삭제
-          </button>
-        )}
+        <div className="flex gap-2">
+          {hasScheduledMatches && process.env.NODE_ENV === "development" && (
+            <button
+              onClick={onAutoFill}
+              className="px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-sm font-medium"
+            >
+              자동 결과 입력 (DEV)
+            </button>
+          )}
+          {matches.length > 0 && (
+            <button
+              onClick={onDelete}
+              className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+            >
+              예선 경기 삭제
+            </button>
+          )}
+        </div>
       </div>
 
       {matches.length === 0 ? (

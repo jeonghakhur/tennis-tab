@@ -122,6 +122,15 @@ function validateNonNegativeInteger(value: number, fieldName: string): string | 
 // Fisher-Yates 셔플 (균등 분포 보장)
 // ============================================================================
 
+/** 랜덤 점수 생성 (승자가 항상 높은 점수) */
+function generateRandomScores(): [number, number] {
+  const winnerScore = Math.floor(Math.random() * 5) + 2 // 2~6
+  const loserScore = Math.floor(Math.random() * winnerScore) // 0 ~ (winnerScore-1)
+  return Math.random() > 0.5
+    ? [winnerScore, loserScore]
+    : [loserScore, winnerScore]
+}
+
 function shuffleArray<T>(array: T[]): T[] {
   const shuffled = [...array]
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -1250,4 +1259,141 @@ export async function deleteBracketConfig(configId: string) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류'
     return { success: false, error: message }
   }
+}
+
+// ============================================================================
+// 테스트용: 자동 결과 입력
+// ============================================================================
+
+/**
+ * 예선 경기 자동 결과 입력 (개발 테스트용)
+ * SCHEDULED 상태의 모든 예선 경기에 랜덤 결과 입력
+ */
+export async function autoFillPreliminaryResults(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { error: idError }
+
+  const supabaseAdmin = createAdminClient()
+
+  // SCHEDULED 상태이며 양 팀이 배정된 예선 경기 조회
+  const { data: matches } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('*')
+    .eq('bracket_config_id', configId)
+    .eq('phase', 'PRELIMINARY')
+    .eq('status', 'SCHEDULED')
+    .not('team1_entry_id', 'is', null)
+    .not('team2_entry_id', 'is', null)
+    .order('match_number')
+
+  if (!matches || matches.length === 0) {
+    return { data: { filledCount: 0 }, error: null }
+  }
+
+  const groupIds = new Set<string>()
+  let filledCount = 0
+
+  for (const match of matches) {
+    const [team1Score, team2Score] = generateRandomScores()
+    const winnerId = team1Score > team2Score ? match.team1_entry_id : match.team2_entry_id
+
+    await supabaseAdmin
+      .from('bracket_matches')
+      .update({
+        team1_score: team1Score,
+        team2_score: team2Score,
+        winner_entry_id: winnerId,
+        status: 'COMPLETED',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', match.id)
+
+    if (match.group_id) groupIds.add(match.group_id)
+    filledCount++
+  }
+
+  // 조별 순위 업데이트
+  for (const groupId of groupIds) {
+    await updateGroupStandings(groupId)
+  }
+
+  revalidatePath('/admin/tournaments')
+  return { data: { filledCount }, error: null }
+}
+
+/**
+ * 본선 경기 자동 결과 입력 (개발 테스트용)
+ * 라운드 순서대로 SCHEDULED 경기에 랜덤 결과 입력 + 승자/패자 전파
+ */
+export async function autoFillMainBracketResults(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { error: idError }
+
+  const supabaseAdmin = createAdminClient()
+
+  let filledCount = 0
+  const MAX_ITERATIONS = 10 // 안전장치 (128강 = 7라운드)
+
+  for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
+    // 양 팀이 배정된 SCHEDULED 본선 경기 조회 (라운드 순)
+    const { data: matches } = await supabaseAdmin
+      .from('bracket_matches')
+      .select('*')
+      .eq('bracket_config_id', configId)
+      .neq('phase', 'PRELIMINARY')
+      .eq('status', 'SCHEDULED')
+      .not('team1_entry_id', 'is', null)
+      .not('team2_entry_id', 'is', null)
+      .order('round_number')
+      .order('bracket_position')
+
+    if (!matches || matches.length === 0) break
+
+    for (const match of matches) {
+      const [team1Score, team2Score] = generateRandomScores()
+      const winnerId = team1Score > team2Score ? match.team1_entry_id : match.team2_entry_id
+      const loserId = team1Score > team2Score ? match.team2_entry_id : match.team1_entry_id
+
+      await supabaseAdmin
+        .from('bracket_matches')
+        .update({
+          team1_score: team1Score,
+          team2_score: team2Score,
+          winner_entry_id: winnerId,
+          status: 'COMPLETED',
+          completed_at: new Date().toISOString(),
+        })
+        .eq('id', match.id)
+
+      // 승자를 다음 경기에 배정
+      if (match.next_match_id && match.next_match_slot) {
+        const field = match.next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+        await supabaseAdmin
+          .from('bracket_matches')
+          .update({ [field]: winnerId })
+          .eq('id', match.next_match_id)
+      }
+
+      // 패자를 3/4위전에 배정
+      if (match.loser_next_match_id && match.loser_next_match_slot) {
+        const field = match.loser_next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+        await supabaseAdmin
+          .from('bracket_matches')
+          .update({ [field]: loserId })
+          .eq('id', match.loser_next_match_id)
+      }
+
+      filledCount++
+    }
+  }
+
+  revalidatePath('/admin/tournaments')
+  revalidatePath('/tournaments')
+  return { data: { filledCount }, error: null }
 }

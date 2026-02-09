@@ -10,6 +10,7 @@ interface MainBracketTabProps {
   config: BracketConfig;
   matches: BracketMatch[];
   onGenerateBracket: () => void;
+  onAutoFill: () => void;
   onMatchResult: (
     matchId: string,
     team1Score: number,
@@ -36,12 +37,15 @@ export function MainBracketTab({
   config,
   matches,
   onGenerateBracket,
+  onAutoFill,
   onMatchResult,
   onDelete,
   onTieWarning,
   isTeamMatch,
   onOpenDetail,
 }: MainBracketTabProps) {
+  const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
+
   // 라운드별로 경기 그룹화
   const matchesByPhase = matches.reduce(
     (acc, match) => {
@@ -67,6 +71,14 @@ export function MainBracketTab({
           {(config.status === "DRAFT" || config.status === "PRELIMINARY") && (
             <button onClick={onGenerateBracket} className="btn-primary btn-sm">
               <span className="relative z-10">본선 대진표 생성</span>
+            </button>
+          )}
+          {hasScheduledMatches && process.env.NODE_ENV === "development" && (
+            <button
+              onClick={onAutoFill}
+              className="px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-sm font-medium"
+            >
+              자동 결과 입력 (DEV)
             </button>
           )}
           {matches.length > 0 && (
