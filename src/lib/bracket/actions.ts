@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import type { BracketStatus, MatchPhase, MatchStatus, SetDetail } from '@/lib/supabase/types'
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail } from '@/lib/supabase/types'
 
 // ============================================================================
 // 타입 정의
@@ -138,6 +138,144 @@ function shuffleArray<T>(array: T[]): T[] {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
   }
   return shuffled
+}
+
+// ============================================================================
+// 단체전 자동 결과 생성 헬퍼
+// ============================================================================
+
+/** 단체전 정보 (configId → tournament의 match_type, team_match_count) */
+interface TeamMatchInfo {
+  isTeamMatch: boolean
+  matchType: MatchType | null
+  teamMatchCount: number
+  divisionId: string | null
+}
+
+/** configId로부터 단체전 여부와 세부 정보 조회 */
+async function getTeamMatchInfo(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  configId: string,
+): Promise<TeamMatchInfo> {
+  const defaultResult: TeamMatchInfo = {
+    isTeamMatch: false,
+    matchType: null,
+    teamMatchCount: 0,
+    divisionId: null,
+  }
+
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id')
+    .eq('id', configId)
+    .single()
+  if (!config) return defaultResult
+
+  const { data: division } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('tournament_id')
+    .eq('id', config.division_id)
+    .single()
+  if (!division) return defaultResult
+
+  const { data: tournament } = await supabaseAdmin
+    .from('tournaments')
+    .select('match_type, team_match_count')
+    .eq('id', division.tournament_id)
+    .single()
+  if (!tournament) return defaultResult
+
+  const isTeamMatch =
+    tournament.match_type === 'TEAM_SINGLES' ||
+    tournament.match_type === 'TEAM_DOUBLES'
+
+  return {
+    isTeamMatch,
+    matchType: tournament.match_type as MatchType | null,
+    teamMatchCount: tournament.team_match_count || 0,
+    divisionId: config.division_id,
+  }
+}
+
+/** 엔트리에서 선수 이름 목록 추출 (대표 선수 + 팀원) */
+function getPlayerNames(entry: {
+  player_name: string
+  team_members: { name: string; rating: number }[] | null
+}): string[] {
+  const players = [entry.player_name]
+  if (entry.team_members) {
+    players.push(...entry.team_members.map((m) => m.name))
+  }
+  return players
+}
+
+/** 엔트리 ID → 선수 목록 맵 구축 */
+async function buildEntriesMap(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  divisionId: string,
+): Promise<Map<string, string[]>> {
+  const map = new Map<string, string[]>()
+
+  const { data: entries } = await supabaseAdmin
+    .from('tournament_entries')
+    .select('id, player_name, team_members')
+    .eq('division_id', divisionId)
+    .in('status', ['CONFIRMED', 'APPROVED'])
+
+  if (entries) {
+    for (const entry of entries) {
+      map.set(entry.id, getPlayerNames(entry))
+    }
+  }
+  return map
+}
+
+/** 단체전 자동 결과 생성 (Best-of-N, 세트별 선수 배정 + 점수) */
+function generateTeamMatchAutoResult(
+  team1Players: string[],
+  team2Players: string[],
+  matchType: MatchType,
+  teamMatchCount: number,
+): { team1Score: number; team2Score: number; setsDetail: SetDetail[] } {
+  const playersPerTeam = matchType === 'TEAM_DOUBLES' ? 2 : 1
+  const winsNeeded = Math.ceil(teamMatchCount / 2)
+
+  const sets: SetDetail[] = []
+  let team1Wins = 0
+  let team2Wins = 0
+
+  // 선수 풀을 셔플해서 순서대로 순환 배정
+  const shuffled1 = shuffleArray(team1Players)
+  const shuffled2 = shuffleArray(team2Players)
+
+  for (let i = 0; i < teamMatchCount; i++) {
+    // 승부 결정 시 중단
+    if (team1Wins >= winsNeeded || team2Wins >= winsNeeded) break
+
+    // 선수 배정 (순환)
+    const t1Players: string[] = []
+    const t2Players: string[] = []
+    for (let p = 0; p < playersPerTeam; p++) {
+      t1Players.push(shuffled1[(i * playersPerTeam + p) % shuffled1.length])
+      t2Players.push(shuffled2[(i * playersPerTeam + p) % shuffled2.length])
+    }
+
+    // 세트 점수 생성 (승자가 항상 높은 점수)
+    const [s1, s2] = generateRandomScores()
+
+    sets.push({
+      set_number: i + 1,
+      team1_players: t1Players,
+      team2_players: t2Players,
+      team1_score: s1,
+      team2_score: s2,
+    })
+
+    if (s1 > s2) team1Wins++
+    else team2Wins++
+  }
+
+  return { team1Score: team1Wins, team2Score: team2Wins, setsDetail: sets }
 }
 
 // ============================================================================
@@ -1268,6 +1406,7 @@ export async function deleteBracketConfig(configId: string) {
 /**
  * 예선 경기 자동 결과 입력 (개발 테스트용)
  * SCHEDULED 상태의 모든 예선 경기에 랜덤 결과 입력
+ * 단체전일 경우 세트별 상세 결과(sets_detail)도 함께 생성
  */
 export async function autoFillPreliminaryResults(configId: string) {
   const authResult = await checkBracketManagementAuth()
@@ -1277,6 +1416,9 @@ export async function autoFillPreliminaryResults(configId: string) {
   if (idError) return { error: idError }
 
   const supabaseAdmin = createAdminClient()
+
+  // 단체전 여부 확인
+  const teamInfo = await getTeamMatchInfo(supabaseAdmin, configId)
 
   // SCHEDULED 상태이며 양 팀이 배정된 예선 경기 조회
   const { data: matches } = await supabaseAdmin
@@ -1293,22 +1435,54 @@ export async function autoFillPreliminaryResults(configId: string) {
     return { data: { filledCount: 0 }, error: null }
   }
 
+  // 단체전이면 엔트리 선수 목록 미리 조회
+  let entriesMap = new Map<string, string[]>()
+  if (teamInfo.isTeamMatch && teamInfo.divisionId) {
+    entriesMap = await buildEntriesMap(supabaseAdmin, teamInfo.divisionId)
+  }
+
   const groupIds = new Set<string>()
   let filledCount = 0
 
   for (const match of matches) {
-    const [team1Score, team2Score] = generateRandomScores()
+    let team1Score: number
+    let team2Score: number
+    let setsDetail: SetDetail[] | undefined
+
+    if (teamInfo.isTeamMatch && teamInfo.matchType && teamInfo.teamMatchCount > 0) {
+      // 단체전: Best-of-N 세트별 결과 생성
+      const t1Players = entriesMap.get(match.team1_entry_id!) || ['선수1']
+      const t2Players = entriesMap.get(match.team2_entry_id!) || ['선수1']
+      const result = generateTeamMatchAutoResult(
+        t1Players,
+        t2Players,
+        teamInfo.matchType,
+        teamInfo.teamMatchCount,
+      )
+      team1Score = result.team1Score
+      team2Score = result.team2Score
+      setsDetail = result.setsDetail
+    } else {
+      // 개인전: 단순 랜덤 점수
+      ;[team1Score, team2Score] = generateRandomScores()
+    }
+
     const winnerId = team1Score > team2Score ? match.team1_entry_id : match.team2_entry_id
+
+    const updatePayload: Record<string, unknown> = {
+      team1_score: team1Score,
+      team2_score: team2Score,
+      winner_entry_id: winnerId,
+      status: 'COMPLETED',
+      completed_at: new Date().toISOString(),
+    }
+    if (setsDetail) {
+      updatePayload.sets_detail = setsDetail
+    }
 
     await supabaseAdmin
       .from('bracket_matches')
-      .update({
-        team1_score: team1Score,
-        team2_score: team2Score,
-        winner_entry_id: winnerId,
-        status: 'COMPLETED',
-        completed_at: new Date().toISOString(),
-      })
+      .update(updatePayload)
       .eq('id', match.id)
 
     if (match.group_id) groupIds.add(match.group_id)
@@ -1327,6 +1501,7 @@ export async function autoFillPreliminaryResults(configId: string) {
 /**
  * 본선 경기 자동 결과 입력 (개발 테스트용)
  * 라운드 순서대로 SCHEDULED 경기에 랜덤 결과 입력 + 승자/패자 전파
+ * 단체전일 경우 세트별 상세 결과(sets_detail)도 함께 생성
  */
 export async function autoFillMainBracketResults(configId: string) {
   const authResult = await checkBracketManagementAuth()
@@ -1336,6 +1511,13 @@ export async function autoFillMainBracketResults(configId: string) {
   if (idError) return { error: idError }
 
   const supabaseAdmin = createAdminClient()
+
+  // 단체전 여부 확인 + 엔트리 선수 목록 미리 조회
+  const teamInfo = await getTeamMatchInfo(supabaseAdmin, configId)
+  let entriesMap = new Map<string, string[]>()
+  if (teamInfo.isTeamMatch && teamInfo.divisionId) {
+    entriesMap = await buildEntriesMap(supabaseAdmin, teamInfo.divisionId)
+  }
 
   let filledCount = 0
   const MAX_ITERATIONS = 10 // 안전장치 (128강 = 7라운드)
@@ -1356,19 +1538,45 @@ export async function autoFillMainBracketResults(configId: string) {
     if (!matches || matches.length === 0) break
 
     for (const match of matches) {
-      const [team1Score, team2Score] = generateRandomScores()
+      let team1Score: number
+      let team2Score: number
+      let setsDetail: SetDetail[] | undefined
+
+      if (teamInfo.isTeamMatch && teamInfo.matchType && teamInfo.teamMatchCount > 0) {
+        // 단체전: Best-of-N 세트별 결과 생성
+        const t1Players = entriesMap.get(match.team1_entry_id!) || ['선수1']
+        const t2Players = entriesMap.get(match.team2_entry_id!) || ['선수1']
+        const result = generateTeamMatchAutoResult(
+          t1Players,
+          t2Players,
+          teamInfo.matchType,
+          teamInfo.teamMatchCount,
+        )
+        team1Score = result.team1Score
+        team2Score = result.team2Score
+        setsDetail = result.setsDetail
+      } else {
+        // 개인전: 단순 랜덤 점수
+        ;[team1Score, team2Score] = generateRandomScores()
+      }
+
       const winnerId = team1Score > team2Score ? match.team1_entry_id : match.team2_entry_id
       const loserId = team1Score > team2Score ? match.team2_entry_id : match.team1_entry_id
 
+      const updatePayload: Record<string, unknown> = {
+        team1_score: team1Score,
+        team2_score: team2Score,
+        winner_entry_id: winnerId,
+        status: 'COMPLETED',
+        completed_at: new Date().toISOString(),
+      }
+      if (setsDetail) {
+        updatePayload.sets_detail = setsDetail
+      }
+
       await supabaseAdmin
         .from('bracket_matches')
-        .update({
-          team1_score: team1Score,
-          team2_score: team2Score,
-          winner_entry_id: winnerId,
-          status: 'COMPLETED',
-          completed_at: new Date().toISOString(),
-        })
+        .update(updatePayload)
         .eq('id', match.id)
 
       // 승자를 다음 경기에 배정
