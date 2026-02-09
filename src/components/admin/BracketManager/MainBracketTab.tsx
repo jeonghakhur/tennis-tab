@@ -84,11 +84,9 @@ export function MainBracketTab({
         <div className="text-center py-8 text-(--text-muted)">
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>본선 대진표가 없습니다.</p>
-          {config.has_preliminaries && (
-            <p className="text-sm mt-1">
-              예선전 완료 후 본선 대진표를 생성하세요.
-            </p>
-          )}
+          <p className="text-sm mt-1">
+            조 편성 완료 후 본선 대진표를 생성하세요.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">

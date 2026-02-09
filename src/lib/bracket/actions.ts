@@ -16,6 +16,7 @@ export interface BracketConfig {
   division_id: string
   has_preliminaries: boolean
   third_place_match: boolean
+  group_size: number
   bracket_size: number | null
   status: BracketStatus
 }
@@ -225,6 +226,15 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
 
   const supabaseAdmin = createAdminClient()
 
+  // 설정에서 group_size 조회
+  const { data: bracketConfig } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('group_size')
+    .eq('id', configId)
+    .single()
+
+  const groupSize = bracketConfig?.group_size ?? 3
+
   // 승인된 참가팀 조회 (CONFIRMED 상태만)
   const { data: entries, error: entriesError } = await supabaseAdmin
     .from('tournament_entries')
@@ -247,12 +257,19 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
     .delete()
     .eq('bracket_config_id', configId)
 
-  // 조 개수 계산 (2~3팀씩)
+  // 조 개수 계산 (group_size 기반)
   const teamCount = entries.length
   let groupCount: number
   let teamsPerGroup: number[]
 
-  if (teamCount <= 3) {
+  if (groupSize === 2) {
+    // 2팀 조: 홀수면 마지막 조는 1팀 (부전승)
+    groupCount = Math.ceil(teamCount / 2)
+    teamsPerGroup = Array(groupCount).fill(2)
+    if (teamCount % 2 === 1) {
+      teamsPerGroup[groupCount - 1] = 1
+    }
+  } else if (teamCount <= 3) {
     // 3팀 이하: 1개 조
     groupCount = 1
     teamsPerGroup = [teamCount]
@@ -833,19 +850,44 @@ export async function generateMainBracket(configId: string, divisionId: string) 
       advancingTeams.push({ entryId, seed: seedNumber++ })
     }
   } else {
-    // 예선 없이 직접 본선 (승인된 팀 순서대로)
-    const { data: entries } = await supabaseAdmin
-      .from('tournament_entries')
-      .select('id')
-      .eq('division_id', divisionId)
-      .in('status', ['APPROVED', 'CONFIRMED'])
-      .order('created_at', { ascending: true })
+    // 예선 없이 조편성 기반 본선 (조 내 팀 순서가 시드)
+    const { data: groups } = await supabaseAdmin
+      .from('preliminary_groups')
+      .select(`
+        *,
+        group_teams (entry_id, seed_number)
+      `)
+      .eq('bracket_config_id', configId)
+      .order('display_order', { ascending: true })
 
-    if (!entries || entries.length < 2) {
-      return { error: '최소 2팀 이상이 필요합니다.' }
+    if (groups && groups.length > 0) {
+      // 조편성이 있으면 조 순서대로 시드 배정
+      // 각 조의 팀들이 순서대로 advancingTeams에 추가됨
+      // → Group A [T1,T2], Group B [T3,T4] → [T1,T2,T3,T4]
+      let seedNumber = 1
+      for (const group of groups) {
+        const teams = (group.group_teams || [])
+          .sort((a: { seed_number: number | null }, b: { seed_number: number | null }) =>
+            (a.seed_number ?? 0) - (b.seed_number ?? 0))
+        for (const team of teams) {
+          advancingTeams.push({ entryId: team.entry_id, seed: seedNumber++ })
+        }
+      }
+    } else {
+      // 조편성도 없으면 참가팀 순서대로 (fallback)
+      const { data: entries } = await supabaseAdmin
+        .from('tournament_entries')
+        .select('id')
+        .eq('division_id', divisionId)
+        .eq('status', 'CONFIRMED')
+        .order('created_at', { ascending: true })
+
+      if (!entries || entries.length < 2) {
+        return { error: '최소 2팀 이상이 필요합니다. 조 편성을 먼저 진행해주세요.' }
+      }
+
+      advancingTeams = entries.map((e, i) => ({ entryId: e.id, seed: i + 1 }))
     }
-
-    advancingTeams = entries.map((e, i) => ({ entryId: e.id, seed: i + 1 }))
   }
 
   const teamCount = advancingTeams.length

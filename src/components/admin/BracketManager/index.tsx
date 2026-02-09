@@ -114,16 +114,20 @@ export function BracketManager({
       if (configData) {
         setConfig(configData);
 
-        if (configData.has_preliminaries) {
-          const { data: groupsData } = await getPreliminaryGroups(
-            configData.id,
-          );
-          setGroups(groupsData || []);
+        // 조편성은 항상 로드 (예선 유무와 무관)
+        const { data: groupsData } = await getPreliminaryGroups(
+          configData.id,
+        );
+        setGroups(groupsData || []);
 
+        // 예선 경기는 예선 모드일 때만 로드
+        if (configData.has_preliminaries) {
           const { data: prelimData } = await getPreliminaryMatches(
             configData.id,
           );
           setPreliminaryMatches(prelimData || []);
+        } else {
+          setPreliminaryMatches([]);
         }
 
         const { data: mainData } = await getMainBracketMatches(configData.id);
@@ -411,30 +415,30 @@ export function BracketManager({
               <Settings className="w-4 h-4" />
               설정
             </button>
+            {/* 조 편성 탭은 항상 표시 */}
+            <button
+              onClick={() => setActiveTab("groups")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                activeTab === "groups"
+                  ? "bg-(--accent-color)"
+                  : "hover:bg-white/10 text-(--text-secondary)"
+              }`}
+            >
+              <Users className="w-4 h-4" />조 편성
+            </button>
+            {/* 예선 탭은 예선 사용 시에만 */}
             {config.has_preliminaries && (
-              <>
-                <button
-                  onClick={() => setActiveTab("groups")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                    activeTab === "groups"
-                      ? "bg-(--accent-color)"
-                      : "hover:bg-white/10 text-(--text-secondary)"
-                  }`}
-                >
-                  <Users className="w-4 h-4" />조 편성
-                </button>
-                <button
-                  onClick={() => setActiveTab("preliminary")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                    activeTab === "preliminary"
-                      ? "bg-(--accent-color)"
-                      : "hover:bg-white/10 text-(--text-secondary)"
-                  }`}
-                >
-                  <Play className="w-4 h-4" />
-                  예선
-                </button>
-              </>
+              <button
+                onClick={() => setActiveTab("preliminary")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                  activeTab === "preliminary"
+                    ? "bg-(--accent-color)"
+                    : "hover:bg-white/10 text-(--text-secondary)"
+                }`}
+              >
+                <Play className="w-4 h-4" />
+                예선
+              </button>
             )}
             <button
               onClick={() => setActiveTab("main")}
@@ -466,6 +470,7 @@ export function BracketManager({
             {activeTab === "groups" && (
               <GroupsTab
                 groups={groups}
+                hasPreliminary={config.has_preliminaries}
                 onAutoGenerate={() => {
                   setAutoGenerateConfirmMessage(
                     groups.length > 0
@@ -475,6 +480,7 @@ export function BracketManager({
                   setShowAutoGenerateConfirm(true);
                 }}
                 onGenerateMatches={() => setShowGeneratePrelimConfirm(true)}
+                onGenerateMainBracket={() => setShowGenerateMainConfirm(true)}
                 onDelete={() => setShowDeleteGroupsConfirm(true)}
                 onTeamMove={loadBracketData}
                 onError={(msg) => showError("오류", msg)}
@@ -564,7 +570,7 @@ export function BracketManager({
         onClose={() => setShowGenerateMainConfirm(false)}
         onConfirm={handleGenerateMainBracket}
         title="본선 대진표 생성"
-        message="본선 대진표를 생성하시겠습니까?"
+        message="현재 조 편성 순서대로 본선 대진표를 생성하시겠습니까?"
         type="info"
         isLoading={loading}
       />
@@ -594,7 +600,7 @@ export function BracketManager({
         onClose={() => setShowDeleteMainConfirm(false)}
         onConfirm={handleDeleteMainBracket}
         title="본선 대진표 삭제"
-        message={`본선 대진표를 삭제하시겠습니까?\n예선은 유지됩니다.`}
+        message={`본선 대진표를 삭제하시겠습니까?\n조 편성은 유지됩니다.`}
         type="error"
         isLoading={loading}
       />

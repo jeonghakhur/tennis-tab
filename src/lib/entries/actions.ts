@@ -79,7 +79,21 @@ export async function createEntry(
             return { success: false, error: '참가 부서를 찾을 수 없습니다.' };
         }
 
-        // 5. 이미 신청했는지 확인 (같은 부서에 중복 신청 방지)
+        // 5. 정원 체크: CONFIRMED 수가 max_teams 이상이면 WAITLISTED 처리
+        let initialStatus: 'PENDING' | 'WAITLISTED' = 'PENDING';
+        if (division.max_teams) {
+            const { count } = await supabase
+                .from('tournament_entries')
+                .select('*', { count: 'exact', head: true })
+                .eq('division_id', entryData.divisionId)
+                .eq('status', 'CONFIRMED');
+
+            if ((count ?? 0) >= division.max_teams) {
+                initialStatus = 'WAITLISTED';
+            }
+        }
+
+        // 6. 이미 신청했는지 확인 (같은 부서에 중복 신청 방지)
         const { data: existingEntry, error: checkError } = await supabase
             .from('tournament_entries')
             .select('id')
@@ -97,7 +111,7 @@ export async function createEntry(
             return { success: false, error: '이미 해당 부서에 참가 신청을 하셨습니다.' };
         }
 
-        // 6. 팀 순서 자동 설정 (단체전이고 teamOrder가 없는 경우)
+        // 7. 팀 순서 자동 설정 (단체전이고 teamOrder가 없는 경우)
         let finalTeamOrder = entryData.teamOrder;
         if ((tournament.match_type === 'TEAM_SINGLES' || tournament.match_type === 'TEAM_DOUBLES') && 
             entryData.clubName && !entryData.teamOrder) {
@@ -120,8 +134,7 @@ export async function createEntry(
             }
         }
 
-        // 7. 참가 신청 생성 (Service Role로 INSERT → RLS 우회, 이미 본인 user_id로 검증됨)
-        // 원격 DB가 waitlist 스키마(CONFIRMED/WAITLISTED/CANCELLED)일 수 있어 CONFIRMED 사용
+        // 8. 참가 신청 생성 (Service Role로 INSERT → RLS 우회, 이미 본인 user_id로 검증됨)
         const insertPayload: Record<string, unknown> = {
             tournament_id: tournamentId,
             user_id: user.id,
@@ -133,7 +146,7 @@ export async function createEntry(
             team_order: finalTeamOrder ?? null,
             partner_data: entryData.partnerData ?? null,
             team_members: entryData.teamMembers ?? null,
-            status: 'PENDING',
+            status: initialStatus,
             payment_status: 'UNPAID',
         };
         const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -163,7 +176,7 @@ export async function createEntry(
             return { success: false, error: '참가 신청 처리 후 결과를 확인할 수 없습니다.' };
         }
 
-        // 8. 캐시 무효화
+        // 9. 캐시 무효화
         revalidatePath(`/tournaments/${tournamentId}`);
         revalidatePath('/tournaments');
         revalidatePath('/my/entries');

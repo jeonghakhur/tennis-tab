@@ -20,6 +20,7 @@ export interface BracketConfig {
   division_id: string;
   has_preliminaries: boolean;
   third_place_match: boolean;
+  group_size: number;
   bracket_size: number | null;
   status: BracketStatus;
 }

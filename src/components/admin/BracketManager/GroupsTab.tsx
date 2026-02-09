@@ -23,8 +23,10 @@ import type { PreliminaryGroup, GroupTeam } from "./types";
 
 interface GroupsTabProps {
   groups: PreliminaryGroup[];
+  hasPreliminary: boolean;
   onAutoGenerate: () => void;
   onGenerateMatches: () => void;
+  onGenerateMainBracket: () => void;
   onDelete: () => void;
   onTeamMove: () => Promise<void>;
   onError: (message: string) => void;
@@ -32,8 +34,10 @@ interface GroupsTabProps {
 
 export function GroupsTab({
   groups,
+  hasPreliminary,
   onAutoGenerate,
   onGenerateMatches,
+  onGenerateMainBracket,
   onDelete,
   onTeamMove,
   onError,
@@ -216,12 +220,21 @@ export function GroupsTab({
                   </button>
                 </>
               )}
-              <button
-                onClick={onGenerateMatches}
-                className="btn-primary btn-sm"
-              >
-                <span className="relative z-10">예선 경기 생성</span>
-              </button>
+              {hasPreliminary ? (
+                <button
+                  onClick={onGenerateMatches}
+                  className="btn-primary btn-sm"
+                >
+                  <span className="relative z-10">예선 경기 생성</span>
+                </button>
+              ) : (
+                <button
+                  onClick={onGenerateMainBracket}
+                  className="btn-primary btn-sm"
+                >
+                  <span className="relative z-10">본선 대진표 생성</span>
+                </button>
+              )}
               <button
                 onClick={onDelete}
                 className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"

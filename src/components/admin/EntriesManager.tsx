@@ -42,9 +42,10 @@ interface EntriesManagerProps {
 
 // 목록은 항상 참가 신청 순(created_at 오름차순)으로 고정
 
-// 프론트 페이지와 동일한 상태 값만 사용
+type NormalizedStatus = 'PENDING' | 'APPROVED' | 'WAITLISTED' | 'REJECTED'
+
 const entryStatusConfig: Record<
-  'PENDING' | 'APPROVED' | 'REJECTED',
+  NormalizedStatus,
   { label: string; className: string; order: number }
 > = {
   PENDING: {
@@ -57,10 +58,15 @@ const entryStatusConfig: Record<
     className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
     order: 2,
   },
+  WAITLISTED: {
+    label: '대기자',
+    className: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
+    order: 3,
+  },
   REJECTED: {
     label: '거절됨',
     className: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
-    order: 3,
+    order: 4,
   },
 }
 
@@ -79,11 +85,12 @@ const paymentStatusConfig: Record<
   },
 }
 
-// 상태 값 정규화 (기존 다른 상태들을 주요 상태로 매핑)
-function normalizeStatus(status: EntryStatus): 'PENDING' | 'APPROVED' | 'REJECTED' {
-  if (status === 'CONFIRMED' || status === 'WAITLISTED') return 'APPROVED'
+// 상태 값 정규화 (DB enum → UI 상태 매핑)
+function normalizeStatus(status: EntryStatus): NormalizedStatus {
+  if (status === 'CONFIRMED') return 'APPROVED'
+  if (status === 'WAITLISTED') return 'WAITLISTED'
   if (status === 'CANCELLED') return 'REJECTED'
-  return status as 'PENDING' | 'APPROVED' | 'REJECTED'
+  return status as NormalizedStatus
 }
 
 function normalizePaymentStatus(status: PaymentStatus): 'PENDING' | 'COMPLETED' {
@@ -97,7 +104,7 @@ export function EntriesManager({
 }: EntriesManagerProps) {
   const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [statusFilter, setStatusFilter] = useState<'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL'>('ALL')
+  const [statusFilter, setStatusFilter] = useState<NormalizedStatus | 'ALL'>('ALL')
   const [paymentFilter, setPaymentFilter] = useState<'PENDING' | 'COMPLETED' | 'ALL'>('ALL')
   const [divisionFilter, setDivisionFilter] = useState<string>('ALL')
   const [selectedEntries, setSelectedEntries] = useState<string[]>([])
@@ -275,6 +282,7 @@ export function EntriesManager({
     total: entriesForStats.length,
     pending: entriesForStats.filter((e) => normalizeStatus(e.status) === 'PENDING').length,
     approved: entriesForStats.filter((e) => normalizeStatus(e.status) === 'APPROVED').length,
+    waitlisted: entriesForStats.filter((e) => normalizeStatus(e.status) === 'WAITLISTED').length,
     paid: entriesForStats.filter((e) => e.payment_status === 'COMPLETED').length,
   }
   const selectedDivisionName =
@@ -382,7 +390,7 @@ export function EntriesManager({
             {selectedDivisionName} 신청 현황
           </p>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
           <div className="glass-card rounded-xl p-5 text-center">
             <p className="text-3xl font-display font-bold text-(--text-primary)">
               {stats.total}
@@ -400,6 +408,12 @@ export function EntriesManager({
               {stats.approved}
             </p>
             <p className="text-sm text-(--text-secondary) mt-1">승인 완료</p>
+          </div>
+          <div className="glass-card rounded-xl p-5 text-center">
+            <p className="text-3xl font-display font-bold text-purple-500">
+              {stats.waitlisted}
+            </p>
+            <p className="text-sm text-(--text-secondary) mt-1">대기자</p>
           </div>
           <div className="glass-card rounded-xl p-5 text-center">
             <p className="text-3xl font-display font-bold text-sky-500">
@@ -428,7 +442,7 @@ export function EntriesManager({
           {/* Status Filter */}
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as 'PENDING' | 'APPROVED' | 'REJECTED' | 'ALL')}
+            onChange={(e) => setStatusFilter(e.target.value as NormalizedStatus | 'ALL')}
             className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
           >
             <option value="ALL">모든 상태</option>

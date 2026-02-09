@@ -27,6 +27,31 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
           <span className="text-(--text-primary)">예선전 진행</span>
         </label>
 
+        <div className="space-y-2">
+          <label className="text-sm text-(--text-secondary)">조당 팀 수</label>
+          <div className="flex gap-3">
+            {[2, 3].map((size) => (
+              <button
+                key={size}
+                onClick={() => onUpdate({ group_size: size })}
+                disabled={config.status !== "DRAFT"}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  config.group_size === size
+                    ? "bg-(--accent-color) text-(--bg-primary)"
+                    : "bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-secondary)/80"
+                } disabled:opacity-50`}
+              >
+                {size}팀
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-(--text-muted)">
+            {config.group_size === 2
+              ? "각 조 2팀 배치, 조별 대진이 본선 1라운드 매치가 됩니다"
+              : "각 조 3팀 풀리그 진행, 상위 2팀 본선 진출"}
+          </p>
+        </div>
+
         <label className="flex items-center gap-3 cursor-pointer">
           <input
             type="checkbox"

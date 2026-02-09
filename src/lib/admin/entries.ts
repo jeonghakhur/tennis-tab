@@ -6,6 +6,31 @@ import type { EntryStatus, PaymentStatus } from '@/lib/supabase/types'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type SupabaseAdminClient = ReturnType<typeof createSupabaseClient<any>>
+
+/** 대기자 자동 승격: 해당 부서에서 가장 오래된 WAITLISTED를 CONFIRMED로 변경 */
+async function autoPromoteWaitlisted(
+  supabaseAdmin: SupabaseAdminClient,
+  divisionId: string,
+) {
+  const { data: waitlisted } = await supabaseAdmin
+    .from('tournament_entries')
+    .select('id')
+    .eq('division_id', divisionId)
+    .eq('status', 'WAITLISTED')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (waitlisted) {
+    await supabaseAdmin
+      .from('tournament_entries')
+      .update({ status: 'CONFIRMED' as const, updated_at: new Date().toISOString() })
+      .eq('id', waitlisted.id)
+  }
+}
+
 /** Map UI status to DB enum (remote may only have PENDING, CONFIRMED, WAITLISTED, CANCELLED) */
 function toDbEntryStatus(status: EntryStatus): 'PENDING' | 'CONFIRMED' | 'WAITLISTED' | 'CANCELLED' {
   if (status === 'APPROVED') return 'CONFIRMED'
@@ -40,7 +65,7 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
 
   const { data: entry } = await supabase
     .from('tournament_entries')
-    .select('tournament_id, tournaments!inner(organizer_id)')
+    .select('tournament_id, division_id, status, tournaments!inner(organizer_id)')
     .eq('id', entryId)
     .single()
 
@@ -64,7 +89,30 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceRoleKey
   )
-  const dbStatus = toDbEntryStatus(status)
+
+  let dbStatus = toDbEntryStatus(status)
+  const previousStatus = entry.status as string
+
+  // 승인(CONFIRMED) 시 정원 체크: max_teams 초과이면 WAITLISTED로 전환
+  if (dbStatus === 'CONFIRMED' && entry.division_id) {
+    const [{ data: division }, { count }] = await Promise.all([
+      supabaseAdmin
+        .from('tournament_divisions')
+        .select('max_teams')
+        .eq('id', entry.division_id)
+        .single(),
+      supabaseAdmin
+        .from('tournament_entries')
+        .select('*', { count: 'exact', head: true })
+        .eq('division_id', entry.division_id)
+        .eq('status', 'CONFIRMED'),
+    ])
+
+    if (division?.max_teams && (count ?? 0) >= division.max_teams) {
+      dbStatus = 'WAITLISTED'
+    }
+  }
+
   const { error } = await supabaseAdmin
     .from('tournament_entries')
     .update({ status: dbStatus, updated_at: new Date().toISOString() })
@@ -74,8 +122,13 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
     return { error: error.message }
   }
 
+  // CONFIRMED → CANCELLED 변경 시 대기자 자동 승격
+  if (previousStatus === 'CONFIRMED' && dbStatus === 'CANCELLED') {
+    await autoPromoteWaitlisted(supabaseAdmin, entry.division_id)
+  }
+
   revalidatePath(`/admin/tournaments/${entry.tournament_id}/entries`)
-  return { success: true }
+  return { success: true, actualStatus: dbStatus }
 }
 
 /**
@@ -178,7 +231,113 @@ export async function bulkUpdateEntryStatus(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceRoleKey
   )
+
   const dbStatus = toDbEntryStatus(status)
+
+  // 승인(CONFIRMED) 시 부서별 정원 체크
+  if (dbStatus === 'CONFIRMED') {
+    // 대상 엔트리들의 부서 정보 조회
+    const { data: entries } = await supabaseAdmin
+      .from('tournament_entries')
+      .select('id, division_id, status')
+      .in('id', entryIds)
+
+    if (!entries) {
+      return { error: '엔트리 조회에 실패했습니다.' }
+    }
+
+    // 부서별로 그룹화
+    const byDivision = new Map<string, string[]>()
+    for (const e of entries) {
+      const ids = byDivision.get(e.division_id) ?? []
+      ids.push(e.id)
+      byDivision.set(e.division_id, ids)
+    }
+
+    const confirmIds: string[] = []
+    const waitlistIds: string[] = []
+
+    for (const [divisionId, ids] of byDivision) {
+      const [{ data: division }, { count }] = await Promise.all([
+        supabaseAdmin
+          .from('tournament_divisions')
+          .select('max_teams')
+          .eq('id', divisionId)
+          .single(),
+        supabaseAdmin
+          .from('tournament_entries')
+          .select('*', { count: 'exact', head: true })
+          .eq('division_id', divisionId)
+          .eq('status', 'CONFIRMED'),
+      ])
+
+      if (!division?.max_teams) {
+        // 정원 제한 없음 — 모두 CONFIRMED
+        confirmIds.push(...ids)
+      } else {
+        const availableSlots = Math.max(0, division.max_teams - (count ?? 0))
+        confirmIds.push(...ids.slice(0, availableSlots))
+        waitlistIds.push(...ids.slice(availableSlots))
+      }
+    }
+
+    const now = new Date().toISOString()
+    const updates: PromiseLike<unknown>[] = []
+
+    if (confirmIds.length > 0) {
+      updates.push(
+        supabaseAdmin
+          .from('tournament_entries')
+          .update({ status: 'CONFIRMED', updated_at: now })
+          .in('id', confirmIds)
+      )
+    }
+    if (waitlistIds.length > 0) {
+      updates.push(
+        supabaseAdmin
+          .from('tournament_entries')
+          .update({ status: 'WAITLISTED', updated_at: now })
+          .in('id', waitlistIds)
+      )
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(updates)
+    }
+
+    return { success: true }
+  }
+
+  // CANCELLED 일괄 변경: CONFIRMED 엔트리 취소 시 부서별 대기자 자동 승격
+  if (dbStatus === 'CANCELLED') {
+    const { data: entries } = await supabaseAdmin
+      .from('tournament_entries')
+      .select('id, division_id, status')
+      .in('id', entryIds)
+
+    const { error } = await supabaseAdmin
+      .from('tournament_entries')
+      .update({ status: dbStatus, updated_at: new Date().toISOString() })
+      .in('id', entryIds)
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    // 취소된 CONFIRMED 엔트리의 부서별 대기자 자동 승격
+    if (entries) {
+      const confirmedDivisions = new Set(
+        entries.filter((e) => e.status === 'CONFIRMED').map((e) => e.division_id)
+      )
+      await Promise.all(
+        [...confirmedDivisions].map((divId) => autoPromoteWaitlisted(supabaseAdmin, divId))
+      )
+    }
+
+    return { success: true }
+  }
+
+  // 기타 상태 변경 (PENDING 등)
   const { error } = await supabaseAdmin
     .from('tournament_entries')
     .update({ status: dbStatus, updated_at: new Date().toISOString() })
