@@ -121,6 +121,38 @@ export function MatchDetailModal({
     return t1 >= winsNeeded || t2 >= winsNeeded;
   };
 
+  // 복식: 이전 세트에서 사용된 선수들 (세트 간 중복 방지)
+  const getUsedPlayers = (setIndex: number, team: "team1" | "team2") => {
+    const used = new Set<string>();
+    for (let i = 0; i < setIndex; i++) {
+      const s = sets[i];
+      const players = team === "team1" ? s.team1_players : s.team2_players;
+      players.forEach((p) => p && used.add(p));
+    }
+    return used;
+  };
+
+  // 복식: 선수 선택 가능 여부 체크
+  const isPlayerDisabled = (
+    setIndex: number,
+    team: "team1" | "team2",
+    playerName: string,
+  ): boolean => {
+    if (matchType !== "TEAM_DOUBLES") return false;
+
+    const currentSet = sets[setIndex];
+    const currentPlayers = team === "team1" ? currentSet.team1_players : currentSet.team2_players;
+    const usedInPrevious = getUsedPlayers(setIndex, team);
+
+    // 이전 세트에서 사용된 선수
+    if (usedInPrevious.has(playerName)) return true;
+
+    // 같은 세트 내에서 이미 선택된 선수
+    if (currentPlayers.filter((p) => p === playerName).length > 0) return true;
+
+    return false;
+  };
+
   // 세트 업데이트 헬퍼
   const updateSet = (index: number, updates: Partial<SetDetail>) => {
     setSets((prev) =>
@@ -173,12 +205,9 @@ export function MatchDetailModal({
     onSave(match.id, team1Wins, team2Wins, validSets);
   };
 
-  const team1Label = match?.team1?.club_name
-    ? `${match.team1.club_name} ${match.team1.player_name}`
-    : match?.team1?.player_name || "TBD";
-  const team2Label = match?.team2?.club_name
-    ? `${match.team2.club_name} ${match.team2.player_name}`
-    : match?.team2?.player_name || "TBD";
+  // 단체전 모달: 팀명만 표시
+  const team1Label = match?.team1?.club_name || match?.team1?.player_name || "TBD";
+  const team2Label = match?.team2?.club_name || match?.team2?.player_name || "TBD";
 
   if (!match) return null;
 
@@ -253,7 +282,11 @@ export function MatchDetailModal({
                       >
                         <option value="">선수 선택</option>
                         {team1Players.map((name) => (
-                          <option key={name} value={name}>
+                          <option
+                            key={name}
+                            value={name}
+                            disabled={isPlayerDisabled(setIndex, "team1", name)}
+                          >
                             {name}
                           </option>
                         ))}
@@ -306,7 +339,11 @@ export function MatchDetailModal({
                       >
                         <option value="">선수 선택</option>
                         {team2Players.map((name) => (
-                          <option key={name} value={name}>
+                          <option
+                            key={name}
+                            value={name}
+                            disabled={isPlayerDisabled(setIndex, "team2", name)}
+                          >
                             {name}
                           </option>
                         ))}

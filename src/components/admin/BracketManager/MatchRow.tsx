@@ -32,12 +32,18 @@ export function MatchRow({ match, onResult, onTieWarning, isTeamMatch, onOpenDet
     setEditing(false);
   };
 
-  const team1Label = match.team1?.club_name
-    ? `${match.team1.club_name} ${match.team1.player_name}`
-    : match.team1?.player_name || "TBD";
-  const team2Label = match.team2?.club_name
-    ? `${match.team2.club_name} ${match.team2.player_name}`
-    : match.team2?.player_name || "TBD";
+  // 단체전: 팀명만, 개인전: 클럽명 + 선수명
+  const team1Label = isTeamMatch
+    ? match.team1?.club_name || match.team1?.player_name || "TBD"
+    : match.team1?.club_name
+      ? `${match.team1.club_name} ${match.team1.player_name}`
+      : match.team1?.player_name || "TBD";
+
+  const team2Label = isTeamMatch
+    ? match.team2?.club_name || match.team2?.player_name || "TBD"
+    : match.team2?.club_name
+      ? `${match.team2.club_name} ${match.team2.player_name}`
+      : match.team2?.player_name || "TBD";
 
   if (match.status === "BYE") {
     return (

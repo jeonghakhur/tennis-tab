@@ -95,20 +95,30 @@ export function PreliminaryTab({
                             </span>
                           </td>
                           <td className="py-2 px-3 text-(--text-primary)">
-                            {team.entry?.club_name && (
+                            {isTeamMatch ? (
+                              // 단체전: 팀명만 표시
                               <p className="text-sm font-medium">
-                                {team.entry.club_name}
+                                {team.entry?.club_name || team.entry?.player_name}
                               </p>
+                            ) : (
+                              // 개인전: 클럽명 + 선수명
+                              <>
+                                {team.entry?.club_name && (
+                                  <p className="text-sm font-medium">
+                                    {team.entry.club_name}
+                                  </p>
+                                )}
+                                <p
+                                  className={
+                                    team.entry?.club_name
+                                      ? "text-xs text-(--text-muted)"
+                                      : "text-sm"
+                                  }
+                                >
+                                  {team.entry?.player_name}
+                                </p>
+                              </>
                             )}
-                            <p
-                              className={
-                                team.entry?.club_name
-                                  ? "text-xs text-(--text-muted)"
-                                  : "text-sm"
-                              }
-                            >
-                              {team.entry?.player_name}
-                            </p>
                           </td>
                           <td className="py-2 px-3 text-center text-(--text-primary)">
                             {team.wins}
