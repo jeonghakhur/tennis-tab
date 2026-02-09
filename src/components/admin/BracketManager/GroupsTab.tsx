@@ -1,0 +1,356 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import { Users, GripVertical } from "lucide-react";
+import {
+  DndContext,
+  closestCenter,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragStartEvent,
+  DragEndEvent,
+  DragOverEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { moveTeamToGroup } from "@/lib/bracket/actions";
+import type { PreliminaryGroup, GroupTeam } from "./types";
+
+interface GroupsTabProps {
+  groups: PreliminaryGroup[];
+  onAutoGenerate: () => void;
+  onGenerateMatches: () => void;
+  onDelete: () => void;
+  onTeamMove: () => Promise<void>;
+  onError: (message: string) => void;
+}
+
+export function GroupsTab({
+  groups,
+  onAutoGenerate,
+  onGenerateMatches,
+  onDelete,
+  onTeamMove,
+  onError,
+}: GroupsTabProps) {
+  const [localGroups, setLocalGroups] = useState(groups);
+  const [activeId, setActiveId] = useState<string | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  // groups prop이 변경되면 로컬 상태 업데이트
+  useEffect(() => {
+    setLocalGroups(groups);
+    setHasChanges(false);
+  }, [groups]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+  );
+
+  // 팀 또는 그룹 ID로 어느 그룹에 속하는지 찾기
+  const findGroupByItemId = (id: string) => {
+    const groupWithTeam = localGroups.find((g) =>
+      g.group_teams?.some((t) => t.id === id),
+    );
+    if (groupWithTeam) return groupWithTeam;
+    return localGroups.find((g) => g.id === id);
+  };
+
+  const handleDragStart = (event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) return;
+
+    const activeItemId = active.id as string;
+    const overId = over.id as string;
+
+    if (activeItemId === overId) return;
+
+    setLocalGroups((prevGroups) => {
+      const activeGroup = prevGroups.find((g) =>
+        g.group_teams?.some((t) => t.id === activeItemId),
+      );
+      const overGroup = findGroupByItemId(overId);
+
+      if (!activeGroup || !overGroup) return prevGroups;
+
+      const activeTeamIndex =
+        activeGroup.group_teams?.findIndex((t) => t.id === activeItemId) ?? -1;
+      if (activeTeamIndex === -1) return prevGroups;
+
+      const activeTeam = activeGroup.group_teams![activeTeamIndex];
+
+      // 같은 그룹 내에서 순서 변경
+      if (activeGroup.id === overGroup.id) {
+        const overTeamIndex =
+          overGroup.group_teams?.findIndex((t) => t.id === overId) ?? -1;
+        if (overTeamIndex === -1) return prevGroups;
+
+        const newGroups = prevGroups.map((g) => {
+          if (g.id === activeGroup.id) {
+            const newTeams = [...(g.group_teams || [])];
+            const [removed] = newTeams.splice(activeTeamIndex, 1);
+            newTeams.splice(overTeamIndex, 0, removed);
+            return { ...g, group_teams: newTeams };
+          }
+          return g;
+        });
+
+        return newGroups;
+      }
+
+      // 다른 그룹으로 이동
+      const newGroups = prevGroups.map((g) => {
+        if (g.id === activeGroup.id) {
+          return {
+            ...g,
+            group_teams: g.group_teams?.filter((t) => t.id !== activeItemId),
+          };
+        }
+        if (g.id === overGroup.id) {
+          const newTeams = [...(g.group_teams || [])];
+          newTeams.push(activeTeam);
+          return { ...g, group_teams: newTeams };
+        }
+        return g;
+      });
+
+      return newGroups;
+    });
+
+    setHasChanges(true);
+  };
+
+  const handleDragEnd = () => {
+    setActiveId(null);
+  };
+
+  const handleSave = async () => {
+    try {
+      const promises: Promise<{ error: unknown }>[] = [];
+
+      localGroups.forEach((group) => {
+        group.group_teams?.forEach((team) => {
+          const originalGroup = groups.find((g) =>
+            g.group_teams?.some((t) => t.id === team.id),
+          );
+          if (originalGroup && originalGroup.id !== group.id) {
+            promises.push(moveTeamToGroup(team.id, group.id));
+          }
+        });
+      });
+
+      if (promises.length === 0) {
+        setHasChanges(false);
+        return;
+      }
+
+      const results = await Promise.all(promises);
+      const errors = results.filter((r) => r.error);
+
+      if (errors.length > 0) {
+        onError("일부 팀 이동에 실패했습니다.");
+      }
+
+      await onTeamMove();
+      setHasChanges(false);
+    } catch {
+      onError("팀 이동 저장 중 오류가 발생했습니다.");
+    }
+  };
+
+  const handleReset = () => {
+    setLocalGroups(groups);
+    setHasChanges(false);
+  };
+
+  // 드래그 중인 팀 찾기
+  const activeTeam = activeId
+    ? localGroups
+        .flatMap((g) => g.group_teams || [])
+        .find((t) => t.id === activeId)
+    : null;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-lg font-semibold text-(--text-primary)">
+          예선 조 편성
+          {hasChanges && (
+            <span className="ml-2 text-sm text-amber-500">
+              • 저장되지 않음
+            </span>
+          )}
+        </h3>
+        <div className="flex gap-2">
+          <button onClick={onAutoGenerate} className="btn-secondary btn-sm">
+            <span className="relative z-10">자동 편성</span>
+          </button>
+          {localGroups.length > 0 && (
+            <>
+              {hasChanges && (
+                <>
+                  <button
+                    onClick={handleReset}
+                    className="px-4 py-2 rounded-lg bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20 border border-gray-500/30 transition-colors text-sm font-medium"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium"
+                  >
+                    저장하기
+                  </button>
+                </>
+              )}
+              <button
+                onClick={onGenerateMatches}
+                className="btn-primary btn-sm"
+              >
+                <span className="relative z-10">예선 경기 생성</span>
+              </button>
+              <button
+                onClick={onDelete}
+                className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+              >
+                조 편성 삭제
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {localGroups.length === 0 ? (
+        <div className="text-center py-8 text-(--text-muted)">
+          <Users className="w-12 h-12 mx-auto mb-4 opacity-50" />
+          <p>조 편성이 없습니다. 자동 편성 버튼을 클릭하세요.</p>
+        </div>
+      ) : (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {localGroups.map((group) => (
+              <DroppableGroup key={group.id} group={group} />
+            ))}
+          </div>
+          <DragOverlay>
+            {activeId && activeTeam ? (
+              <div className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) border-2 border-(--accent-color) shadow-2xl opacity-90">
+                <GripVertical className="w-4 h-4 text-(--text-muted) flex-shrink-0" />
+                <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
+                  •
+                </span>
+                <div className="flex-1 min-w-0">
+                  {activeTeam.entry?.club_name && (
+                    <p className="text-sm font-medium text-(--text-primary) truncate">
+                      {activeTeam.entry.club_name}
+                    </p>
+                  )}
+                  <p
+                    className={`truncate ${activeTeam.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+                  >
+                    {activeTeam.entry?.player_name}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
+      )}
+    </div>
+  );
+}
+
+// Droppable 조 컴포넌트
+function DroppableGroup({ group }: { group: PreliminaryGroup }) {
+  const teamIds = group.group_teams?.map((t) => t.id) || [];
+
+  const { setNodeRef } = useSortable({
+    id: group.id,
+    data: {
+      type: "group",
+    },
+  });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className="p-4 rounded-xl border border-(--border-color) bg-(--bg-card) transition-all"
+    >
+      <h4 className="font-display font-semibold text-(--text-primary) mb-3">
+        {group.name}조
+      </h4>
+      <SortableContext items={teamIds} strategy={verticalListSortingStrategy}>
+        <div className="space-y-2 min-h-[100px]">
+          {group.group_teams?.map((team, index) => (
+            <SortableTeam key={team.id} team={team} index={index} />
+          ))}
+          {(!group.group_teams || group.group_teams.length === 0) && (
+            <div className="text-center py-4 text-(--text-muted) text-sm">
+              팀을 여기로 드래그하세요
+            </div>
+          )}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
+
+// Sortable 팀 컴포넌트
+function SortableTeam({ team, index }: { team: GroupTeam; index: number }) {
+  const { attributes, listeners, setNodeRef, isDragging } = useSortable({
+    id: team.id,
+    data: {
+      type: "team",
+      team,
+    },
+  });
+
+  const style: React.CSSProperties = {
+    opacity: isDragging ? 0 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className="flex items-center gap-2 p-2 rounded-lg bg-(--bg-secondary) cursor-grab active:cursor-grabbing hover:bg-(--bg-card-hover)"
+    >
+      <span className="w-6 h-6 flex items-center justify-center rounded-full bg-(--accent-color)/20 text-(--accent-color) text-xs font-bold flex-shrink-0">
+        {index + 1}
+      </span>
+      <div className="flex-1 min-w-0">
+        {team.entry?.club_name && (
+          <p className="text-sm font-medium text-(--text-primary) truncate">
+            {team.entry.club_name}
+          </p>
+        )}
+        <p
+          className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+        >
+          {team.entry?.player_name}
+        </p>
+      </div>
+    </div>
+  );
+}

@@ -2,6 +2,8 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCurrentUser } from '@/lib/auth/actions'
+import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import type { BracketStatus, MatchPhase, MatchStatus } from '@/lib/supabase/types'
 
@@ -77,6 +79,58 @@ export interface BracketMatch {
 }
 
 // ============================================================================
+// 보안: 권한 검증 헬퍼
+// ============================================================================
+
+/**
+ * 대진표 관리 권한 검증 (MANAGER 이상)
+ * 모든 mutation 함수 시작부에서 호출
+ */
+async function checkBracketManagementAuth(): Promise<{ error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) {
+    return { error: '로그인이 필요합니다.' }
+  }
+  if (!canManageTournaments(user.role)) {
+    return { error: '대회 관리 권한이 없습니다.' }
+  }
+  return { error: null }
+}
+
+// ============================================================================
+// 입력값 검증 헬퍼
+// ============================================================================
+
+/** UUID 형식 검증 */
+function validateId(id: string, fieldName: string): string | null {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    return `${fieldName}이(가) 유효하지 않습니다.`
+  }
+  return null
+}
+
+/** 음이 아닌 정수 검증 */
+function validateNonNegativeInteger(value: number, fieldName: string): string | null {
+  if (!Number.isFinite(value) || value < 0 || !Number.isInteger(value)) {
+    return `${fieldName}은(는) 0 이상의 정수여야 합니다.`
+  }
+  return null
+}
+
+// ============================================================================
+// Fisher-Yates 셔플 (균등 분포 보장)
+// ============================================================================
+
+function shuffleArray<T>(array: T[]): T[] {
+  const shuffled = [...array]
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]]
+  }
+  return shuffled
+}
+
+// ============================================================================
 // 대진표 설정 관련
 // ============================================================================
 
@@ -119,6 +173,12 @@ export async function updateBracketConfig(
     status?: BracketStatus
   }
 ) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { data: null, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { data: null, error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   const { data, error } = await supabaseAdmin
@@ -157,6 +217,12 @@ function getGroupName(index: number): string {
  * - 2팀 조는 모두 본선 진출, 3팀 조는 상위 2팀 본선 진출
  */
 export async function autoGenerateGroups(configId: string, divisionId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID') || validateId(divisionId, '부서 ID')
+  if (idError) return { error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   // 승인된 참가팀 조회 (CONFIRMED 상태만)
@@ -192,9 +258,6 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
     teamsPerGroup = [teamCount]
   } else {
     // 3팀 조를 최대한 만들고, 나머지는 2팀 조
-    // 예: 10팀 = 3+3+2+2 = 4개 조
-    // 예: 11팀 = 3+3+3+2 = 4개 조
-    // 예: 12팀 = 3+3+3+3 = 4개 조
     const threeTeamGroups = Math.floor(teamCount / 3)
     const remainder = teamCount % 3
 
@@ -212,8 +275,8 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
     }
   }
 
-  // 팀 섞기 (랜덤 배정)
-  const shuffledEntries = [...entries].sort(() => Math.random() - 0.5)
+  // Fisher-Yates 셔플로 균등 분포 보장
+  const shuffledEntries = shuffleArray(entries)
 
   // 조 생성
   let entryIndex = 0
@@ -234,16 +297,22 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
       return { error: '조 생성에 실패했습니다.' }
     }
 
-    // 팀 배정
+    // 팀 배정 — 배치 삽입
     const groupTeams = shuffledEntries.slice(entryIndex, entryIndex + teamsPerGroup[i])
     entryIndex += teamsPerGroup[i]
 
-    for (let j = 0; j < groupTeams.length; j++) {
-      await supabaseAdmin.from('group_teams').insert({
-        group_id: group.id,
-        entry_id: groupTeams[j].id,
-        seed_number: j + 1,
-      })
+    const teamInserts = groupTeams.map((team, j) => ({
+      group_id: group.id,
+      entry_id: team.id,
+      seed_number: j + 1,
+    }))
+
+    const { error: teamInsertError } = await supabaseAdmin
+      .from('group_teams')
+      .insert(teamInserts)
+
+    if (teamInsertError) {
+      return { error: '팀 배정에 실패했습니다.' }
     }
 
     groups.push({ id: group.id, name: group.name, teams: groupTeams })
@@ -284,6 +353,12 @@ export async function getPreliminaryGroups(configId: string) {
  * 팀 조 이동
  */
 export async function moveTeamToGroup(teamId: string, newGroupId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(teamId, '팀 ID') || validateId(newGroupId, '조 ID')
+  if (idError) return { error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   const { error } = await supabaseAdmin
@@ -308,6 +383,12 @@ export async function moveTeamToGroup(teamId: string, newGroupId: string) {
  * 2팀: A vs B (1경기)
  */
 export async function generatePreliminaryMatches(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   // 조 목록 조회
@@ -331,7 +412,17 @@ export async function generatePreliminaryMatches(configId: string) {
     .eq('bracket_config_id', configId)
     .eq('phase', 'PRELIMINARY')
 
+  // 배치 삽입용 배열 구성
   let matchNumber = 1
+  const matchInserts: {
+    bracket_config_id: string
+    phase: string
+    group_id: string
+    match_number: number
+    team1_entry_id: string
+    team2_entry_id: string
+    status: string
+  }[] = []
 
   for (const group of groups) {
     const teams = group.group_teams?.map((t: { entry_id: string }) => t.entry_id) || []
@@ -339,7 +430,7 @@ export async function generatePreliminaryMatches(configId: string) {
     // 풀리그 경기 생성
     for (let i = 0; i < teams.length; i++) {
       for (let j = i + 1; j < teams.length; j++) {
-        await supabaseAdmin.from('bracket_matches').insert({
+        matchInserts.push({
           bracket_config_id: configId,
           phase: 'PRELIMINARY',
           group_id: group.id,
@@ -349,6 +440,17 @@ export async function generatePreliminaryMatches(configId: string) {
           status: 'SCHEDULED',
         })
       }
+    }
+  }
+
+  // 배치 삽입
+  if (matchInserts.length > 0) {
+    const { error: insertError } = await supabaseAdmin
+      .from('bracket_matches')
+      .insert(matchInserts)
+
+    if (insertError) {
+      return { error: '예선 경기 생성에 실패했습니다.' }
     }
   }
 
@@ -384,12 +486,29 @@ export async function updateMatchResult(
   team1Score: number,
   team2Score: number
 ) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(matchId, '경기 ID')
+  if (idError) return { error: idError }
+
+  const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
+  if (score1Error) return { error: score1Error }
+
+  const score2Error = validateNonNegativeInteger(team2Score, '팀2 점수')
+  if (score2Error) return { error: score2Error }
+
+  // 동점 거부 (서버 사이드 검증)
+  if (team1Score === team2Score) {
+    return { error: '동점은 허용되지 않습니다. 승패가 결정되어야 합니다.' }
+  }
+
   const supabaseAdmin = createAdminClient()
 
   // 경기 정보 조회
   const { data: match, error: matchError } = await supabaseAdmin
     .from('bracket_matches')
-    .select('*, bracket_config_id, phase, group_id, team1_entry_id, team2_entry_id, next_match_id, next_match_slot, loser_next_match_id, loser_next_match_slot')
+    .select('*, bracket_config_id, phase, group_id, team1_entry_id, team2_entry_id, winner_entry_id, next_match_id, next_match_slot, loser_next_match_id, loser_next_match_slot')
     .eq('id', matchId)
     .single()
 
@@ -399,6 +518,12 @@ export async function updateMatchResult(
 
   const winnerId = team1Score > team2Score ? match.team1_entry_id : match.team2_entry_id
   const loserId = team1Score > team2Score ? match.team2_entry_id : match.team1_entry_id
+  const previousWinnerId = match.winner_entry_id
+
+  // 이미 완료된 경기의 승자가 변경되는 경우, 하위 경기 무효화
+  if (match.status === 'COMPLETED' && previousWinnerId && previousWinnerId !== winnerId) {
+    await invalidateDownstreamMatches(supabaseAdmin, match, previousWinnerId)
+  }
 
   // 경기 결과 업데이트
   const { error: updateError } = await supabaseAdmin
@@ -442,6 +567,95 @@ export async function updateMatchResult(
   revalidatePath('/admin/tournaments')
   revalidatePath('/tournaments')
   return { data: { winnerId }, error: null }
+}
+
+/**
+ * 경기 결과 수정 시 하위 경기 무효화
+ * 이전 승자를 다음 경기에서 제거하고 점수/승자/상태 초기화
+ */
+async function invalidateDownstreamMatches(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  match: { next_match_id: string | null; next_match_slot: number | null; loser_next_match_id: string | null; loser_next_match_slot: number | null },
+  previousWinnerId: string
+) {
+  // 승자가 진출한 다음 경기 초기화
+  if (match.next_match_id && match.next_match_slot) {
+    await resetDownstreamMatch(supabaseAdmin, match.next_match_id, match.next_match_slot, previousWinnerId)
+  }
+
+  // 패자가 진출한 경기(3/4위전 등) 초기화
+  if (match.loser_next_match_id && match.loser_next_match_slot) {
+    // 이전 패자 = 이전 승자가 아닌 쪽이었는데, 승자가 변경되므로 이전 패자도 변경됨
+    // 현재 loser_next_match에 배정된 팀을 제거
+    const slotField = match.loser_next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+    await supabaseAdmin
+      .from('bracket_matches')
+      .update({
+        [slotField]: null,
+        team1_score: null,
+        team2_score: null,
+        winner_entry_id: null,
+        status: 'SCHEDULED',
+        completed_at: null,
+      })
+      .eq('id', match.loser_next_match_id)
+  }
+}
+
+/**
+ * 하위 경기 재귀적 초기화
+ */
+async function resetDownstreamMatch(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  matchId: string,
+  slot: number,
+  previousEntryId: string
+) {
+  // 해당 경기 조회
+  const { data: nextMatch } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('*, next_match_id, next_match_slot, loser_next_match_id, loser_next_match_slot, winner_entry_id')
+    .eq('id', matchId)
+    .single()
+
+  if (!nextMatch) return
+
+  // 해당 슬롯에서 이전 승자 제거
+  const slotField = slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+
+  // 이 경기도 이미 완료되었고, 이전 승자가 또 다음 경기로 진출했다면 재귀적으로 무효화
+  if (nextMatch.status === 'COMPLETED' && nextMatch.winner_entry_id) {
+    if (nextMatch.next_match_id && nextMatch.next_match_slot) {
+      await resetDownstreamMatch(supabaseAdmin, nextMatch.next_match_id, nextMatch.next_match_slot, nextMatch.winner_entry_id)
+    }
+    if (nextMatch.loser_next_match_id && nextMatch.loser_next_match_slot) {
+      const loserSlotField = nextMatch.loser_next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+      await supabaseAdmin
+        .from('bracket_matches')
+        .update({
+          [loserSlotField]: null,
+          team1_score: null,
+          team2_score: null,
+          winner_entry_id: null,
+          status: 'SCHEDULED',
+          completed_at: null,
+        })
+        .eq('id', nextMatch.loser_next_match_id)
+    }
+  }
+
+  // 이 경기 자체를 초기화
+  await supabaseAdmin
+    .from('bracket_matches')
+    .update({
+      [slotField]: null,
+      team1_score: null,
+      team2_score: null,
+      winner_entry_id: null,
+      status: 'SCHEDULED',
+      completed_at: null,
+    })
+    .eq('id', matchId)
 }
 
 /**
@@ -498,7 +712,7 @@ async function updateGroupStandings(groupId: string) {
       return b.pf - a.pf
     })
 
-  // DB 업데이트
+  // DB 업데이트 (update는 개별로 — 각 팀마다 다른 값이므로 배치 불가)
   for (let i = 0; i < ranked.length; i++) {
     const team = ranked[i]
     await supabaseAdmin
@@ -554,6 +768,12 @@ function getPhaseForRound(bracketSize: number, roundNumber: number): MatchPhase 
  * 본선 대진표 생성
  */
 export async function generateMainBracket(configId: string, divisionId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID') || validateId(divisionId, '부서 ID')
+  if (idError) return { error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   // 대진표 설정 조회
@@ -599,7 +819,6 @@ export async function generateMainBracket(configId: string, divisionId: string) 
     }
 
     // 1위끼리 안 붙게 크로스 시드 배정
-    // 1위팀들을 상위 시드에, 2위팀들을 하위 시드에 배정
     for (const entryId of firstPlaceTeams) {
       advancingTeams.push({ entryId, seed: seedNumber++ })
     }
@@ -633,7 +852,7 @@ export async function generateMainBracket(configId: string, divisionId: string) 
     .eq('bracket_config_id', configId)
     .neq('phase', 'PRELIMINARY')
 
-  // 경기 생성 (역순으로 - 결승부터)
+  // 경기 생성 (역순으로 - 결승부터, 라운드 간 ID 의존성 때문에 순차)
   const matchesByRound: Map<number, string[]> = new Map()
   let matchNumber = 1
 
@@ -689,9 +908,9 @@ export async function generateMainBracket(configId: string, divisionId: string) 
       const nextMatchSlot = (pos % 2) + 1
 
       // 준결승 패자는 3/4위전으로
-      const isSeimfinal = round === totalRounds - 1
-      const loserNextMatchId = isSeimfinal && thirdPlaceMatchId ? thirdPlaceMatchId : null
-      const loserNextMatchSlot = isSeimfinal && thirdPlaceMatchId ? (pos % 2) + 1 : null
+      const isSemifinal = round === totalRounds - 1
+      const loserNextMatchId = isSemifinal && thirdPlaceMatchId ? thirdPlaceMatchId : null
+      const loserNextMatchSlot = isSemifinal && thirdPlaceMatchId ? (pos % 2) + 1 : null
 
       const { data: match } = await supabaseAdmin
         .from('bracket_matches')
@@ -720,7 +939,6 @@ export async function generateMainBracket(configId: string, divisionId: string) 
 
   // 1라운드에 팀 배정 (시드 배치)
   const firstRoundMatches = matchesByRound.get(1) || []
-  const byeCount = bracketSize - teamCount
 
   // 시드 배치 로직 (상위 시드에게 부전승 우선 배정)
   for (let i = 0; i < firstRoundMatches.length; i++) {
@@ -742,7 +960,7 @@ export async function generateMainBracket(configId: string, divisionId: string) 
         .eq('id', matchId)
     } else if (team1) {
       // team2가 없으면 부전승
-      const { data: match } = await supabaseAdmin
+      const { data: matchData } = await supabaseAdmin
         .from('bracket_matches')
         .select('next_match_id, next_match_slot')
         .eq('id', matchId)
@@ -758,12 +976,12 @@ export async function generateMainBracket(configId: string, divisionId: string) 
         .eq('id', matchId)
 
       // 다음 경기에 바로 배정
-      if (match?.next_match_id && match?.next_match_slot) {
-        const field = match.next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+      if (matchData?.next_match_id && matchData?.next_match_slot) {
+        const field = matchData.next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
         await supabaseAdmin
           .from('bracket_matches')
           .update({ [field]: team1.entryId })
-          .eq('id', match.next_match_id)
+          .eq('id', matchData.next_match_id)
       }
     }
   }
@@ -850,16 +1068,19 @@ export async function getBracketData(divisionId: string) {
 }
 
 /**
- * 대진표 삭제 (조편성 및 모든 관련 데이터 삭제)
- */
-/**
  * 예선 조 편성 삭제 (조 배정 및 예선 경기도 함께 삭제됨)
  */
 export async function deletePreliminaryGroups(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   try {
-    // preliminary_groups 삭제 (CASCADE로 group_teams와 예선 bracket_matches도 삭제됨)
+    // CASCADE로 group_teams와 예선 bracket_matches도 삭제됨
     const { error } = await supabaseAdmin
       .from('preliminary_groups')
       .delete()
@@ -881,10 +1102,15 @@ export async function deletePreliminaryGroups(configId: string) {
  * 예선 경기만 삭제 (조 편성은 유지)
  */
 export async function deletePreliminaryMatches(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   try {
-    // 예선 경기만 삭제
     const { error } = await supabaseAdmin
       .from('bracket_matches')
       .delete()
@@ -907,10 +1133,15 @@ export async function deletePreliminaryMatches(configId: string) {
  * 본선 대진표 삭제 (본선 경기만 삭제, 예선은 유지)
  */
 export async function deleteMainBracket(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   try {
-    // 본선 경기 삭제 (예선 제외)
     const { error } = await supabaseAdmin
       .from('bracket_matches')
       .delete()
@@ -921,7 +1152,6 @@ export async function deleteMainBracket(configId: string) {
       return { success: false, error: error.message }
     }
 
-    // bracket_size와 status 초기화
     const { error: updateError } = await supabaseAdmin
       .from('bracket_configs')
       .update({
@@ -946,12 +1176,16 @@ export async function deleteMainBracket(configId: string) {
  * 전체 대진표 설정 삭제 (모든 조편성, 경기 데이터 삭제)
  */
 export async function deleteBracketConfig(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
   const supabaseAdmin = createAdminClient()
 
   try {
-    // bracket_configs 삭제 (CASCADE로 관련 데이터 자동 삭제됨)
-    // - preliminary_groups → group_teams
-    // - bracket_matches
+    // CASCADE로 관련 데이터 자동 삭제됨
     const { error } = await supabaseAdmin
       .from('bracket_configs')
       .delete()
