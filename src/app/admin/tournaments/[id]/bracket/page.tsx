@@ -75,6 +75,8 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       <BracketManager
         tournamentId={tournament.id}
         divisions={tournament.tournament_divisions ?? []}
+        teamMatchCount={tournament.team_match_count ?? null}
+        matchType={tournament.match_type ?? null}
       />
     </div>
   )

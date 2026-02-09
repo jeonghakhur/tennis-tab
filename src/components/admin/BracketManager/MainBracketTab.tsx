@@ -17,6 +17,8 @@ interface MainBracketTabProps {
   ) => void;
   onDelete: () => void;
   onTieWarning: () => void;
+  isTeamMatch?: boolean;
+  onOpenDetail?: (match: BracketMatch) => void;
 }
 
 const PHASE_ORDER: MatchPhase[] = [
@@ -37,6 +39,8 @@ export function MainBracketTab({
   onMatchResult,
   onDelete,
   onTieWarning,
+  isTeamMatch,
+  onOpenDetail,
 }: MainBracketTabProps) {
   // 라운드별로 경기 그룹화
   const matchesByPhase = matches.reduce(
@@ -107,6 +111,8 @@ export function MainBracketTab({
                       match={match}
                       onResult={onMatchResult}
                       onTieWarning={onTieWarning}
+                      isTeamMatch={isTeamMatch}
+                      onOpenDetail={onOpenDetail}
                     />
                   ))}
                 </div>

@@ -1,4 +1,6 @@
-import type { BracketStatus, MatchPhase, MatchStatus } from "@/lib/supabase/types";
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TeamMember } from "@/lib/supabase/types";
+
+export type { SetDetail } from "@/lib/supabase/types";
 
 export interface Division {
   id: string;
@@ -9,6 +11,8 @@ export interface Division {
 export interface BracketManagerProps {
   tournamentId: string;
   divisions: Division[];
+  teamMatchCount: number | null;
+  matchType: MatchType | null;
 }
 
 export interface BracketConfig {
@@ -56,8 +60,9 @@ export interface BracketMatch {
   team2_score: number | null;
   winner_entry_id: string | null;
   status: MatchStatus;
-  team1?: { id: string; player_name: string; club_name: string | null };
-  team2?: { id: string; player_name: string; club_name: string | null };
+  sets_detail: SetDetail[] | null;
+  team1?: { id: string; player_name: string; club_name: string | null; team_members: TeamMember[] | null };
+  team2?: { id: string; player_name: string; club_name: string | null; team_members: TeamMember[] | null };
 }
 
 export const phaseLabels: Record<MatchPhase, string> = {

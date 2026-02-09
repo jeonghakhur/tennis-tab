@@ -317,7 +317,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
 
                 {isTeamMatch && (
                     <div className="animate-in fade-in slide-in-from-top-1 duration-200">
-                        <label className={labelClass}>참가팀 수 (단체전용) *</label>
+                        <label className={labelClass}>단체전 방식 (단체전용) *</label>
                         <input
                             type="text"
                             inputMode="numeric"

@@ -39,6 +39,15 @@ export interface TeamMember {
   rating: number
 }
 
+// 단체전 세트별 상세 결과
+export interface SetDetail {
+  set_number: number           // 1, 2, 3, ...
+  team1_players: string[]      // 팀1 출전 선수 이름 배열
+  team2_players: string[]      // 팀2 출전 선수 이름 배열
+  team1_score: number | null   // 팀1 점수
+  team2_score: number | null   // 팀2 점수
+}
+
 export interface Database {
   public: {
     Tables: {
@@ -467,6 +476,7 @@ export interface Database {
           scheduled_time: string | null
           completed_at: string | null
           notes: string | null
+          sets_detail: Json | null
           created_at: string
           updated_at: string
         }
@@ -491,6 +501,7 @@ export interface Database {
           scheduled_time?: string | null
           completed_at?: string | null
           notes?: string | null
+          sets_detail?: Json | null
           created_at?: string
           updated_at?: string
         }
@@ -515,6 +526,7 @@ export interface Database {
           scheduled_time?: string | null
           completed_at?: string | null
           notes?: string | null
+          sets_detail?: Json | null
           updated_at?: string
         }
       }

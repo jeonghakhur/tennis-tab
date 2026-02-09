@@ -27,11 +27,13 @@ import { SettingsTab } from "./SettingsTab";
 import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
 import { MainBracketTab } from "./MainBracketTab";
+import { MatchDetailModal } from "./MatchDetailModal";
 import type {
   BracketManagerProps,
   BracketConfig,
   PreliminaryGroup,
   BracketMatch,
+  SetDetail,
 } from "./types";
 
 type TabType = "settings" | "groups" | "preliminary" | "main";
@@ -39,7 +41,11 @@ type TabType = "settings" | "groups" | "preliminary" | "main";
 export function BracketManager({
   tournamentId,
   divisions,
+  teamMatchCount,
+  matchType,
 }: BracketManagerProps) {
+  // 단체전 여부 판별
+  const isTeamMatch = matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES";
   const [selectedDivision, setSelectedDivision] = useState(
     divisions.length > 0 ? divisions[0] : null,
   );
@@ -84,6 +90,9 @@ export function BracketManager({
     message: "",
     type: "success",
   });
+
+  // 단체전 세트별 결과 입력 모달
+  const [detailMatch, setDetailMatch] = useState<BracketMatch | null>(null);
 
   const showError = useCallback((title: string, message: string) => {
     setAlertDialog({ isOpen: true, title, message, type: "error" });
@@ -246,6 +255,34 @@ export function BracketManager({
       type: "warning",
     });
   }, []);
+
+  // 단체전 세트별 결과 입력 모달 열기
+  const handleOpenDetail = useCallback((match: BracketMatch) => {
+    setDetailMatch(match);
+  }, []);
+
+  // 단체전 세트별 결과 저장
+  const handleMatchResultWithSets = async (
+    matchId: string,
+    team1Score: number,
+    team2Score: number,
+    setsDetail: SetDetail[],
+  ) => {
+    setDetailMatch(null);
+    setLoading(true);
+    try {
+      const { error } = await updateMatchResult(matchId, team1Score, team2Score, setsDetail);
+      if (error) {
+        showError("경기 결과 입력 실패", error);
+      } else {
+        await loadBracketData();
+      }
+    } catch {
+      showError("오류", "경기 결과 입력 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleDeleteGroups = async () => {
     if (!config) return;
@@ -451,6 +488,8 @@ export function BracketManager({
                 onMatchResult={handleMatchResult}
                 onDelete={() => setShowDeletePrelimConfirm(true)}
                 onTieWarning={handleTieWarning}
+                isTeamMatch={isTeamMatch}
+                onOpenDetail={handleOpenDetail}
               />
             )}
 
@@ -462,6 +501,8 @@ export function BracketManager({
                 onMatchResult={handleMatchResult}
                 onDelete={() => setShowDeleteMainConfirm(true)}
                 onTieWarning={handleTieWarning}
+                isTeamMatch={isTeamMatch}
+                onOpenDetail={handleOpenDetail}
               />
             )}
           </div>
@@ -484,6 +525,18 @@ export function BracketManager({
         message={toast.message}
         type={toast.type}
       />
+
+      {/* 단체전 세트별 결과 입력 모달 */}
+      {isTeamMatch && teamMatchCount && matchType && (
+        <MatchDetailModal
+          isOpen={detailMatch !== null}
+          onClose={() => setDetailMatch(null)}
+          onSave={handleMatchResultWithSets}
+          match={detailMatch}
+          teamMatchCount={teamMatchCount}
+          matchType={matchType}
+        />
+      )}
 
       {/* Confirm Dialogs */}
       <ConfirmDialog

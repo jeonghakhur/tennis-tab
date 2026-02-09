@@ -8,9 +8,11 @@ interface MatchRowProps {
   match: BracketMatch;
   onResult: (matchId: string, team1Score: number, team2Score: number) => void;
   onTieWarning: () => void;
+  isTeamMatch?: boolean;
+  onOpenDetail?: (match: BracketMatch) => void;
 }
 
-export function MatchRow({ match, onResult, onTieWarning }: MatchRowProps) {
+export function MatchRow({ match, onResult, onTieWarning, isTeamMatch, onOpenDetail }: MatchRowProps) {
   const [team1Score, setTeam1Score] = useState(
     match.team1_score?.toString() || "",
   );
@@ -74,8 +76,22 @@ export function MatchRow({ match, onResult, onTieWarning }: MatchRowProps) {
         <span className="text-sm">{team1Label}</span>
       </div>
 
-      {/* Score */}
-      {editing ? (
+      {/* Score — 단체전이면 모달 트리거 */}
+      {isTeamMatch && onOpenDetail ? (
+        <button
+          onClick={() => onOpenDetail(match)}
+          className="flex items-center gap-1 px-3 py-1 rounded-lg bg-(--bg-card) hover:bg-(--bg-card-hover) transition-colors"
+          disabled={!match.team1_entry_id || !match.team2_entry_id}
+        >
+          <span className="text-(--text-primary) font-mono">
+            {match.team1_score ?? "-"}
+          </span>
+          <span className="text-(--text-muted)">:</span>
+          <span className="text-(--text-primary) font-mono">
+            {match.team2_score ?? "-"}
+          </span>
+        </button>
+      ) : editing ? (
         <div className="flex items-center gap-1">
           <input
             type="number"

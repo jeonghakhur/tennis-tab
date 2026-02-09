@@ -14,6 +14,8 @@ interface PreliminaryTabProps {
   ) => void;
   onDelete: () => void;
   onTieWarning: () => void;
+  isTeamMatch?: boolean;
+  onOpenDetail?: (match: BracketMatch) => void;
 }
 
 export function PreliminaryTab({
@@ -22,6 +24,8 @@ export function PreliminaryTab({
   onMatchResult,
   onDelete,
   onTieWarning,
+  isTeamMatch,
+  onOpenDetail,
 }: PreliminaryTabProps) {
   return (
     <div className="space-y-6">
@@ -132,6 +136,8 @@ export function PreliminaryTab({
                       match={match}
                       onResult={onMatchResult}
                       onTieWarning={onTieWarning}
+                      isTeamMatch={isTeamMatch}
+                      onOpenDetail={onOpenDetail}
                     />
                   ))}
                 </div>

@@ -155,6 +155,154 @@ return (
 - `LoadingOverlay`: 전체 화면 차단, 중요한 비동기 작업
 - 로컬 스피너: 특정 영역만, 다른 UI 사용 가능
 
+### Modal
+범용 모달 컴포넌트 - `/src/components/common/Modal.tsx`
+
+**⚠️ 중요: 모든 모달은 반드시 이 컴포넌트를 사용할 것**
+
+**특징:**
+- React Portal로 body에 렌더링
+- 다크모드 완벽 지원 (불투명 배경)
+- ESC 키로 닫기
+- 오버레이 클릭으로 닫기
+- body 스크롤 자동 차단
+- 접근성(ARIA) 지원
+- 크기 옵션: `sm`, `md`, `lg`, `xl`, `2xl`, `full`
+
+**기본 사용법:**
+```tsx
+import { Modal } from "@/components/common/Modal";
+
+function MyComponent() {
+  const [isOpen, setIsOpen] = useState(false);
+
+  return (
+    <>
+      <button onClick={() => setIsOpen(true)}>모달 열기</button>
+
+      <Modal
+        isOpen={isOpen}
+        onClose={() => setIsOpen(false)}
+        title="제목"
+        description="설명 (선택)"
+        size="lg"
+      >
+        <Modal.Body>
+          모달 본문 내용
+        </Modal.Body>
+
+        <Modal.Footer>
+          <button onClick={() => setIsOpen(false)}>취소</button>
+          <button onClick={handleSave}>저장</button>
+        </Modal.Footer>
+      </Modal>
+    </>
+  );
+}
+```
+
+**고급 옵션:**
+```tsx
+<Modal
+  isOpen={isOpen}
+  onClose={onClose}
+  title="제목"
+  size="2xl"                      // 크기: sm | md | lg | xl | 2xl | full
+  showCloseButton={false}          // X 버튼 숨기기
+  closeOnOverlayClick={false}      // 오버레이 클릭 시 닫기 비활성화
+  closeOnEsc={false}               // ESC 키 닫기 비활성화
+>
+  <Modal.Body>내용</Modal.Body>
+  <Modal.Footer>버튼</Modal.Footer>
+</Modal>
+```
+
+**Modal.Body / Modal.Footer 없이 사용 (커스텀 레이아웃):**
+```tsx
+<Modal isOpen={isOpen} onClose={onClose} title="커스텀">
+  <div className="p-5">
+    {/* 자유로운 레이아웃 */}
+  </div>
+</Modal>
+```
+
+**실전 예시 - 폼 모달:**
+```tsx
+function EditUserModal({ user, isOpen, onClose, onSave }) {
+  const [name, setName] = useState(user?.name || "");
+  const [email, setEmail] = useState(user?.email || "");
+
+  const handleSubmit = async () => {
+    await onSave({ name, email });
+    onClose();
+  };
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="사용자 수정"
+      description={`${user?.name} 정보를 수정합니다`}
+      size="md"
+    >
+      <Modal.Body>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">이름</label>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">이메일</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-3 py-2 rounded-lg border"
+            />
+          </div>
+        </div>
+      </Modal.Body>
+
+      <Modal.Footer>
+        <button
+          onClick={onClose}
+          className="flex-1 px-4 py-2 rounded-lg bg-(--bg-secondary)"
+        >
+          취소
+        </button>
+        <button
+          onClick={handleSubmit}
+          className="flex-1 px-4 py-2 rounded-lg bg-emerald-500 text-white"
+        >
+          저장
+        </button>
+      </Modal.Footer>
+    </Modal>
+  );
+}
+```
+
+**주의사항:**
+- `Modal.Body`는 자동으로 `p-5` 패딩 적용됨
+- `Modal.Footer`는 sticky로 하단 고정됨
+- 헤더(title)를 생략하면 닫기 버튼만 표시됨
+- `showCloseButton={false}`이고 `title`도 없으면 헤더 영역 자체가 숨겨짐
+
+**vs AlertDialog / ConfirmDialog:**
+- `Modal`: 폼 입력, 복잡한 UI, 커스텀 레이아웃
+- `AlertDialog`: 단순 알림 (확인 버튼만)
+- `ConfirmDialog`: 예/아니오 확인
+
+**실제 사용 사례:**
+- 경기 결과 입력 모달 (`MatchDetailModal`)
+- 사용자 정보 수정 폼
+- 이미지 미리보기
+- 상세 정보 표시
+
 # Response Guidelines
 
 ## 코드 제공 시

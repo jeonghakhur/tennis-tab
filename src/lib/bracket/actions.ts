@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import type { BracketStatus, MatchPhase, MatchStatus } from '@/lib/supabase/types'
+import type { BracketStatus, MatchPhase, MatchStatus, SetDetail } from '@/lib/supabase/types'
 
 // ============================================================================
 // 타입 정의
@@ -468,8 +468,8 @@ export async function getPreliminaryMatches(configId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_members),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_members)
     `)
     .eq('bracket_config_id', configId)
     .eq('phase', 'PRELIMINARY')
@@ -484,7 +484,8 @@ export async function getPreliminaryMatches(configId: string) {
 export async function updateMatchResult(
   matchId: string,
   team1Score: number,
-  team2Score: number
+  team2Score: number,
+  setsDetail?: SetDetail[]
 ) {
   const authResult = await checkBracketManagementAuth()
   if (authResult.error) return { error: authResult.error }
@@ -526,15 +527,21 @@ export async function updateMatchResult(
   }
 
   // 경기 결과 업데이트
+  const updatePayload: Record<string, unknown> = {
+    team1_score: team1Score,
+    team2_score: team2Score,
+    winner_entry_id: winnerId,
+    status: 'COMPLETED',
+    completed_at: new Date().toISOString(),
+  }
+  // 단체전 세트 상세 결과 (있으면 함께 저장)
+  if (setsDetail) {
+    updatePayload.sets_detail = setsDetail
+  }
+
   const { error: updateError } = await supabaseAdmin
     .from('bracket_matches')
-    .update({
-      team1_score: team1Score,
-      team2_score: team2Score,
-      winner_entry_id: winnerId,
-      status: 'COMPLETED',
-      completed_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq('id', matchId)
 
   if (updateError) {
@@ -1007,8 +1014,8 @@ export async function getMainBracketMatches(configId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_members),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_members)
     `)
     .eq('bracket_config_id', configId)
     .neq('phase', 'PRELIMINARY')
@@ -1057,8 +1064,8 @@ export async function getBracketData(divisionId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_members),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_members)
     `)
     .eq('bracket_config_id', config.id)
     .order('phase', { ascending: true })
