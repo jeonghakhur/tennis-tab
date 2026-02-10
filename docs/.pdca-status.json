@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-10T06:43:35.599Z",
+  "lastUpdated": "2026-02-10T06:54:01.859Z",
   "activeFeatures": [
     "bracket",
     "data",
@@ -21,7 +21,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:33:24.560Z",
-        "lastUpdated": "2026-02-10T06:35:32.360Z"
+        "lastUpdated": "2026-02-10T06:53:14.462Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/bracket/actions.ts"
     },
@@ -47,7 +47,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:35:51.733Z",
-        "lastUpdated": "2026-02-10T06:43:35.599Z"
+        "lastUpdated": "2026-02-10T06:54:01.859Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/tournaments/BracketView.tsx"
     },
@@ -86,9 +86,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T05:39:28.062Z",
-        "lastUpdated": "2026-02-10T06:43:19.997Z"
+        "lastUpdated": "2026-02-10T06:53:36.659Z"
       },
-      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/admin/BracketManager/index.tsx"
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/admin/BracketManager/MatchRow.tsx"
     },
     "realtime": {
       "phase": "do",
@@ -112,7 +112,7 @@
   "session": {
     "startedAt": "2026-02-10T04:21:27.630Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-10T06:43:35.599Z"
+    "lastActivity": "2026-02-10T06:54:01.859Z"
   },
   "history": [
     {
@@ -657,6 +657,24 @@
     },
     {
       "timestamp": "2026-02-10T06:43:35.599Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-10T06:53:14.462Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-10T06:53:36.659Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-10T06:54:01.859Z",
       "feature": "tournaments",
       "phase": "do",
       "action": "updated"

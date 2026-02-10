@@ -146,8 +146,13 @@ export function MatchRow({
         ) : (
           <button
             onClick={() => setEditing(true)}
-            className="flex items-center gap-1 px-3 py-1 rounded-lg bg-(--bg-card) hover:bg-(--bg-card-hover) transition-colors"
+            className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+              match.team1_entry_id && match.team2_entry_id
+                ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer"
+                : "bg-(--bg-card) opacity-50 cursor-not-allowed"
+            }`}
             disabled={!match.team1_entry_id || !match.team2_entry_id}
+            title={match.status === "COMPLETED" ? "클릭하여 수정" : undefined}
           >
             <span className="text-(--text-primary) font-mono">
               {match.team1_score ?? "-"}

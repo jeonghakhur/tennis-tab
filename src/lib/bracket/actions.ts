@@ -801,11 +801,8 @@ export async function submitPlayerScore(
     return { error: '경기 정보를 찾을 수 없습니다.' }
   }
 
-  // SCHEDULED 상태만 입력 가능
-  if (match.status === 'COMPLETED') {
-    return { error: '이미 완료된 경기입니다.' }
-  }
-  if (match.status !== 'SCHEDULED') {
+  // SCHEDULED 또는 COMPLETED 상태에서만 입력/수정 가능
+  if (match.status !== 'SCHEDULED' && match.status !== 'COMPLETED') {
     return { error: '점수를 입력할 수 없는 경기 상태입니다.' }
   }
 

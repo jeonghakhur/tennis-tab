@@ -559,7 +559,7 @@ function MatchCard({
   const isBye = match.status === 'BYE'
 
   const isMyMatch = isMyEntry(match.team1_entry_id, currentUserEntryIds) || isMyEntry(match.team2_entry_id, currentUserEntryIds)
-  const canInputScore = isMyMatch && match.status === 'SCHEDULED'
+  const canInputScore = isMyMatch && (match.status === 'SCHEDULED' || match.status === 'COMPLETED')
     && match.team1_entry_id && match.team2_entry_id
 
   const team1Text = teamName(match.team1)
