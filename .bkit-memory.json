@@ -1,6 +1,6 @@
 {
-  "currentFeature": "player-bracket-view",
-  "phase": "do",
+  "currentFeature": "club-management",
+  "phase": "plan",
   "lastUpdated": "2026-02-10T00:00:00Z",
   "pdcaHistory": [
     {
@@ -20,6 +20,12 @@
       "phase": "do",
       "timestamp": "2026-02-10T00:00:00Z",
       "status": "in_progress"
+    },
+    {
+      "feature": "club-management",
+      "phase": "plan",
+      "timestamp": "2026-02-10T00:00:00Z",
+      "status": "completed"
     }
   ]
 }
