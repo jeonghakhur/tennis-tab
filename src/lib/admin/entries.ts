@@ -351,6 +351,55 @@ export async function bulkUpdateEntryStatus(
 }
 
 /**
+ * 결제 상태 일괄 변경
+ */
+export async function bulkUpdatePaymentStatus(
+  entryIds: string[],
+  paymentStatus: PaymentStatus
+) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    return { error: '로그인이 필요합니다.' }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!canManageTournaments(profile?.role)) {
+    return { error: '권한이 없습니다.' }
+  }
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceRoleKey) {
+    return { error: '서버 설정 오류입니다. SUPABASE_SERVICE_ROLE_KEY를 확인하세요.' }
+  }
+  const supabaseAdmin = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    serviceRoleKey
+  )
+
+  const { error } = await supabaseAdmin
+    .from('tournament_entries')
+    .update({
+      payment_status: paymentStatus,
+      updated_at: new Date().toISOString(),
+    })
+    .in('id', entryIds)
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  return { success: true }
+}
+
+/**
  * 참가 신청 삭제
  */
 export async function deleteEntry(entryId: string) {

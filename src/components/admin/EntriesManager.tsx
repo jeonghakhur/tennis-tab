@@ -14,6 +14,8 @@ import {
   updateEntryStatus,
   updatePaymentStatus,
   deleteEntry,
+  bulkUpdateEntryStatus,
+  bulkUpdatePaymentStatus,
 } from '@/lib/admin/entries'
 import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 
@@ -214,6 +216,76 @@ export function EntriesManager({
     } finally {
       setProcessing(null)
       setConfirmDialog({ isOpen: false, entryId: null })
+    }
+  }
+
+  const handleBulkStatusChange = async (status: EntryStatus) => {
+    if (selectedEntries.length === 0 || processing) return
+
+    setProcessing('bulk')
+    try {
+      const result = await bulkUpdateEntryStatus(selectedEntries, status)
+      if (result.error) {
+        setAlertDialog({
+          isOpen: true,
+          title: '일괄 변경 실패',
+          message: result.error,
+          type: 'error',
+        })
+      } else {
+        router.refresh()
+        setSelectedEntries([])
+        setAlertDialog({
+          isOpen: true,
+          title: '일괄 변경 완료',
+          message: `${selectedEntries.length}개 항목의 상태가 변경되었습니다.`,
+          type: 'success',
+        })
+      }
+    } catch {
+      setAlertDialog({
+        isOpen: true,
+        title: '오류',
+        message: '일괄 변경 중 오류가 발생했습니다.',
+        type: 'error',
+      })
+    } finally {
+      setProcessing(null)
+    }
+  }
+
+  const handleBulkPaymentChange = async (status: PaymentStatus) => {
+    if (selectedEntries.length === 0 || processing) return
+
+    setProcessing('bulk')
+    try {
+      const result = await bulkUpdatePaymentStatus(selectedEntries, status)
+      if (result.error) {
+        setAlertDialog({
+          isOpen: true,
+          title: '일괄 변경 실패',
+          message: result.error,
+          type: 'error',
+        })
+      } else {
+        router.refresh()
+        setSelectedEntries([])
+        setAlertDialog({
+          isOpen: true,
+          title: '일괄 변경 완료',
+          message: `${selectedEntries.length}개 항목의 결제 상태가 변경되었습니다.`,
+          type: 'success',
+        })
+      }
+    } catch {
+      setAlertDialog({
+        isOpen: true,
+        title: '오류',
+        message: '일괄 변경 중 오류가 발생했습니다.',
+        type: 'error',
+      })
+    } finally {
+      setProcessing(null)
     }
   }
 
@@ -487,19 +559,59 @@ export function EntriesManager({
         </div>
       </div>
 
-      {/* Results count */}
-      <div className="flex items-center justify-between text-base text-(--text-secondary)">
-        <span>
+      {/* Results count and bulk actions */}
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <span className="text-base text-(--text-secondary)">
           검색 결과:{' '}
           <strong className="text-(--text-primary)">
             {filteredAndSortedEntries.length}
           </strong>
           명
+          {selectedEntries.length > 0 && (
+            <span className="ml-3 text-(--accent-color) font-medium">
+              {selectedEntries.length}명 선택됨
+            </span>
+          )}
         </span>
+
         {selectedEntries.length > 0 && (
-          <span className="text-(--accent-color) font-medium">
-            {selectedEntries.length}명 선택됨
-          </span>
+          <div className="flex items-center gap-2">
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkStatusChange(e.target.value as EntryStatus)
+                  e.target.value = ''
+                }
+              }}
+              disabled={processing !== null}
+              className="px-3 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium border-2 border-transparent hover:border-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors text-sm"
+            >
+              <option value="">상태 일괄 변경</option>
+              {Object.entries(entryStatusConfig).map(([key, { label }]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkPaymentChange(e.target.value as PaymentStatus)
+                  e.target.value = ''
+                }
+              }}
+              disabled={processing !== null}
+              className="px-3 py-2 rounded-lg bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 font-medium border-2 border-transparent hover:border-sky-500 focus:border-sky-500 focus:outline-none transition-colors text-sm"
+            >
+              <option value="">결제 일괄 변경</option>
+              {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
+                <option key={key} value={key}>
+                  {label}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
       </div>
 
@@ -520,7 +632,7 @@ export function EntriesManager({
                     className="w-5 h-5 rounded border-(--border-color)"
                   />
                 </th>
-                <th className="text-left p-4 w-16">
+                <th className="text-left p-4 w-12">
                   <span className="text-base font-semibold text-(--text-secondary)">#</span>
                 </th>
                 <th className="text-left p-4">
@@ -574,47 +686,73 @@ export function EntriesManager({
                       </td>
                       <td className="p-4">
                         <div className="space-y-2">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-300 font-display font-bold text-base shrink-0">
-                              {entry.profiles?.avatar_url ? (
-                                <img
-                                  src={entry.profiles.avatar_url}
-                                  alt={entry.player_name}
-                                  className="w-full h-full object-cover rounded-full"
-                                />
-                              ) : (
-                                entry.player_name?.charAt(0).toUpperCase() || '?'
+                          <div className="min-w-0">
+                            <p className="text-base font-semibold text-(--text-primary)">
+                              {entry.player_name}
+                              {(entry.club_name || entry.profiles?.club) && (
+                                <span className="ml-2 text-sm text-(--text-secondary)">
+                                  ({entry.club_name || entry.profiles?.club})
+                                </span>
                               )}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-base font-semibold text-(--text-primary)">
-                                {entry.player_name}
-                                {entry.player_rating && (
-                                  <span className="ml-2 text-sm font-medium text-sky-600 dark:text-sky-400">
-                                    {entry.player_rating}점
-                                  </span>
-                                )}
-                              </p>
-                              <p className="text-sm text-(--text-secondary)">
-                                {entry.club_name || entry.profiles?.club || '-'}
-                              </p>
+                              {entry.player_rating && (
+                                <span className="ml-2 text-sm font-medium text-sky-600 dark:text-sky-400">
+                                  {entry.player_rating}점
+                                </span>
+                              )}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
+                              <Phone className="w-4 h-4" />
+                              {entry.phone}
                             </div>
                           </div>
                           {/* Partner/Team info */}
                           {entry.partner_data && (
-                            <p className="text-sm text-(--text-secondary) pl-13 ml-13">
-                              파트너: {(entry.partner_data as PartnerData).name}
-                            </p>
+                            <div className="pt-2 border-t border-(--border-color)">
+                              <p className="text-base font-semibold text-(--text-primary)">
+                                {(entry.partner_data as PartnerData).name}
+                                {(entry.partner_data as PartnerData).club && (
+                                  <span className="ml-2 text-sm text-(--text-secondary)">
+                                    ({(entry.partner_data as PartnerData).club})
+                                  </span>
+                                )}
+                                {(entry.partner_data as PartnerData).rating && (
+                                  <span className="ml-2 text-sm font-medium text-sky-600 dark:text-sky-400">
+                                    {(entry.partner_data as PartnerData).rating}점
+                                  </span>
+                                )}
+                              </p>
+                            </div>
                           )}
-                          {entry.team_members && (entry.team_members as TeamMember[]).length > 0 && (
-                            <p className="text-sm text-(--text-secondary) pl-13 ml-13">
-                              팀원: {(entry.team_members as TeamMember[]).map((m) => m.name).join(', ')}
-                            </p>
-                          )}
-                          <div className="flex items-center gap-2 text-sm text-(--text-secondary)">
-                            <Phone className="w-4 h-4" />
-                            {entry.phone}
-                          </div>
+                          {entry.team_members && (entry.team_members as TeamMember[]).length > 0 && (() => {
+                            const teamMembers = entry.team_members as TeamMember[]
+                            const totalRating = (entry.player_rating || 0) + teamMembers.reduce((sum, m) => sum + (m.rating || 0), 0)
+
+                            return (
+                              <div className="pt-2 border-t border-(--border-color)">
+                                <p className="text-base font-semibold text-(--text-primary)">
+                                  {teamMembers.map((member, idx) => (
+                                    <span key={idx}>
+                                      {idx > 0 && ', '}
+                                      {member.name}
+                                      {member.club && (
+                                        <span className="text-sm text-(--text-secondary)">
+                                          ({member.club})
+                                        </span>
+                                      )}
+                                      {member.rating && (
+                                        <span className="text-sm font-medium text-sky-600 dark:text-sky-400">
+                                          {member.rating}점
+                                        </span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </p>
+                                <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 mt-1">
+                                  팀 합계: {totalRating}점
+                                </p>
+                              </div>
+                            )
+                          })()}
                         </div>
                       </td>
                       <td className="p-4 hidden lg:table-cell">

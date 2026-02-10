@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { EntriesManager } from '@/components/admin/EntriesManager'
-import { TournamentCloseButton } from '@/components/admin/TournamentCloseButton'
+import { TournamentStatusSelector } from '@/components/admin/TournamentStatusSelector'
 import Link from 'next/link'
 import { ChevronLeft, Calendar, MapPin, Users, ListTree } from 'lucide-react'
 
@@ -131,7 +131,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <TournamentCloseButton
+            <TournamentStatusSelector
               tournamentId={tournament.id}
               currentStatus={tournament.status}
             />
