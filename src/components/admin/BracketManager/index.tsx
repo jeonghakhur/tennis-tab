@@ -26,12 +26,14 @@ import {
   deletePreliminaryMatches,
   deleteMainBracket,
 } from "@/lib/bracket/actions";
+import { useMatchesRealtime } from "@/lib/realtime/useMatchesRealtime";
 import { SettingsTab } from "./SettingsTab";
 import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
 import { MainBracketTab } from "./MainBracketTab";
 import { MatchDetailModal } from "./MatchDetailModal";
 import type { CourtInfoUpdate } from "@/lib/bracket/actions";
+import type { MatchPhase } from "@/lib/supabase/types";
 import type {
   BracketManagerProps,
   BracketConfig,
@@ -151,6 +153,24 @@ export function BracketManager({
     }
   }, [selectedDivision, loadBracketData]);
 
+  // Realtime 구독 — config가 있을 때만 활성화
+  const handleMatchUpdate = useCallback((updatedMatch: BracketMatch) => {
+    // 예선 경기 업데이트
+    setPreliminaryMatches((prev) =>
+      prev.map((m) => (m.id === updatedMatch.id ? updatedMatch : m))
+    );
+    // 본선 경기 업데이트
+    setMainMatches((prev) =>
+      prev.map((m) => (m.id === updatedMatch.id ? updatedMatch : m))
+    );
+  }, []);
+
+  useMatchesRealtime({
+    bracketConfigId: config?.id || "",
+    onMatchUpdate: handleMatchUpdate,
+    enabled: !!config?.id,
+  });
+
   const handleConfigUpdate = async (updates: Partial<BracketConfig>) => {
     if (!config) return;
 
@@ -254,17 +274,17 @@ export function BracketManager({
     }
   };
 
-  // 테스트용: 본선 자동 결과 입력
-  const handleAutoFillMain = async () => {
+  // 테스트용: 본선 특정 강(phase) 자동 결과 입력
+  const handleAutoFillMainPhase = async (phase: MatchPhase) => {
     if (!config) return;
     setLoading(true);
     try {
-      const { data, error } = await autoFillMainBracketResults(config.id);
+      const { data, error } = await autoFillMainBracketResults(config.id, phase);
       if (error) {
         showError("자동 입력 실패", error);
       } else {
         await loadBracketData();
-        showSuccess(`본선 ${data?.filledCount}경기 결과가 자동 입력되었습니다.`);
+        showSuccess(`${data?.filledCount}경기 결과가 자동 입력되었습니다.`);
       }
     } catch {
       showError("오류", "자동 결과 입력 중 오류가 발생했습니다.");
@@ -274,19 +294,16 @@ export function BracketManager({
   };
 
   const handleCourtBatchSave = async (updates: CourtInfoUpdate[]) => {
-    setLoading(true);
     try {
       const { error } = await batchUpdateMatchCourtInfo(updates);
       if (error) {
         showError("코트 정보 실패", error);
       } else {
-        await loadBracketData();
         showSuccess("코트 정보가 저장되었습니다.");
+        // Realtime이 자동으로 업데이트하므로 리페치 불필요
       }
     } catch {
       showError("오류", "코트 정보 업데이트 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -295,18 +312,16 @@ export function BracketManager({
     team1Score: number,
     team2Score: number,
   ) => {
-    setLoading(true);
     try {
       const { error } = await updateMatchResult(matchId, team1Score, team2Score);
       if (error) {
         showError("경기 결과 입력 실패", error);
       } else {
-        await loadBracketData();
+        showSuccess("경기 결과가 저장되었습니다.");
+        // Realtime이 자동으로 업데이트하므로 리페치 불필요
       }
     } catch {
       showError("오류", "경기 결과 입력 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -332,18 +347,16 @@ export function BracketManager({
     setsDetail: SetDetail[],
   ) => {
     setDetailMatch(null);
-    setLoading(true);
     try {
       const { error } = await updateMatchResult(matchId, team1Score, team2Score, setsDetail);
       if (error) {
         showError("경기 결과 입력 실패", error);
       } else {
-        await loadBracketData();
+        showSuccess("경기 결과가 저장되었습니다.");
+        // Realtime이 자동으로 업데이트하므로 리페치 불필요
       }
     } catch {
       showError("오류", "경기 결과 입력 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -565,7 +578,7 @@ export function BracketManager({
                 config={config}
                 matches={mainMatches}
                 onGenerateBracket={() => setShowGenerateMainConfirm(true)}
-                onAutoFill={handleAutoFillMain}
+                onAutoFillPhase={handleAutoFillMainPhase}
                 onMatchResult={handleMatchResult}
                 onDelete={() => setShowDeleteMainConfirm(true)}
                 onTieWarning={handleTieWarning}

@@ -1,0 +1,97 @@
+{
+  "timestamp": "2026-02-10T04:35:51.856Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-10T04:35:51.733Z",
+    "activeFeatures": [
+      "bracket",
+      "data",
+      "tournaments"
+    ],
+    "primaryFeature": "bracket",
+    "features": {
+      "bracket": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:33:24.560Z",
+          "lastUpdated": "2026-02-10T04:34:33.431Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/tournaments/[id]/bracket/page.tsx"
+      },
+      "data": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:33:59.242Z",
+          "lastUpdated": "2026-02-10T04:34:10.133Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/data/user.ts"
+      },
+      "tournaments": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:35:51.733Z",
+          "lastUpdated": "2026-02-10T04:35:51.733Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/tournaments/BracketView.tsx"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-02-10T04:21:27.630Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-02-10T04:35:51.733Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-02-10T04:33:24.560Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:33:59.242Z",
+        "feature": "data",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:34:10.133Z",
+        "feature": "data",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:34:33.431Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:35:51.733Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

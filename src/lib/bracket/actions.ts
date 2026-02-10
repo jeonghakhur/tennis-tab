@@ -1664,7 +1664,7 @@ export async function autoFillPreliminaryResults(configId: string) {
  * 라운드 순서대로 SCHEDULED 경기에 랜덤 결과 입력 + 승자/패자 전파
  * 단체전일 경우 세트별 상세 결과(sets_detail)도 함께 생성
  */
-export async function autoFillMainBracketResults(configId: string) {
+export async function autoFillMainBracketResults(configId: string, phase?: MatchPhase) {
   const authResult = await checkBracketManagementAuth()
   if (authResult.error) return { error: authResult.error }
 
@@ -1681,11 +1681,13 @@ export async function autoFillMainBracketResults(configId: string) {
   }
 
   let filledCount = 0
-  const MAX_ITERATIONS = 10 // 안전장치 (128강 = 7라운드)
+
+  // 특정 강(phase) 지정 시 해당 경기만, 미지정 시 전체 라운드 순차 처리
+  const MAX_ITERATIONS = phase ? 1 : 10
 
   for (let iteration = 0; iteration < MAX_ITERATIONS; iteration++) {
     // 양 팀이 배정된 SCHEDULED 본선 경기 조회 (라운드 순)
-    const { data: matches } = await supabaseAdmin
+    let query = supabaseAdmin
       .from('bracket_matches')
       .select('*')
       .eq('bracket_config_id', configId)
@@ -1695,6 +1697,12 @@ export async function autoFillMainBracketResults(configId: string) {
       .not('team2_entry_id', 'is', null)
       .order('round_number')
       .order('bracket_position')
+
+    if (phase) {
+      query = query.eq('phase', phase)
+    }
+
+    const { data: matches } = await query
 
     if (!matches || matches.length === 0) break
 

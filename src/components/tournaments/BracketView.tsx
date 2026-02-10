@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Trophy, Users, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
 import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
+import { useMatchesRealtime } from '@/lib/realtime/useMatchesRealtime'
 import { ScoreInputModal } from '@/components/tournaments/ScoreInputModal'
 import { Toast } from '@/components/common/AlertDialog'
 import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail } from '@/lib/supabase/types'
@@ -128,6 +129,19 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
     }
   }
 
+  // Realtime 구독 — 다른 선수의 점수 입력도 실시간 반영
+  const handleMatchUpdate = useCallback((updatedMatch: BracketMatch) => {
+    setMatches((prev) =>
+      prev?.map((m) => (m.id === updatedMatch.id ? updatedMatch : m)) || null
+    )
+  }, [])
+
+  useMatchesRealtime({
+    bracketConfigId: config?.id || "",
+    onMatchUpdate: handleMatchUpdate,
+    enabled: !!config?.id,
+  })
+
   // 선수 점수 입력 처리
   const handleScoreSubmit = async (team1Score: number, team2Score: number, setsDetail?: SetDetail[]) => {
     if (!scoreModalMatch) return
@@ -141,8 +155,7 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
 
     setToast({ isOpen: true, message: '점수가 저장되었습니다.', type: 'success' as const })
     setScoreModalMatch(null)
-    // 대진표 데이터 갱신
-    await loadBracketData()
+    // Realtime이 자동으로 업데이트하므로 리페치 불필요
   }
 
   if (divisions.length === 0) {

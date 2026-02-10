@@ -1,0 +1,481 @@
+{
+  "timestamp": "2026-02-10T05:54:58.675Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-02-10T05:54:58.391Z",
+    "activeFeatures": [
+      "bracket",
+      "data",
+      "tournaments",
+      "profile",
+      "supabase",
+      "BracketManager"
+    ],
+    "primaryFeature": "bracket",
+    "features": {
+      "bracket": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:33:24.560Z",
+          "lastUpdated": "2026-02-10T05:53:31.786Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/bracket/actions.ts"
+      },
+      "data": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:33:59.242Z",
+          "lastUpdated": "2026-02-10T04:55:48.903Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/data/user.ts"
+      },
+      "tournaments": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:35:51.733Z",
+          "lastUpdated": "2026-02-10T05:45:04.879Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/tournaments/BracketView.tsx"
+      },
+      "profile": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:39:11.685Z",
+          "lastUpdated": "2026-02-10T04:55:40.301Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/my/profile/page.tsx"
+      },
+      "supabase": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T04:39:53.685Z",
+          "lastUpdated": "2026-02-10T05:39:23.406Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/supabase/types.ts"
+      },
+      "BracketManager": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-02-10T05:39:28.062Z",
+          "lastUpdated": "2026-02-10T05:54:58.391Z"
+        },
+        "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/admin/BracketManager/MainBracketTab.tsx"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 1,
+      "level": "Dynamic",
+      "phaseHistory": []
+    },
+    "session": {
+      "startedAt": "2026-02-10T04:21:27.630Z",
+      "onboardingCompleted": false,
+      "lastActivity": "2026-02-10T05:54:58.391Z"
+    },
+    "history": [
+      {
+        "timestamp": "2026-02-10T04:33:24.560Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:33:59.242Z",
+        "feature": "data",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:34:10.133Z",
+        "feature": "data",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:34:33.431Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:35:51.733Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:39:00.662Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:39:11.685Z",
+        "feature": "profile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:39:53.685Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:40:09.825Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:55:30.721Z",
+        "feature": "profile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:55:34.882Z",
+        "feature": "profile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:55:40.301Z",
+        "feature": "profile",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:55:48.903Z",
+        "feature": "data",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T04:55:52.904Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:00:50.218Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:00:58.525Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:01:03.595Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:09:52.141Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:09:56.101Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:10:13.263Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:13:54.989Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:14:21.758Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:14:37.520Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:18:52.606Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:18:59.023Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:19:33.104Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:20:06.536Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:20:13.363Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:20:21.067Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:22:54.726Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:23:01.490Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:26:04.801Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:39:23.406Z",
+        "feature": "supabase",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:39:28.062Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:39:42.395Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:39:54.234Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:40:02.263Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:40:32.198Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:40:53.537Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:40:57.377Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:01.823Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:05.994Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:09.526Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:14.294Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:19.054Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:24.999Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:32.833Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:48.979Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:41:54.626Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:42:00.435Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:42:08.480Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:44:56.399Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:45:04.879Z",
+        "feature": "tournaments",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:46:00.957Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:46:13.938Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:46:18.267Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:48:31.044Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:48:40.839Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:53:31.786Z",
+        "feature": "bracket",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:54:00.422Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:54:33.787Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-02-10T05:54:58.391Z",
+        "feature": "BracketManager",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

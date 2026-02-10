@@ -12,7 +12,7 @@ interface MainBracketTabProps {
   config: BracketConfig;
   matches: BracketMatch[];
   onGenerateBracket: () => void;
-  onAutoFill: () => void;
+  onAutoFillPhase: (phase: MatchPhase) => void;
   onMatchResult: (
     matchId: string,
     team1Score: number,
@@ -40,7 +40,7 @@ export function MainBracketTab({
   config,
   matches,
   onGenerateBracket,
-  onAutoFill,
+  onAutoFillPhase,
   onMatchResult,
   onDelete,
   onTieWarning,
@@ -48,7 +48,6 @@ export function MainBracketTab({
   onOpenDetail,
   onCourtBatchSave,
 }: MainBracketTabProps) {
-  const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
 
   // 코트 정보 상태
   const [courtData, setCourtData] = useState<
@@ -122,14 +121,6 @@ export function MainBracketTab({
               <span className="relative z-10">본선 대진표 생성</span>
             </button>
           )}
-          {hasScheduledMatches && process.env.NODE_ENV === "development" && (
-            <button
-              onClick={onAutoFill}
-              className="px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-sm font-medium"
-            >
-              자동 결과 입력 (DEV)
-            </button>
-          )}
           {matches.length > 0 && (
             <button
               onClick={onDelete}
@@ -158,6 +149,14 @@ export function MainBracketTab({
             const phaseMatchIds = phaseMatches.map((m) => m.id);
             const hasDirty = phaseMatchIds.some((id) => dirtyIds.has(id));
 
+            // 해당 강에 양팀 배정된 SCHEDULED 경기 존재 여부
+            const hasScheduledWithTeams = phaseMatches.some(
+              (m) =>
+                m.status === "SCHEDULED" &&
+                m.team1_entry_id &&
+                m.team2_entry_id,
+            );
+
             return (
               <div key={phase}>
                 <div className="flex items-center justify-between mb-3">
@@ -167,15 +166,26 @@ export function MainBracketTab({
                       ({phaseMatches.length}경기)
                     </span>
                   </h4>
-                  {onCourtBatchSave && hasDirty && (
-                    <button
-                      onClick={() => handlePhaseCourtSave(phaseMatchIds)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--court-info)/10 text-(--court-info) hover:bg-(--court-info)/20 border border-(--court-info)/30 transition-colors text-sm font-medium"
-                    >
-                      <Save className="w-4 h-4" />
-                      코트 저장
-                    </button>
-                  )}
+                  <div className="flex gap-2">
+                    {hasScheduledWithTeams &&
+                      process.env.NODE_ENV === "development" && (
+                        <button
+                          onClick={() => onAutoFillPhase(phase)}
+                          className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-xs font-medium"
+                        >
+                          자동 입력 (DEV)
+                        </button>
+                      )}
+                    {onCourtBatchSave && hasDirty && (
+                      <button
+                        onClick={() => handlePhaseCourtSave(phaseMatchIds)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--court-info)/10 text-(--court-info) hover:bg-(--court-info)/20 border border-(--court-info)/30 transition-colors text-sm font-medium"
+                      >
+                        <Save className="w-4 h-4" />
+                        코트 저장
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {phaseMatches.map((match) => (
