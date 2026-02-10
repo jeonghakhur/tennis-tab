@@ -297,7 +297,7 @@ export default async function TournamentDetailPage({ params }: Props) {
                           {division.max_teams && (
                             <span>{division.max_teams}팀 모집</span>
                           )}
-                          {division.team_member_limit && (
+                          {division.team_member_limit > 0 && (
                             <span>• 팀당 {division.team_member_limit}명</span>
                           )}
                         </div>
