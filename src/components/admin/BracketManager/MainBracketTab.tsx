@@ -134,22 +134,9 @@ export function MainBracketTab({
       : team.player_name || "TBD";
   };
 
-  // "다음 대진표 작성" 코트 일괄 저장 + 데이터 갱신
-  const handleNextPhaseCourtSave = (nextPhase: MatchPhase) => {
-    if (!onCourtBatchSave) return;
-    const nextMatches = matchesByPhase[nextPhase] || [];
-    const updates: CourtInfoUpdate[] = nextMatches
-      .filter((m) => m.team1_entry_id && m.team2_entry_id)
-      .map((m) => ({
-        matchId: m.id,
-        courtLocation: courtData[m.id]?.location?.trim() || null,
-        courtNumber: courtData[m.id]?.number?.trim() || null,
-      }));
-    if (updates.length > 0) {
-      onCourtBatchSave(updates);
-    }
+  // "다음 대진표 작성" — 데이터 갱신 후 펼침 닫기
+  const handleNextPhaseConfirm = () => {
     setExpandedNextPhase(null);
-    // 데이터 갱신 (승자 전파된 다음 라운드 데이터 리페치)
     if (onRefresh) {
       onRefresh();
     }
@@ -303,7 +290,7 @@ export function MainBracketTab({
                         <div className="px-4 py-3 bg-(--accent-color)/10 flex items-center justify-between">
                           <h4 className="font-semibold text-(--accent-color) flex items-center gap-2">
                             <ChevronRight className="w-5 h-5" />
-                            {phaseLabels[nextPhase]} 코트 배정
+                            {phaseLabels[nextPhase]} 대진
                             <span className="text-sm font-normal opacity-70">
                               ({nextPhaseMatches.filter((m) => m.team1_entry_id && m.team2_entry_id).length}경기)
                             </span>
@@ -316,61 +303,35 @@ export function MainBracketTab({
                           </button>
                         </div>
 
-                        {/* 다음 라운드 경기 목록 + 코트 입력 */}
+                        {/* 다음 라운드 대진 미리보기 */}
                         <div className="p-4 space-y-3">
                           {nextPhaseMatches
                             .filter((m) => m.team1_entry_id && m.team2_entry_id)
                             .map((match) => (
                               <div
                                 key={match.id}
-                                className="flex flex-col gap-2 p-3 rounded-lg bg-(--bg-secondary) border border-(--border-color)"
+                                className="flex items-center gap-3 p-3 rounded-lg bg-(--bg-secondary) border border-(--border-color)"
                               >
-                                {/* 대진 정보 */}
-                                <div className="flex items-center gap-3">
-                                  <span className="text-xs text-(--text-muted) w-8">
-                                    #{match.match_number}
-                                  </span>
-                                  <span className="flex-1 text-right text-sm font-medium text-(--text-primary)">
-                                    {getTeamLabel(match, "team1")}
-                                  </span>
-                                  <span className="text-(--text-muted) text-sm">vs</span>
-                                  <span className="flex-1 text-left text-sm font-medium text-(--text-primary)">
-                                    {getTeamLabel(match, "team2")}
-                                  </span>
-                                </div>
-
-                                {/* 코트 배정 입력 */}
-                                <div className="flex items-center gap-2">
-                                  <MapPin className="w-4 h-4 text-(--court-info) shrink-0" />
-                                  <input
-                                    type="text"
-                                    value={courtData[match.id]?.location ?? ""}
-                                    onChange={(e) =>
-                                      handleCourtChange(match.id, "location", e.target.value)
-                                    }
-                                    placeholder="장소 (예: A구장)"
-                                    className="flex-1 min-w-0 px-2.5 py-1.5 text-sm rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary) placeholder:text-(--text-muted)"
-                                  />
-                                  <input
-                                    type="text"
-                                    value={courtData[match.id]?.number ?? ""}
-                                    onChange={(e) =>
-                                      handleCourtChange(match.id, "number", e.target.value)
-                                    }
-                                    placeholder="코트 번호"
-                                    className="w-24 px-2.5 py-1.5 text-sm rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary) placeholder:text-(--text-muted)"
-                                  />
-                                </div>
+                                <span className="text-xs text-(--text-muted) w-8">
+                                  #{match.match_number}
+                                </span>
+                                <span className="flex-1 text-right text-sm font-medium text-(--text-primary)">
+                                  {getTeamLabel(match, "team1")}
+                                </span>
+                                <span className="text-(--text-muted) text-sm">vs</span>
+                                <span className="flex-1 text-left text-sm font-medium text-(--text-primary)">
+                                  {getTeamLabel(match, "team2")}
+                                </span>
                               </div>
                             ))}
 
-                          {/* 저장 버튼 */}
+                          {/* 확인 버튼 */}
                           <button
-                            onClick={() => handleNextPhaseCourtSave(nextPhase)}
+                            onClick={handleNextPhaseConfirm}
                             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-(--accent-color) text-white font-medium hover:opacity-90 transition-opacity"
                           >
-                            <Save className="w-5 h-5" />
-                            {phaseLabels[nextPhase]} 코트 배정 저장
+                            <ChevronRight className="w-5 h-5" />
+                            {phaseLabels[nextPhase]} 진행하기
                           </button>
                         </div>
                       </div>
