@@ -608,6 +608,7 @@ export function BracketManager({
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={handleOpenDetail}
                 onCourtBatchSave={handleCourtBatchSave}
+                onRefresh={loadBracketData}
               />
             )}
           </div>
