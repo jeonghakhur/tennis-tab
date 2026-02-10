@@ -63,7 +63,7 @@ export async function getMyMatches() {
 }
 
 /**
- * 사용자 통계 조회
+ * 사용자 통계 조회 (bracket_matches 기반)
  */
 export async function getUserStats() {
   const supabase = await createClient()
@@ -78,28 +78,48 @@ export async function getUserStats() {
     .from('tournament_entries')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', user.id)
-    .eq('status', 'APPROVED')
+    .eq('status', 'CONFIRMED')
 
-  // 총 경기 수
-  const { count: totalMatches } = await supabase
-    .from('matches')
-    .select('*', { count: 'exact', head: true })
-    .or(`player1_id.eq.${user.id},player2_id.eq.${user.id}`)
-    .not('completed_at', 'is', null)
+  // 본인 entry_ids 조회 (bracket_matches 기반 통계용)
+  const { data: entries } = await supabase
+    .from('tournament_entries')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'CONFIRMED')
 
-  // 승리 경기 수
-  const { count: wins } = await supabase
-    .from('matches')
-    .select('*', { count: 'exact', head: true })
-    .eq('winner_id', user.id)
+  const entryIds = entries?.map(e => e.id) || []
+
+  let totalMatches = 0
+  let wins = 0
+
+  if (entryIds.length > 0) {
+    // bracket_matches에서 완료된 경기 수
+    const matchFilter = entryIds.map(id => `team1_entry_id.eq.${id},team2_entry_id.eq.${id}`).join(',')
+    const { count: bracketTotal } = await supabase
+      .from('bracket_matches')
+      .select('*', { count: 'exact', head: true })
+      .or(matchFilter)
+      .eq('status', 'COMPLETED')
+
+    totalMatches = bracketTotal || 0
+
+    // bracket_matches에서 승리 경기 수
+    const winFilter = entryIds.map(id => `winner_entry_id.eq.${id}`).join(',')
+    const { count: bracketWins } = await supabase
+      .from('bracket_matches')
+      .select('*', { count: 'exact', head: true })
+      .or(winFilter)
+
+    wins = bracketWins || 0
+  }
 
   return {
     stats: {
       tournaments: tournamentCount || 0,
-      totalMatches: totalMatches || 0,
-      wins: wins || 0,
-      losses: (totalMatches || 0) - (wins || 0),
-      winRate: totalMatches ? Math.round(((wins || 0) / totalMatches) * 100) : 0,
+      totalMatches,
+      wins,
+      losses: totalMatches - wins,
+      winRate: totalMatches ? Math.round((wins / totalMatches) * 100) : 0,
     },
   }
 }
@@ -120,32 +140,51 @@ export async function getUserProfile(userId: string) {
     return { error: error.message }
   }
 
-  // 해당 사용자의 통계
+  // 해당 사용자의 통계 (bracket_matches 기반)
   const { count: tournamentCount } = await supabase
     .from('tournament_entries')
     .select('*', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('status', 'APPROVED')
+    .eq('status', 'CONFIRMED')
 
-  const { count: totalMatches } = await supabase
-    .from('matches')
-    .select('*', { count: 'exact', head: true })
-    .or(`player1_id.eq.${userId},player2_id.eq.${userId}`)
-    .not('completed_at', 'is', null)
+  const { data: userEntries } = await supabase
+    .from('tournament_entries')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'CONFIRMED')
 
-  const { count: wins } = await supabase
-    .from('matches')
-    .select('*', { count: 'exact', head: true })
-    .eq('winner_id', userId)
+  const userEntryIds = userEntries?.map(e => e.id) || []
+
+  let totalMatches = 0
+  let wins = 0
+
+  if (userEntryIds.length > 0) {
+    const matchFilter = userEntryIds.map(id => `team1_entry_id.eq.${id},team2_entry_id.eq.${id}`).join(',')
+    const { count: bracketTotal } = await supabase
+      .from('bracket_matches')
+      .select('*', { count: 'exact', head: true })
+      .or(matchFilter)
+      .eq('status', 'COMPLETED')
+
+    totalMatches = bracketTotal || 0
+
+    const winFilter = userEntryIds.map(id => `winner_entry_id.eq.${id}`).join(',')
+    const { count: bracketWins } = await supabase
+      .from('bracket_matches')
+      .select('*', { count: 'exact', head: true })
+      .or(winFilter)
+
+    wins = bracketWins || 0
+  }
 
   return {
     profile,
     stats: {
       tournaments: tournamentCount || 0,
-      totalMatches: totalMatches || 0,
-      wins: wins || 0,
-      losses: (totalMatches || 0) - (wins || 0),
-      winRate: totalMatches ? Math.round(((wins || 0) / totalMatches) * 100) : 0,
+      totalMatches,
+      wins,
+      losses: totalMatches - wins,
+      winRate: totalMatches ? Math.round((wins / totalMatches) * 100) : 0,
     },
   }
 }

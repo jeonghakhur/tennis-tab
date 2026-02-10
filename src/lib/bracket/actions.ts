@@ -648,31 +648,17 @@ export async function getPreliminaryMatches(configId: string) {
 /**
  * 경기 결과 입력
  */
-export async function updateMatchResult(
+/**
+ * 경기 결과 저장 핵심 로직 (관리자/선수 공용)
+ * 점수 저장, 승자 전파, 예선 순위 업데이트 포함
+ */
+async function updateMatchResultCore(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
   matchId: string,
   team1Score: number,
   team2Score: number,
   setsDetail?: SetDetail[]
-) {
-  const authResult = await checkBracketManagementAuth()
-  if (authResult.error) return { error: authResult.error }
-
-  const idError = validateId(matchId, '경기 ID')
-  if (idError) return { error: idError }
-
-  const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
-  if (score1Error) return { error: score1Error }
-
-  const score2Error = validateNonNegativeInteger(team2Score, '팀2 점수')
-  if (score2Error) return { error: score2Error }
-
-  // 동점 거부 (서버 사이드 검증)
-  if (team1Score === team2Score) {
-    return { error: '동점은 허용되지 않습니다. 승패가 결정되어야 합니다.' }
-  }
-
-  const supabaseAdmin = createAdminClient()
-
+): Promise<{ winnerId?: string | null; error?: string }> {
   // 경기 정보 조회
   const { data: match, error: matchError } = await supabaseAdmin
     .from('bracket_matches')
@@ -738,9 +724,132 @@ export async function updateMatchResult(
       .eq('id', match.loser_next_match_id)
   }
 
+  return { winnerId }
+}
+
+/**
+ * 관리자 경기 결과 입력 (기존 — MANAGER 이상 권한 필요)
+ */
+export async function updateMatchResult(
+  matchId: string,
+  team1Score: number,
+  team2Score: number,
+  setsDetail?: SetDetail[]
+) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(matchId, '경기 ID')
+  if (idError) return { error: idError }
+
+  const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
+  if (score1Error) return { error: score1Error }
+
+  const score2Error = validateNonNegativeInteger(team2Score, '팀2 점수')
+  if (score2Error) return { error: score2Error }
+
+  // 동점 거부 (서버 사이드 검증)
+  if (team1Score === team2Score) {
+    return { error: '동점은 허용되지 않습니다. 승패가 결정되어야 합니다.' }
+  }
+
+  const supabaseAdmin = createAdminClient()
+  const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
+  if (result.error) return { error: result.error }
+
   revalidatePath('/admin/tournaments')
   revalidatePath('/tournaments')
-  return { data: { winnerId }, error: null }
+  return { data: { winnerId: result.winnerId }, error: null }
+}
+
+/**
+ * 선수 본인 경기 점수 입력
+ * 관리자 권한 불필요 — 본인 경기만 입력 가능
+ */
+export async function submitPlayerScore(
+  matchId: string,
+  team1Score: number,
+  team2Score: number,
+  setsDetail?: SetDetail[]
+) {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const idError = validateId(matchId, '경기 ID')
+  if (idError) return { error: idError }
+
+  const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
+  if (score1Error) return { error: score1Error }
+
+  const score2Error = validateNonNegativeInteger(team2Score, '팀2 점수')
+  if (score2Error) return { error: score2Error }
+
+  if (team1Score === team2Score) {
+    return { error: '동점은 허용되지 않습니다. 승패가 결정되어야 합니다.' }
+  }
+
+  const supabaseAdmin = createAdminClient()
+
+  // 경기 정보 조회 (상태 확인용)
+  const { data: match, error: matchError } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('id, status, team1_entry_id, team2_entry_id')
+    .eq('id', matchId)
+    .single()
+
+  if (matchError || !match) {
+    return { error: '경기 정보를 찾을 수 없습니다.' }
+  }
+
+  // SCHEDULED 상태만 입력 가능
+  if (match.status === 'COMPLETED') {
+    return { error: '이미 완료된 경기입니다.' }
+  }
+  if (match.status !== 'SCHEDULED') {
+    return { error: '점수를 입력할 수 없는 경기 상태입니다.' }
+  }
+
+  // 본인 경기 확인: user의 entry_id가 team1 또는 team2에 포함되는지
+  const { data: myEntries } = await supabaseAdmin
+    .from('tournament_entries')
+    .select('id')
+    .eq('user_id', user.id)
+
+  const myEntryIds = myEntries?.map(e => e.id) || []
+  const isMyMatch = myEntryIds.includes(match.team1_entry_id ?? '') || myEntryIds.includes(match.team2_entry_id ?? '')
+
+  if (!isMyMatch) {
+    return { error: '본인이 참가한 경기만 점수를 입력할 수 있습니다.' }
+  }
+
+  // 점수 저장 + 승자 전파 (공유 로직)
+  const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
+  if (result.error) return { error: result.error }
+
+  revalidatePath('/tournaments')
+  return { data: { winnerId: result.winnerId }, error: null }
+}
+
+/**
+ * 선수의 대회 참가 entry ID 목록 조회
+ * 대진표 페이지에서 본인 경기 하이라이트용
+ */
+export async function getPlayerEntryIds(tournamentId: string) {
+  const user = await getCurrentUser()
+  if (!user) return { entryIds: [] }
+
+  const idError = validateId(tournamentId, '대회 ID')
+  if (idError) return { entryIds: [] }
+
+  const supabase = await createClient()
+  const { data: entries } = await supabase
+    .from('tournament_entries')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('user_id', user.id)
+    .eq('status', 'CONFIRMED')
+
+  return { entryIds: entries?.map(e => e.id) || [] }
 }
 
 /**
@@ -1256,8 +1365,8 @@ export async function getBracketData(divisionId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_members),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_members)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, partner_data, team_members),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, partner_data, team_members)
     `)
     .eq('bracket_config_id', config.id)
     .order('phase', { ascending: true })
@@ -1400,6 +1509,55 @@ export async function deleteBracketConfig(configId: string) {
     const message = error instanceof Error ? error.message : '알 수 없는 오류'
     return { success: false, error: message }
   }
+}
+
+// ============================================================================
+// 코트 정보 업데이트
+// ============================================================================
+
+export interface CourtInfoUpdate {
+  matchId: string
+  courtLocation: string | null
+  courtNumber: string | null
+}
+
+/**
+ * 경기 코트 정보 일괄 업데이트
+ */
+export async function batchUpdateMatchCourtInfo(updates: CourtInfoUpdate[]) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  if (updates.length === 0) return { error: null }
+
+  for (const u of updates) {
+    const idError = validateId(u.matchId, '경기 ID')
+    if (idError) return { error: idError }
+  }
+
+  const supabaseAdmin = createAdminClient()
+
+  // 병렬 업데이트
+  const results = await Promise.all(
+    updates.map((u) =>
+      supabaseAdmin
+        .from('bracket_matches')
+        .update({
+          court_location: u.courtLocation?.trim() || null,
+          court_number: u.courtNumber?.trim() || null,
+        })
+        .eq('id', u.matchId)
+    )
+  )
+
+  const failed = results.find((r) => r.error)
+  if (failed?.error) {
+    return { error: '코트 정보 업데이트에 실패했습니다.' }
+  }
+
+  revalidatePath('/admin/tournaments')
+  revalidatePath('/tournaments')
+  return { error: null }
 }
 
 // ============================================================================

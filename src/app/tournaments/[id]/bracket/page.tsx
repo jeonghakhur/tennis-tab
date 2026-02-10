@@ -1,8 +1,10 @@
 import { createClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, Trophy, Users } from 'lucide-react'
+import { ChevronLeft, Trophy } from 'lucide-react'
 import { BracketView } from '@/components/tournaments/BracketView'
+import { getPlayerEntryIds } from '@/lib/bracket/actions'
+import type { MatchType } from '@/lib/supabase/types'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -20,14 +22,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       tournament_divisions (
         id,
         name,
-        max_teams,
-        bracket_configs (
-          id,
-          has_preliminaries,
-          third_place_match,
-          bracket_size,
-          status
-        )
+        max_teams
       )
     `)
     .eq('id', id)
@@ -37,10 +32,10 @@ export default async function TournamentBracketPage({ params }: PageProps) {
     notFound()
   }
 
-  // 대진표가 있는 부서 필터링
-  const divisionsWithBracket = tournament.tournament_divisions?.filter(
-    (d: any) => d.bracket_configs && d.bracket_configs.length > 0
-  ) || []
+  const divisions = tournament.tournament_divisions || []
+
+  // 로그인 유저의 참가 entry_ids 조회 (본인 경기 하이라이트용)
+  const { entryIds } = await getPlayerEntryIds(id)
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -63,22 +58,13 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       </div>
 
       {/* Bracket View */}
-      {divisionsWithBracket.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <Users className="w-16 h-16 mx-auto text-(--text-muted) mb-4" />
-          <h2 className="font-display text-xl font-semibold text-(--text-primary) mb-2">
-            대진표가 아직 없습니다
-          </h2>
-          <p className="text-(--text-secondary)">
-            대진표가 생성되면 이곳에서 확인할 수 있습니다.
-          </p>
-        </div>
-      ) : (
-        <BracketView
-          tournamentId={tournament.id}
-          divisions={tournament.tournament_divisions || []}
-        />
-      )}
+      <BracketView
+        tournamentId={tournament.id}
+        divisions={divisions}
+        currentUserEntryIds={entryIds.length > 0 ? entryIds : undefined}
+        matchType={tournament.match_type as MatchType | null}
+        teamMatchCount={tournament.team_match_count}
+      />
     </div>
   )
 }

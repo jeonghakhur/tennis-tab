@@ -1,8 +1,10 @@
 "use client";
 
-import { Play } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { Play, Save } from "lucide-react";
 import { MatchRow } from "./MatchRow";
 import type { PreliminaryGroup, BracketMatch } from "./types";
+import type { CourtInfoUpdate } from "@/lib/bracket/actions";
 
 interface PreliminaryTabProps {
   groups: PreliminaryGroup[];
@@ -17,6 +19,7 @@ interface PreliminaryTabProps {
   onTieWarning: () => void;
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
+  onCourtBatchSave?: (updates: CourtInfoUpdate[]) => void;
 }
 
 export function PreliminaryTab({
@@ -28,9 +31,55 @@ export function PreliminaryTab({
   onTieWarning,
   isTeamMatch,
   onOpenDetail,
+  onCourtBatchSave,
 }: PreliminaryTabProps) {
-  // SCHEDULED 경기가 존재하는지 확인
   const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
+
+  // 코트 정보 상태: matchId → { location, number }
+  const [courtData, setCourtData] = useState<
+    Record<string, { location: string; number: string }>
+  >({});
+  const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
+
+  // matches가 갱신되면 (서버에서 새로 로드) courtData 동기화 + dirty 초기화
+  useEffect(() => {
+    const data: Record<string, { location: string; number: string }> = {};
+    for (const m of matches) {
+      data[m.id] = {
+        location: m.court_location || "",
+        number: m.court_number || "",
+      };
+    }
+    setCourtData(data);
+    setDirtyIds(new Set());
+  }, [matches]);
+
+  const handleCourtChange = useCallback(
+    (matchId: string, field: "location" | "number", value: string) => {
+      setCourtData((prev) => ({
+        ...prev,
+        [matchId]: { ...prev[matchId], [field]: value },
+      }));
+      setDirtyIds((prev) => new Set(prev).add(matchId));
+    },
+    [],
+  );
+
+  // 특정 조의 변경된 코트 정보만 수집하여 저장
+  const handleGroupCourtSave = (groupMatchIds: string[]) => {
+    if (!onCourtBatchSave) return;
+    const updates: CourtInfoUpdate[] = groupMatchIds
+      .filter((id) => dirtyIds.has(id))
+      .map((id) => ({
+        matchId: id,
+        courtLocation: courtData[id]?.location?.trim() || null,
+        courtNumber: courtData[id]?.number?.trim() || null,
+      }));
+    if (updates.length > 0) {
+      onCourtBatchSave(updates);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -66,6 +115,8 @@ export function PreliminaryTab({
         <div className="space-y-6">
           {groups.map((group) => {
             const groupMatches = matches.filter((m) => m.group_id === group.id);
+            const groupMatchIds = groupMatches.map((m) => m.id);
+            const hasDirty = groupMatchIds.some((id) => dirtyIds.has(id));
             const standings = group.group_teams?.slice().sort((a, b) => {
               if (a.final_rank && b.final_rank)
                 return a.final_rank - b.final_rank;
@@ -74,9 +125,20 @@ export function PreliminaryTab({
 
             return (
               <div key={group.id} className="space-y-4">
-                <h4 className="font-display font-semibold text-(--text-primary)">
-                  {group.name}조
-                </h4>
+                <div className="flex items-center justify-between">
+                  <h4 className="font-display font-semibold text-(--text-primary)">
+                    {group.name}조
+                  </h4>
+                  {onCourtBatchSave && hasDirty && (
+                    <button
+                      onClick={() => handleGroupCourtSave(groupMatchIds)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-(--court-info)/10 text-(--court-info) hover:bg-(--court-info)/20 border border-(--court-info)/30 transition-colors text-sm font-medium"
+                    >
+                      <Save className="w-4 h-4" />
+                      코트 저장
+                    </button>
+                  )}
+                </div>
 
                 {/* 순위표 */}
                 <div className="overflow-x-auto">
@@ -110,12 +172,10 @@ export function PreliminaryTab({
                           </td>
                           <td className="py-2 px-3 text-(--text-primary)">
                             {isTeamMatch ? (
-                              // 단체전: 팀명만 표시
                               <p className="text-sm font-medium">
                                 {team.entry?.club_name || team.entry?.player_name}
                               </p>
                             ) : (
-                              // 개인전: 클럽명 + 선수명
                               <>
                                 {team.entry?.club_name && (
                                   <p className="text-sm font-medium">
@@ -162,6 +222,9 @@ export function PreliminaryTab({
                       onTieWarning={onTieWarning}
                       isTeamMatch={isTeamMatch}
                       onOpenDetail={onOpenDetail}
+                      courtLocation={courtData[match.id]?.location}
+                      courtNumber={courtData[match.id]?.number}
+                      onCourtChange={onCourtBatchSave ? handleCourtChange : undefined}
                     />
                   ))}
                 </div>

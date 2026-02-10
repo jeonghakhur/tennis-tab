@@ -1,9 +1,11 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Trophy, Users, RefreshCw } from 'lucide-react'
-import { getBracketData } from '@/lib/bracket/actions'
-import type { BracketStatus, MatchPhase, MatchStatus } from '@/lib/supabase/types'
+import { useState, useEffect, useMemo } from 'react'
+import { Trophy, Users, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
+import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
+import { ScoreInputModal } from '@/components/tournaments/ScoreInputModal'
+import { Toast } from '@/components/common/AlertDialog'
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail } from '@/lib/supabase/types'
 
 interface Division {
   id: string
@@ -14,6 +16,10 @@ interface Division {
 interface BracketViewProps {
   tournamentId: string
   divisions: Division[]
+  // 선수용 props (선택적 — 비로그인 시 undefined)
+  currentUserEntryIds?: string[]
+  matchType?: MatchType | null
+  teamMatchCount?: number | null
 }
 
 interface BracketConfig {
@@ -36,6 +42,7 @@ interface GroupTeam {
     id: string
     player_name: string
     club_name: string | null
+    partner_data?: { name: string; rating: number; club: string | null } | null
   }
 }
 
@@ -59,8 +66,11 @@ interface BracketMatch {
   team2_score: number | null
   winner_entry_id: string | null
   status: MatchStatus
-  team1?: { id: string; player_name: string; club_name: string | null }
-  team2?: { id: string; player_name: string; club_name: string | null }
+  sets_detail: SetDetail[] | null
+  court_location: string | null
+  court_number: string | null
+  team1?: { id: string; player_name: string; club_name: string | null; partner_data?: { name: string; rating: number; club: string | null } | null; team_members?: { name: string; rating: number }[] | null }
+  team2?: { id: string; player_name: string; club_name: string | null; partner_data?: { name: string; rating: number; club: string | null } | null; team_members?: { name: string; rating: number }[] | null }
 }
 
 const phaseLabels: Record<MatchPhase, string> = {
@@ -75,7 +85,7 @@ const phaseLabels: Record<MatchPhase, string> = {
   THIRD_PLACE: '3/4위전',
 }
 
-export function BracketView({ tournamentId, divisions }: BracketViewProps) {
+export function BracketView({ tournamentId, divisions, currentUserEntryIds, matchType, teamMatchCount }: BracketViewProps) {
   const [selectedDivision, setSelectedDivision] = useState<Division | null>(
     divisions.length > 0 ? divisions[0] : null
   )
@@ -84,6 +94,10 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
   const [matches, setMatches] = useState<BracketMatch[] | null>(null)
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'preliminary' | 'main'>('main')
+
+  // 점수 입력 모달 상태
+  const [scoreModalMatch, setScoreModalMatch] = useState<BracketMatch | null>(null)
+  const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' }>({ isOpen: false, message: '', type: 'success' })
 
   useEffect(() => {
     if (selectedDivision) {
@@ -107,11 +121,28 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
       } else {
         setActiveTab('main')
       }
-    } catch (error) {
-      console.error('Failed to load bracket data:', error)
+    } catch {
+      // 데이터 로딩 실패 — 빈 상태 유지
     } finally {
       setLoading(false)
     }
+  }
+
+  // 선수 점수 입력 처리
+  const handleScoreSubmit = async (team1Score: number, team2Score: number, setsDetail?: SetDetail[]) => {
+    if (!scoreModalMatch) return
+
+    const result = await submitPlayerScore(scoreModalMatch.id, team1Score, team2Score, setsDetail)
+
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error, type: 'error' as const })
+      return
+    }
+
+    setToast({ isOpen: true, message: '점수가 저장되었습니다.', type: 'success' as const })
+    setScoreModalMatch(null)
+    // 대진표 데이터 갱신
+    await loadBracketData()
   }
 
   if (divisions.length === 0) {
@@ -188,15 +219,42 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
 
           {/* Content */}
           {activeTab === 'preliminary' && config.has_preliminaries ? (
-            <PreliminaryView groups={groups || []} matches={preliminaryMatches} />
+            <PreliminaryView
+              groups={groups || []}
+              matches={preliminaryMatches}
+              currentUserEntryIds={currentUserEntryIds}
+              onScoreInput={setScoreModalMatch}
+            />
           ) : (
             <MainBracketView
               config={config}
               matches={mainMatches}
+              currentUserEntryIds={currentUserEntryIds}
+              onScoreInput={setScoreModalMatch}
             />
           )}
         </>
       )}
+
+      {/* 점수 입력 모달 */}
+      {scoreModalMatch && (
+        <ScoreInputModal
+          isOpen={!!scoreModalMatch}
+          onClose={() => setScoreModalMatch(null)}
+          match={scoreModalMatch}
+          matchType={matchType ?? null}
+          teamMatchCount={teamMatchCount ?? null}
+          onSubmit={handleScoreSubmit}
+        />
+      )}
+
+      {/* 토스트 */}
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type={toast.type}
+      />
     </div>
   )
 }
@@ -207,9 +265,13 @@ export function BracketView({ tournamentId, divisions }: BracketViewProps) {
 function PreliminaryView({
   groups,
   matches,
+  currentUserEntryIds,
+  onScoreInput,
 }: {
   groups: PreliminaryGroup[]
   matches: BracketMatch[]
+  currentUserEntryIds?: string[]
+  onScoreInput?: (match: BracketMatch) => void
 }) {
   if (groups.length === 0) {
     return (
@@ -250,30 +312,35 @@ function PreliminaryView({
                   </tr>
                 </thead>
                 <tbody>
-                  {standings?.map((team, index) => (
-                    <tr key={team.id} className="border-b border-(--border-color)">
-                      <td className="py-2 px-2">
-                        <span className={`w-6 h-6 inline-flex items-center justify-center rounded-full text-xs font-bold ${
-                          index < 2 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-(--bg-secondary) text-(--text-muted)'
-                        }`}>
-                          {index + 1}
-                        </span>
-                      </td>
-                      <td className="py-2 px-2">
-                        {team.entry?.club_name && (
-                          <p className="font-medium text-(--text-primary)">{team.entry.club_name}</p>
-                        )}
-                        <p className={team.entry?.club_name ? 'text-xs text-(--text-muted)' : 'font-medium text-(--text-primary)'}>
-                          {team.entry?.player_name}
-                        </p>
-                      </td>
-                      <td className="py-2 px-2 text-center text-emerald-400 font-medium">{team.wins}</td>
-                      <td className="py-2 px-2 text-center text-rose-400 font-medium">{team.losses}</td>
-                      <td className="py-2 px-2 text-center text-(--text-secondary)">
-                        {team.points_for}/{team.points_against}
-                      </td>
-                    </tr>
-                  ))}
+                  {standings?.map((team, index) => {
+                    const isMe = currentUserEntryIds?.includes(team.entry_id)
+                    return (
+                      <tr key={team.id} className={`border-b border-(--border-color) ${isMe ? 'bg-(--accent-color)/10' : ''}`}>
+                        <td className="py-2 px-2">
+                          <span className={`w-6 h-6 inline-flex items-center justify-center rounded-full text-xs font-bold ${
+                            index < 2 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-(--bg-secondary) text-(--text-muted)'
+                          }`}>
+                            {index + 1}
+                          </span>
+                        </td>
+                        <td className="py-2 px-2">
+                          <p className={`font-medium ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
+                            {team.entry?.player_name}{isMe ? ' (나)' : ''}
+                          </p>
+                          {team.entry?.partner_data && (
+                            <p className={`text-xs ${isMe ? 'text-(--accent-color)/70' : 'text-(--text-muted)'}`}>
+                              {team.entry.partner_data.name}
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-2 px-2 text-center text-emerald-400 font-medium">{team.wins}</td>
+                        <td className="py-2 px-2 text-center text-rose-400 font-medium">{team.losses}</td>
+                        <td className="py-2 px-2 text-center text-(--text-secondary)">
+                          {team.points_for}/{team.points_against}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
@@ -282,7 +349,12 @@ function PreliminaryView({
             <div className="space-y-2">
               <h4 className="text-sm font-medium text-(--text-muted) mb-2">경기 결과</h4>
               {groupMatches.map((match) => (
-                <MatchCard key={match.id} match={match} />
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  currentUserEntryIds={currentUserEntryIds}
+                  onScoreInput={onScoreInput}
+                />
               ))}
             </div>
           </div>
@@ -298,10 +370,75 @@ function PreliminaryView({
 function MainBracketView({
   config,
   matches,
+  currentUserEntryIds,
+  onScoreInput,
 }: {
   config: BracketConfig
   matches: BracketMatch[]
+  currentUserEntryIds?: string[]
+  onScoreInput?: (match: BracketMatch) => void
 }) {
+  // 라운드별로 그룹화
+  const matchesByPhase = useMemo(() => {
+    return matches.reduce((acc, match) => {
+      if (!acc[match.phase]) acc[match.phase] = []
+      acc[match.phase].push(match)
+      return acc
+    }, {} as Record<MatchPhase, BracketMatch[]>)
+  }, [matches])
+
+  const phaseOrder: MatchPhase[] = [
+    'ROUND_128', 'ROUND_64', 'ROUND_32', 'ROUND_16',
+    'QUARTER', 'SEMI', 'THIRD_PLACE', 'FINAL'
+  ]
+
+  const activePhases = phaseOrder.filter((phase) => matchesByPhase[phase]?.length > 0)
+
+  // 라운드별 상태 계산
+  const phaseStatus = useMemo(() => {
+    const status: Record<string, { playable: boolean; completed: number; total: number; allDone: boolean }> = {}
+    for (const phase of activePhases) {
+      const phaseMatches = matchesByPhase[phase] || []
+      const hasTeams = phaseMatches.some((m) => m.team1_entry_id || m.team2_entry_id)
+      const completed = phaseMatches.filter((m) => m.status === 'COMPLETED' || m.status === 'BYE').length
+      status[phase] = { playable: hasTeams, completed, total: phaseMatches.length, allDone: completed === phaseMatches.length }
+    }
+    return status
+  }, [activePhases, matchesByPhase])
+
+  // 표시할 라운드: 완료된 라운드 + 현재 진행 중인 라운드(팀 배정된 첫 미완료 라운드)만 표시
+  const visiblePhases = useMemo(() => {
+    const visible: MatchPhase[] = []
+    for (const phase of activePhases) {
+      const s = phaseStatus[phase]
+      if (s.allDone) {
+        // 완료된 라운드 — 보여줌
+        visible.push(phase)
+      } else if (s.playable) {
+        // 진행 가능한 미완료 라운드 — 보여주고 여기서 멈춤
+        visible.push(phase)
+        break
+      } else {
+        // 팀 미배정 라운드 — 멈춤
+        break
+      }
+    }
+    return visible
+  }, [activePhases, phaseStatus])
+
+  // 현재 활성 라운드 (마지막 visible)
+  const currentPhase = visiblePhases.length > 0 ? visiblePhases[visiblePhases.length - 1] : null
+
+  // 선택된 라운드 (기본: 현재 활성 라운드)
+  const [selectedPhase, setSelectedPhase] = useState<MatchPhase | null>(currentPhase)
+
+  // 데이터 갱신 시 selectedPhase 보정
+  useEffect(() => {
+    if (!selectedPhase || !visiblePhases.includes(selectedPhase)) {
+      setSelectedPhase(currentPhase)
+    }
+  }, [visiblePhases, selectedPhase, currentPhase])
+
   if (matches.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 text-center">
@@ -311,165 +448,198 @@ function MainBracketView({
     )
   }
 
-  // 라운드별로 그룹화
-  const matchesByPhase = matches.reduce((acc, match) => {
-    if (!acc[match.phase]) acc[match.phase] = []
-    acc[match.phase].push(match)
-    return acc
-  }, {} as Record<MatchPhase, BracketMatch[]>)
-
-  // 라운드 순서 (결승이 마지막)
-  const phaseOrder: MatchPhase[] = [
-    'ROUND_128', 'ROUND_64', 'ROUND_32', 'ROUND_16',
-    'QUARTER', 'SEMI', 'THIRD_PLACE', 'FINAL'
-  ]
-
-  const activePahses = phaseOrder.filter((phase) => matchesByPhase[phase]?.length > 0)
+  const selectedMatches = selectedPhase ? (matchesByPhase[selectedPhase] || []) : []
+  // 다음 미개방 라운드 이름 (표시용)
+  const nextLockedPhase = activePhases.find((phase) => !visiblePhases.includes(phase))
 
   return (
-    <div className="space-y-8">
-      {/* Visual Bracket */}
-      <div className="glass-card rounded-xl p-6 overflow-x-auto">
-        <div className="flex gap-4 min-w-max">
-          {activePahses.map((phase) => {
-            const phaseMatches = matchesByPhase[phase] || []
-
-            return (
-              <div key={phase} className="flex flex-col gap-4">
-                <h4 className="text-center font-semibold text-(--text-primary) sticky top-0 bg-(--bg-card) py-2">
-                  {phaseLabels[phase]}
-                </h4>
-                <div className="flex flex-col gap-4 justify-around flex-1">
-                  {phaseMatches.map((match) => (
-                    <BracketMatchCard key={match.id} match={match} />
-                  ))}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* Match List (Mobile-friendly) */}
-      <div className="lg:hidden space-y-6">
-        {activePahses.map((phase) => {
-          const phaseMatches = matchesByPhase[phase] || []
+    <div className="space-y-6">
+      {/* 라운드 탭 — 완료 + 현재 진행 라운드만 표시 */}
+      <div className="flex flex-wrap items-center gap-2">
+        {visiblePhases.map((phase, index) => {
+          const s = phaseStatus[phase]
+          const isSelected = selectedPhase === phase
+          const isCurrent = phase === currentPhase && !s.allDone
 
           return (
-            <div key={phase}>
-              <h4 className="font-display font-semibold text-(--text-primary) mb-3">
-                {phaseLabels[phase]}
-              </h4>
-              <div className="space-y-2">
-                {phaseMatches.map((match) => (
-                  <MatchCard key={match.id} match={match} />
-                ))}
-              </div>
+            <div key={phase} className="flex items-center gap-2">
+              {index > 0 && <ChevronRight className="w-4 h-4 text-(--text-muted)" />}
+              <button
+                onClick={() => setSelectedPhase(phase)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  isSelected
+                    ? 'bg-(--accent-color) text-white'
+                    : s.allDone
+                      ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
+                      : 'bg-(--bg-card) text-(--text-primary) hover:bg-(--bg-card-hover)'
+                }`}
+              >
+                <span className="flex items-center gap-1.5">
+                  {phaseLabels[phase]}
+                  <span className={`text-xs ${isSelected ? 'text-white/70' : 'text-(--text-muted)'}`}>
+                    {s.completed}/{s.total}
+                  </span>
+                  {isCurrent && (
+                    <span className="w-2 h-2 rounded-full bg-(--accent-color) animate-pulse" />
+                  )}
+                </span>
+              </button>
             </div>
           )
         })}
+        {/* 다음 잠긴 라운드 표시 */}
+        {nextLockedPhase && (
+          <div className="flex items-center gap-2">
+            <ChevronRight className="w-4 h-4 text-(--text-muted)" />
+            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-(--bg-secondary) text-(--text-muted) opacity-50">
+              <Lock className="w-3 h-3" />
+              {phaseLabels[nextLockedPhase]}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* 선택된 라운드 경기 목록 */}
+      {selectedPhase && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {selectedMatches.map((match) => (
+            <MatchCard
+              key={match.id}
+              match={match}
+              currentUserEntryIds={currentUserEntryIds}
+              onScoreInput={onScoreInput}
+            />
+          ))}
+        </div>
+      )}
     </div>
   )
 }
 
 // ============================================================================
-// 경기 카드 (목록용)
+// 경기 카드
 // ============================================================================
-function teamLabel(team: { player_name: string; club_name: string | null } | undefined, fallback: string) {
-  if (!team) return fallback
-  return team.club_name ? `${team.club_name} ${team.player_name}` : (team.player_name || fallback)
+function isMyEntry(entryId: string | null, currentUserEntryIds?: string[]): boolean {
+  if (!entryId || !currentUserEntryIds) return false
+  return currentUserEntryIds.includes(entryId)
 }
 
-function MatchCard({ match }: { match: BracketMatch }) {
+// 참가자 이름 (복식: "참가자 & 파트너")
+function teamName(team: BracketMatch['team1']): string {
+  if (!team) return 'TBD'
+  if (team.partner_data) {
+    return `${team.player_name} & ${team.partner_data.name}`
+  }
+  return team.player_name
+}
+
+function MatchCard({
+  match,
+  currentUserEntryIds,
+  onScoreInput,
+}: {
+  match: BracketMatch
+  currentUserEntryIds?: string[]
+  onScoreInput?: (match: BracketMatch) => void
+}) {
   const isCompleted = match.status === 'COMPLETED'
   const isBye = match.status === 'BYE'
-  const team1Label = teamLabel(match.team1, 'TBD')
-  const team2Label = teamLabel(match.team2, 'TBD')
+
+  const isMyMatch = isMyEntry(match.team1_entry_id, currentUserEntryIds) || isMyEntry(match.team2_entry_id, currentUserEntryIds)
+  const canInputScore = isMyMatch && match.status === 'SCHEDULED'
+    && match.team1_entry_id && match.team2_entry_id
+
+  const team1Text = teamName(match.team1)
+  const team2Text = teamName(match.team2)
+
+  const hasCourt = match.court_location || match.court_number
+  const team1IsMe = isMyEntry(match.team1_entry_id, currentUserEntryIds)
+  const team2IsMe = isMyEntry(match.team2_entry_id, currentUserEntryIds)
+  const team1IsWinner = match.winner_entry_id === match.team1_entry_id
+  const team2IsWinner = match.winner_entry_id === match.team2_entry_id
 
   if (isBye) {
     return (
-      <div className="flex items-center gap-3 p-3 rounded-lg bg-(--bg-secondary) opacity-60">
-        <span className="text-(--text-primary) text-sm">
-          {team1Label}
-        </span>
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-(--bg-secondary) opacity-60 border border-(--border-color)">
+        <span className="text-xs text-(--text-muted) font-mono">#{match.match_number}</span>
+        <span className="text-sm text-(--text-primary)">{team1Text}</span>
         <span className="text-xs text-(--text-muted)">(부전승)</span>
       </div>
     )
   }
 
+  const handleClick = () => {
+    if (canInputScore && onScoreInput) {
+      onScoreInput(match)
+    }
+  }
+
+  const team1Color = team1IsMe
+    ? 'text-(--accent-color) font-bold'
+    : team1IsWinner
+      ? 'text-emerald-400 font-bold'
+      : 'text-(--text-primary)'
+
+  const team2Color = team2IsMe
+    ? 'text-(--accent-color) font-bold'
+    : team2IsWinner
+      ? 'text-emerald-400 font-bold'
+      : 'text-(--text-primary)'
+
   return (
-    <div className={`p-3 rounded-lg ${
-      isCompleted ? 'bg-emerald-500/5 border border-emerald-500/20' : 'bg-(--bg-secondary)'
-    }`}>
-      <div className="flex items-center justify-between gap-2">
-        <div className={`flex-1 ${
-          match.winner_entry_id === match.team1_entry_id ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
-        }`}>
-          <span className="text-sm">{team1Label}</span>
-        </div>
-        <div className="flex items-center gap-1 px-2 py-1 rounded bg-(--bg-card)">
-          <span className="font-mono text-sm text-(--text-primary)">
+    <div
+      className={`rounded-xl overflow-hidden transition-all ${
+        isMyMatch
+          ? canInputScore
+            ? 'border-2 border-(--accent-color) bg-(--accent-color)/5 cursor-pointer hover:bg-(--accent-color)/10 active:scale-[0.99]'
+            : 'border-2 border-(--accent-color) bg-(--accent-color)/5'
+          : isCompleted
+            ? 'bg-emerald-500/5 border border-emerald-500/20'
+            : 'bg-(--bg-secondary) border border-(--border-color)'
+      }`}
+      onClick={handleClick}
+    >
+      <div className="px-4 py-3 space-y-1.5">
+        {/* 매치 번호 */}
+        <span className="text-xs text-(--text-muted) font-mono">#{match.match_number}</span>
+
+        {/* 팀1 행 */}
+        <div className="flex items-center justify-between gap-3">
+          <span className={`text-sm min-w-0 break-words ${team1Color}`}>
+            {team1Text}
+          </span>
+          <span className={`font-mono text-base tabular-nums shrink-0 ${
+            team1IsWinner ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
+          }`}>
             {match.team1_score ?? '-'}
           </span>
-          <span className="text-(--text-muted)">:</span>
-          <span className="font-mono text-sm text-(--text-primary)">
+        </div>
+
+        {/* 팀2 행 */}
+        <div className="flex items-center justify-between gap-3">
+          <span className={`text-sm min-w-0 break-words ${team2Color}`}>
+            {team2Text}
+          </span>
+          <span className={`font-mono text-base tabular-nums shrink-0 ${
+            team2IsWinner ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
+          }`}>
             {match.team2_score ?? '-'}
           </span>
         </div>
-        <div className={`flex-1 text-right ${
-          match.winner_entry_id === match.team2_entry_id ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
-        }`}>
-          <span className="text-sm">{team2Label}</span>
+      </div>
+
+      {/* 코트 정보 */}
+      {hasCourt && (
+        <div className="border-t border-(--border-color)/50 px-4 py-2 flex items-center gap-2">
+          <MapPin className="w-4 h-4 text-(--court-info) shrink-0" />
+          <span className="text-sm font-medium text-(--court-info)">
+            {[match.court_location, match.court_number ? `${match.court_number}번` : null]
+              .filter(Boolean)
+              .join(' | ')}
+          </span>
         </div>
-      </div>
+      )}
     </div>
   )
 }
 
-// ============================================================================
-// 대진표용 경기 카드
-// ============================================================================
-function BracketMatchCard({ match }: { match: BracketMatch }) {
-  const isCompleted = match.status === 'COMPLETED'
-  const isBye = match.status === 'BYE'
-  const team1Label = teamLabel(match.team1, isBye ? '-' : 'TBD')
-  const team2Label = teamLabel(match.team2, 'TBD')
-
-  return (
-    <div className={`w-48 rounded-lg overflow-hidden border ${
-      isCompleted ? 'border-emerald-500/30' : 'border-(--border-color)'
-    }`}>
-      {/* Team 1 */}
-      <div className={`flex items-center justify-between px-3 py-2 ${
-        match.winner_entry_id === match.team1_entry_id
-          ? 'bg-emerald-500/20 text-emerald-400 font-bold'
-          : 'bg-(--bg-card) text-(--text-primary)'
-      }`}>
-        <span className="text-sm truncate flex-1">
-          {team1Label}
-        </span>
-        <span className="font-mono text-sm ml-2">
-          {isBye ? 'W' : (match.team1_score ?? '-')}
-        </span>
-      </div>
-
-      {/* Divider */}
-      <div className="h-px bg-(--border-color)" />
-
-      {/* Team 2 */}
-      <div className={`flex items-center justify-between px-3 py-2 ${
-        match.winner_entry_id === match.team2_entry_id
-          ? 'bg-emerald-500/20 text-emerald-400 font-bold'
-          : 'bg-(--bg-card) text-(--text-primary)'
-      }`}>
-        <span className="text-sm truncate flex-1">
-          {team2Label}
-        </span>
-        <span className="font-mono text-sm ml-2">
-          {match.team2_score ?? '-'}
-        </span>
-      </div>
-    </div>
-  )
-}

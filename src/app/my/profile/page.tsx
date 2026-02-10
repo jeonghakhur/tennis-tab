@@ -169,8 +169,9 @@ export default function MyProfilePage() {
 
   const entryStatusLabels: Record<string, string> = {
     PENDING: "대기 중",
-    APPROVED: "승인됨",
-    REJECTED: "거부됨",
+    CONFIRMED: "승인됨",
+    WAITLISTED: "대기",
+    CANCELLED: "취소됨",
   };
 
   const tournamentStatusLabels: Record<string, string> = {
@@ -301,447 +302,491 @@ export default function MyProfilePage() {
 
           {/* 통계 카드 */}
           {stats && (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.tournaments}
-                </div>
-                <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  참가 대회
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.totalMatches}
-                </div>
-                <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  총 경기
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.wins}
-                </div>
-                <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  승리
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {stats.losses}
-                </div>
-                <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  패배
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.winRate}%
-                </div>
-                <div className="text-sm" style={{ color: "var(--text-muted)" }}>
-                  승률
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* 탭 메뉴 */}
-          <div
-            className="flex gap-2 mb-6 border-b"
-            style={{ borderColor: "var(--border-color)" }}
-          >
-            <button
-              onClick={() => setActiveTab("profile")}
-              className={`px-6 py-3 font-display tracking-wider ${
-                activeTab === "profile" ? "border-b-2" : ""
-              }`}
-              style={{
-                borderColor:
-                  activeTab === "profile"
-                    ? "var(--accent-color)"
-                    : "transparent",
-                color:
-                  activeTab === "profile"
-                    ? "var(--accent-color)"
-                    : "var(--text-muted)",
-              }}
-            >
-              프로필
-            </button>
-            <button
-              onClick={() => setActiveTab("tournaments")}
-              className={`px-6 py-3 font-display tracking-wider ${
-                activeTab === "tournaments" ? "border-b-2" : ""
-              }`}
-              style={{
-                borderColor:
-                  activeTab === "tournaments"
-                    ? "var(--accent-color)"
-                    : "transparent",
-                color:
-                  activeTab === "tournaments"
-                    ? "var(--accent-color)"
-                    : "var(--text-muted)",
-              }}
-            >
-              참가 대회 ({tournaments.length})
-            </button>
-            <button
-              onClick={() => setActiveTab("matches")}
-              className={`px-6 py-3 font-display tracking-wider ${
-                activeTab === "matches" ? "border-b-2" : ""
-              }`}
-              style={{
-                borderColor:
-                  activeTab === "matches"
-                    ? "var(--accent-color)"
-                    : "transparent",
-                color:
-                  activeTab === "matches"
-                    ? "var(--accent-color)"
-                    : "var(--text-muted)",
-              }}
-            >
-              경기 결과 ({matches.length})
-            </button>
-          </div>
-
-          {/* 프로필 탭 */}
-          {activeTab === "profile" && (
-            <div className="space-y-4">
-              <div className="glass-card p-6">
-                <h3
-                  className="text-xl font-display mb-4"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  기본 정보
-                </h3>
-                <div className="space-y-3">
+            <div>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+                <div className="glass-card p-6 text-center">
                   <div
-                    className="flex justify-between py-2 border-b"
-                    style={{ borderColor: "var(--border-color)" }}
+                    className="text-3xl font-display mb-2"
+                    style={{ color: "var(--accent-color)" }}
                   >
-                    <span style={{ color: "var(--text-muted)" }}>이메일</span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.email}
-                    </span>
+                    {stats.tournaments}
                   </div>
                   <div
-                    className="flex justify-between py-2 border-b"
-                    style={{ borderColor: "var(--border-color)" }}
-                  >
-                    <span style={{ color: "var(--text-muted)" }}>연락처</span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.phone ? formatPhoneNumber(profile.phone) : "미등록"}
-                    </span>
-                  </div>
-                  <div
-                    className="flex justify-between py-2 border-b"
-                    style={{ borderColor: "var(--border-color)" }}
-                  >
-                    <span style={{ color: "var(--text-muted)" }}>입문 년도</span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.start_year || "미등록"}
-                    </span>
-                  </div>
-                  <div
-                    className="flex justify-between py-2 border-b"
-                    style={{ borderColor: "var(--border-color)" }}
-                  >
-                    <span style={{ color: "var(--text-muted)" }}>실력 점수</span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.rating ? `${profile.rating}점` : "미등록"}
-                    </span>
-                  </div>
-                  <div
-                    className="flex justify-between py-2 border-b"
-                    style={{ borderColor: "var(--border-color)" }}
-                  >
-                    <span style={{ color: "var(--text-muted)" }}>
-                      소속 클럽
-                    </span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.club || "미등록"}
-                    </span>
-                  </div>
-                  <div className="flex justify-between py-2">
-                    <span style={{ color: "var(--text-muted)" }}>
-                      클럽 지역
-                    </span>
-                    <span style={{ color: "var(--text-primary)" }}>
-                      {profile.club_city && profile.club_district
-                        ? `${profile.club_city} ${profile.club_district}`
-                        : profile.club_city
-                          ? profile.club_city
-                          : "미등록"}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 팔로워 섹션 (추후 구현 예정) */}
-              <div className="glass-card p-6">
-                <h3
-                  className="text-xl font-display mb-4"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  팔로워
-                </h3>
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div
-                    className="text-center py-4 rounded-lg"
-                    style={{ backgroundColor: "var(--bg-card-hover)" }}
-                  >
-                    <div
-                      className="text-2xl font-display mb-1"
-                      style={{ color: "var(--accent-color)" }}
-                    >
-                      0
-                    </div>
-                    <div
-                      className="text-sm"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      팔로워
-                    </div>
-                  </div>
-                  <div
-                    className="text-center py-4 rounded-lg"
-                    style={{ backgroundColor: "var(--bg-card-hover)" }}
-                  >
-                    <div
-                      className="text-2xl font-display mb-1"
-                      style={{ color: "var(--accent-color)" }}
-                    >
-                      0
-                    </div>
-                    <div
-                      className="text-sm"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      팔로잉
-                    </div>
-                  </div>
-                </div>
-                <p
-                  className="text-sm text-center"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  팔로워 기능은 추후 업데이트 예정입니다
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* 참가 대회 탭 */}
-          {activeTab === "tournaments" && (
-            <div className="space-y-4">
-              {tournaments.length === 0 ? (
-                <div className="glass-card p-12 text-center">
-                  <p
-                    className="text-lg mb-4"
+                    className="text-sm"
                     style={{ color: "var(--text-muted)" }}
                   >
-                    아직 참가한 대회가 없습니다
-                  </p>
-                  <Link
-                    href="/tournaments"
-                    className="inline-block px-6 py-2 rounded-lg font-display tracking-wider hover:opacity-90"
-                    style={{
-                      backgroundColor: "var(--accent-color)",
-                      color: "var(--bg-primary)",
-                    }}
-                  >
-                    대회 찾아보기
-                  </Link>
+                    참가 대회
+                  </div>
                 </div>
-              ) : (
-                tournaments.map((entry) => (
-                  <div key={entry.id} className="glass-card p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3
-                          className="text-xl font-display mb-2"
-                          style={{ color: "var(--text-primary)" }}
+                <div className="glass-card p-6 text-center">
+                  <div
+                    className="text-3xl font-display mb-2"
+                    style={{ color: "var(--accent-color)" }}
+                  >
+                    {stats.totalMatches}
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    총 경기
+                  </div>
+                </div>
+                <div className="glass-card p-6 text-center">
+                  <div
+                    className="text-3xl font-display mb-2"
+                    style={{ color: "var(--accent-color)" }}
+                  >
+                    {stats.wins}
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    승리
+                  </div>
+                </div>
+                <div className="glass-card p-6 text-center">
+                  <div
+                    className="text-3xl font-display mb-2"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {stats.losses}
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    패배
+                  </div>
+                </div>
+                <div className="glass-card p-6 text-center">
+                  <div
+                    className="text-3xl font-display mb-2"
+                    style={{ color: "var(--accent-color)" }}
+                  >
+                    {stats.winRate}%
+                  </div>
+                  <div
+                    className="text-sm"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    승률
+                  </div>
+                </div>
+              </div>
+              {/* 탭 메뉴 */}
+              <div
+                className="flex gap-2 mb-6 border-b"
+                style={{ borderColor: "var(--border-color)" }}
+              >
+                <button
+                  onClick={() => setActiveTab("profile")}
+                  className={`px-6 py-3 font-display tracking-wider ${
+                    activeTab === "profile" ? "border-b-2" : ""
+                  }`}
+                  style={{
+                    borderColor:
+                      activeTab === "profile"
+                        ? "var(--accent-color)"
+                        : "transparent",
+                    color:
+                      activeTab === "profile"
+                        ? "var(--accent-color)"
+                        : "var(--text-muted)",
+                  }}
+                >
+                  프로필
+                </button>
+                <button
+                  onClick={() => setActiveTab("tournaments")}
+                  className={`px-6 py-3 font-display tracking-wider ${
+                    activeTab === "tournaments" ? "border-b-2" : ""
+                  }`}
+                  style={{
+                    borderColor:
+                      activeTab === "tournaments"
+                        ? "var(--accent-color)"
+                        : "transparent",
+                    color:
+                      activeTab === "tournaments"
+                        ? "var(--accent-color)"
+                        : "var(--text-muted)",
+                  }}
+                >
+                  참가 대회 ({tournaments.length})
+                </button>
+                <button
+                  onClick={() => setActiveTab("matches")}
+                  className={`px-6 py-3 font-display tracking-wider ${
+                    activeTab === "matches" ? "border-b-2" : ""
+                  }`}
+                  style={{
+                    borderColor:
+                      activeTab === "matches"
+                        ? "var(--accent-color)"
+                        : "transparent",
+                    color:
+                      activeTab === "matches"
+                        ? "var(--accent-color)"
+                        : "var(--text-muted)",
+                  }}
+                >
+                  경기 결과 ({matches.length})
+                </button>
+              </div>
+              {/* 프로필 탭 */}
+              {activeTab === "profile" && (
+                <div className="space-y-4">
+                  <div className="glass-card p-6">
+                    <h3
+                      className="text-xl font-display mb-4"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      기본 정보
+                    </h3>
+                    <div className="space-y-3">
+                      <div
+                        className="flex justify-between py-2 border-b"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          이메일
+                        </span>
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {profile.email}
+                        </span>
+                      </div>
+                      <div
+                        className="flex justify-between py-2 border-b"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          연락처
+                        </span>
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {profile.phone
+                            ? formatPhoneNumber(profile.phone)
+                            : "미등록"}
+                        </span>
+                      </div>
+                      <div
+                        className="flex justify-between py-2 border-b"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          입문 년도
+                        </span>
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {profile.start_year || "미등록"}
+                        </span>
+                      </div>
+                      <div
+                        className="flex justify-between py-2 border-b"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          실력 점수
+                        </span>
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {profile.rating ? `${profile.rating}점` : "미등록"}
+                        </span>
+                      </div>
+                      <div
+                        className="flex justify-between py-2 border-b"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
+                        <span style={{ color: "var(--text-muted)" }}>
+                          소속 클럽
+                        </span>
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {profile.club || "미등록"}
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span style={{ color: "var(--text-muted)" }}>
+                          클럽 지역
+                        </span>
+                        <span style={{ color: "var(--text-primary)" }}>
+                          {profile.club_city && profile.club_district
+                            ? `${profile.club_city} ${profile.club_district}`
+                            : profile.club_city
+                              ? profile.club_city
+                              : "미등록"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 팔로워 섹션 (추후 구현 예정) */}
+                  <div className="glass-card p-6">
+                    <h3
+                      className="text-xl font-display mb-4"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      팔로워
+                    </h3>
+                    <div className="grid grid-cols-2 gap-4 mb-6">
+                      <div
+                        className="text-center py-4 rounded-lg"
+                        style={{ backgroundColor: "var(--bg-card-hover)" }}
+                      >
+                        <div
+                          className="text-2xl font-display mb-1"
+                          style={{ color: "var(--accent-color)" }}
                         >
-                          {entry.tournament.title}
-                        </h3>
-                        <p
+                          0
+                        </div>
+                        <div
                           className="text-sm"
                           style={{ color: "var(--text-muted)" }}
                         >
-                          📍 {entry.tournament.location}
-                        </p>
+                          팔로워
+                        </div>
                       </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span
-                          className={`px-3 py-1 text-xs rounded-full font-display tracking-wider ${
-                            entry.status === "APPROVED"
-                              ? "badge-open"
-                              : entry.status === "PENDING"
-                                ? "badge-progress"
-                                : "badge-closed"
-                          }`}
+                      <div
+                        className="text-center py-4 rounded-lg"
+                        style={{ backgroundColor: "var(--bg-card-hover)" }}
+                      >
+                        <div
+                          className="text-2xl font-display mb-1"
+                          style={{ color: "var(--accent-color)" }}
                         >
-                          {entryStatusLabels[entry.status]}
-                        </span>
-                        <span
-                          className="text-xs"
+                          0
+                        </div>
+                        <div
+                          className="text-sm"
                           style={{ color: "var(--text-muted)" }}
                         >
-                          {tournamentStatusLabels[entry.tournament.status]}
-                        </span>
+                          팔로잉
+                        </div>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between">
-                      <span
-                        className="text-sm"
+                    <p
+                      className="text-sm text-center"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      팔로워 기능은 추후 업데이트 예정입니다
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* 참가 대회 탭 */}
+              {activeTab === "tournaments" && (
+                <div className="space-y-4">
+                  {tournaments.length === 0 ? (
+                    <div className="glass-card p-12 text-center">
+                      <p
+                        className="text-lg mb-4"
                         style={{ color: "var(--text-muted)" }}
                       >
-                        신청일:{" "}
-                        {new Date(entry.created_at).toLocaleDateString("ko-KR")}
-                      </span>
+                        아직 참가한 대회가 없습니다
+                      </p>
                       <Link
-                        href={`/tournaments/${entry.tournament.id}`}
-                        className="text-sm font-display tracking-wider hover:underline"
-                        style={{ color: "var(--accent-color)" }}
+                        href="/tournaments"
+                        className="inline-block px-6 py-2 rounded-lg font-display tracking-wider hover:opacity-90"
+                        style={{
+                          backgroundColor: "var(--accent-color)",
+                          color: "var(--bg-primary)",
+                        }}
                       >
-                        대회 상세보기 →
+                        대회 찾아보기
                       </Link>
                     </div>
-                  </div>
-                ))
-              )}
-            </div>
-          )}
-
-          {/* 경기 결과 탭 */}
-          {activeTab === "matches" && (
-            <div className="space-y-4">
-              {matches.length === 0 ? (
-                <div className="glass-card p-12 text-center">
-                  <p className="text-lg" style={{ color: "var(--text-muted)" }}>
-                    아직 완료된 경기가 없습니다
-                  </p>
-                </div>
-              ) : (
-                matches.map((match) => {
-                  const isWinner = match.winner?.id === profile.id;
-                  const opponent =
-                    match.player1.id === profile.id
-                      ? match.player2
-                      : match.player1;
-
-                  return (
-                    <div key={match.id} className="glass-card p-6">
-                      <div className="flex items-center justify-between mb-4">
-                        <div className="flex-1">
-                          <h3
-                            className="font-display mb-1"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {match.tournament.title}
-                          </h3>
-                          <p
+                  ) : (
+                    tournaments.map((entry) => (
+                      <div key={entry.id} className="glass-card p-6">
+                        <div className="flex items-start justify-between mb-4">
+                          <div>
+                            <h3
+                              className="text-xl font-display mb-2"
+                              style={{ color: "var(--text-primary)" }}
+                            >
+                              {entry.tournament.title}
+                            </h3>
+                            <p
+                              className="text-sm"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              📍 {entry.tournament.location}
+                            </p>
+                          </div>
+                          <div className="flex flex-col items-end gap-2">
+                            <span
+                              className={`px-3 py-1 text-xs rounded-full font-display tracking-wider ${
+                                entry.status === "CONFIRMED"
+                                  ? "badge-open"
+                                  : entry.status === "PENDING"
+                                    ? "badge-progress"
+                                    : "badge-closed"
+                              }`}
+                            >
+                              {entryStatusLabels[entry.status]}
+                            </span>
+                            <span
+                              className="text-xs"
+                              style={{ color: "var(--text-muted)" }}
+                            >
+                              {tournamentStatusLabels[entry.tournament.status]}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span
                             className="text-sm"
                             style={{ color: "var(--text-muted)" }}
                           >
-                            {new Date(match.completed_at).toLocaleDateString(
+                            신청일:{" "}
+                            {new Date(entry.created_at).toLocaleDateString(
                               "ko-KR",
-                            )}{" "}
-                            · {match.tournament.location}
-                          </p>
-                        </div>
-                        <span
-                          className={`px-4 py-2 rounded-full font-display tracking-wider text-sm ${
-                            isWinner ? "badge-open" : "badge-closed"
-                          }`}
-                        >
-                          {isWinner ? "승리" : "패배"}
-                        </span>
-                      </div>
-
-                      <div
-                        className="flex items-center justify-between py-4 px-6 rounded-lg"
-                        style={{ backgroundColor: "var(--bg-card-hover)" }}
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center font-display text-sm font-bold"
-                            style={{
-                              backgroundColor: "var(--accent-color)",
-                              color: "var(--bg-primary)",
-                            }}
-                          >
-                            {profile.name.charAt(0)}
-                          </div>
-                          <span
-                            className="font-medium"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {profile.name}
-                          </span>
-                        </div>
-
-                        <div className="text-center px-6">
-                          <div
-                            className="text-2xl font-display"
-                            style={{ color: "var(--accent-color)" }}
-                          >
-                            {match.score || "vs"}
-                          </div>
-                        </div>
-
-                        <Link
-                          href={`/users/${opponent.id}`}
-                          className="flex items-center gap-3 hover:opacity-80 transition-opacity"
-                        >
-                          <span
-                            className="font-medium text-right"
-                            style={{ color: "var(--text-primary)" }}
-                          >
-                            {opponent.name}
-                          </span>
-                          <div
-                            className="w-10 h-10 rounded-full flex items-center justify-center font-display text-sm font-bold cursor-pointer"
-                            style={{
-                              backgroundColor: opponent.avatar_url
-                                ? "transparent"
-                                : "var(--bg-card)",
-                              color: "var(--text-secondary)",
-                              border: "2px solid var(--border-color)",
-                            }}
-                          >
-                            {opponent.avatar_url ? (
-                              <img
-                                src={opponent.avatar_url}
-                                alt={opponent.name}
-                                className="w-full h-full rounded-full object-cover"
-                              />
-                            ) : (
-                              <span>{opponent.name.charAt(0)}</span>
                             )}
+                          </span>
+                          <div className="flex items-center gap-3">
+                            {entry.tournament.status === "IN_PROGRESS" && entry.status === "CONFIRMED" && (
+                              <Link
+                                href={`/tournaments/${entry.tournament.id}/bracket`}
+                                className="text-sm font-display tracking-wider px-3 py-1 rounded-lg hover:opacity-90"
+                                style={{
+                                  backgroundColor: "var(--accent-color)",
+                                  color: "var(--bg-primary)",
+                                }}
+                              >
+                                대진표 보기
+                              </Link>
+                            )}
+                            <Link
+                              href={`/tournaments/${entry.tournament.id}`}
+                              className="text-sm font-display tracking-wider hover:underline"
+                              style={{ color: "var(--accent-color)" }}
+                            >
+                              대회 상세보기 →
+                            </Link>
                           </div>
-                        </Link>
+                        </div>
                       </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* 경기 결과 탭 */}
+              {activeTab === "matches" && (
+                <div className="space-y-4">
+                  {matches.length === 0 ? (
+                    <div className="glass-card p-12 text-center">
+                      <p
+                        className="text-lg"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        아직 완료된 경기가 없습니다
+                      </p>
                     </div>
-                  );
-                })
+                  ) : (
+                    matches.map((match) => {
+                      const isWinner = match.winner?.id === profile.id;
+                      const opponent =
+                        match.player1.id === profile.id
+                          ? match.player2
+                          : match.player1;
+
+                      return (
+                        <div key={match.id} className="glass-card p-6">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex-1">
+                              <h3
+                                className="font-display mb-1"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {match.tournament.title}
+                              </h3>
+                              <p
+                                className="text-sm"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                {new Date(
+                                  match.completed_at,
+                                ).toLocaleDateString("ko-KR")}{" "}
+                                · {match.tournament.location}
+                              </p>
+                            </div>
+                            <span
+                              className={`px-4 py-2 rounded-full font-display tracking-wider text-sm ${
+                                isWinner ? "badge-open" : "badge-closed"
+                              }`}
+                            >
+                              {isWinner ? "승리" : "패배"}
+                            </span>
+                          </div>
+
+                          <div
+                            className="flex items-center justify-between py-4 px-6 rounded-lg"
+                            style={{ backgroundColor: "var(--bg-card-hover)" }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-10 h-10 rounded-full flex items-center justify-center font-display text-sm font-bold"
+                                style={{
+                                  backgroundColor: "var(--accent-color)",
+                                  color: "var(--bg-primary)",
+                                }}
+                              >
+                                {profile.name.charAt(0)}
+                              </div>
+                              <span
+                                className="font-medium"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {profile.name}
+                              </span>
+                            </div>
+
+                            <div className="text-center px-6">
+                              <div
+                                className="text-2xl font-display"
+                                style={{ color: "var(--accent-color)" }}
+                              >
+                                {match.score || "vs"}
+                              </div>
+                            </div>
+
+                            <Link
+                              href={`/users/${opponent.id}`}
+                              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+                            >
+                              <span
+                                className="font-medium text-right"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {opponent.name}
+                              </span>
+                              <div
+                                className="w-10 h-10 rounded-full flex items-center justify-center font-display text-sm font-bold cursor-pointer"
+                                style={{
+                                  backgroundColor: opponent.avatar_url
+                                    ? "transparent"
+                                    : "var(--bg-card)",
+                                  color: "var(--text-secondary)",
+                                  border: "2px solid var(--border-color)",
+                                }}
+                              >
+                                {opponent.avatar_url ? (
+                                  <img
+                                    src={opponent.avatar_url}
+                                    alt={opponent.name}
+                                    className="w-full h-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <span>{opponent.name.charAt(0)}</span>
+                                )}
+                              </div>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
               )}
             </div>
           )}

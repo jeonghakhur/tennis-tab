@@ -200,6 +200,7 @@
   --shadow-glow: rgba(204, 255, 0, 0.3);
   --court-green: #ccff00;
   --court-dark: #0a0a0a;
+  --court-info: #06b6d4;
 }
 
 /* Light Theme */
@@ -220,6 +221,7 @@
   --shadow-glow: rgba(45, 90, 39, 0.2);
   --court-green: #2d5a27;
   --court-dark: #fafafa;
+  --court-info: #155e75;
 }
 
 html {

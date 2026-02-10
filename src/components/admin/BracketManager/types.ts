@@ -63,6 +63,8 @@ export interface BracketMatch {
   winner_entry_id: string | null;
   status: MatchStatus;
   sets_detail: SetDetail[] | null;
+  court_location: string | null;
+  court_number: string | null;
   team1?: { id: string; player_name: string; club_name: string | null; partner_data: { name: string; rating: number; club: string | null } | null; team_members: TeamMember[] | null };
   team2?: { id: string; player_name: string; club_name: string | null; partner_data: { name: string; rating: number; club: string | null } | null; team_members: TeamMember[] | null };
 }

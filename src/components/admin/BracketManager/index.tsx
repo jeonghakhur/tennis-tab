@@ -20,6 +20,7 @@ import {
   updateMatchResult,
   autoFillPreliminaryResults,
   autoFillMainBracketResults,
+  batchUpdateMatchCourtInfo,
   deleteBracketConfig,
   deletePreliminaryGroups,
   deletePreliminaryMatches,
@@ -30,6 +31,7 @@ import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
 import { MainBracketTab } from "./MainBracketTab";
 import { MatchDetailModal } from "./MatchDetailModal";
+import type { CourtInfoUpdate } from "@/lib/bracket/actions";
 import type {
   BracketManagerProps,
   BracketConfig,
@@ -266,6 +268,23 @@ export function BracketManager({
       }
     } catch {
       showError("오류", "자동 결과 입력 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCourtBatchSave = async (updates: CourtInfoUpdate[]) => {
+    setLoading(true);
+    try {
+      const { error } = await batchUpdateMatchCourtInfo(updates);
+      if (error) {
+        showError("코트 정보 실패", error);
+      } else {
+        await loadBracketData();
+        showSuccess("코트 정보가 저장되었습니다.");
+      }
+    } catch {
+      showError("오류", "코트 정보 업데이트 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
@@ -537,6 +556,7 @@ export function BracketManager({
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={handleOpenDetail}
+                onCourtBatchSave={handleCourtBatchSave}
               />
             )}
 
@@ -551,6 +571,7 @@ export function BracketManager({
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={handleOpenDetail}
+                onCourtBatchSave={handleCourtBatchSave}
               />
             )}
           </div>

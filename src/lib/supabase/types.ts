@@ -37,6 +37,7 @@ export interface PartnerData {
 export interface TeamMember {
   name: string
   rating: number
+  club?: string | null
 }
 
 // 단체전 세트별 상세 결과
@@ -477,6 +478,8 @@ export interface Database {
           completed_at: string | null
           notes: string | null
           sets_detail: Json | null
+          court_location: string | null
+          court_number: string | null
           created_at: string
           updated_at: string
         }
@@ -502,6 +505,8 @@ export interface Database {
           completed_at?: string | null
           notes?: string | null
           sets_detail?: Json | null
+          court_location?: string | null
+          court_number?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -527,6 +532,8 @@ export interface Database {
           completed_at?: string | null
           notes?: string | null
           sets_detail?: Json | null
+          court_location?: string | null
+          court_number?: string | null
           updated_at?: string
         }
       }
