@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Trophy, Save, ChevronRight, MapPin } from "lucide-react";
+import { Trophy, Save, MapPin } from "lucide-react";
 import { MatchRow } from "./MatchRow";
 import type { BracketConfig, BracketMatch } from "./types";
 import { phaseLabels } from "./types";
@@ -23,7 +23,6 @@ interface MainBracketTabProps {
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
   onCourtBatchSave?: (updates: CourtInfoUpdate[]) => void;
-  onRefresh?: () => void;
 }
 
 const PHASE_ORDER: MatchPhase[] = [
@@ -48,7 +47,6 @@ export function MainBracketTab({
   isTeamMatch,
   onOpenDetail,
   onCourtBatchSave,
-  onRefresh,
 }: MainBracketTabProps) {
 
   // 코트 정보 상태
@@ -56,9 +54,6 @@ export function MainBracketTab({
     Record<string, { location: string; number: string }>
   >({});
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
-
-  // "다음 대진표 작성" 펼침 상태 (phase별)
-  const [expandedNextPhase, setExpandedNextPhase] = useState<MatchPhase | null>(null);
 
   // matches 갱신 시 동기화
   useEffect(() => {
@@ -113,35 +108,6 @@ export function MainBracketTab({
     [matches],
   );
 
-  // 현재 대진표에 존재하는 phase 순서
-  const activePhases = useMemo(
-    () => PHASE_ORDER.filter((p) => matchesByPhase[p]?.length > 0),
-    [matchesByPhase],
-  );
-
-  // 팀 이름 헬퍼
-  const getTeamLabel = (match: BracketMatch, slot: "team1" | "team2") => {
-    const team = match[slot];
-    if (!team) return "TBD";
-    if (team.partner_data) {
-      return `${team.player_name} & ${team.partner_data.name}`;
-    }
-    if (isTeamMatch) {
-      return team.club_name || team.player_name || "TBD";
-    }
-    return team.club_name
-      ? `${team.club_name} ${team.player_name}`
-      : team.player_name || "TBD";
-  };
-
-  // "다음 대진표 작성" — 데이터 갱신 후 펼침 닫기
-  const handleNextPhaseConfirm = () => {
-    setExpandedNextPhase(null);
-    if (onRefresh) {
-      onRefresh();
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -180,7 +146,7 @@ export function MainBracketTab({
         </div>
       ) : (
         <div className="space-y-6">
-          {PHASE_ORDER.map((phase, phaseIdx) => {
+          {PHASE_ORDER.map((phase) => {
             const phaseMatches = matchesByPhase[phase];
             if (!phaseMatches || phaseMatches.length === 0) return null;
 
@@ -199,28 +165,6 @@ export function MainBracketTab({
             const allCompleted = phaseMatches.every(
               (m) => m.status === "COMPLETED" || m.status === "BYE",
             );
-
-            // 다음 라운드 찾기
-            const currentPhaseIndex = activePhases.indexOf(phase);
-            const nextPhase =
-              currentPhaseIndex >= 0 && currentPhaseIndex < activePhases.length - 1
-                ? activePhases[currentPhaseIndex + 1]
-                : null;
-
-            // 다음 라운드에 양팀 배정된 미완료 경기가 있는지
-            const nextPhaseMatches = nextPhase ? matchesByPhase[nextPhase] || [] : [];
-            const nextPhaseHasReadyMatches = nextPhaseMatches.some(
-              (m) =>
-                m.status === "SCHEDULED" &&
-                m.team1_entry_id &&
-                m.team2_entry_id,
-            );
-
-            // "다음 대진표 작성" 버튼 표시 조건:
-            // 현재 라운드 모두 완료 + 다음 라운드가 존재 + 다음 라운드에 배정된 경기가 있음
-            const showNextPhaseButton = allCompleted && nextPhase && nextPhaseHasReadyMatches;
-
-            const isNextPhaseExpanded = expandedNextPhase === nextPhase;
 
             return (
               <div key={phase}>
@@ -272,72 +216,6 @@ export function MainBracketTab({
                     />
                   ))}
                 </div>
-
-                {/* 다음 대진표 작성 버튼 */}
-                {showNextPhaseButton && nextPhase && (
-                  <div className="mt-4">
-                    {!isNextPhaseExpanded ? (
-                      <button
-                        onClick={() => setExpandedNextPhase(nextPhase)}
-                        className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-(--accent-color)/10 text-(--accent-color) hover:bg-(--accent-color)/20 border-2 border-dashed border-(--accent-color)/40 transition-all font-medium"
-                      >
-                        <ChevronRight className="w-5 h-5" />
-                        다음 대진표 작성 ({phaseLabels[nextPhase]})
-                      </button>
-                    ) : (
-                      <div className="rounded-xl border-2 border-(--accent-color)/40 bg-(--accent-color)/5 overflow-hidden">
-                        {/* 헤더 */}
-                        <div className="px-4 py-3 bg-(--accent-color)/10 flex items-center justify-between">
-                          <h4 className="font-semibold text-(--accent-color) flex items-center gap-2">
-                            <ChevronRight className="w-5 h-5" />
-                            {phaseLabels[nextPhase]} 대진
-                            <span className="text-sm font-normal opacity-70">
-                              ({nextPhaseMatches.filter((m) => m.team1_entry_id && m.team2_entry_id).length}경기)
-                            </span>
-                          </h4>
-                          <button
-                            onClick={() => setExpandedNextPhase(null)}
-                            className="text-sm text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                          >
-                            접기
-                          </button>
-                        </div>
-
-                        {/* 다음 라운드 대진 미리보기 */}
-                        <div className="p-4 space-y-3">
-                          {nextPhaseMatches
-                            .filter((m) => m.team1_entry_id && m.team2_entry_id)
-                            .map((match) => (
-                              <div
-                                key={match.id}
-                                className="flex items-center gap-3 p-3 rounded-lg bg-(--bg-secondary) border border-(--border-color)"
-                              >
-                                <span className="text-xs text-(--text-muted) w-8">
-                                  #{match.match_number}
-                                </span>
-                                <span className="flex-1 text-right text-sm font-medium text-(--text-primary)">
-                                  {getTeamLabel(match, "team1")}
-                                </span>
-                                <span className="text-(--text-muted) text-sm">vs</span>
-                                <span className="flex-1 text-left text-sm font-medium text-(--text-primary)">
-                                  {getTeamLabel(match, "team2")}
-                                </span>
-                              </div>
-                            ))}
-
-                          {/* 확인 버튼 */}
-                          <button
-                            onClick={handleNextPhaseConfirm}
-                            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-(--accent-color) text-white font-medium hover:opacity-90 transition-opacity"
-                          >
-                            <ChevronRight className="w-5 h-5" />
-                            {phaseLabels[nextPhase]} 진행하기
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                )}
               </div>
             );
           })}
