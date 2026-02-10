@@ -32,18 +32,28 @@ export function MatchRow({ match, onResult, onTieWarning, isTeamMatch, onOpenDet
     setEditing(false);
   };
 
-  // 단체전: 팀명만, 개인전: 클럽명 + 선수명
-  const team1Label = isTeamMatch
-    ? match.team1?.club_name || match.team1?.player_name || "TBD"
-    : match.team1?.club_name
-      ? `${match.team1.club_name} ${match.team1.player_name}`
-      : match.team1?.player_name || "TBD";
+  // 복식: 파트너 이름만 (클럽명 제외), 단체전: 팀명, 단식: 클럽명 + 선수명
+  const getTeamLabel = (team: BracketMatch['team1'] | BracketMatch['team2']) => {
+    if (!team) return "TBD";
 
-  const team2Label = isTeamMatch
-    ? match.team2?.club_name || match.team2?.player_name || "TBD"
-    : match.team2?.club_name
-      ? `${match.team2.club_name} ${match.team2.player_name}`
-      : match.team2?.player_name || "TBD";
+    // 복식: partner_data가 있으면 "Player & Partner" 형식
+    if (team.partner_data) {
+      return `${team.player_name} & ${team.partner_data.name}`;
+    }
+
+    // 단체전: 팀명 우선
+    if (isTeamMatch) {
+      return team.club_name || team.player_name || "TBD";
+    }
+
+    // 단식: 클럽명 + 선수명
+    return team.club_name
+      ? `${team.club_name} ${team.player_name}`
+      : team.player_name || "TBD";
+  };
+
+  const team1Label = getTeamLabel(match.team1);
+  const team2Label = getTeamLabel(match.team2);
 
   if (match.status === "BYE") {
     return (

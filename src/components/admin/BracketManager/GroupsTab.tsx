@@ -353,16 +353,26 @@ function SortableTeam({ team, index }: { team: GroupTeam; index: number }) {
         {index + 1}
       </span>
       <div className="flex-1 min-w-0">
-        {team.entry?.club_name && (
+        {team.entry?.partner_data ? (
+          // 복식: 파트너 이름만 표시 (클럽명 제외)
           <p className="text-sm font-medium text-(--text-primary) truncate">
-            {team.entry.club_name}
+            {team.entry.player_name} & {team.entry.partner_data.name}
           </p>
+        ) : (
+          // 단식/단체전: 기존 형식 유지
+          <>
+            {team.entry?.club_name && (
+              <p className="text-sm font-medium text-(--text-primary) truncate">
+                {team.entry.club_name}
+              </p>
+            )}
+            <p
+              className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+            >
+              {team.entry?.player_name}
+            </p>
+          </>
         )}
-        <p
-          className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
-        >
-          {team.entry?.player_name}
-        </p>
       </div>
     </div>
   );

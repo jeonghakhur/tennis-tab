@@ -43,6 +43,7 @@ export interface GroupTeam {
     id: string
     player_name: string
     club_name: string | null
+    partner_data: { name: string; rating: number; club: string | null } | null
   }
 }
 
@@ -71,11 +72,13 @@ export interface BracketMatch {
     id: string
     player_name: string
     club_name: string | null
+    partner_data: { name: string; rating: number; club: string | null } | null
   }
   team2?: {
     id: string
     player_name: string
     club_name: string | null
+    partner_data: { name: string; rating: number; club: string | null } | null
   }
 }
 
@@ -504,7 +507,7 @@ export async function getPreliminaryGroups(configId: string) {
       *,
       group_teams (
         *,
-        entry:tournament_entries (id, player_name, club_name)
+        entry:tournament_entries (id, player_name, club_name, partner_data)
       )
     `)
     .eq('bracket_config_id', configId)
@@ -632,8 +635,8 @@ export async function getPreliminaryMatches(configId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_members),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_members)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, partner_data, team_members),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, partner_data, team_members)
     `)
     .eq('bracket_config_id', configId)
     .eq('phase', 'PRELIMINARY')
@@ -1203,8 +1206,8 @@ export async function getMainBracketMatches(configId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_members),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_members)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, partner_data, team_members),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, partner_data, team_members)
     `)
     .eq('bracket_config_id', configId)
     .neq('phase', 'PRELIMINARY')
@@ -1240,7 +1243,7 @@ export async function getBracketData(divisionId: string) {
         *,
         group_teams (
           *,
-          entry:tournament_entries (id, player_name, club_name)
+          entry:tournament_entries (id, player_name, club_name, partner_data)
         )
       `)
       .eq('bracket_config_id', config.id)
