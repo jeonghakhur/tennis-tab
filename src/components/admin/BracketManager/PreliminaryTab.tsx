@@ -9,13 +9,13 @@ import type { CourtInfoUpdate } from "@/lib/bracket/actions";
 interface PreliminaryTabProps {
   groups: PreliminaryGroup[];
   matches: BracketMatch[];
-  onMatchResult: (
+  onMatchResult?: (
     matchId: string,
     team1Score: number,
     team2Score: number,
   ) => void;
-  onAutoFill: () => void;
-  onDelete: () => void;
+  onAutoFill?: () => void;
+  onDelete?: () => void;
   onTieWarning: () => void;
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
@@ -87,7 +87,7 @@ export function PreliminaryTab({
           예선 경기
         </h3>
         <div className="flex gap-2">
-          {hasScheduledMatches && process.env.NODE_ENV === "development" && (
+          {onAutoFill && hasScheduledMatches && process.env.NODE_ENV === "development" && (
             <button
               onClick={onAutoFill}
               className="px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-sm font-medium"
@@ -95,7 +95,7 @@ export function PreliminaryTab({
               자동 결과 입력 (DEV)
             </button>
           )}
-          {matches.length > 0 && (
+          {onDelete && matches.length > 0 && (
             <button
               onClick={onDelete}
               className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"

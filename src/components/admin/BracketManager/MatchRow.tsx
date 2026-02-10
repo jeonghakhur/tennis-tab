@@ -6,7 +6,7 @@ import type { BracketMatch } from "./types";
 
 interface MatchRowProps {
   match: BracketMatch;
-  onResult: (matchId: string, team1Score: number, team2Score: number) => void;
+  onResult?: (matchId: string, team1Score: number, team2Score: number) => void;
   onTieWarning: () => void;
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
@@ -41,7 +41,7 @@ export function MatchRow({
       onTieWarning();
       return;
     }
-    onResult(match.id, s1, s2);
+    onResult?.(match.id, s1, s2);
     setEditing(false);
   };
 
@@ -109,7 +109,7 @@ export function MatchRow({
           <button
             onClick={() => onOpenDetail(match)}
             className="flex items-center gap-1 px-3 py-1 rounded-lg bg-(--bg-card) hover:bg-(--bg-card-hover) transition-colors"
-            disabled={!match.team1_entry_id || !match.team2_entry_id}
+            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
           >
             <span className="text-(--text-primary) font-mono">
               {match.team1_score ?? "-"}
@@ -145,14 +145,14 @@ export function MatchRow({
           </div>
         ) : (
           <button
-            onClick={() => setEditing(true)}
+            onClick={() => onResult && setEditing(true)}
             className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
-              match.team1_entry_id && match.team2_entry_id
+              onResult && match.team1_entry_id && match.team2_entry_id
                 ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer"
                 : "bg-(--bg-card) opacity-50 cursor-not-allowed"
             }`}
-            disabled={!match.team1_entry_id || !match.team2_entry_id}
-            title={match.status === "COMPLETED" ? "클릭하여 수정" : undefined}
+            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
+            title={!onResult ? undefined : match.status === "COMPLETED" ? "클릭하여 수정" : undefined}
           >
             <span className="text-(--text-primary) font-mono">
               {match.team1_score ?? "-"}

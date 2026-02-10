@@ -41,6 +41,7 @@ import type {
   BracketMatch,
   SetDetail,
 } from "./types";
+import { CLOSED_TOURNAMENT_STATUSES } from "./types";
 
 type TabType = "settings" | "groups" | "preliminary" | "main";
 
@@ -49,9 +50,12 @@ export function BracketManager({
   divisions,
   teamMatchCount,
   matchType,
+  tournamentStatus,
 }: BracketManagerProps) {
   // 단체전 여부 판별
   const isTeamMatch = matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES";
+  // 마감된 대회 여부 — 마감 시 모든 수정 UI 비활성화
+  const isClosed = CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus);
   const [selectedDivision, setSelectedDivision] = useState(
     divisions.length > 0 ? divisions[0] : null,
   );
@@ -614,11 +618,17 @@ export function BracketManager({
               activeTab === "groups" ? "bg-(--bg-card)" : "glass-card"
             }`}
           >
+            {isClosed && (
+              <div className="mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium">
+                마감된 대회입니다. 대진표를 수정할 수 없습니다.
+              </div>
+            )}
+
             {activeTab === "settings" && (
               <SettingsTab
                 config={config}
-                onUpdate={handleConfigUpdate}
-                onDelete={() => setShowDeleteBracketConfirm(true)}
+                onUpdate={isClosed ? undefined : handleConfigUpdate}
+                onDelete={isClosed ? undefined : () => setShowDeleteBracketConfirm(true)}
               />
             )}
 
@@ -626,7 +636,7 @@ export function BracketManager({
               <GroupsTab
                 groups={groups}
                 hasPreliminary={config.has_preliminaries}
-                onAutoGenerate={() => {
+                onAutoGenerate={isClosed ? undefined : () => {
                   setAutoGenerateConfirmMessage(
                     groups.length > 0
                       ? `자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`
@@ -634,10 +644,10 @@ export function BracketManager({
                   );
                   setShowAutoGenerateConfirm(true);
                 }}
-                onGenerateMatches={() => setShowGeneratePrelimConfirm(true)}
-                onGenerateMainBracket={() => setShowGenerateMainConfirm(true)}
-                onDelete={() => setShowDeleteGroupsConfirm(true)}
-                onTeamMove={loadBracketData}
+                onGenerateMatches={isClosed ? undefined : () => setShowGeneratePrelimConfirm(true)}
+                onGenerateMainBracket={isClosed ? undefined : () => setShowGenerateMainConfirm(true)}
+                onDelete={isClosed ? undefined : () => setShowDeleteGroupsConfirm(true)}
+                onTeamMove={isClosed ? undefined : loadBracketData}
                 onError={(msg) => showError("오류", msg)}
               />
             )}
@@ -646,13 +656,13 @@ export function BracketManager({
               <PreliminaryTab
                 groups={groups}
                 matches={preliminaryMatches}
-                onMatchResult={handleMatchResult}
-                onAutoFill={handleAutoFillPreliminary}
-                onDelete={() => setShowDeletePrelimConfirm(true)}
+                onMatchResult={isClosed ? undefined : handleMatchResult}
+                onAutoFill={isClosed ? undefined : handleAutoFillPreliminary}
+                onDelete={isClosed ? undefined : () => setShowDeletePrelimConfirm(true)}
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
-                onOpenDetail={handleOpenDetail}
-                onCourtBatchSave={handleCourtBatchSave}
+                onOpenDetail={isClosed ? undefined : handleOpenDetail}
+                onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
               />
             )}
 
@@ -660,14 +670,14 @@ export function BracketManager({
               <MainBracketTab
                 config={config}
                 matches={mainMatches}
-                onGenerateBracket={() => setShowGenerateMainConfirm(true)}
-                onAutoFillPhase={handleAutoFillMainPhase}
-                onMatchResult={handleMatchResult}
-                onDelete={() => setShowDeleteMainConfirm(true)}
+                onGenerateBracket={isClosed ? undefined : () => setShowGenerateMainConfirm(true)}
+                onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
+                onMatchResult={isClosed ? undefined : handleMatchResult}
+                onDelete={isClosed ? undefined : () => setShowDeleteMainConfirm(true)}
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
-                onOpenDetail={handleOpenDetail}
-                onCourtBatchSave={handleCourtBatchSave}
+                onOpenDetail={isClosed ? undefined : handleOpenDetail}
+                onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
               />
             )}
           </div>

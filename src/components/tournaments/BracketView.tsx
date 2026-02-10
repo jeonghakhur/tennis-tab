@@ -6,13 +6,16 @@ import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
 import { useMatchesRealtime, type RealtimeMatchPayload } from '@/lib/realtime/useMatchesRealtime'
 import { ScoreInputModal } from '@/components/tournaments/ScoreInputModal'
 import { Toast } from '@/components/common/AlertDialog'
-import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail } from '@/lib/supabase/types'
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TournamentStatus } from '@/lib/supabase/types'
 
 interface Division {
   id: string
   name: string
   max_teams: number | null
 }
+
+/** 대회가 마감되어 점수 입력 불가한 상태 */
+const CLOSED_TOURNAMENT_STATUSES: TournamentStatus[] = ['COMPLETED', 'CANCELLED']
 
 interface BracketViewProps {
   tournamentId: string
@@ -21,6 +24,7 @@ interface BracketViewProps {
   currentUserEntryIds?: string[]
   matchType?: MatchType | null
   teamMatchCount?: number | null
+  tournamentStatus: TournamentStatus
 }
 
 interface BracketConfig {
@@ -86,7 +90,8 @@ const phaseLabels: Record<MatchPhase, string> = {
   THIRD_PLACE: '3/4위전',
 }
 
-export function BracketView({ tournamentId, divisions, currentUserEntryIds, matchType, teamMatchCount }: BracketViewProps) {
+export function BracketView({ tournamentId, divisions, currentUserEntryIds, matchType, teamMatchCount, tournamentStatus }: BracketViewProps) {
+  const isClosed = CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus)
   const [selectedDivision, setSelectedDivision] = useState<Division | null>(
     divisions.length > 0 ? divisions[0] : null
   )
@@ -305,14 +310,14 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
               groups={groups || []}
               matches={preliminaryMatches}
               currentUserEntryIds={currentUserEntryIds}
-              onScoreInput={setScoreModalMatch}
+              onScoreInput={isClosed ? undefined : setScoreModalMatch}
             />
           ) : (
             <MainBracketView
               config={config}
               matches={mainMatches}
               currentUserEntryIds={currentUserEntryIds}
-              onScoreInput={setScoreModalMatch}
+              onScoreInput={isClosed ? undefined : setScoreModalMatch}
             />
           )}
         </>

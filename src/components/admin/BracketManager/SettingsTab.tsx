@@ -4,11 +4,13 @@ import type { BracketConfig } from "./types";
 
 interface SettingsTabProps {
   config: BracketConfig;
-  onUpdate: (updates: Partial<BracketConfig>) => void;
-  onDelete: () => void;
+  onUpdate?: (updates: Partial<BracketConfig>) => void;
+  onDelete?: () => void;
 }
 
 export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
+  const readOnly = !onUpdate;
+
   return (
     <div className="space-y-6">
       <h3 className="font-display text-lg font-semibold text-(--text-primary)">
@@ -16,12 +18,12 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
       </h3>
 
       <div className="space-y-4">
-        <label className="flex items-center gap-3 cursor-pointer">
+        <label className={`flex items-center gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
           <input
             type="checkbox"
             checked={config.has_preliminaries}
-            onChange={(e) => onUpdate({ has_preliminaries: e.target.checked })}
-            disabled={config.status !== "DRAFT"}
+            onChange={(e) => onUpdate?.({ has_preliminaries: e.target.checked })}
+            disabled={readOnly || config.status !== "DRAFT"}
             className="w-5 h-5 rounded border-(--border-color) text-(--accent-color) focus:ring-(--accent-color)"
           />
           <span className="text-(--text-primary)">예선전 진행</span>
@@ -33,8 +35,8 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
             {[2, 3].map((size) => (
               <button
                 key={size}
-                onClick={() => onUpdate({ group_size: size })}
-                disabled={config.status !== "DRAFT"}
+                onClick={() => onUpdate?.({ group_size: size })}
+                disabled={readOnly || config.status !== "DRAFT"}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                   config.group_size === size
                     ? "bg-(--accent-color) text-(--bg-primary)"
@@ -52,12 +54,12 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
           </p>
         </div>
 
-        <label className="flex items-center gap-3 cursor-pointer">
+        <label className={`flex items-center gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
           <input
             type="checkbox"
             checked={config.third_place_match}
-            onChange={(e) => onUpdate({ third_place_match: e.target.checked })}
-            disabled={config.status === "COMPLETED"}
+            onChange={(e) => onUpdate?.({ third_place_match: e.target.checked })}
+            disabled={readOnly || config.status === "COMPLETED"}
             className="w-5 h-5 rounded border-(--border-color) text-(--accent-color) focus:ring-(--accent-color)"
           />
           <span className="text-(--text-primary)">3/4위전 진행</span>
@@ -94,18 +96,20 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
         )}
       </div>
 
-      <div className="pt-4 border-t border-(--border-color)">
-        <button
-          onClick={onDelete}
-          className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
-        >
-          전체 대진표 설정 삭제
-        </button>
-        <p className="text-xs text-(--text-muted) mt-2">
-          모든 조 편성, 예선, 본선 데이터가 영구적으로 삭제되며, 대진표 설정이
-          초기화됩니다.
-        </p>
-      </div>
+      {onDelete && (
+        <div className="pt-4 border-t border-(--border-color)">
+          <button
+            onClick={onDelete}
+            className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+          >
+            전체 대진표 설정 삭제
+          </button>
+          <p className="text-xs text-(--text-muted) mt-2">
+            모든 조 편성, 예선, 본선 데이터가 영구적으로 삭제되며, 대진표 설정이
+            초기화됩니다.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

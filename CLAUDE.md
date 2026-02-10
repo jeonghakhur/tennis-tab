@@ -39,6 +39,31 @@ CLAUDE.md
 ❌ 중첩 삼항연산자 (if-else 사용)
 ❌ 거대한 컴포넌트 (단일책임원칙 준수)
 ❌ 주석없는 복잡한 로직
+❌ `setState(fn)` 내부에서 외부 변수 설정 후 외부에서 참조 (아래 React 18 Batching 주의사항 참조)
+
+# React 18 Batching 주의사항
+
+`setState`의 함수형 업데이터 내부에서 외부 변수를 설정하고, 그 값을 `setState` 호출 후에 참조하는 패턴은 **React 18 automatic batching에서 안전하지 않다.**
+
+React 18에서 setState 큐에 pending 업데이트가 있으면 함수형 업데이터의 eager 실행이 skip되어, 업데이터가 렌더 시점까지 지연 실행된다. 특히 WebSocket(Supabase Realtime 등) 콜백처럼 짧은 시간에 여러 setState가 연속 호출되는 상황에서 문제가 된다.
+
+```tsx
+// ❌ 위험한 패턴 — needsRefetch가 항상 false일 수 있음
+let needsRefetch = false
+setState((prev) => {
+  if (someCondition(prev)) needsRefetch = true // ← 지연 실행될 수 있음
+  return newState
+})
+if (needsRefetch) doSomething() // ← 항상 false!
+
+// ✅ 안전한 패턴 — ref로 현재 상태를 동기적으로 비교
+const stateRef = useRef(state)
+stateRef.current = state
+
+const needsRefetch = someCondition(stateRef.current) // ← 즉시 평가
+setState((prev) => newState)
+if (needsRefetch) doSomething() // ← 정확한 값
+```
 
 # Preferred Patterns
 

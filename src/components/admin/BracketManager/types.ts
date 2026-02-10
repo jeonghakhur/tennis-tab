@@ -1,4 +1,4 @@
-import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TeamMember } from "@/lib/supabase/types";
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TeamMember, TournamentStatus } from "@/lib/supabase/types";
 
 export type { SetDetail } from "@/lib/supabase/types";
 
@@ -8,11 +8,15 @@ export interface Division {
   max_teams: number | null;
 }
 
+/** 대회가 마감되어 대진표 수정 불가한 상태 */
+export const CLOSED_TOURNAMENT_STATUSES: TournamentStatus[] = ['COMPLETED', 'CANCELLED'];
+
 export interface BracketManagerProps {
   tournamentId: string;
   divisions: Division[];
   teamMatchCount: number | null;
   matchType: MatchType | null;
+  tournamentStatus: TournamentStatus;
 }
 
 export interface BracketConfig {

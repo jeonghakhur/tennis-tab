@@ -24,11 +24,11 @@ import type { PreliminaryGroup, GroupTeam } from "./types";
 interface GroupsTabProps {
   groups: PreliminaryGroup[];
   hasPreliminary: boolean;
-  onAutoGenerate: () => void;
-  onGenerateMatches: () => void;
-  onGenerateMainBracket: () => void;
-  onDelete: () => void;
-  onTeamMove: () => Promise<void>;
+  onAutoGenerate?: () => void;
+  onGenerateMatches?: () => void;
+  onGenerateMainBracket?: () => void;
+  onDelete?: () => void;
+  onTeamMove?: () => Promise<void>;
   onError: (message: string) => void;
 }
 
@@ -168,7 +168,7 @@ export function GroupsTab({
         onError("일부 팀 이동에 실패했습니다.");
       }
 
-      await onTeamMove();
+      await onTeamMove?.();
       setHasChanges(false);
     } catch {
       onError("팀 이동 저장 중 오류가 발생했습니다.");
@@ -199,12 +199,14 @@ export function GroupsTab({
           )}
         </h3>
         <div className="flex gap-2">
-          <button onClick={onAutoGenerate} className="btn-secondary btn-sm">
-            <span className="relative z-10">자동 편성</span>
-          </button>
+          {onAutoGenerate && (
+            <button onClick={onAutoGenerate} className="btn-secondary btn-sm">
+              <span className="relative z-10">자동 편성</span>
+            </button>
+          )}
           {localGroups.length > 0 && (
             <>
-              {hasChanges && (
+              {hasChanges && onTeamMove && (
                 <>
                   <button
                     onClick={handleReset}
@@ -221,26 +223,32 @@ export function GroupsTab({
                 </>
               )}
               {hasPreliminary ? (
-                <button
-                  onClick={onGenerateMatches}
-                  className="btn-primary btn-sm"
-                >
-                  <span className="relative z-10">예선 경기 생성</span>
-                </button>
+                onGenerateMatches && (
+                  <button
+                    onClick={onGenerateMatches}
+                    className="btn-primary btn-sm"
+                  >
+                    <span className="relative z-10">예선 경기 생성</span>
+                  </button>
+                )
               ) : (
+                onGenerateMainBracket && (
+                  <button
+                    onClick={onGenerateMainBracket}
+                    className="btn-primary btn-sm"
+                  >
+                    <span className="relative z-10">본선 대진표 생성</span>
+                  </button>
+                )
+              )}
+              {onDelete && (
                 <button
-                  onClick={onGenerateMainBracket}
-                  className="btn-primary btn-sm"
+                  onClick={onDelete}
+                  className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
                 >
-                  <span className="relative z-10">본선 대진표 생성</span>
+                  조 편성 삭제
                 </button>
               )}
-              <button
-                onClick={onDelete}
-                className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
-              >
-                조 편성 삭제
-              </button>
             </>
           )}
         </div>

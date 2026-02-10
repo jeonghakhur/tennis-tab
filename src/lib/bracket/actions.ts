@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail } from '@/lib/supabase/types'
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TournamentStatus } from '@/lib/supabase/types'
 
 // ============================================================================
 // 타입 정의
@@ -99,6 +99,58 @@ async function checkBracketManagementAuth(): Promise<{ error: string | null }> {
     return { error: '대회 관리 권한이 없습니다.' }
   }
   return { error: null }
+}
+
+// ============================================================================
+// 대회 상태 검증 헬퍼
+// ============================================================================
+
+/** 대회가 마감(COMPLETED/CANCELLED)되었는지 확인 — 마감 시 수정 불가 */
+const CLOSED_TOURNAMENT_STATUSES: TournamentStatus[] = ['COMPLETED', 'CANCELLED']
+
+/** configId로 대회 상태를 조회하여 마감 여부 검증 */
+async function checkTournamentNotClosed(configId: string): Promise<{ error: string | null }> {
+  const supabaseAdmin = createAdminClient()
+
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id')
+    .eq('id', configId)
+    .single()
+  if (!config) return { error: '대진표 설정을 찾을 수 없습니다.' }
+
+  const { data: division } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('tournament_id')
+    .eq('id', config.division_id)
+    .single()
+  if (!division) return { error: '부서 정보를 찾을 수 없습니다.' }
+
+  const { data: tournament } = await supabaseAdmin
+    .from('tournaments')
+    .select('status')
+    .eq('id', division.tournament_id)
+    .single()
+  if (!tournament) return { error: '대회 정보를 찾을 수 없습니다.' }
+
+  if (CLOSED_TOURNAMENT_STATUSES.includes(tournament.status)) {
+    return { error: '마감된 대회의 대진표는 수정할 수 없습니다.' }
+  }
+  return { error: null }
+}
+
+/** matchId로 대회 상태를 조회하여 마감 여부 검증 */
+async function checkTournamentNotClosedByMatchId(matchId: string): Promise<{ error: string | null }> {
+  const supabaseAdmin = createAdminClient()
+
+  const { data: match } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('bracket_config_id')
+    .eq('id', matchId)
+    .single()
+  if (!match) return { error: '경기 정보를 찾을 수 없습니다.' }
+
+  return checkTournamentNotClosed(match.bracket_config_id)
 }
 
 // ============================================================================
@@ -330,6 +382,9 @@ export async function updateBracketConfig(
   const idError = validateId(configId, '설정 ID')
   if (idError) return { data: null, error: idError }
 
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { data: null, error: closedCheck.error }
+
   const supabaseAdmin = createAdminClient()
 
   const { data, error } = await supabaseAdmin
@@ -373,6 +428,9 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
 
   const idError = validateId(configId, '설정 ID') || validateId(divisionId, '부서 ID')
   if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 
@@ -528,6 +586,18 @@ export async function moveTeamToGroup(teamId: string, newGroupId: string) {
 
   const supabaseAdmin = createAdminClient()
 
+  // 조 → bracket_config_id 조회하여 마감 대회 체크
+  const { data: group } = await supabaseAdmin
+    .from('preliminary_groups')
+    .select('bracket_config_id')
+    .eq('id', newGroupId)
+    .single()
+
+  if (group?.bracket_config_id) {
+    const closedCheck = await checkTournamentNotClosed(group.bracket_config_id)
+    if (closedCheck.error) return { error: closedCheck.error }
+  }
+
   const { error } = await supabaseAdmin
     .from('group_teams')
     .update({ group_id: newGroupId })
@@ -555,6 +625,9 @@ export async function generatePreliminaryMatches(configId: string) {
 
   const idError = validateId(configId, '설정 ID')
   if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 
@@ -742,6 +815,10 @@ export async function updateMatchResult(
   const idError = validateId(matchId, '경기 ID')
   if (idError) return { error: idError }
 
+  // 마감된 대회 검증
+  const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
+  if (closedCheck.error) return { error: closedCheck.error }
+
   const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
   if (score1Error) return { error: score1Error }
 
@@ -777,6 +854,10 @@ export async function submitPlayerScore(
 
   const idError = validateId(matchId, '경기 ID')
   if (idError) return { error: idError }
+
+  // 마감된 대회 검증
+  const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
+  if (closedCheck.error) return { error: closedCheck.error }
 
   const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
   if (score1Error) return { error: score1Error }
@@ -1053,6 +1134,9 @@ export async function generateMainBracket(configId: string, divisionId: string) 
 
   const idError = validateId(configId, '설정 ID') || validateId(divisionId, '부서 ID')
   if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 
@@ -1382,6 +1466,9 @@ export async function deletePreliminaryGroups(configId: string) {
   const idError = validateId(configId, '설정 ID')
   if (idError) return { success: false, error: idError }
 
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { success: false, error: closedCheck.error }
+
   const supabaseAdmin = createAdminClient()
 
   try {
@@ -1413,6 +1500,9 @@ export async function deletePreliminaryMatches(configId: string) {
   const idError = validateId(configId, '설정 ID')
   if (idError) return { success: false, error: idError }
 
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { success: false, error: closedCheck.error }
+
   const supabaseAdmin = createAdminClient()
 
   try {
@@ -1443,6 +1533,9 @@ export async function deleteMainBracket(configId: string) {
 
   const idError = validateId(configId, '설정 ID')
   if (idError) return { success: false, error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { success: false, error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 
@@ -1486,6 +1579,9 @@ export async function deleteBracketConfig(configId: string) {
 
   const idError = validateId(configId, '설정 ID')
   if (idError) return { success: false, error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { success: false, error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 
@@ -1532,6 +1628,10 @@ export async function batchUpdateMatchCourtInfo(updates: CourtInfoUpdate[]) {
     if (idError) return { error: idError }
   }
 
+  // 첫 번째 경기의 대회 상태로 마감 여부 확인
+  const closedCheck = await checkTournamentNotClosedByMatchId(updates[0].matchId)
+  if (closedCheck.error) return { error: closedCheck.error }
+
   const supabaseAdmin = createAdminClient()
 
   // 병렬 업데이트
@@ -1572,6 +1672,9 @@ export async function autoFillPreliminaryResults(configId: string) {
 
   const idError = validateId(configId, '설정 ID')
   if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 
@@ -1667,6 +1770,9 @@ export async function autoFillMainBracketResults(configId: string, phase?: Match
 
   const idError = validateId(configId, '설정 ID')
   if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 

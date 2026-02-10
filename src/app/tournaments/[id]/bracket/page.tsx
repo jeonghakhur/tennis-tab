@@ -64,6 +64,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
         currentUserEntryIds={entryIds.length > 0 ? entryIds : undefined}
         matchType={tournament.match_type as MatchType | null}
         teamMatchCount={tournament.team_match_count}
+        tournamentStatus={tournament.status}
       />
     </div>
   )
