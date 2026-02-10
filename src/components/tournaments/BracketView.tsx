@@ -3,7 +3,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { Trophy, Users, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
 import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
-import { useMatchesRealtime } from '@/lib/realtime/useMatchesRealtime'
+import { useMatchesRealtime, type RealtimeMatchPayload } from '@/lib/realtime/useMatchesRealtime'
 import { ScoreInputModal } from '@/components/tournaments/ScoreInputModal'
 import { Toast } from '@/components/common/AlertDialog'
 import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail } from '@/lib/supabase/types'
@@ -130,9 +130,25 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
   }
 
   // Realtime 구독 — 다른 선수의 점수 입력도 실시간 반영
-  const handleMatchUpdate = useCallback((updatedMatch: BracketMatch) => {
+  // Realtime payload에는 JOIN 데이터가 없으므로 기존 상태의 team1/team2를 보존
+  const handleMatchUpdate = useCallback((payload: RealtimeMatchPayload) => {
     setMatches((prev) =>
-      prev?.map((m) => (m.id === updatedMatch.id ? updatedMatch : m)) || null
+      prev?.map((m) => {
+        if (m.id !== payload.id) return m
+        // 기존 team1/team2 JOIN 데이터 보존, DB 필드만 덮어쓰기
+        return {
+          ...m,
+          team1_entry_id: payload.team1_entry_id,
+          team2_entry_id: payload.team2_entry_id,
+          team1_score: payload.team1_score,
+          team2_score: payload.team2_score,
+          winner_entry_id: payload.winner_entry_id,
+          status: payload.status as BracketMatch['status'],
+          court_location: payload.court_location,
+          court_number: payload.court_number,
+          sets_detail: payload.sets_detail as BracketMatch['sets_detail'],
+        }
+      }) || null
     )
   }, [])
 

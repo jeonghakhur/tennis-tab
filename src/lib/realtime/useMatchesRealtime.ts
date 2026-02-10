@@ -1,32 +1,72 @@
 'use client'
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { BracketMatch } from '@/components/admin/BracketManager/types'
+
+/** Realtime payload에서 받는 raw DB row (JOIN 데이터 없음) */
+export interface RealtimeMatchPayload {
+  id: string
+  bracket_config_id: string
+  phase: string
+  group_id: string | null
+  bracket_position: number | null
+  round_number: number | null
+  match_number: number
+  team1_entry_id: string | null
+  team2_entry_id: string | null
+  team1_score: number | null
+  team2_score: number | null
+  winner_entry_id: string | null
+  next_match_id: string | null
+  next_match_slot: number | null
+  loser_next_match_id: string | null
+  loser_next_match_slot: number | null
+  status: string
+  scheduled_time: string | null
+  completed_at: string | null
+  notes: string | null
+  sets_detail: unknown
+  court_location: string | null
+  court_number: string | null
+  created_at: string
+  updated_at: string
+}
 
 interface UseMatchesRealtimeOptions {
   bracketConfigId: string
-  onMatchUpdate?: (match: BracketMatch) => void
+  onMatchUpdate?: (payload: RealtimeMatchPayload) => void
   enabled?: boolean
 }
 
 /**
  * Supabase Realtime을 사용하여 bracket_matches 테이블의 변경사항을 실시간으로 감지
- * 점수 입력, 코트 정보 변경 등이 즉시 화면에 반영됨
+ *
+ * 주의: Realtime payload에는 JOIN 데이터(team1, team2 이름 등)가 포함되지 않음
+ * → onMatchUpdate에서 기존 상태와 병합해야 함
  */
 export function useMatchesRealtime({
   bracketConfigId,
   onMatchUpdate,
   enabled = true,
 }: UseMatchesRealtimeOptions) {
-  const channelRef = useRef<RealtimeChannel | null>(null)
-  const supabaseRef = useRef(createClient())
+  // 콜백을 ref로 관리하여 재구독 방지
+  const callbackRef = useRef(onMatchUpdate)
+  callbackRef.current = onMatchUpdate
 
-  const subscribe = useCallback(() => {
+  const channelRef = useRef<RealtimeChannel | null>(null)
+
+  useEffect(() => {
     if (!enabled || !bracketConfigId) return
 
-    const supabase = supabaseRef.current
+    const supabase = createClient()
+
+    // 이전 채널이 있으면 정리
+    if (channelRef.current) {
+      supabase.removeChannel(channelRef.current)
+      channelRef.current = null
+    }
+
     const channel = supabase
       .channel(`bracket-matches:${bracketConfigId}`)
       .on(
@@ -38,35 +78,18 @@ export function useMatchesRealtime({
           filter: `bracket_config_id=eq.${bracketConfigId}`,
         },
         (payload) => {
-          // 점수, 코트 정보, 상태 변경 등을 감지
-          if (payload.new && onMatchUpdate) {
-            const updatedMatch = payload.new as BracketMatch
-            onMatchUpdate(updatedMatch)
+          if (payload.new && callbackRef.current) {
+            callbackRef.current(payload.new as RealtimeMatchPayload)
           }
         }
       )
-      .subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          console.log(`Realtime subscribed: bracket-matches:${bracketConfigId}`)
-        } else if (status === 'CLOSED') {
-          console.log(`Realtime unsubscribed: bracket-matches:${bracketConfigId}`)
-        }
-      })
+      .subscribe()
 
     channelRef.current = channel
-  }, [bracketConfigId, enabled, onMatchUpdate])
 
-  const unsubscribe = useCallback(() => {
-    if (channelRef.current) {
-      supabaseRef.current.removeChannel(channelRef.current)
+    return () => {
+      supabase.removeChannel(channel)
       channelRef.current = null
     }
-  }, [])
-
-  useEffect(() => {
-    subscribe()
-    return () => unsubscribe()
-  }, [subscribe, unsubscribe])
-
-  return { isSubscribed: channelRef.current !== null }
+  }, [bracketConfigId, enabled])
 }

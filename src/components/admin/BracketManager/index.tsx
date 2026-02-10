@@ -26,7 +26,7 @@ import {
   deletePreliminaryMatches,
   deleteMainBracket,
 } from "@/lib/bracket/actions";
-import { useMatchesRealtime } from "@/lib/realtime/useMatchesRealtime";
+import { useMatchesRealtime, type RealtimeMatchPayload } from "@/lib/realtime/useMatchesRealtime";
 import { SettingsTab } from "./SettingsTab";
 import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
@@ -154,16 +154,39 @@ export function BracketManager({
   }, [selectedDivision, loadBracketData]);
 
   // Realtime 구독 — config가 있을 때만 활성화
-  const handleMatchUpdate = useCallback((updatedMatch: BracketMatch) => {
-    // 예선 경기 업데이트
-    setPreliminaryMatches((prev) =>
-      prev.map((m) => (m.id === updatedMatch.id ? updatedMatch : m))
-    );
-    // 본선 경기 업데이트
-    setMainMatches((prev) =>
-      prev.map((m) => (m.id === updatedMatch.id ? updatedMatch : m))
-    );
-  }, []);
+  // Realtime payload에는 JOIN 데이터(team1/team2 이름)가 없으므로 기존 상태와 병합
+  // Realtime payload → 기존 BracketMatch에 병합 (team1/team2 JOIN 데이터 보존)
+  const mergeRealtimePayload = useCallback(
+    (existing: BracketMatch, payload: RealtimeMatchPayload): BracketMatch => ({
+      ...existing,
+      team1_entry_id: payload.team1_entry_id,
+      team2_entry_id: payload.team2_entry_id,
+      team1_score: payload.team1_score,
+      team2_score: payload.team2_score,
+      winner_entry_id: payload.winner_entry_id,
+      status: payload.status as BracketMatch["status"],
+      court_location: payload.court_location,
+      court_number: payload.court_number,
+      sets_detail: payload.sets_detail as BracketMatch["sets_detail"],
+    }),
+    [],
+  );
+
+  const handleMatchUpdate = useCallback(
+    (payload: RealtimeMatchPayload) => {
+      setPreliminaryMatches((prev) =>
+        prev.map((m) =>
+          m.id === payload.id ? mergeRealtimePayload(m, payload) : m,
+        ),
+      );
+      setMainMatches((prev) =>
+        prev.map((m) =>
+          m.id === payload.id ? mergeRealtimePayload(m, payload) : m,
+        ),
+      );
+    },
+    [mergeRealtimePayload],
+  );
 
   useMatchesRealtime({
     bracketConfigId: config?.id || "",
