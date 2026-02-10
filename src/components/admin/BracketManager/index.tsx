@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Settings, Users, Play, Trophy } from "lucide-react";
 import {
   AlertDialog,
@@ -172,25 +172,83 @@ export function BracketManager({
     [],
   );
 
+  // Realtime 이벤트용: 로딩 오버레이 없이 매치 데이터만 조용히 refetch
+  // request counter로 stale 응답 무시 (race condition 방지)
+  const requestCounterRef = useRef(0);
+
+  const refetchMatchesSilently = useCallback(async () => {
+    if (!config) return;
+    const requestId = ++requestCounterRef.current;
+    try {
+      if (config.has_preliminaries) {
+        const { data } = await getPreliminaryMatches(config.id);
+        if (requestId !== requestCounterRef.current) return;
+        if (data) setPreliminaryMatches(data);
+      }
+      const { data } = await getMainBracketMatches(config.id);
+      if (requestId !== requestCounterRef.current) return;
+      if (data) setMainMatches(data);
+    } catch {
+      // silent — Realtime 보조 refetch이므로 에러 무시
+    }
+  }, [config]);
+
+  // ref로 최신 함수 참조 유지 (stale closure 방지)
+  const refetchMatchesRef = useRef(refetchMatchesSilently);
+  refetchMatchesRef.current = refetchMatchesSilently;
+
+  // 디바운스된 refetch 스케줄러 — 연속 점수 입력 시 하나로 묶음
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleRefetch = useCallback(() => {
+    if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+    reloadTimerRef.current = setTimeout(() => {
+      refetchMatchesRef.current();
+      reloadTimerRef.current = null;
+    }, 500);
+  }, []);
+
+  // 현재 matches를 ref로 유지 (handleMatchUpdate에서 entry_id 비교용)
+  // React 18 batching에서 setState 함수형 업데이터는 비동기 실행될 수 있으므로
+  // ref로 동기적 비교 필요
+  const preliminaryMatchesRef = useRef(preliminaryMatches);
+  preliminaryMatchesRef.current = preliminaryMatches;
+  const mainMatchesRef = useRef(mainMatches);
+  mainMatchesRef.current = mainMatches;
+
   const handleMatchUpdate = useCallback(
     (payload: RealtimeMatchPayload) => {
-      setPreliminaryMatches((prev) =>
+      // entry_id 변경 감지를 ref로 동기적 비교 (setState 내부가 아닌 외부에서)
+      const prelimTarget = preliminaryMatchesRef.current.find((m) => m.id === payload.id);
+      const mainTarget = mainMatchesRef.current.find((m) => m.id === payload.id);
+      const target = prelimTarget || mainTarget;
+      const needsRefetch = !!(
+        target &&
+        (target.team1_entry_id !== payload.team1_entry_id ||
+          target.team2_entry_id !== payload.team2_entry_id)
+      );
+
+      const mergeMatches = (prev: BracketMatch[]) =>
         prev.map((m) =>
           m.id === payload.id ? mergeRealtimePayload(m, payload) : m,
-        ),
-      );
-      setMainMatches((prev) =>
-        prev.map((m) =>
-          m.id === payload.id ? mergeRealtimePayload(m, payload) : m,
-        ),
-      );
+        );
+
+      setPreliminaryMatches(mergeMatches);
+      setMainMatches(mergeMatches);
+
+      // entry_id 변경 시 디바운스된 refetch로 JOIN 데이터 갱신
+      if (needsRefetch) {
+        scheduleRefetch();
+      }
     },
-    [mergeRealtimePayload],
+    [mergeRealtimePayload, scheduleRefetch],
   );
 
+  // admin은 자체 액션 후 loadBracketData를 직접 호출하므로
+  // Realtime onReload는 다른 admin의 변경만 조용히 반영
   useMatchesRealtime({
     bracketConfigId: config?.id || "",
     onMatchUpdate: handleMatchUpdate,
+    onReload: scheduleRefetch,
     enabled: !!config?.id,
   });
 
@@ -341,7 +399,8 @@ export function BracketManager({
         showError("경기 결과 입력 실패", error);
       } else {
         showSuccess("경기 결과가 저장되었습니다.");
-        // Realtime이 자동으로 업데이트하므로 리페치 불필요
+        // 승자 전파로 다음 라운드 매치에 팀이 배정되므로 JOIN 데이터 갱신
+        refetchMatchesRef.current();
       }
     } catch {
       showError("오류", "경기 결과 입력 중 오류가 발생했습니다.");
@@ -376,7 +435,8 @@ export function BracketManager({
         showError("경기 결과 입력 실패", error);
       } else {
         showSuccess("경기 결과가 저장되었습니다.");
-        // Realtime이 자동으로 업데이트하므로 리페치 불필요
+        // 승자 전파로 다음 라운드 매치에 팀이 배정되므로 JOIN 데이터 갱신
+        refetchMatchesRef.current();
       }
     } catch {
       showError("오류", "경기 결과 입력 중 오류가 발생했습니다.");

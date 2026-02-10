@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Trophy, Users, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
 import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
 import { useMatchesRealtime, type RealtimeMatchPayload } from '@/lib/realtime/useMatchesRealtime'
@@ -129,13 +129,59 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
     }
   }
 
+  // Realtime 이벤트용: 로딩 스피너 없이 전체 데이터 조용히 refetch
+  // request counter로 stale 응답 무시 (race condition 방지)
+  const requestCounterRef = useRef(0)
+
+  const reloadSilently = useCallback(async () => {
+    if (!selectedDivision) return
+    const requestId = ++requestCounterRef.current
+    try {
+      const data = await getBracketData(selectedDivision.id)
+      // 이 요청 이후 새 요청이 발생했으면 stale 응답이므로 무시
+      if (requestId !== requestCounterRef.current) return
+      setConfig(data.config)
+      setGroups(data.groups)
+      setMatches(data.matches)
+    } catch {
+      // silent — Realtime 보조 refetch이므로 에러 무시
+    }
+  }, [selectedDivision])
+
+  // ref로 최신 함수 참조 유지 (stale closure 방지)
+  const reloadSilentlyRef = useRef(reloadSilently)
+  reloadSilentlyRef.current = reloadSilently
+
+  // 디바운스된 reload 스케줄러 — 여러 entry_id 변경을 500ms 내 하나로 묶음
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scheduleReload = useCallback(() => {
+    if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current)
+    reloadTimerRef.current = setTimeout(() => {
+      reloadSilentlyRef.current()
+      reloadTimerRef.current = null
+    }, 500)
+  }, [])
+
+  // 현재 matches를 ref로 유지 (handleMatchUpdate에서 entry_id 비교용)
+  // React 18 batching에서 setMatches 함수형 업데이터는 비동기 실행될 수 있으므로
+  // ref로 동기적 비교 필요
+  const matchesRef = useRef(matches)
+  matchesRef.current = matches
+
   // Realtime 구독 — 다른 선수의 점수 입력도 실시간 반영
-  // Realtime payload에는 JOIN 데이터가 없으므로 기존 상태의 team1/team2를 보존
   const handleMatchUpdate = useCallback((payload: RealtimeMatchPayload) => {
-    setMatches((prev) =>
-      prev?.map((m) => {
+    // entry_id 변경 감지를 ref로 동기적 비교 (setMatches 내부가 아닌 외부에서)
+    const target = matchesRef.current?.find((m) => m.id === payload.id)
+    const needsRefetch = !!(
+      target &&
+      (target.team1_entry_id !== payload.team1_entry_id ||
+        target.team2_entry_id !== payload.team2_entry_id)
+    )
+
+    setMatches((prev) => {
+      if (!prev) return null
+      return prev.map((m) => {
         if (m.id !== payload.id) return m
-        // 기존 team1/team2 JOIN 데이터 보존, DB 필드만 덮어쓰기
         return {
           ...m,
           team1_entry_id: payload.team1_entry_id,
@@ -148,13 +194,19 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
           court_number: payload.court_number,
           sets_detail: payload.sets_detail as BracketMatch['sets_detail'],
         }
-      }) || null
-    )
-  }, [])
+      })
+    })
+
+    // entry_id 변경 시 디바운스된 refetch로 JOIN 데이터 갱신
+    if (needsRefetch) {
+      scheduleReload()
+    }
+  }, [scheduleReload])
 
   useMatchesRealtime({
     bracketConfigId: config?.id || "",
     onMatchUpdate: handleMatchUpdate,
+    onReload: scheduleReload,
     enabled: !!config?.id,
   })
 
@@ -171,7 +223,8 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
 
     setToast({ isOpen: true, message: '점수가 저장되었습니다.', type: 'success' as const })
     setScoreModalMatch(null)
-    // Realtime이 자동으로 업데이트하므로 리페치 불필요
+    // 승자 전파로 다음 라운드 매치에 팀이 배정되므로 JOIN 데이터 갱신
+    reloadSilentlyRef.current()
   }
 
   if (divisions.length === 0) {

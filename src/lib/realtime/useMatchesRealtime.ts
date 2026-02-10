@@ -35,26 +35,36 @@ export interface RealtimeMatchPayload {
 
 interface UseMatchesRealtimeOptions {
   bracketConfigId: string
+  /** UPDATE 이벤트 — 기존 매치의 점수/상태 변경 */
   onMatchUpdate?: (payload: RealtimeMatchPayload) => void
+  /** INSERT/DELETE 이벤트 — 대진표 구조 변경 시 전체 refetch 트리거 */
+  onReload?: () => void
   enabled?: boolean
 }
 
 /**
  * Supabase Realtime을 사용하여 bracket_matches 테이블의 변경사항을 실시간으로 감지
  *
- * 주의: Realtime payload에는 JOIN 데이터(team1, team2 이름 등)가 포함되지 않음
- * → onMatchUpdate에서 기존 상태와 병합해야 함
+ * - UPDATE: onMatchUpdate로 기존 상태와 병합 (JOIN 데이터 보존)
+ * - INSERT/DELETE: onReload로 전체 데이터 refetch (대진표 생성/삭제)
  */
 export function useMatchesRealtime({
   bracketConfigId,
   onMatchUpdate,
+  onReload,
   enabled = true,
 }: UseMatchesRealtimeOptions) {
   // 콜백을 ref로 관리하여 재구독 방지
-  const callbackRef = useRef(onMatchUpdate)
-  callbackRef.current = onMatchUpdate
+  const updateRef = useRef(onMatchUpdate)
+  updateRef.current = onMatchUpdate
+
+  const reloadRef = useRef(onReload)
+  reloadRef.current = onReload
 
   const channelRef = useRef<RealtimeChannel | null>(null)
+
+  // INSERT/DELETE 이벤트 디바운스 (대진표 삭제 시 여러 DELETE가 한꺼번에 발생)
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     if (!enabled || !bracketConfigId) return
@@ -78,8 +88,18 @@ export function useMatchesRealtime({
           filter: `bracket_config_id=eq.${bracketConfigId}`,
         },
         (payload) => {
-          if (payload.new && callbackRef.current) {
-            callbackRef.current(payload.new as RealtimeMatchPayload)
+          if (payload.eventType === 'UPDATE' && payload.new) {
+            // 점수/상태 변경 → 즉시 merge
+            updateRef.current?.(payload.new as RealtimeMatchPayload)
+          } else if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            // 대진표 구조 변경 → 디바운스 후 전체 refetch
+            if (reloadTimerRef.current) {
+              clearTimeout(reloadTimerRef.current)
+            }
+            reloadTimerRef.current = setTimeout(() => {
+              reloadRef.current?.()
+              reloadTimerRef.current = null
+            }, 300)
           }
         }
       )
@@ -88,6 +108,10 @@ export function useMatchesRealtime({
     channelRef.current = channel
 
     return () => {
+      if (reloadTimerRef.current) {
+        clearTimeout(reloadTimerRef.current)
+        reloadTimerRef.current = null
+      }
       supabase.removeChannel(channel)
       channelRef.current = null
     }
