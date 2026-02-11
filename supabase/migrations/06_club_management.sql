@@ -59,6 +59,7 @@ END $$;
 CREATE TABLE IF NOT EXISTS clubs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
+  representative_name TEXT,
   description TEXT,
   city TEXT,
   district TEXT,

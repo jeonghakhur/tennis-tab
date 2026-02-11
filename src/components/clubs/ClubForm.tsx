@@ -1,11 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClub, updateClub } from '@/lib/clubs/actions'
 import type { Club, CreateClubInput, ClubJoinType } from '@/lib/clubs/types'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
+import {
+  sanitizeInput,
+  validateClubInput,
+  hasValidationErrors,
+  type ClubValidationErrors,
+} from '@/lib/utils/validation'
+
+const isDev = process.env.NODE_ENV === 'development'
+
+// DEV 전용 더미 데이터
+const DUMMY_DATA: CreateClubInput = {
+  name: '마포테니스클럽',
+  representative_name: '김대표',
+  description: '매주 토요일 오전 마포구민체육센터에서 정기 모임을 진행합니다. 초보부터 고수까지 환영합니다.',
+  city: '서울특별시',
+  district: '마포구',
+  address: '마포구 월드컵로 212 구민체육센터 테니스장',
+  contact_phone: '01055551234',
+  contact_email: 'mapo.tennis.club@gmail.com',
+  join_type: 'APPROVAL',
+  max_members: 50,
+}
+
+// DEV 전용 잘못된 데이터
+const INVALID_DUMMY_DATA: CreateClubInput = {
+  name: '가', // 2자 미만
+  representative_name: '김', // 2자 미만
+  description: '',
+  city: '',
+  district: '',
+  address: '',
+  contact_phone: 'abc가나다', // 숫자가 아닌 문자
+  contact_email: 'not-an-email', // 잘못된 이메일
+  join_type: 'OPEN',
+  max_members: -5, // 음수
+}
 
 interface ClubFormProps {
   club?: Club | null
@@ -23,6 +59,7 @@ export function ClubForm({ club }: ClubFormProps) {
 
   const [form, setForm] = useState<CreateClubInput>({
     name: club?.name || '',
+    representative_name: club?.representative_name || '',
     description: club?.description || '',
     city: club?.city || '',
     district: club?.district || '',
@@ -32,17 +69,48 @@ export function ClubForm({ club }: ClubFormProps) {
     join_type: club?.join_type || 'APPROVAL',
     max_members: club?.max_members || undefined,
   })
+  const [fieldErrors, setFieldErrors] = useState<ClubValidationErrors>({})
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+  const errorFieldRef = useRef<keyof ClubValidationErrors | null>(null)
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
+
+  // 필드 변경 시 sanitize + 에러 클리어
+  const handleChange = useCallback((field: keyof CreateClubInput, value: string) => {
+    const sanitized = sanitizeInput(value)
+    setForm((prev) => ({ ...prev, [field]: sanitized }))
+    setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
+  }, [])
+
+  // 클라이언트 순차 검증 — 필드 순서대로 첫 에러만 AlertDialog로 표시
+  const FIELD_ORDER: (keyof ClubValidationErrors)[] = [
+    'name', 'representative_name', 'contact_phone', 'contact_email',
+    'city', 'district', 'address', 'description', 'max_members',
+  ]
+
+  const validateForm = useCallback((): boolean => {
+    const errors = validateClubInput(form)
+    if (!hasValidationErrors(errors)) {
+      setFieldErrors({})
+      return true
+    }
+    // 순서대로 첫 번째 에러 찾기 → AlertDialog + 포커스 대상 저장
+    for (const field of FIELD_ORDER) {
+      if (errors[field]) {
+        errorFieldRef.current = field
+        setFieldErrors({ [field]: errors[field] })
+        setAlert({ isOpen: true, message: errors[field]!, type: 'error' })
+        return false
+      }
+    }
+    return true
+  }, [form])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!form.name?.trim()) {
-      setAlert({ isOpen: true, message: '클럽 이름을 입력해주세요.', type: 'error' })
-      return
-    }
+    if (!validateForm()) return
 
     setLoading(true)
     try {
@@ -66,23 +134,71 @@ export function ClubForm({ club }: ClubFormProps) {
     }
   }
 
+  // 공통 인풋 스타일
+  const inputClass = (field: keyof ClubValidationErrors) =>
+    `w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+      fieldErrors[field]
+        ? 'border-red-500 focus:border-red-500'
+        : 'border-(--border-color) focus:border-(--accent-color)'
+    }`
+
   return (
     <>
       {loading && <LoadingOverlay message={isEdit ? '수정 중...' : '생성 중...'} />}
 
-      <form onSubmit={handleSubmit} className="glass-card rounded-xl p-6 space-y-5">
+      <form onSubmit={handleSubmit} noValidate className="glass-card rounded-xl p-6 space-y-5">
+        {/* DEV 전용: 더미 데이터 버튼 */}
+        {isDev && !isEdit && (
+          <div className="flex gap-2 pb-2 border-b border-dashed border-amber-500/30">
+            <button
+              type="button"
+              onClick={() => { setForm(DUMMY_DATA); setFieldErrors({}) }}
+              className="px-3 py-1.5 text-xs font-mono rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+            >
+              DEV: 정상 더미 데이터
+            </button>
+            <button
+              type="button"
+              onClick={() => { setForm(INVALID_DUMMY_DATA); setFieldErrors({}) }}
+              className="px-3 py-1.5 text-xs font-mono rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors"
+            >
+              DEV: 잘못된 데이터
+            </button>
+          </div>
+        )}
+
         {/* 클럽 이름 */}
         <div>
           <label className="block text-sm font-medium text-(--text-primary) mb-1">
             클럽 이름 <span className="text-red-500">*</span>
           </label>
           <input
+            ref={(el) => { fieldRefs.current.name = el }}
             type="text"
             value={form.name}
-            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            onChange={(e) => handleChange('name', e.target.value)}
             placeholder="예: 마포테니스클럽"
-            className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+            maxLength={50}
+            className={inputClass('name')}
           />
+          {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
+        </div>
+
+        {/* 대표자명 */}
+        <div>
+          <label className="block text-sm font-medium text-(--text-primary) mb-1">
+            대표자명 <span className="text-red-500">*</span>
+          </label>
+          <input
+            ref={(el) => { fieldRefs.current.representative_name = el }}
+            type="text"
+            value={form.representative_name}
+            onChange={(e) => handleChange('representative_name', e.target.value)}
+            placeholder="예: 홍길동"
+            maxLength={100}
+            className={inputClass('representative_name')}
+          />
+          {fieldErrors.representative_name && <p className="mt-1 text-xs text-red-500">{fieldErrors.representative_name}</p>}
         </div>
 
         {/* 지역 */}
@@ -90,22 +206,28 @@ export function ClubForm({ club }: ClubFormProps) {
           <div>
             <label className="block text-sm font-medium text-(--text-primary) mb-1">시/도</label>
             <input
+              ref={(el) => { fieldRefs.current.city = el }}
               type="text"
               value={form.city || ''}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              onChange={(e) => handleChange('city', e.target.value)}
               placeholder="예: 서울특별시"
-              className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+              maxLength={100}
+              className={inputClass('city')}
             />
+            {fieldErrors.city && <p className="mt-1 text-xs text-red-500">{fieldErrors.city}</p>}
           </div>
           <div>
             <label className="block text-sm font-medium text-(--text-primary) mb-1">구/군</label>
             <input
+              ref={(el) => { fieldRefs.current.district = el }}
               type="text"
               value={form.district || ''}
-              onChange={(e) => setForm({ ...form, district: e.target.value })}
+              onChange={(e) => handleChange('district', e.target.value)}
               placeholder="예: 마포구"
-              className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+              maxLength={100}
+              className={inputClass('district')}
             />
+            {fieldErrors.district && <p className="mt-1 text-xs text-red-500">{fieldErrors.district}</p>}
           </div>
         </div>
 
@@ -113,35 +235,47 @@ export function ClubForm({ club }: ClubFormProps) {
         <div>
           <label className="block text-sm font-medium text-(--text-primary) mb-1">상세 주소 (코트 위치)</label>
           <input
+            ref={(el) => { fieldRefs.current.address = el }}
             type="text"
             value={form.address || ''}
-            onChange={(e) => setForm({ ...form, address: e.target.value })}
+            onChange={(e) => handleChange('address', e.target.value)}
             placeholder="예: 마포구 월드컵로 212 테니스장"
-            className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+            maxLength={200}
+            className={inputClass('address')}
           />
+          {fieldErrors.address && <p className="mt-1 text-xs text-red-500">{fieldErrors.address}</p>}
         </div>
 
         {/* 연락처 */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-(--text-primary) mb-1">연락처</label>
+            <label className="block text-sm font-medium text-(--text-primary) mb-1">
+              연락처 <span className="text-red-500">*</span>
+            </label>
             <input
-              type="text"
-              value={form.contact_phone || ''}
-              onChange={(e) => setForm({ ...form, contact_phone: e.target.value })}
-              placeholder="010-1234-5678"
-              className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+              ref={(el) => { fieldRefs.current.contact_phone = el }}
+              type="tel"
+              inputMode="numeric"
+              value={form.contact_phone}
+              onChange={(e) => handleChange('contact_phone', e.target.value)}
+              placeholder="01012345678"
+              className={inputClass('contact_phone')}
             />
+            {fieldErrors.contact_phone && <p className="mt-1 text-xs text-red-500">{fieldErrors.contact_phone}</p>}
           </div>
           <div>
-            <label className="block text-sm font-medium text-(--text-primary) mb-1">이메일</label>
+            <label className="block text-sm font-medium text-(--text-primary) mb-1">
+              이메일 <span className="text-red-500">*</span>
+            </label>
             <input
+              ref={(el) => { fieldRefs.current.contact_email = el }}
               type="email"
-              value={form.contact_email || ''}
-              onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+              value={form.contact_email}
+              onChange={(e) => handleChange('contact_email', e.target.value)}
               placeholder="club@example.com"
-              className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+              className={inputClass('contact_email')}
             />
+            {fieldErrors.contact_email && <p className="mt-1 text-xs text-red-500">{fieldErrors.contact_email}</p>}
           </div>
         </div>
 
@@ -149,12 +283,20 @@ export function ClubForm({ club }: ClubFormProps) {
         <div>
           <label className="block text-sm font-medium text-(--text-primary) mb-1">클럽 소개</label>
           <textarea
+            ref={(el) => { fieldRefs.current.description = el }}
             value={form.description || ''}
-            onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onChange={(e) => handleChange('description', e.target.value)}
             placeholder="클럽 소개를 입력하세요"
             rows={3}
-            className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none resize-none"
+            maxLength={500}
+            className={`${inputClass('description')} resize-none`}
           />
+          <div className="flex justify-between mt-1">
+            {fieldErrors.description ? (
+              <p className="text-xs text-red-500">{fieldErrors.description}</p>
+            ) : <span />}
+            <p className="text-xs text-(--text-muted)">{(form.description || '').length}/500</p>
+          </div>
         </div>
 
         {/* 가입 방식 */}
@@ -191,13 +333,18 @@ export function ClubForm({ club }: ClubFormProps) {
         <div>
           <label className="block text-sm font-medium text-(--text-primary) mb-1">최대 회원 수</label>
           <input
+            ref={(el) => { fieldRefs.current.max_members = el }}
             type="number"
             value={form.max_members || ''}
-            onChange={(e) => setForm({ ...form, max_members: e.target.value ? Number(e.target.value) : undefined })}
+            onChange={(e) => {
+              setForm({ ...form, max_members: e.target.value ? Number(e.target.value) : undefined })
+              setFieldErrors((prev) => ({ ...prev, max_members: undefined }))
+            }}
             placeholder="비워두면 무제한"
             min={1}
-            className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+            className={inputClass('max_members')}
           />
+          {fieldErrors.max_members && <p className="mt-1 text-xs text-red-500">{fieldErrors.max_members}</p>}
         </div>
 
         {/* 버튼 */}
@@ -206,13 +353,21 @@ export function ClubForm({ club }: ClubFormProps) {
             취소
           </button>
           <button type="submit" className="btn-primary btn-sm flex-1">
-            {isEdit ? '수정' : '생성'}
+            <span className="relative z-10">{isEdit ? '수정' : '생성'}</span>
           </button>
         </div>
       </form>
 
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />
-      <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title={alert.type === "error" ? "오류" : "알림"} message={alert.message} type={alert.type} />
+      <AlertDialog isOpen={alert.isOpen} onClose={() => {
+        setAlert({ ...alert, isOpen: false })
+        // 에러 필드로 포커스 이동
+        const key = errorFieldRef.current
+        if (key) {
+          fieldRefs.current[key]?.focus()
+          errorFieldRef.current = null
+        }
+      }} title={alert.type === "error" ? "오류" : "알림"} message={alert.message} type={alert.type} />
     </>
   )
 }

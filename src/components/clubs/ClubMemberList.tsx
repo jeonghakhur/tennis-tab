@@ -13,6 +13,33 @@ import {
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { UserPlus, UserMinus, Search, Mail } from 'lucide-react'
+import {
+  sanitizeInput,
+  validateMemberInput,
+  hasValidationErrors,
+  type MemberValidationErrors,
+} from '@/lib/utils/validation'
+
+const isDev = process.env.NODE_ENV === 'development'
+
+// DEV 전용 더미 데이터
+const MEMBER_DUMMY: UnregisteredMemberInput = {
+  name: '박테니',
+  birth_date: '1990-05',
+  gender: 'MALE',
+  phone: '010-9876-5432',
+  start_year: '2018',
+  rating: 1200,
+}
+
+const MEMBER_INVALID_DUMMY: UnregisteredMemberInput = {
+  name: '', // 빈 이름
+  birth_date: '1990-13', // 잘못된 월
+  gender: undefined,
+  phone: '555', // 잘못된 전화번호
+  start_year: '2030', // 미래
+  rating: 99999, // 범위 초과
+}
 
 interface ClubMemberListProps {
   clubId: string
@@ -56,6 +83,9 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
     start_year: '',
     rating: undefined,
   })
+  const [memberErrors, setMemberErrors] = useState<MemberValidationErrors>({})
+  const errorFieldRef = useRef<keyof MemberValidationErrors | null>(null)
+  const memberFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
   // 필터된 회원 목록
   const filteredMembers = members.filter((m) => {
@@ -100,12 +130,34 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
     window.location.reload()
   }
 
+  // 필드 변경 핸들러 (sanitize + 에러 클리어)
+  const handleMemberChange = useCallback((field: keyof UnregisteredMemberInput, value: string) => {
+    const sanitized = sanitizeInput(value)
+    setNewMember((prev) => ({ ...prev, [field]: sanitized }))
+    setMemberErrors((prev) => ({ ...prev, [field]: undefined }))
+  }, [])
+
+  // 순차 검증 필드 순서
+  const MEMBER_FIELD_ORDER: (keyof MemberValidationErrors)[] = [
+    'name', 'birth_date', 'phone', 'start_year', 'rating',
+  ]
+
   // 비가입 회원 추가
   const handleAddMember = async () => {
-    if (!newMember.name?.trim()) {
-      setAlert({ isOpen: true, message: '이름을 입력해주세요.', type: 'error' })
+    const errors = validateMemberInput(newMember)
+    if (hasValidationErrors(errors)) {
+      // 순서대로 첫 번째 에러만 표시
+      for (const field of MEMBER_FIELD_ORDER) {
+        if (errors[field]) {
+          errorFieldRef.current = field
+          setMemberErrors({ [field]: errors[field] })
+          setAlert({ isOpen: true, message: errors[field]!, type: 'error' })
+          return
+        }
+      }
       return
     }
+    setMemberErrors({})
 
     const result = await addUnregisteredMember(clubId, {
       ...newMember,
@@ -120,8 +172,16 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
     setToast({ isOpen: true, message: '회원이 등록되었습니다.', type: 'success' })
     setAddModalOpen(false)
     setNewMember({ name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined })
+    setMemberErrors({})
     window.location.reload()
   }
+
+  // 모달 초기화
+  const resetAddModal = useCallback(() => {
+    setAddModalOpen(false)
+    setNewMember({ name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined })
+    setMemberErrors({})
+  }, [])
 
   // 회원 제거
   const handleRemoveMember = async () => {
@@ -319,33 +379,62 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       {/* 비가입 회원 추가 모달 */}
       <Modal
         isOpen={addModalOpen}
-        onClose={() => setAddModalOpen(false)}
+        onClose={resetAddModal}
         title="비가입 회원 추가"
         size="lg"
       >
         <Modal.Body>
           <div className="space-y-4">
+            {/* DEV 전용 더미 데이터 버튼 */}
+            {isDev && (
+              <div className="flex gap-2 pb-2 border-b border-dashed border-amber-500/30">
+                <button
+                  type="button"
+                  onClick={() => { setNewMember(MEMBER_DUMMY); setMemberErrors({}) }}
+                  className="px-3 py-1.5 text-xs font-mono rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+                >
+                  DEV: 정상 더미
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setNewMember(MEMBER_INVALID_DUMMY); setMemberErrors({}) }}
+                  className="px-3 py-1.5 text-xs font-mono rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors"
+                >
+                  DEV: 잘못된 데이터
+                </button>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-(--text-primary) mb-1">
                 이름 <span className="text-red-500">*</span>
               </label>
               <input
+                ref={(el) => { memberFieldRefs.current.name = el }}
                 type="text"
                 value={newMember.name}
-                onChange={(e) => setNewMember({ ...newMember, name: e.target.value })}
-                className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+                onChange={(e) => handleMemberChange('name', e.target.value)}
+                maxLength={100}
+                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                  memberErrors.name ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                }`}
               />
+              {memberErrors.name && <p className="mt-1 text-xs text-red-500">{memberErrors.name}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-(--text-primary) mb-1">생년월일</label>
                 <input
+                  ref={(el) => { memberFieldRefs.current.birth_date = el }}
                   type="text"
                   value={newMember.birth_date || ''}
-                  onChange={(e) => setNewMember({ ...newMember, birth_date: e.target.value })}
+                  onChange={(e) => handleMemberChange('birth_date', e.target.value)}
                   placeholder="YYYY-MM"
-                  className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+                  className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                    memberErrors.birth_date ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                  }`}
                 />
+                {memberErrors.birth_date && <p className="mt-1 text-xs text-red-500">{memberErrors.birth_date}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-(--text-primary) mb-1">성별</label>
@@ -376,45 +465,60 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
             <div>
               <label className="block text-sm font-medium text-(--text-primary) mb-1">연락처</label>
               <input
+                ref={(el) => { memberFieldRefs.current.phone = el }}
                 type="text"
                 value={newMember.phone || ''}
-                onChange={(e) => setNewMember({ ...newMember, phone: e.target.value })}
+                onChange={(e) => handleMemberChange('phone', e.target.value)}
                 placeholder="010-1234-5678"
-                className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                  memberErrors.phone ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                }`}
               />
+              {memberErrors.phone && <p className="mt-1 text-xs text-red-500">{memberErrors.phone}</p>}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-(--text-primary) mb-1">테니스 입문년도</label>
                 <input
+                  ref={(el) => { memberFieldRefs.current.start_year = el }}
                   type="text"
                   value={newMember.start_year || ''}
-                  onChange={(e) => setNewMember({ ...newMember, start_year: e.target.value })}
+                  onChange={(e) => handleMemberChange('start_year', e.target.value)}
                   placeholder="2020"
-                  className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+                  className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                    memberErrors.start_year ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                  }`}
                 />
+                {memberErrors.start_year && <p className="mt-1 text-xs text-red-500">{memberErrors.start_year}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-(--text-primary) mb-1">레이팅</label>
                 <input
+                  ref={(el) => { memberFieldRefs.current.rating = el }}
                   type="number"
                   value={newMember.rating || ''}
-                  onChange={(e) => setNewMember({ ...newMember, rating: e.target.value ? Number(e.target.value) : undefined })}
+                  onChange={(e) => {
+                    setNewMember({ ...newMember, rating: e.target.value ? Number(e.target.value) : undefined })
+                    setMemberErrors((prev) => ({ ...prev, rating: undefined }))
+                  }}
                   placeholder="1~9999"
                   min={1}
                   max={9999}
-                  className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+                  className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                    memberErrors.rating ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                  }`}
                 />
+                {memberErrors.rating && <p className="mt-1 text-xs text-red-500">{memberErrors.rating}</p>}
               </div>
             </div>
           </div>
         </Modal.Body>
         <Modal.Footer>
-          <button onClick={() => setAddModalOpen(false)} className="btn-secondary btn-sm flex-1">
+          <button onClick={resetAddModal} className="btn-secondary btn-sm flex-1">
             취소
           </button>
           <button onClick={handleAddMember} className="btn-primary btn-sm flex-1">
-            등록
+            <span className="relative z-10">등록</span>
           </button>
         </Modal.Footer>
       </Modal>
@@ -519,7 +623,14 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       </Modal>
 
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />
-      <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title="오류" message={alert.message} type={alert.type} />
+      <AlertDialog isOpen={alert.isOpen} onClose={() => {
+        setAlert({ ...alert, isOpen: false })
+        const key = errorFieldRef.current
+        if (key) {
+          memberFieldRefs.current[key]?.focus()
+          errorFieldRef.current = null
+        }
+      }} title="오류" message={alert.message} type={alert.type} />
       <ConfirmDialog isOpen={confirm.isOpen} onClose={() => setConfirm({ ...confirm, isOpen: false })} onConfirm={confirm.onConfirm} message={confirm.message} type="warning" />
     </div>
   )

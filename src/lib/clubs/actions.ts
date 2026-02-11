@@ -4,6 +4,12 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import {
+  sanitizeObject,
+  validateClubInput,
+  validateMemberInput,
+  hasValidationErrors,
+} from '@/lib/utils/validation'
 import type {
   Club,
   ClubMember,
@@ -71,7 +77,13 @@ export async function createClub(data: CreateClubInput): Promise<{ error?: strin
   const { error: authError, user } = await checkManagerAuth()
   if (authError || !user) return { error: authError || '로그인이 필요합니다.' }
 
-  if (!data.name?.trim()) return { error: '클럽 이름을 입력해주세요.' }
+  // 입력값 살균 (XSS 방지) + 검증
+  const sanitized = sanitizeObject(data)
+  const validationErrors = validateClubInput(sanitized)
+  if (hasValidationErrors(validationErrors)) {
+    const firstError = Object.values(validationErrors).find(Boolean)
+    return { error: firstError || '입력값을 확인해주세요.' }
+  }
 
   const admin = createAdminClient()
 
@@ -88,15 +100,16 @@ export async function createClub(data: CreateClubInput): Promise<{ error?: strin
   const { data: club, error } = await admin
     .from('clubs')
     .insert({
-      name: data.name.trim(),
-      description: data.description?.trim() || null,
-      city: data.city?.trim() || null,
-      district: data.district?.trim() || null,
-      address: data.address?.trim() || null,
-      contact_phone: data.contact_phone?.trim() || null,
-      contact_email: data.contact_email?.trim() || null,
-      join_type: data.join_type || 'APPROVAL',
-      max_members: data.max_members || null,
+      name: sanitized.name.trim(),
+      representative_name: sanitized.representative_name.trim(),
+      description: sanitized.description?.trim() || null,
+      city: sanitized.city?.trim() || null,
+      district: sanitized.district?.trim() || null,
+      address: sanitized.address?.trim() || null,
+      contact_phone: sanitized.contact_phone.trim(),
+      contact_email: sanitized.contact_email.trim(),
+      join_type: sanitized.join_type || 'APPROVAL',
+      max_members: sanitized.max_members || null,
       association_id: associationId,
       created_by: user.id,
     })
@@ -131,18 +144,47 @@ export async function updateClub(clubId: string, data: UpdateClubInput): Promise
   const { error: authError } = await checkClubOwnerAuth(clubId)
   if (authError) return { error: authError }
 
+  // 입력값 살균 (XSS 방지) + 검증
+  const sanitized = sanitizeObject(data)
+  // 수정 시 필수 필드가 미전달될 수 있으므로, placeholder로 검증 우회 후 실제 전달된 필드만 별도 검증
+  const validationData = {
+    ...sanitized,
+    name: sanitized.name || 'placeholder',
+    representative_name: sanitized.representative_name || 'placeholder',
+    contact_phone: sanitized.contact_phone || '01000000000',
+    contact_email: sanitized.contact_email || 'placeholder@email.com',
+  }
+  const validationErrors = validateClubInput(validationData)
+  // 실제 전달된 필수 필드는 원본 값으로 개별 검증
+  const fullErrors = validateClubInput(sanitized)
+  if (sanitized.name !== undefined && fullErrors.name) return { error: fullErrors.name }
+  if (sanitized.representative_name !== undefined && fullErrors.representative_name) return { error: fullErrors.representative_name }
+  if (sanitized.contact_phone !== undefined && fullErrors.contact_phone) return { error: fullErrors.contact_phone }
+  if (sanitized.contact_email !== undefined && fullErrors.contact_email) return { error: fullErrors.contact_email }
+  // 나머지 선택 필드 검증
+  const fieldErrors = { ...validationErrors }
+  delete fieldErrors.name
+  delete fieldErrors.representative_name
+  delete fieldErrors.contact_phone
+  delete fieldErrors.contact_email
+  if (hasValidationErrors(fieldErrors)) {
+    const firstError = Object.values(fieldErrors).find(Boolean)
+    return { error: firstError || '입력값을 확인해주세요.' }
+  }
+
   const admin = createAdminClient()
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
-  if (data.name !== undefined) updateData.name = data.name.trim()
-  if (data.description !== undefined) updateData.description = data.description?.trim() || null
-  if (data.city !== undefined) updateData.city = data.city?.trim() || null
-  if (data.district !== undefined) updateData.district = data.district?.trim() || null
-  if (data.address !== undefined) updateData.address = data.address?.trim() || null
-  if (data.contact_phone !== undefined) updateData.contact_phone = data.contact_phone?.trim() || null
-  if (data.contact_email !== undefined) updateData.contact_email = data.contact_email?.trim() || null
-  if (data.join_type !== undefined) updateData.join_type = data.join_type
-  if (data.max_members !== undefined) updateData.max_members = data.max_members
+  if (sanitized.name !== undefined) updateData.name = sanitized.name.trim()
+  if (sanitized.representative_name !== undefined) updateData.representative_name = sanitized.representative_name?.trim() || null
+  if (sanitized.description !== undefined) updateData.description = sanitized.description?.trim() || null
+  if (sanitized.city !== undefined) updateData.city = sanitized.city?.trim() || null
+  if (sanitized.district !== undefined) updateData.district = sanitized.district?.trim() || null
+  if (sanitized.address !== undefined) updateData.address = sanitized.address?.trim() || null
+  if (sanitized.contact_phone !== undefined) updateData.contact_phone = sanitized.contact_phone?.trim() || null
+  if (sanitized.contact_email !== undefined) updateData.contact_email = sanitized.contact_email?.trim() || null
+  if (sanitized.join_type !== undefined) updateData.join_type = sanitized.join_type
+  if (sanitized.max_members !== undefined) updateData.max_members = sanitized.max_members
 
   const { error } = await admin
     .from('clubs')
@@ -308,13 +350,12 @@ export async function addUnregisteredMember(
   const { error: authError } = await checkClubOwnerAuth(clubId)
   if (authError) return { error: authError }
 
-  if (!data.name?.trim()) return { error: '이름을 입력해주세요.' }
-
-  // rating 범위 검증
-  if (data.rating !== undefined && data.rating !== null) {
-    if (data.rating < 1 || data.rating > 9999) {
-      return { error: '레이팅은 1~9999 범위여야 합니다.' }
-    }
+  // 입력값 살균 (XSS 방지) + 검증
+  const sanitized = sanitizeObject(data)
+  const validationErrors = validateMemberInput(sanitized)
+  if (hasValidationErrors(validationErrors)) {
+    const firstError = Object.values(validationErrors).find(Boolean)
+    return { error: firstError || '입력값을 확인해주세요.' }
   }
 
   const admin = createAdminClient()
@@ -322,12 +363,12 @@ export async function addUnregisteredMember(
     club_id: clubId,
     user_id: null,
     is_registered: false,
-    name: data.name.trim(),
-    birth_date: data.birth_date?.trim() || null,
-    gender: data.gender || null,
-    phone: data.phone?.trim() || null,
-    start_year: data.start_year?.trim() || null,
-    rating: data.rating || null,
+    name: sanitized.name!.trim(),
+    birth_date: sanitized.birth_date?.trim() || null,
+    gender: sanitized.gender || null,
+    phone: sanitized.phone?.trim() || null,
+    start_year: sanitized.start_year?.trim() || null,
+    rating: sanitized.rating || null,
     role: 'MEMBER',
     status: 'ACTIVE',
   })

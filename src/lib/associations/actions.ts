@@ -5,6 +5,11 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import type { Association, AssociationManager, CreateAssociationInput, UpdateAssociationInput } from './types'
+import {
+  sanitizeObject,
+  validateAssociationInput,
+  hasValidationErrors,
+} from '@/lib/utils/validation'
 
 // ============================================================================
 // 검증 헬퍼
@@ -58,7 +63,14 @@ export async function createAssociation(data: CreateAssociationInput): Promise<{
   const { error: authError, user } = await checkAdminAuth()
   if (authError || !user) return { error: authError || '로그인이 필요합니다.' }
 
-  if (!data.name?.trim()) return { error: '협회 이름을 입력해주세요.' }
+  // 입력값 살균 (XSS 방지) + 검증
+  const sanitized = sanitizeObject(data)
+  const validationErrors = validateAssociationInput(sanitized)
+  if (hasValidationErrors(validationErrors)) {
+    // 첫 번째 에러 메시지 반환
+    const firstError = Object.values(validationErrors).find(Boolean)
+    return { error: firstError || '입력값을 확인해주세요.' }
+  }
 
   const admin = createAdminClient()
 
@@ -74,16 +86,16 @@ export async function createAssociation(data: CreateAssociationInput): Promise<{
   }
 
   const { error } = await admin.from('associations').insert({
-    name: data.name.trim(),
-    region: data.region?.trim() || null,
-    district: data.district?.trim() || null,
-    description: data.description?.trim() || null,
-    president_name: data.president_name?.trim() || null,
-    president_phone: data.president_phone?.trim() || null,
-    president_email: data.president_email?.trim() || null,
-    secretary_name: data.secretary_name?.trim() || null,
-    secretary_phone: data.secretary_phone?.trim() || null,
-    secretary_email: data.secretary_email?.trim() || null,
+    name: sanitized.name.trim(),
+    region: sanitized.region?.trim() || null,
+    district: sanitized.district?.trim() || null,
+    description: sanitized.description?.trim() || null,
+    president_name: sanitized.president_name?.trim() || null,
+    president_phone: sanitized.president_phone?.trim() || null,
+    president_email: sanitized.president_email?.trim() || null,
+    secretary_name: sanitized.secretary_name?.trim() || null,
+    secretary_phone: sanitized.secretary_phone?.trim() || null,
+    secretary_email: sanitized.secretary_email?.trim() || null,
     created_by: user.id,
   })
 
@@ -142,20 +154,36 @@ export async function updateAssociation(
   const { error: authError } = await checkAssociationOwnerAuth(associationId)
   if (authError) return { error: authError }
 
+  // 입력값 살균 (XSS 방지) + 검증
+  const sanitized = sanitizeObject(data)
+  const validationErrors = validateAssociationInput({ ...sanitized, name: sanitized.name || 'placeholder' })
+  // 수정 시에는 name이 없을 수 있으므로, name 필드가 실제로 변경될 때만 검증
+  if (sanitized.name !== undefined) {
+    const fullErrors = validateAssociationInput(sanitized)
+    if (fullErrors.name) return { error: fullErrors.name }
+  }
+  // name 외 필드 검증
+  const fieldErrors = { ...validationErrors }
+  delete fieldErrors.name
+  if (hasValidationErrors(fieldErrors)) {
+    const firstError = Object.values(fieldErrors).find(Boolean)
+    return { error: firstError || '입력값을 확인해주세요.' }
+  }
+
   const admin = createAdminClient()
   const { error } = await admin
     .from('associations')
     .update({
-      ...(data.name !== undefined && { name: data.name.trim() }),
-      ...(data.region !== undefined && { region: data.region?.trim() || null }),
-      ...(data.district !== undefined && { district: data.district?.trim() || null }),
-      ...(data.description !== undefined && { description: data.description?.trim() || null }),
-      ...(data.president_name !== undefined && { president_name: data.president_name?.trim() || null }),
-      ...(data.president_phone !== undefined && { president_phone: data.president_phone?.trim() || null }),
-      ...(data.president_email !== undefined && { president_email: data.president_email?.trim() || null }),
-      ...(data.secretary_name !== undefined && { secretary_name: data.secretary_name?.trim() || null }),
-      ...(data.secretary_phone !== undefined && { secretary_phone: data.secretary_phone?.trim() || null }),
-      ...(data.secretary_email !== undefined && { secretary_email: data.secretary_email?.trim() || null }),
+      ...(sanitized.name !== undefined && { name: sanitized.name.trim() }),
+      ...(sanitized.region !== undefined && { region: sanitized.region?.trim() || null }),
+      ...(sanitized.district !== undefined && { district: sanitized.district?.trim() || null }),
+      ...(sanitized.description !== undefined && { description: sanitized.description?.trim() || null }),
+      ...(sanitized.president_name !== undefined && { president_name: sanitized.president_name?.trim() || null }),
+      ...(sanitized.president_phone !== undefined && { president_phone: sanitized.president_phone?.trim() || null }),
+      ...(sanitized.president_email !== undefined && { president_email: sanitized.president_email?.trim() || null }),
+      ...(sanitized.secretary_name !== undefined && { secretary_name: sanitized.secretary_name?.trim() || null }),
+      ...(sanitized.secretary_phone !== undefined && { secretary_phone: sanitized.secretary_phone?.trim() || null }),
+      ...(sanitized.secretary_email !== undefined && { secretary_email: sanitized.secretary_email?.trim() || null }),
       updated_at: new Date().toISOString(),
     })
     .eq('id', associationId)

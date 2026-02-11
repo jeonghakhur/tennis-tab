@@ -10,7 +10,7 @@ import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import { MapPin, Users, Building2, Phone, Mail, ChevronLeft } from 'lucide-react'
+import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User } from 'lucide-react'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -231,8 +231,16 @@ export default function ClubDetailPage() {
                   </div>
                 </div>
 
-                {/* 연락처 */}
+                {/* 대표자 & 연락처 */}
                 <div className="flex flex-wrap gap-4">
+                  {club.representative_name && (
+                    <div className="flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                        {club.representative_name}
+                      </span>
+                    </div>
+                  )}
                   {club.contact_phone && (
                     <div className="flex items-center gap-1.5">
                       <Phone className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />

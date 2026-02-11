@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, X, AlertCircle, Info } from "lucide-react";
 
@@ -46,10 +46,18 @@ export function AlertDialog({
   type = "info",
 }: AlertDialogProps) {
   const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // 다이얼로그 열릴 때 포커스 이동
+  useEffect(() => {
+    if (isOpen && dialogRef.current) {
+      dialogRef.current.focus();
+    }
+  }, [isOpen]);
 
   if (!isOpen || !mounted) return null;
 
@@ -66,21 +74,32 @@ export function AlertDialog({
       style={{ zIndex: 9999 }}
     >
       <div
-        className="rounded-2xl p-6 max-w-md w-full relative shadow-2xl"
+        ref={dialogRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-message"
+        tabIndex={-1}
+        className="rounded-2xl p-6 max-w-md w-full relative shadow-2xl outline-none"
         style={{
           zIndex: 10000,
           backgroundColor: "var(--bg-secondary)",
           border: "1px solid var(--border-color)",
         }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
       >
         <h3
+          id="alert-dialog-title"
           className="text-xl font-bold mb-4"
           style={{ color: "var(--text-primary)" }}
         >
           {title || DEFAULT_TITLES[type]}
         </h3>
         <p
+          id="alert-dialog-message"
           className="mb-6"
           style={{ color: "var(--text-secondary)", whiteSpace: "pre-line" }}
         >
@@ -113,10 +132,17 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps) {
   const [mounted, setMounted] = useState(false);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  useEffect(() => {
+    if (isOpen && dialogRef.current) {
+      dialogRef.current.focus();
+    }
+  }, [isOpen]);
 
   if (!isOpen || !mounted) return null;
 
@@ -137,21 +163,32 @@ export function ConfirmDialog({
       style={{ zIndex: 9999 }}
     >
       <div
-        className="rounded-2xl p-6 max-w-md w-full relative shadow-2xl"
+        ref={dialogRef}
+        role="alertdialog"
+        aria-modal="true"
+        aria-labelledby="confirm-dialog-title"
+        aria-describedby="confirm-dialog-message"
+        tabIndex={-1}
+        className="rounded-2xl p-6 max-w-md w-full relative shadow-2xl outline-none"
         style={{
           zIndex: 10000,
           backgroundColor: "var(--bg-secondary)",
           border: "1px solid var(--border-color)",
         }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          if (e.key === "Escape") onClose();
+        }}
       >
         <h3
+          id="confirm-dialog-title"
           className="text-xl font-bold mb-4"
           style={{ color: "var(--text-primary)" }}
         >
           {title || DEFAULT_TITLES[type]}
         </h3>
         <p
+          id="confirm-dialog-message"
           className="mb-6"
           style={{ color: "var(--text-secondary)", whiteSpace: "pre-line" }}
         >

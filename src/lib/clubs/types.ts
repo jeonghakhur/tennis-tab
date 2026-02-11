@@ -8,6 +8,7 @@ export type GenderType = 'MALE' | 'FEMALE'
 export interface Club {
   id: string
   name: string
+  representative_name: string | null
   description: string | null
   city: string | null
   district: string | null
@@ -49,18 +50,20 @@ export interface ClubMember {
 // Server Action 입력 타입
 export interface CreateClubInput {
   name: string
+  representative_name: string
   description?: string
   city?: string
   district?: string
   address?: string
-  contact_phone?: string
-  contact_email?: string
+  contact_phone: string
+  contact_email: string
   join_type?: ClubJoinType
   max_members?: number
 }
 
 export interface UpdateClubInput {
   name?: string
+  representative_name?: string
   description?: string
   city?: string
   district?: string

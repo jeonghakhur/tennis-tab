@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
@@ -60,6 +60,15 @@ export function Modal({
   closeOnEsc = true,
   children,
 }: ModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // 모달 열릴 때 포커스 이동
+  useEffect(() => {
+    if (isOpen && dialogRef.current) {
+      dialogRef.current.focus();
+    }
+  }, [isOpen]);
+
   // ESC 키로 닫기
   useEffect(() => {
     if (!isOpen || !closeOnEsc) return;
@@ -106,7 +115,9 @@ export function Modal({
 
       {/* 모달 */}
       <div
-        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90vh] overflow-y-auto rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl`}
+        ref={dialogRef}
+        tabIndex={-1}
+        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90vh] overflow-y-auto rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}

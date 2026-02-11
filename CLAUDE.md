@@ -13,10 +13,11 @@ CLAUDE.md
 
 # Priorities
 1. 타입 안정성 (TypeScript strict)
-2. 성능 (렌더링 최적화, 메모리 관리)
-3. 보안 (입력 검증, XSS 방지)
-4. 가독성과 유지보수성
-5. 테스트 가능성
+2. 웹 접근성 (WCAG 2.1 AA 준수)
+3. 성능 (렌더링 최적화, 메모리 관리)
+4. 보안 (입력 검증, XSS 방지)
+5. 가독성과 유지보수성
+6. 테스트 가능성
 
 # Communication
 - **언어**: 한국어 (코드 주석 포함)
@@ -32,6 +33,39 @@ CLAUDE.md
 - **가독성**: 자명한 변수명, 적절한 추상화
 - **테스트**: 핵심 로직 단위테스트 필수
 
+# Web Accessibility (WCAG 2.1 AA)
+HTML 마크업 작성 시 웹 접근성을 반드시 준수한다.
+
+## 필수 규칙
+- **시맨틱 HTML**: `<button>`, `<nav>`, `<main>`, `<section>`, `<article>` 등 용도에 맞는 태그 사용. 클릭 가능한 요소에 `<div onClick>` 금지 → `<button>` 사용
+- **ARIA 속성**: 시맨틱 태그로 표현 불가능한 경우에만 `role`, `aria-*` 속성 사용
+- **키보드 접근성**: 모든 인터랙티브 요소는 키보드로 접근 가능해야 함. `tabIndex`, `onKeyDown` 적절히 사용
+- **포커스 관리**: 모달/다이얼로그 열릴 때 해당 컨테이너로 포커스 이동, 닫힐 때 원래 요소로 포커스 복귀
+- **폼 레이블**: 모든 `<input>`에 연결된 `<label>` 또는 `aria-label` 필수
+- **이미지 대체 텍스트**: `<img>`에 `alt` 필수, 장식용 이미지는 `alt=""`
+- **색상 대비**: 텍스트와 배경의 명도 대비 4.5:1 이상 (WCAG AA)
+
+## 다이얼로그/모달 패턴
+```tsx
+// 모든 다이얼로그 공통 필수 속성
+<div
+  ref={dialogRef}
+  role="dialog"          // 또는 role="alertdialog"
+  aria-modal="true"
+  aria-labelledby="제목-id"
+  aria-describedby="설명-id"
+  tabIndex={-1}          // 컨테이너가 포커스 수신
+  className="outline-none"
+>
+
+// useEffect로 열릴 때 포커스 이동
+useEffect(() => {
+  if (isOpen && dialogRef.current) {
+    dialogRef.current.focus();
+  }
+}, [isOpen]);
+```
+
 # Forbidden
 ❌ `any` 타입 사용 (대신 `unknown` 사용)
 ❌ `console.log` 남기기 (디버깅 후 제거 필수)
@@ -40,6 +74,9 @@ CLAUDE.md
 ❌ 거대한 컴포넌트 (단일책임원칙 준수)
 ❌ 주석없는 복잡한 로직
 ❌ `setState(fn)` 내부에서 외부 변수 설정 후 외부에서 참조 (아래 React 18 Batching 주의사항 참조)
+❌ 클릭 가능한 `<div>`/`<span>` — `<button>` 사용 필수
+❌ `<label>` 없는 `<input>` — `aria-label` 또는 연결된 `<label>` 필수
+❌ 포커스 관리 없는 모달/다이얼로그 — `tabIndex={-1}` + `ref.focus()` 필수
 
 # React 18 Batching 주의사항
 
@@ -327,6 +364,107 @@ function EditUserModal({ user, isOpen, onClose, onSave }) {
 - 사용자 정보 수정 폼
 - 이미지 미리보기
 - 상세 정보 표시
+
+## DEV 전용 더미 데이터 + 입력 검증 패턴
+
+새 폼(생성/수정) 컴포넌트를 만들 때 반드시 적용하는 3단계 보안 + QA 패턴.
+
+### 구조 (3-Layer Validation)
+
+```
+[클라이언트]          [서버 (Server Action)]      [DB]
+sanitizeInput()  →  sanitizeObject()          → NOT NULL, CHECK
+validateXxxInput()  validateXxxInput()          UNIQUE 제약
+필드별 에러 표시     첫 번째 에러 반환           에러 코드 변환
+```
+
+### 1단계: 공용 검증 유틸리티 (`src/lib/utils/validation.ts`)
+
+새 도메인 폼이 추가될 때마다 여기에 `XxxValidationErrors` 인터페이스와 `validateXxxInput()` 함수를 추가한다.
+
+- **sanitizeInput(value)**: HTML 태그, `javascript:`, `onXxx=` 패턴 제거 (XSS 방지)
+- **sanitizeObject(obj)**: 객체의 모든 string 필드에 sanitize 일괄 적용
+- **validateEmail, validatePhone, validateMinLength, validateMaxLength**: 공용 필드 검증 (빈 값은 통과)
+- **hasValidationErrors(errors)**: 에러 객체에 하나라도 값이 있으면 true
+
+### 2단계: 클라이언트 폼 컴포넌트
+
+```tsx
+// DEV 전용 더미 데이터 상수 (정상 + 잘못된 데이터)
+const isDev = process.env.NODE_ENV === 'development'
+const DUMMY_DATA: CreateXxxInput = { /* 정상 값 */ }
+const INVALID_DUMMY_DATA: CreateXxxInput = { /* 의도적으로 잘못된 값 */ }
+
+// 상태
+const [fieldErrors, setFieldErrors] = useState<XxxValidationErrors>({})
+
+// 필드 변경 시 sanitize + 에러 클리어
+const handleChange = useCallback((field: keyof CreateXxxInput, value: string) => {
+  const sanitized = sanitizeInput(value)
+  setForm((prev) => ({ ...prev, [field]: sanitized }))
+  setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
+}, [])
+
+// submit 전 검증
+const validateForm = useCallback((): boolean => {
+  const errors = validateXxxInput(form)
+  setFieldErrors(errors)
+  return !hasValidationErrors(errors)
+}, [form])
+
+// 인풋 스타일 (에러 시 빨간 테두리)
+const inputClass = (field: keyof XxxValidationErrors) =>
+  `w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+    fieldErrors[field]
+      ? 'border-red-500 focus:border-red-500'
+      : 'border-(--border-color) focus:border-(--accent-color)'
+  }`
+
+// DEV 버튼 (isDev && !isEdit 일 때만)
+{isDev && !isEdit && (
+  <div className="flex gap-2 pb-2 border-b border-dashed border-amber-500/30">
+    <button type="button" onClick={() => { setForm(DUMMY_DATA); setFieldErrors({}) }}
+      className="px-3 py-1.5 text-xs font-mono rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/30">
+      DEV: 정상 더미 데이터
+    </button>
+    <button type="button" onClick={() => { setForm(INVALID_DUMMY_DATA); setFieldErrors({}) }}
+      className="px-3 py-1.5 text-xs font-mono rounded-lg bg-red-500/10 text-red-500 border border-red-500/30">
+      DEV: 잘못된 데이터
+    </button>
+  </div>
+)}
+```
+
+### 3단계: 서버 사이드 (Server Action)
+
+```tsx
+// 1. sanitize → 2. validate → 3. DB 조작
+const sanitized = sanitizeObject(data)
+const validationErrors = validateXxxInput(sanitized)
+if (hasValidationErrors(validationErrors)) {
+  const firstError = Object.values(validationErrors).find(Boolean)
+  return { error: firstError || '입력값을 확인해주세요.' }
+}
+// ... DB 조작은 sanitized 값 사용
+```
+
+### 잘못된 더미 데이터 설계 가이드
+
+| 필드 타입 | 잘못된 값 예시 | 검증 대상 |
+|-----------|---------------|----------|
+| 이름(필수) | `'가'` (1자) | minLength 2 |
+| 이메일 | `'not-an-email'` | 이메일 형식 |
+| 전화번호 | `'1234'` | 01X 10~11자리 |
+| 숫자(양수) | `-5` | >= 1 |
+| 날짜 | `'1990-13'` | YYYY-MM 형식 |
+| 범위 | `rating: 99999` | 1~9999 |
+| 년도 | `'2030'` | 1950~현재년도 |
+
+### 적용 사례
+
+- **협회**: `AssociationForm.tsx` ← `validateAssociationInput`
+- **클럽**: `ClubForm.tsx` ← `validateClubInput`
+- **클럽 회원**: `ClubMemberList.tsx` ← `validateMemberInput`
 
 # Response Guidelines
 

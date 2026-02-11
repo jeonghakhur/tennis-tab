@@ -1,9 +1,42 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isAdmin } from '@/lib/auth/roles'
+import { isAdmin, isSuperAdmin } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { Building2, Users, Shield } from 'lucide-react'
+import { Building2, Users, Shield, MapPin } from 'lucide-react'
+
+type AssociationWithCounts = {
+  id: string
+  name: string
+  region: string | null
+  district: string | null
+  description: string | null
+  is_active: boolean
+  created_by: string
+  manager_count: number
+  club_count: number
+}
+
+/** 협회 1개에 대한 매니저/클럽 수 조회 */
+async function getAssociationCounts(
+  admin: ReturnType<typeof createAdminClient>,
+  associationId: string,
+): Promise<{ managerCount: number; clubCount: number }> {
+  const [managers, clubs] = await Promise.all([
+    admin
+      .from('association_managers')
+      .select('*', { count: 'exact', head: true })
+      .eq('association_id', associationId),
+    admin
+      .from('clubs')
+      .select('*', { count: 'exact', head: true })
+      .eq('association_id', associationId),
+  ])
+  return {
+    managerCount: managers.count || 0,
+    clubCount: clubs.count || 0,
+  }
+}
 
 export default async function AdminAssociationsPage() {
   const supabase = await createClient()
@@ -20,30 +53,120 @@ export default async function AdminAssociationsPage() {
   if (!isAdmin(profile?.role)) redirect('/admin')
 
   const admin = createAdminClient()
+  const superAdmin = isSuperAdmin(profile?.role)
 
-  // 내 협회 조회
+  // SUPER_ADMIN: 전체 협회 목록 / ADMIN: 내 협회만
+  if (superAdmin) {
+    const { data: associations } = await admin
+      .from('associations')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    // 각 협회의 매니저/클럽 수 병렬 조회
+    const list: AssociationWithCounts[] = await Promise.all(
+      (associations || []).map(async (a) => {
+        const { managerCount, clubCount } = await getAssociationCounts(admin, a.id)
+        return { ...a, manager_count: managerCount, club_count: clubCount }
+      }),
+    )
+
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="font-display text-2xl font-bold text-(--text-primary)">
+              전체 협회 관리
+            </h1>
+            <p className="text-(--text-secondary) mt-1">
+              시스템에 등록된 모든 협회를 관리합니다.
+            </p>
+          </div>
+          <Link href="/admin/associations/new" className="btn-primary btn-sm">
+            협회 생성
+          </Link>
+        </div>
+
+        {list.length === 0 ? (
+          <div className="glass-card rounded-xl p-8 text-center space-y-4">
+            <Building2 className="w-12 h-12 mx-auto text-(--text-muted)" />
+            <p className="text-(--text-muted)">등록된 협회가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {list.map((a) => (
+              <div key={a.id} className="glass-card rounded-xl p-5 space-y-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <h2 className="text-lg font-bold text-(--text-primary)">
+                      {a.name}
+                    </h2>
+                    {(a.region || a.district) && (
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <MapPin className="w-3.5 h-3.5 text-(--text-muted)" />
+                        <span className="text-sm text-(--text-secondary)">
+                          {[a.region, a.district].filter(Boolean).join(' ')}
+                        </span>
+                      </div>
+                    )}
+                    {a.description && (
+                      <p className="text-(--text-muted) mt-1.5 text-sm line-clamp-2">
+                        {a.description}
+                      </p>
+                    )}
+                  </div>
+                  {!a.is_active && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium">
+                      비활성
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-4 text-sm text-(--text-muted)">
+                  <span className="flex items-center gap-1.5">
+                    <Users className="w-4 h-4" />
+                    매니저 {a.manager_count}명
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <Shield className="w-4 h-4" />
+                    클럽 {a.club_count}개
+                  </span>
+                </div>
+
+                <div className="flex gap-2">
+                  <Link
+                    href={`/admin/associations/${a.id}`}
+                    className="btn-secondary btn-sm text-xs"
+                  >
+                    수정
+                  </Link>
+                  <Link
+                    href={`/admin/associations/${a.id}/managers`}
+                    className="btn-primary btn-sm text-xs"
+                  >
+                    매니저 관리
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── ADMIN: 내 협회 1개만 표시 ──
   const { data: association } = await admin
     .from('associations')
     .select('*')
     .eq('created_by', user.id)
     .maybeSingle()
 
-  // 협회가 있으면 매니저 수, 클럽 수 조회
   let managerCount = 0
   let clubCount = 0
   if (association) {
-    const [managers, clubs] = await Promise.all([
-      admin
-        .from('association_managers')
-        .select('*', { count: 'exact', head: true })
-        .eq('association_id', association.id),
-      admin
-        .from('clubs')
-        .select('*', { count: 'exact', head: true })
-        .eq('association_id', association.id),
-    ])
-    managerCount = managers.count || 0
-    clubCount = clubs.count || 0
+    const counts = await getAssociationCounts(admin, association.id)
+    managerCount = counts.managerCount
+    clubCount = counts.clubCount
   }
 
   return (
