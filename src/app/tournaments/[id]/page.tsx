@@ -6,6 +6,7 @@ import { TournamentStatus, MatchType } from "@/lib/supabase/types";
 import TournamentActions from "@/components/tournaments/TournamentActions";
 import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
+import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -151,6 +152,9 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-7xl">
+      {/* 대회 상태 변경 실시간 감지 */}
+      <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
+
       {/* Header / Breadcrumb */}
       <div className="mb-6">
         <Link

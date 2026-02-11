@@ -3,8 +3,18 @@ import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ChevronLeft, Trophy } from 'lucide-react'
 import { BracketView } from '@/components/tournaments/BracketView'
+import { TournamentRealtimeRefresher } from '@/components/tournaments/TournamentRealtimeRefresher'
 import { getPlayerEntryIds } from '@/lib/bracket/actions'
-import type { MatchType } from '@/lib/supabase/types'
+import type { MatchType, TournamentStatus } from '@/lib/supabase/types'
+
+const STATUS_BADGE: Record<string, { label: string; className: string }> = {
+  DRAFT: { label: '작성 중', className: 'bg-(--color-secondary-subtle) text-(--text-muted)' },
+  OPEN: { label: '모집 중', className: 'bg-(--color-success-subtle) text-(--color-success)' },
+  CLOSED: { label: '마감', className: 'bg-(--color-danger-subtle) text-(--color-danger)' },
+  IN_PROGRESS: { label: '진행 중', className: 'bg-(--color-info-subtle) text-(--color-info)' },
+  COMPLETED: { label: '종료', className: 'bg-(--color-secondary-subtle) text-(--text-muted)' },
+  CANCELLED: { label: '취소', className: 'bg-(--color-secondary-subtle) text-(--text-muted) line-through' },
+}
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -39,6 +49,9 @@ export default async function TournamentBracketPage({ params }: PageProps) {
 
   return (
     <div className="container mx-auto px-4 py-8">
+      {/* 대회 상태 변경 실시간 감지 */}
+      <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
+
       {/* Breadcrumb */}
       <Link
         href={`/tournaments/${id}`}
@@ -50,11 +63,21 @@ export default async function TournamentBracketPage({ params }: PageProps) {
 
       {/* Header */}
       <div className="glass-card rounded-xl p-6 mb-8">
-        <h1 className="font-display text-2xl md:text-3xl font-bold text-(--text-primary) flex items-center gap-3">
-          <Trophy className="w-8 h-8 text-(--accent-color)" />
-          {tournament.title}
-        </h1>
-        <p className="text-(--text-secondary) mt-2">대진표</p>
+        <div className="flex items-center gap-3 mb-1">
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-(--text-primary) flex items-center gap-3">
+            <Trophy className="w-8 h-8 text-(--accent-color)" />
+            {tournament.title}
+          </h1>
+          {(() => {
+            const badge = STATUS_BADGE[tournament.status] || STATUS_BADGE.DRAFT
+            return (
+              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${badge.className}`}>
+                {badge.label}
+              </span>
+            )
+          })()}
+        </div>
+        <p className="text-(--text-secondary) ml-11">대진표</p>
       </div>
 
       {/* Bracket View */}

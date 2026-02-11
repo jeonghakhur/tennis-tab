@@ -22,15 +22,15 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   };
 
   const getStatusBadge = (status: string) => {
-    const styles = {
-      DRAFT: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-      OPEN: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400',
-      CLOSED: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-      IN_PROGRESS: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-      COMPLETED: 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300',
-      CANCELLED: 'bg-gray-100 text-gray-800 line-through dark:bg-gray-800 dark:text-gray-500',
+    const styles: Record<string, string> = {
+      DRAFT: 'bg-(--color-secondary-subtle) text-(--text-muted)',
+      OPEN: 'bg-(--color-success-subtle) text-(--color-success)',
+      CLOSED: 'bg-(--color-danger-subtle) text-(--color-danger)',
+      IN_PROGRESS: 'bg-(--color-info-subtle) text-(--color-info)',
+      COMPLETED: 'bg-(--color-secondary-subtle) text-(--text-muted)',
+      CANCELLED: 'bg-(--color-secondary-subtle) text-(--text-muted) line-through',
     };
-    const labels = {
+    const labels: Record<string, string> = {
       DRAFT: '작성 중',
       OPEN: '모집 중',
       CLOSED: '마감',
@@ -38,10 +38,8 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       COMPLETED: '종료',
       CANCELLED: '취소',
     };
-    
-    // @ts-ignore
+
     const style = styles[status] || styles.DRAFT;
-    // @ts-ignore
     const label = labels[status] || status;
 
     return (
@@ -62,8 +60,8 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       href={`/tournaments/${tournament.id}`}
       className="block group"
     >
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-blue-500/30">
-        <div className="aspect-[3/2] bg-gray-100 dark:bg-gray-800 relative">
+      <div className="bg-(--bg-card) border border-(--border-color) rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-(--accent-color)/30">
+        <div className="aspect-[3/2] bg-(--bg-secondary) relative">
           {tournament.poster_url ? (
             <Image
               src={tournament.poster_url}
@@ -80,7 +78,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
             <button
               onClick={handleCopyTemplate}
-              className="bg-white/90 dark:bg-gray-800/90 hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 p-2 rounded-lg shadow-sm backdrop-blur-sm transition-all hover:scale-110"
+              className="bg-(--bg-card)/90 hover:bg-(--bg-card) text-(--text-secondary) p-2 rounded-lg shadow-sm backdrop-blur-sm transition-all hover:scale-110"
               title="템플릿으로 사용"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -92,13 +90,13 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         </div>
         
         <div className="p-5">
-          <div className="text-sm text-blue-600 dark:text-blue-400 font-medium mb-1">
+          <div className="text-sm text-(--accent-color) font-medium mb-1">
             {formatDate(tournament.start_date)}
           </div>
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2 group-hover:text-blue-500 transition-colors line-clamp-2">
+          <h3 className="text-lg font-bold text-(--text-primary) mb-2 group-hover:text-(--accent-color) transition-colors line-clamp-2">
             {tournament.title}
           </h3>
-          <div className="flex items-center text-gray-500 dark:text-gray-400 text-sm gap-4">
+          <div className="flex items-center text-(--text-muted) text-sm gap-4">
              <div className="flex items-center gap-1">
                <span className="text-xs">📍</span>
                {tournament.location}

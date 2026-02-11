@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import TournamentCard from '@/components/tournaments/TournamentCard';
+import { TournamentRealtimeRefresher } from '@/components/tournaments/TournamentRealtimeRefresher';
 import { UserRole } from '@/lib/supabase/types';
 
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
@@ -47,6 +48,13 @@ export default async function TournamentsPage() {
                     </Link>
                 )}
             </div>
+
+            {/* 대회 상태 변경 실시간 감지 */}
+            {tournaments && tournaments.length > 0 && (
+                <TournamentRealtimeRefresher
+                    tournamentIds={tournaments.map((t) => t.id)}
+                />
+            )}
 
             {(!tournaments || tournaments.length === 0) ? (
                 <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
