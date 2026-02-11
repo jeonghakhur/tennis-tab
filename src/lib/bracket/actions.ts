@@ -1251,6 +1251,149 @@ export async function getAdvancingTeams(configId: string): Promise<{
 }
 
 // ============================================================================
+// 다음 라운드 팀 조회 (라운드별 순차 생성용)
+// ============================================================================
+
+/**
+ * 다음 라운드에 배정할 팀 목록 조회 (범용)
+ * - 본선 매치 없음 → 예선 진출팀 (1R용)
+ * - 결승 존재 → isComplete=true
+ * - 최신 라운드 미완료 → allDone=false
+ * - 최신 라운드 완료 → 승자 목록 반환
+ */
+export async function getNextRoundTeams(configId: string): Promise<{
+  data?: {
+    teams: AdvancingTeam[]
+    allDone: boolean
+    nextRound: number
+    nextPhase: MatchPhase
+    isComplete: boolean
+  }
+  error?: string
+}> {
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { error: idError }
+
+  const supabase = await createClient()
+
+  // 본선 매치 조회 (PRELIMINARY 제외)
+  const { data: allNonPrelimMatches } = await supabase
+    .from('bracket_matches')
+    .select('id, phase, round_number, bracket_position, status, winner_entry_id, team1_entry_id, team2_entry_id')
+    .eq('bracket_config_id', configId)
+    .neq('phase', 'PRELIMINARY')
+    .order('round_number', { ascending: true })
+    .order('bracket_position', { ascending: true })
+
+  // THIRD_PLACE 제외한 본선 매치
+  const mainMatches = (allNonPrelimMatches || []).filter(m => m.phase !== 'THIRD_PLACE')
+
+  // 매치 없음 → 1R (기존 getAdvancingTeams 로직 위임)
+  if (mainMatches.length === 0) {
+    const { data: advData, error: advError } = await getAdvancingTeams(configId)
+    if (advError) return { error: advError }
+
+    if (!advData || advData.teams.length === 0) {
+      return {
+        data: {
+          teams: advData?.teams || [],
+          allDone: advData?.allPrelimsDone ?? false,
+          nextRound: 1,
+          nextPhase: 'ROUND_128', // 팀이 없으면 의미 없음
+          isComplete: false,
+        },
+      }
+    }
+
+    const bracketSize = calculateBracketSize(advData.teams.length)
+    const nextPhase = getPhaseForRound(bracketSize, 1)
+    return {
+      data: {
+        teams: advData.teams,
+        allDone: advData.allPrelimsDone,
+        nextRound: 1,
+        nextPhase,
+        isComplete: false,
+      },
+    }
+  }
+
+  // config 조회 (bracket_size 필요)
+  const { data: config } = await supabase
+    .from('bracket_configs')
+    .select('bracket_size')
+    .eq('id', configId)
+    .single()
+
+  if (!config?.bracket_size) {
+    return { error: '대진표 크기 정보를 찾을 수 없습니다.' }
+  }
+
+  const bracketSize = config.bracket_size
+  const totalRounds = Math.log2(bracketSize)
+
+  // 결승 존재 → 모든 라운드 생성 완료
+  const hasFinal = mainMatches.some(m => m.phase === 'FINAL')
+  if (hasFinal) {
+    return {
+      data: {
+        teams: [],
+        allDone: true,
+        nextRound: totalRounds,
+        nextPhase: 'FINAL',
+        isComplete: true,
+      },
+    }
+  }
+
+  // 최신 라운드 확인
+  const maxRound = Math.max(...mainMatches.map(m => m.round_number ?? 0))
+  const latestRoundMatches = mainMatches.filter(m => m.round_number === maxRound)
+  // 빈 매치(양팀 미배정)도 "완료"로 간주 — 대진할 팀이 없으면 진행 불필요
+  const allDone = latestRoundMatches.every(
+    m => m.status === 'COMPLETED' || m.status === 'BYE' ||
+      (!m.team1_entry_id && !m.team2_entry_id),
+  )
+
+  const nextRound = maxRound + 1
+  const nextPhase = nextRound <= totalRounds
+    ? getPhaseForRound(bracketSize, nextRound)
+    : 'FINAL'
+
+  if (!allDone) {
+    return {
+      data: { teams: [], allDone: false, nextRound, nextPhase, isComplete: false },
+    }
+  }
+
+  // 승자 목록 추출 (bracket_position 순)
+  const winnerIds = latestRoundMatches
+    .sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0))
+    .map(m => m.winner_entry_id)
+    .filter((id): id is string => id !== null)
+
+  // 승자 엔트리 정보 JOIN
+  const { data: entries } = await supabase
+    .from('tournament_entries')
+    .select('id, player_name, club_name, partner_data')
+    .in('id', winnerIds)
+
+  const entryMap = new Map(entries?.map(e => [e.id, e]) || [])
+
+  const teams: AdvancingTeam[] = winnerIds.map((entryId, i) => ({
+    entryId,
+    seed: i + 1,
+    groupName: '',
+    groupRank: 0,
+    entry: entryMap.get(entryId) || undefined,
+  }))
+
+  return {
+    data: { teams, allDone: true, nextRound, nextPhase, isComplete: false },
+  }
+}
+
+// ============================================================================
 // 본선 대진표 관련
 // ============================================================================
 
@@ -1288,7 +1431,7 @@ function getPhaseForRound(bracketSize: number, roundNumber: number): MatchPhase 
 /**
  * 본선 대진표 생성
  */
-export async function generateMainBracket(configId: string, divisionId: string, seedOrder?: string[]) {
+export async function generateMainBracket(configId: string, divisionId: string, seedOrder?: (string | null)[]) {
   const authResult = await checkBracketManagementAuth()
   if (authResult.error) return { error: authResult.error }
 
@@ -1314,8 +1457,10 @@ export async function generateMainBracket(configId: string, divisionId: string, 
   let advancingTeams: { entryId: string; seed: number }[] = []
 
   if (seedOrder && seedOrder.length > 0) {
-    // 관리자가 지정한 시드 순서 사용 (시드 배치 미리보기에서 DnD로 조정된 순서)
-    advancingTeams = seedOrder.map((entryId, i) => ({ entryId, seed: i + 1 }))
+    // 관리자가 지정한 시드 순서 (그룹별 2팀씩, null=BYE 슬롯)
+    // bracketSize 계산용으로 실제 팀만 추출
+    const validEntries = seedOrder.filter((id): id is string => id !== null)
+    advancingTeams = validEntries.map((entryId, i) => ({ entryId, seed: i + 1 }))
   } else if (config.has_preliminaries) {
     // 예선 결과에서 진출팀 추출 (기존 자동 로직)
     const { data: groups } = await supabaseAdmin
@@ -1492,26 +1637,36 @@ export async function generateMainBracket(configId: string, divisionId: string, 
   // 1라운드에 팀 배정 (시드 배치)
   const firstRoundMatches = matchesByRound.get(1) || []
 
-  // 시드 배치 로직 (상위 시드에게 부전승 우선 배정)
+  // seedOrder가 있으면 그룹 구조(2팀씩 페어링)를 직접 사용
+  // seedOrder가 없으면 advancingTeams 순서대로 매칭
   for (let i = 0; i < firstRoundMatches.length; i++) {
     const matchId = firstRoundMatches[i]
-    const team1Index = i * 2
-    const team2Index = i * 2 + 1
 
-    const team1 = advancingTeams[team1Index]
-    const team2 = advancingTeams[team2Index]
+    let team1EntryId: string | null
+    let team2EntryId: string | null
 
-    if (team1 && team2) {
+    if (seedOrder && seedOrder.length > 0) {
+      // seedOrder: 그룹별 [team1, team2] 순서 → 인덱스 i*2, i*2+1이 한 매치
+      team1EntryId = seedOrder[i * 2] ?? null
+      team2EntryId = seedOrder[i * 2 + 1] ?? null
+    } else {
+      team1EntryId = advancingTeams[i * 2]?.entryId ?? null
+      team2EntryId = advancingTeams[i * 2 + 1]?.entryId ?? null
+    }
+
+    if (team1EntryId && team2EntryId) {
       // 둘 다 있으면 경기 진행
       await supabaseAdmin
         .from('bracket_matches')
         .update({
-          team1_entry_id: team1.entryId,
-          team2_entry_id: team2.entryId,
+          team1_entry_id: team1EntryId,
+          team2_entry_id: team2EntryId,
         })
         .eq('id', matchId)
-    } else if (team1) {
-      // team2가 없으면 부전승
+    } else if (team1EntryId || team2EntryId) {
+      // 한 쪽만 있으면 부전승
+      const presentEntryId = team1EntryId || team2EntryId
+
       const { data: matchData } = await supabaseAdmin
         .from('bracket_matches')
         .select('next_match_id, next_match_slot')
@@ -1521,8 +1676,8 @@ export async function generateMainBracket(configId: string, divisionId: string, 
       await supabaseAdmin
         .from('bracket_matches')
         .update({
-          team1_entry_id: team1.entryId,
-          winner_entry_id: team1.entryId,
+          team1_entry_id: presentEntryId,
+          winner_entry_id: presentEntryId,
           status: 'BYE',
         })
         .eq('id', matchId)
@@ -1532,10 +1687,11 @@ export async function generateMainBracket(configId: string, divisionId: string, 
         const field = matchData.next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
         await supabaseAdmin
           .from('bracket_matches')
-          .update({ [field]: team1.entryId })
+          .update({ [field]: presentEntryId })
           .eq('id', matchData.next_match_id)
       }
     }
+    // 둘 다 null이면 빈 매치 — 배정 없이 건너뜀
   }
 
   // 2라운드부터 자동 BYE 전파 (빈 슬롯으로 인한 부전승 처리)
@@ -1555,6 +1711,313 @@ export async function generateMainBracket(configId: string, divisionId: string, 
   revalidatePath('/admin/tournaments')
   revalidatePath('/tournaments')
   return { data: { bracketSize, teamCount, matchCount: matchNumber - 1 }, error: null }
+}
+
+/**
+ * 본선 대진표 라운드별 순차 생성
+ * 1R: bracketSize 계산 + 매치 생성 + 팀 배정
+ * 2R+: 이전 라운드 승자로 매치 생성 + next_match_id 역방향 링크
+ */
+export async function generateNextRound(
+  configId: string,
+  divisionId: string,
+  seedOrder: (string | null)[],
+) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID') || validateId(divisionId, '부서 ID')
+  if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { error: closedCheck.error }
+
+  const supabaseAdmin = createAdminClient()
+
+  // 대진표 설정 조회
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('*')
+    .eq('id', configId)
+    .single()
+
+  if (!config) return { error: '대진표 설정을 찾을 수 없습니다.' }
+
+  // 기존 본선 매치 조회 (PRELIMINARY, THIRD_PLACE 제외)
+  const { data: allNonPrelimMatches } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('*')
+    .eq('bracket_config_id', configId)
+    .neq('phase', 'PRELIMINARY')
+    .order('round_number', { ascending: true })
+    .order('bracket_position', { ascending: true })
+
+  const existingMainMatches = (allNonPrelimMatches || []).filter(
+    m => m.phase !== 'THIRD_PLACE',
+  )
+
+  let targetRound: number
+  let bracketSize: number
+  let totalRounds: number
+
+  if (existingMainMatches.length === 0) {
+    // 1R 생성
+    const validEntries = seedOrder.filter((id): id is string => id !== null)
+    if (validEntries.length < 2) return { error: '최소 2팀 이상이 필요합니다.' }
+
+    bracketSize = calculateBracketSize(validEntries.length)
+    totalRounds = Math.log2(bracketSize)
+    targetRound = 1
+  } else {
+    // N+1R 생성
+    if (!config.bracket_size) return { error: '대진표 크기 정보를 찾을 수 없습니다.' }
+    bracketSize = config.bracket_size
+    totalRounds = Math.log2(bracketSize)
+
+    const maxRound = Math.max(...existingMainMatches.map(m => m.round_number ?? 0))
+
+    // 현재 라운드 미완료 체크 (빈 매치는 완료로 간주)
+    const latestMatches = existingMainMatches.filter(m => m.round_number === maxRound)
+    const allDone = latestMatches.every(
+      m => m.status === 'COMPLETED' || m.status === 'BYE' ||
+        (!m.team1_entry_id && !m.team2_entry_id),
+    )
+    if (!allDone) return { error: '현재 라운드의 모든 경기가 완료되어야 합니다.' }
+
+    targetRound = maxRound + 1
+    if (targetRound > totalRounds) return { error: '모든 라운드가 이미 생성되었습니다.' }
+  }
+
+  const phase = getPhaseForRound(bracketSize, targetRound)
+  const matchesInRound = Math.pow(2, totalRounds - targetRound)
+  const isFinalRound = targetRound === totalRounds
+
+  // match_number 이어가기
+  let matchNumber: number
+  if (allNonPrelimMatches && allNonPrelimMatches.length > 0) {
+    const maxMatchNum = Math.max(...allNonPrelimMatches.map(m => m.match_number ?? 0))
+    matchNumber = maxMatchNum + 1
+  } else {
+    matchNumber = 1
+  }
+
+  // 해당 라운드 매치 생성
+  const newMatchIds: string[] = []
+  for (let pos = 0; pos < matchesInRound; pos++) {
+    const { data: match } = await supabaseAdmin
+      .from('bracket_matches')
+      .insert({
+        bracket_config_id: configId,
+        phase: isFinalRound ? 'FINAL' : phase,
+        round_number: targetRound,
+        bracket_position: pos + 1,
+        match_number: matchNumber++,
+        status: 'SCHEDULED',
+      })
+      .select()
+      .single()
+
+    if (match) newMatchIds.push(match.id)
+  }
+
+  // 3/4위전 (결승 라운드 + config.third_place_match)
+  let thirdPlaceMatchId: string | null = null
+  if (isFinalRound && config.third_place_match) {
+    const { data: thirdPlace } = await supabaseAdmin
+      .from('bracket_matches')
+      .insert({
+        bracket_config_id: configId,
+        phase: 'THIRD_PLACE',
+        round_number: targetRound,
+        bracket_position: 0,
+        match_number: matchNumber++,
+        status: 'SCHEDULED',
+      })
+      .select()
+      .single()
+
+    thirdPlaceMatchId = thirdPlace?.id ?? null
+  }
+
+  // 팀 배정 (seedOrder 기반)
+  for (let i = 0; i < newMatchIds.length; i++) {
+    const matchId = newMatchIds[i]
+    const team1EntryId = seedOrder[i * 2] ?? null
+    const team2EntryId = seedOrder[i * 2 + 1] ?? null
+
+    if (team1EntryId && team2EntryId) {
+      await supabaseAdmin
+        .from('bracket_matches')
+        .update({
+          team1_entry_id: team1EntryId,
+          team2_entry_id: team2EntryId,
+        })
+        .eq('id', matchId)
+    } else if (team1EntryId || team2EntryId) {
+      // BYE 처리
+      const presentEntryId = team1EntryId || team2EntryId
+      await supabaseAdmin
+        .from('bracket_matches')
+        .update({
+          team1_entry_id: presentEntryId,
+          winner_entry_id: presentEntryId,
+          status: 'BYE',
+        })
+        .eq('id', matchId)
+    }
+    // 양쪽 null이면 빈 매치 — 건너뜀
+  }
+
+  // 이전 라운드 매치에 next_match_id 역방향 링크 설정 (2R+)
+  if (targetRound > 1) {
+    const prevRoundMatches = existingMainMatches.filter(
+      m => m.round_number === targetRound - 1,
+    )
+
+    for (let i = 0; i < newMatchIds.length; i++) {
+      const currentMatchId = newMatchIds[i]
+      const team1EntryId = seedOrder[i * 2] ?? null
+      const team2EntryId = seedOrder[i * 2 + 1] ?? null
+
+      // team1의 출처 매치 찾아서 next_match_id 설정
+      if (team1EntryId) {
+        const sourceMatch = prevRoundMatches.find(m => m.winner_entry_id === team1EntryId)
+        if (sourceMatch) {
+          await supabaseAdmin
+            .from('bracket_matches')
+            .update({ next_match_id: currentMatchId, next_match_slot: 1 })
+            .eq('id', sourceMatch.id)
+        }
+      }
+
+      // team2의 출처 매치
+      if (team2EntryId) {
+        const sourceMatch = prevRoundMatches.find(m => m.winner_entry_id === team2EntryId)
+        if (sourceMatch) {
+          await supabaseAdmin
+            .from('bracket_matches')
+            .update({ next_match_id: currentMatchId, next_match_slot: 2 })
+            .eq('id', sourceMatch.id)
+        }
+      }
+    }
+
+    // 결승 라운드: 준결승 패자 → 3/4위전 링크
+    if (isFinalRound && thirdPlaceMatchId) {
+      const semiMatches = prevRoundMatches
+        .sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0))
+
+      for (let i = 0; i < semiMatches.length; i++) {
+        await supabaseAdmin
+          .from('bracket_matches')
+          .update({
+            loser_next_match_id: thirdPlaceMatchId,
+            loser_next_match_slot: i + 1,
+          })
+          .eq('id', semiMatches[i].id)
+      }
+    }
+  }
+
+  // config 업데이트 (1R만: bracket_size, status)
+  if (targetRound === 1) {
+    await supabaseAdmin
+      .from('bracket_configs')
+      .update({ bracket_size: bracketSize, status: 'MAIN' })
+      .eq('id', configId)
+  }
+
+  revalidatePath('/admin/tournaments')
+  revalidatePath('/tournaments')
+  return {
+    data: { bracketSize, targetRound, matchCount: newMatchIds.length },
+    error: null,
+  }
+}
+
+/**
+ * 최신 라운드 삭제 (이전 라운드의 next_match_id 초기화)
+ */
+export async function deleteLatestRound(configId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { success: false, error: closedCheck.error }
+
+  const supabaseAdmin = createAdminClient()
+
+  // 본선 매치 전체 조회 (PRELIMINARY 제외)
+  const { data: allMainMatches } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('*')
+    .eq('bracket_config_id', configId)
+    .neq('phase', 'PRELIMINARY')
+    .order('round_number', { ascending: true })
+    .order('bracket_position', { ascending: true })
+
+  if (!allMainMatches || allMainMatches.length === 0) {
+    return { success: false, error: '삭제할 라운드가 없습니다.' }
+  }
+
+  // 최신 라운드 찾기 (THIRD_PLACE 제외하고 maxRound 계산)
+  const nonThirdPlace = allMainMatches.filter(m => m.phase !== 'THIRD_PLACE')
+  const maxRound = Math.max(...nonThirdPlace.map(m => m.round_number ?? 0))
+
+  // 삭제 대상: 최신 라운드 매치 + 같은 라운드의 THIRD_PLACE
+  const toDelete = allMainMatches.filter(
+    m => m.round_number === maxRound,
+  )
+  const deleteIds = toDelete.map(m => m.id)
+
+  // 이전 라운드 매치의 next_match_id, loser_next_match_id 초기화
+  const prevRoundMatches = allMainMatches.filter(
+    m => m.round_number === maxRound - 1 && m.phase !== 'THIRD_PLACE',
+  )
+
+  for (const match of prevRoundMatches) {
+    const updates: Record<string, unknown> = {}
+
+    if (match.next_match_id && deleteIds.includes(match.next_match_id)) {
+      updates.next_match_id = null
+      updates.next_match_slot = null
+    }
+    if (match.loser_next_match_id && deleteIds.includes(match.loser_next_match_id)) {
+      updates.loser_next_match_id = null
+      updates.loser_next_match_slot = null
+    }
+
+    if (Object.keys(updates).length > 0) {
+      await supabaseAdmin
+        .from('bracket_matches')
+        .update(updates)
+        .eq('id', match.id)
+    }
+  }
+
+  // 매치 삭제
+  const { error: deleteError } = await supabaseAdmin
+    .from('bracket_matches')
+    .delete()
+    .in('id', deleteIds)
+
+  if (deleteError) return { success: false, error: deleteError.message }
+
+  // 모든 본선 매치가 삭제되면 config 초기화
+  const remainingCount = allMainMatches.length - deleteIds.length
+  if (remainingCount === 0) {
+    await supabaseAdmin
+      .from('bracket_configs')
+      .update({ bracket_size: null, status: 'PRELIMINARY' })
+      .eq('id', configId)
+  }
+
+  revalidatePath('/admin/tournaments')
+  revalidatePath('/tournaments')
+  return { success: true }
 }
 
 /**

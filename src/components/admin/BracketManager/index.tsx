@@ -16,8 +16,10 @@ import {
   generatePreliminaryMatches,
   getPreliminaryMatches,
   generateMainBracket,
+  generateNextRound,
   getMainBracketMatches,
   getAdvancingTeams,
+  getNextRoundTeams,
   updateMatchResult,
   autoFillPreliminaryResults,
   autoFillMainBracketResults,
@@ -26,6 +28,7 @@ import {
   deletePreliminaryGroups,
   deletePreliminaryMatches,
   deleteMainBracket,
+  deleteLatestRound,
 } from "@/lib/bracket/actions";
 import { useMatchesRealtime, type RealtimeMatchPayload } from "@/lib/realtime/useMatchesRealtime";
 import { SettingsTab } from "./SettingsTab";
@@ -42,7 +45,7 @@ import type {
   BracketMatch,
   SetDetail,
 } from "./types";
-import { CLOSED_TOURNAMENT_STATUSES } from "./types";
+import { CLOSED_TOURNAMENT_STATUSES, phaseLabels } from "./types";
 
 type TabType = "settings" | "groups" | "preliminary" | "main";
 
@@ -67,6 +70,7 @@ export function BracketManager({
   );
   const [mainMatches, setMainMatches] = useState<BracketMatch[]>([]);
   const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("불러오는 중...");
   const [activeTab, setActiveTab] = useState<TabType>("settings");
 
   // Dialog states
@@ -79,6 +83,7 @@ export function BracketManager({
   const [showDeleteGroupsConfirm, setShowDeleteGroupsConfirm] = useState(false);
   const [showDeletePrelimConfirm, setShowDeletePrelimConfirm] = useState(false);
   const [showDeleteMainConfirm, setShowDeleteMainConfirm] = useState(false);
+  const [showDeleteLatestRoundConfirm, setShowDeleteLatestRoundConfirm] = useState(false);
   const [showDeleteBracketConfirm, setShowDeleteBracketConfirm] =
     useState(false);
   const [alertDialog, setAlertDialog] = useState<{
@@ -108,7 +113,10 @@ export function BracketManager({
   // 본선 시드 배치 미리보기 상태
   const [seedingGroups, setSeedingGroups] = useState<PreliminaryGroup[]>([]);
   const [allPrelimsDone, setAllPrelimsDone] = useState(false);
-  const [pendingSeedOrder, setPendingSeedOrder] = useState<string[]>([]);
+  const [pendingSeedOrder, setPendingSeedOrder] = useState<(string | null)[]>([]);
+  const [nextPhaseLabel, setNextPhaseLabel] = useState("");
+  // React 18 batching 안전성: ref로 시드 순서를 동기적으로 참조
+  const pendingSeedOrderRef = useRef<(string | null)[]>([]);
 
   const showError = useCallback((title: string, message: string) => {
     setAlertDialog({ isOpen: true, title, message, type: "error" });
@@ -121,6 +129,7 @@ export function BracketManager({
   // 데이터 로드
   const loadBracketData = useCallback(async () => {
     if (!selectedDivision) return;
+    setLoadingMessage("불러오는 중...");
     setLoading(true);
 
     try {
@@ -149,27 +158,36 @@ export function BracketManager({
         const { data: mainData } = await getMainBracketMatches(configData.id);
         setMainMatches(mainData || []);
 
-        // 예선 있는 대회에서 본선 미생성 시 → 시드 배치 미리보기 데이터 로딩
-        if (configData.has_preliminaries && (!mainData || mainData.length === 0)) {
-          const { data: advData } = await getAdvancingTeams(configData.id);
-          if (advData && advData.teams.length > 0) {
-            // bracketSize 계산 (서버 calculateBracketSize와 동일)
-            const teamCount = advData.teams.length;
+        // 시드 배치 데이터 로딩 조건:
+        // 1) 예선 있는 대회에서 본선 미생성 (1R 시드 배치)
+        // 2) 본선 매치 있지만 결승 미존재 (2R+ 시드 배치)
+        const hasFinal = (mainData || []).some(m => m.phase === 'FINAL');
+        const shouldLoadSeeds =
+          (configData.has_preliminaries && (!mainData || mainData.length === 0)) ||
+          (mainData && mainData.length > 0 && !hasFinal);
+
+        if (shouldLoadSeeds) {
+          const { data: nextData } = await getNextRoundTeams(configData.id);
+          if (nextData && nextData.teams.length > 0 && !nextData.isComplete) {
+            // bracketSize 계산 (1R: 팀 수 기반, 2R+: config에서)
+            const teamCount = nextData.teams.length;
             const bracketSize =
-              teamCount <= 4 ? 4
-              : teamCount <= 8 ? 8
-              : teamCount <= 16 ? 16
-              : teamCount <= 32 ? 32
-              : teamCount <= 64 ? 64
-              : 128;
-            // 1라운드 매치 수 = bracketSize / 2 → 그룹 수 고정
-            // 예: 128강이면 64그룹, 빈 슬롯도 표시하여 DnD로 BYE 배치 가능
-            const totalGroups = bracketSize / 2;
+              nextData.nextRound === 1
+                ? (teamCount <= 4 ? 4
+                  : teamCount <= 8 ? 8
+                  : teamCount <= 16 ? 16
+                  : teamCount <= 32 ? 32
+                  : teamCount <= 64 ? 64
+                  : 128)
+                : configData.bracket_size!;
+            const totalRounds = Math.log2(bracketSize);
+            // 다음 라운드 매치 수
+            const matchesInNextRound = Math.pow(2, totalRounds - nextData.nextRound);
 
             const virtualGroups: PreliminaryGroup[] = [];
-            for (let i = 0; i < totalGroups; i++) {
-              const team1 = advData.teams[i * 2];
-              const team2 = advData.teams[i * 2 + 1];
+            for (let i = 0; i < matchesInNextRound; i++) {
+              const team1 = nextData.teams[i * 2];
+              const team2 = nextData.teams[i * 2 + 1];
               const groupTeams = [team1, team2]
                 .filter((t): t is NonNullable<typeof t> => !!t)
                 .map((t) => ({
@@ -191,13 +209,16 @@ export function BracketManager({
               });
             }
             setSeedingGroups(virtualGroups);
-            setAllPrelimsDone(advData.allPrelimsDone);
+            setAllPrelimsDone(nextData.allDone);
+            setNextPhaseLabel(phaseLabels[nextData.nextPhase] || "");
           } else {
             setSeedingGroups([]);
-            setAllPrelimsDone(false);
+            setAllPrelimsDone(nextData?.allDone ?? false);
+            setNextPhaseLabel("");
           }
         } else {
           setSeedingGroups([]);
+          setNextPhaseLabel("");
         }
       }
     } catch {
@@ -329,6 +350,9 @@ export function BracketManager({
   const handleAutoGenerateGroups = async () => {
     if (!config || !selectedDivision) return;
 
+    // 다이얼로그 즉시 닫고 로딩 오버레이로 전환
+    setShowAutoGenerateConfirm(false);
+    setLoadingMessage("조 편성 중...");
     setLoading(true);
     try {
       const { error } = await autoGenerateGroups(
@@ -346,13 +370,14 @@ export function BracketManager({
       showError("오류", "조 편성 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowAutoGenerateConfirm(false);
     }
   };
 
   const handleGeneratePreliminaryMatches = async () => {
     if (!config) return;
 
+    setShowGeneratePrelimConfirm(false);
+    setLoadingMessage("예선 경기 생성 중...");
     setLoading(true);
     try {
       const { error } = await generatePreliminaryMatches(config.id);
@@ -367,40 +392,47 @@ export function BracketManager({
       showError("오류", "예선 경기 생성 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowGeneratePrelimConfirm(false);
     }
   };
 
   const handleGenerateMainBracket = async () => {
     if (!config || !selectedDivision) return;
 
+    // ref에서 동기적으로 시드 순서 읽기 (클로저 안전)
+    const seedOrder = pendingSeedOrderRef.current;
+
+    // 다이얼로그 즉시 닫고 로딩 오버레이로 전환
+    setShowGenerateMainConfirm(false);
+    setLoadingMessage("대진표 생성 중...");
     setLoading(true);
     try {
-      const { data, error } = await generateMainBracket(
-        config.id,
-        selectedDivision.id,
-        pendingSeedOrder.length > 0 ? pendingSeedOrder : undefined,
-      );
+      // 시드 배치(DnD) 경유 → 라운드별 순차 생성
+      const { data, error } = seedOrder.length > 0
+        ? await generateNextRound(config.id, selectedDivision.id, seedOrder)
+        : await generateMainBracket(config.id, selectedDivision.id);
+
       if (error) {
-        showError("본선 대진표 생성 실패", error);
+        showError("대진표 생성 실패", error);
       } else {
+        pendingSeedOrderRef.current = [];
         setPendingSeedOrder([]);
         await loadBracketData();
         setActiveTab("main");
-        showSuccess(
-          `본선 대진표가 생성되었습니다. (${data?.bracketSize}강, ${data?.teamCount}팀)`,
-        );
+        const label = data && 'targetRound' in data
+          ? `${data.targetRound}라운드 대진표가 생성되었습니다. (${data.matchCount}경기)`
+          : `본선 대진표가 생성되었습니다. (${data?.bracketSize}강)`;
+        showSuccess(label);
       }
     } catch {
-      showError("오류", "본선 대진표 생성 중 오류가 발생했습니다.");
+      showError("오류", "대진표 생성 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowGenerateMainConfirm(false);
     }
   };
 
   // 시드 배치 미리보기에서 시드 순서 확인 후 생성 요청
-  const handleRequestGenerateMainWithSeeds = useCallback((seedOrder: string[]) => {
+  const handleRequestGenerateMainWithSeeds = useCallback((seedOrder: (string | null)[]) => {
+    pendingSeedOrderRef.current = seedOrder;
     setPendingSeedOrder(seedOrder);
     setShowGenerateMainConfirm(true);
   }, []);
@@ -515,6 +547,8 @@ export function BracketManager({
   const handleDeleteGroups = async () => {
     if (!config) return;
 
+    setShowDeleteGroupsConfirm(false);
+    setLoadingMessage("조 편성 삭제 중...");
     setLoading(true);
     try {
       const { error } = await deletePreliminaryGroups(config.id);
@@ -528,13 +562,14 @@ export function BracketManager({
       showError("오류", "삭제 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowDeleteGroupsConfirm(false);
     }
   };
 
   const handleDeletePreliminaryMatches = async () => {
     if (!config) return;
 
+    setShowDeletePrelimConfirm(false);
+    setLoadingMessage("예선 경기 삭제 중...");
     setLoading(true);
     try {
       const { error } = await deletePreliminaryMatches(config.id);
@@ -548,13 +583,14 @@ export function BracketManager({
       showError("오류", "삭제 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowDeletePrelimConfirm(false);
     }
   };
 
   const handleDeleteMainBracket = async () => {
     if (!config) return;
 
+    setShowDeleteMainConfirm(false);
+    setLoadingMessage("본선 대진표 삭제 중...");
     setLoading(true);
     try {
       const { error } = await deleteMainBracket(config.id);
@@ -568,13 +604,35 @@ export function BracketManager({
       showError("오류", "삭제 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowDeleteMainConfirm(false);
+    }
+  };
+
+  const handleDeleteLatestRound = async () => {
+    if (!config) return;
+
+    setShowDeleteLatestRoundConfirm(false);
+    setLoadingMessage("최신 라운드 삭제 중...");
+    setLoading(true);
+    try {
+      const { error } = await deleteLatestRound(config.id);
+      if (error) {
+        showError("삭제 실패", error);
+      } else {
+        await loadBracketData();
+        showSuccess("최신 라운드가 삭제되었습니다.");
+      }
+    } catch {
+      showError("오류", "삭제 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleDeleteBracket = async () => {
     if (!config) return;
 
+    setShowDeleteBracketConfirm(false);
+    setLoadingMessage("전체 대진표 삭제 중...");
     setLoading(true);
     try {
       const { error } = await deleteBracketConfig(config.id);
@@ -588,7 +646,6 @@ export function BracketManager({
       showError("오류", "삭제 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
-      setShowDeleteBracketConfirm(false);
     }
   };
 
@@ -605,7 +662,7 @@ export function BracketManager({
 
   return (
     <div className="space-y-6">
-      {loading && <LoadingOverlay message="불러오는 중..." />}
+      {loading && <LoadingOverlay message={loadingMessage} />}
 
       {/* Division Selector */}
       <div className="flex flex-wrap gap-2">
@@ -682,7 +739,7 @@ export function BracketManager({
           <div
             className={`rounded-xl p-6 border border-(--border-color) ${
               activeTab === "groups" ||
-              (activeTab === "main" && config.has_preliminaries && mainMatches.length === 0 && seedingGroups.length > 0)
+              (activeTab === "main" && seedingGroups.length > 0)
                 ? "bg-(--bg-card)"
                 : "glass-card"
             }`}
@@ -714,7 +771,8 @@ export function BracketManager({
                   setShowAutoGenerateConfirm(true);
                 }}
                 onGenerateMatches={isClosed ? undefined : () => setShowGeneratePrelimConfirm(true)}
-                onGenerateMainBracket={isClosed ? undefined : (seedOrder: string[]) => {
+                onGenerateMainBracket={isClosed ? undefined : (seedOrder: (string | null)[]) => {
+                  pendingSeedOrderRef.current = seedOrder;
                   setPendingSeedOrder(seedOrder);
                   setShowGenerateMainConfirm(true);
                 }}
@@ -746,13 +804,16 @@ export function BracketManager({
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
                 onDelete={isClosed ? undefined : () => setShowDeleteMainConfirm(true)}
+                onDeleteLatestRound={isClosed ? undefined : () => setShowDeleteLatestRoundConfirm(true)}
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={isClosed ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
-                seedingGroups={config.has_preliminaries && mainMatches.length === 0 ? seedingGroups : undefined}
+                seedingGroups={seedingGroups.length > 0 ? seedingGroups : undefined}
                 allPrelimsDone={allPrelimsDone}
+                nextPhaseLabel={nextPhaseLabel}
                 onGenerateBracketWithSeeds={isClosed ? undefined : handleRequestGenerateMainWithSeeds}
+                onRefreshNextRound={isClosed ? undefined : loadBracketData}
               />
             )}
           </div>
@@ -813,13 +874,14 @@ export function BracketManager({
         isOpen={showGenerateMainConfirm}
         onClose={() => {
           setShowGenerateMainConfirm(false);
+          pendingSeedOrderRef.current = [];
           setPendingSeedOrder([]);
         }}
         onConfirm={handleGenerateMainBracket}
-        title="본선 대진표 생성"
+        title="대진표 생성"
         message={
           pendingSeedOrder.length > 0
-            ? "현재 시드 배정 순서대로 본선 대진표를 생성하시겠습니까?"
+            ? `현재 시드 배정 순서대로 ${nextPhaseLabel || "본선"} 대진표를 생성하시겠습니까?`
             : "현재 조 편성 순서대로 본선 대진표를 생성하시겠습니까?"
         }
         type="info"
@@ -853,6 +915,16 @@ export function BracketManager({
         title="본선 대진표 삭제"
         message={`본선 대진표를 삭제하시겠습니까?\n조 편성은 유지됩니다.`}
         type="error"
+        isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteLatestRoundConfirm}
+        onClose={() => setShowDeleteLatestRoundConfirm(false)}
+        onConfirm={handleDeleteLatestRound}
+        title="최신 라운드 삭제"
+        message="최신 라운드를 삭제하시겠습니까? 이전 라운드의 경기 연결이 초기화됩니다."
+        type="warning"
         isLoading={loading}
       />
 

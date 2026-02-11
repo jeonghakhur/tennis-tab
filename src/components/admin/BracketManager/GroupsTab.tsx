@@ -25,9 +25,10 @@ interface GroupsTabProps {
   groups: PreliminaryGroup[];
   hasPreliminary: boolean;
   title?: string;
+  generateButtonLabel?: string;
   onAutoGenerate?: () => void;
   onGenerateMatches?: () => void;
-  onGenerateMainBracket?: (seedOrder: string[]) => void;
+  onGenerateMainBracket?: (seedOrder: (string | null)[]) => void;
   onDelete?: () => void;
   onTeamMove?: () => Promise<void>;
   onError: (message: string) => void;
@@ -37,6 +38,7 @@ export function GroupsTab({
   groups,
   hasPreliminary,
   title = "예선 조 편성",
+  generateButtonLabel,
   onAutoGenerate,
   onGenerateMatches,
   onGenerateMainBracket,
@@ -237,15 +239,19 @@ export function GroupsTab({
                 onGenerateMainBracket && (
                   <button
                     onClick={() => {
-                      // localGroups에서 entry_id 순서 추출
-                      const seedOrder = localGroups.flatMap(
-                        (g) => (g.group_teams || []).map((t) => t.entry_id),
-                      );
+                      // 그룹별 2팀씩 null 패딩 → 그룹 경계 보존
+                      // Group [T1,T2] → [T1,T2], Group [T3] → [T3,null]
+                      const seedOrder = localGroups.flatMap((g) => {
+                        const teams = g.group_teams || [];
+                        const t1 = teams[0]?.entry_id ?? null;
+                        const t2 = teams[1]?.entry_id ?? null;
+                        return [t1, t2];
+                      });
                       onGenerateMainBracket(seedOrder);
                     }}
                     className="btn-primary btn-sm"
                   >
-                    <span className="relative z-10">본선 대진표 생성</span>
+                    <span className="relative z-10">{generateButtonLabel || "본선 대진표 생성"}</span>
                   </button>
                 )
               )}
