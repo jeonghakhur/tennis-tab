@@ -26,7 +26,6 @@ export default function TournamentMap({
 
     const initMap = () => {
       if (!window.naver || !mapRef.current) {
-        console.log("네이버 지도 API가 로드되지 않았습니다.");
         return;
       }
 
@@ -42,7 +41,6 @@ export default function TournamentMap({
           },
           function (status: any, response: any) {
             if (status !== window.naver.maps.Service.Status.OK) {
-              console.warn("주소 검색 실패. 기본 위치를 표시합니다.");
               createMap(37.5665, 126.978, searchAddress);
               return;
             }
@@ -72,15 +70,10 @@ export default function TournamentMap({
               }
             }
 
-            // 좌표를 찾지 못한 경우 기본 위치
-            console.warn("좌표 변환 실패. 기본 위치를 표시합니다.");
             createMap(37.5665, 126.978, searchAddress);
           },
         );
       } else {
-        console.warn(
-          "Geocoding 서비스를 사용할 수 없습니다. 기본 위치를 표시합니다.",
-        );
         createMap(37.5665, 126.978, searchAddress);
       }
     };
@@ -111,23 +104,15 @@ export default function TournamentMap({
     // 네이버 지도 스크립트 로드
     if (typeof window !== "undefined") {
       if (window.naver && window.naver.maps) {
-        // 이미 로드되어 있으면 바로 초기화
         initMap();
       } else {
-        // 스크립트가 없으면 로드 (geocoder 서브모듈 포함)
         const script = document.createElement("script");
         script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID}&submodules=geocoder`;
         script.async = true;
         script.onload = () => {
-          // 스크립트 로드 후 약간의 딜레이를 주고 초기화
           setTimeout(() => {
             initMap();
           }, 100);
-        };
-        script.onerror = () => {
-          console.error(
-            "네이버 지도 스크립트 로드 실패. API 키와 웹 서비스 URL을 확인하세요.",
-          );
         };
         document.head.appendChild(script);
       }
@@ -142,7 +127,14 @@ export default function TournamentMap({
 
   if (!address && !location) {
     return (
-      <div className="bg-gray-100 dark:bg-gray-800 rounded-2xl h-64 flex items-center justify-center text-gray-400 border border-gray-200 dark:border-gray-700">
+      <div
+        className="rounded-2xl h-64 flex items-center justify-center"
+        style={{
+          backgroundColor: "var(--bg-card)",
+          border: "1px solid var(--border-color)",
+          color: "var(--text-muted)",
+        }}
+      >
         <div className="text-center">
           <span className="text-4xl block mb-2">🗺️</span>
           <span className="text-sm">주소 정보가 없습니다</span>
@@ -152,10 +144,19 @@ export default function TournamentMap({
   }
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 shadow-sm">
+    <div
+      className="rounded-2xl overflow-hidden"
+      style={{ border: "1px solid var(--border-color)" }}
+    >
       <div ref={mapRef} className="w-full h-64" />
-      <div className="bg-white dark:bg-gray-800 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
-        <p className="text-sm text-gray-600 dark:text-gray-400">
+      <div
+        className="px-4 py-3"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          borderTop: "1px solid var(--border-color)",
+        }}
+      >
+        <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
           📍 {address || location}
         </p>
       </div>

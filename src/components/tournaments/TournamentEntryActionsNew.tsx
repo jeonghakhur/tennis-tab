@@ -117,10 +117,10 @@ export default function TournamentEntryActions({
   const isWithinEntryPeriod = () => {
     const now = new Date();
     if (entryStartDate && new Date(entryStartDate) > now) {
-      return false; // 아직 접수 시작 전
+      return false;
     }
     if (entryEndDate && new Date(entryEndDate) < now) {
-      return false; // 접수 기간 종료
+      return false;
     }
     return true;
   };
@@ -142,7 +142,6 @@ export default function TournamentEntryActions({
     });
 
     if (result.success && result.entryId) {
-      // 즉각적인 UI 반영을 위해 상태 업데이트
       getUserEntry(tournamentId).then((e) => {
         if (e) setEntry(e as CurrentEntry);
       });
@@ -179,7 +178,7 @@ export default function TournamentEntryActions({
     setShowCancelModal(false);
 
     if (result.success) {
-      setEntry(null); // 즉각적인 UI 반영
+      setEntry(null);
       setAlertDialog({
         isOpen: true,
         title: "취소 완료",
@@ -224,38 +223,38 @@ export default function TournamentEntryActions({
     }
   };
 
-  // 신청 상태에 따른 배지 스타일 (PENDING/APPROVED/REJECTED + waitlist: CONFIRMED/WAITLISTED/CANCELLED)
+  // 신청 상태 배지 — alpha 기반으로 다크/라이트 모두 호환
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { text: string; className: string }> = {
+    const badges: Record<string, { text: string; bg: string; color: string }> = {
       PENDING: {
         text: "승인 대기중",
-        className:
-          "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+        bg: "rgba(245, 158, 11, 0.15)",
+        color: "#d97706",
       },
       APPROVED: {
         text: "승인됨",
-        className:
-          "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        bg: "rgba(16, 185, 129, 0.15)",
+        color: "#059669",
       },
       REJECTED: {
         text: "거절됨",
-        className:
-          "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+        bg: "rgba(239, 68, 68, 0.15)",
+        color: "#dc2626",
       },
       CONFIRMED: {
         text: "확정",
-        className:
-          "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
+        bg: "rgba(16, 185, 129, 0.15)",
+        color: "#059669",
       },
       WAITLISTED: {
         text: "대기자",
-        className:
-          "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+        bg: "rgba(245, 158, 11, 0.15)",
+        color: "#d97706",
       },
       CANCELLED: {
         text: "취소됨",
-        className:
-          "bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400",
+        bg: "var(--bg-card-hover)",
+        color: "var(--text-muted)",
       },
     };
 
@@ -263,9 +262,28 @@ export default function TournamentEntryActions({
 
     return (
       <span
-        className={`px-3 py-1 rounded-full text-sm font-medium ${badge.className}`}
+        className="px-3 py-1 rounded-full text-sm font-medium"
+        style={{ backgroundColor: badge.bg, color: badge.color }}
       >
         {badge.text}
+      </span>
+    );
+  };
+
+  // 결제 상태 배지
+  const getPaymentBadge = (paymentStatus: string | undefined) => {
+    const isPaid = paymentStatus === "PAID";
+    return (
+      <span
+        className="px-3 py-1 rounded-full text-sm font-medium"
+        style={{
+          backgroundColor: isPaid
+            ? "rgba(16, 185, 129, 0.15)"
+            : "rgba(239, 68, 68, 0.15)",
+          color: isPaid ? "#059669" : "#dc2626",
+        }}
+      >
+        {isPaid ? "결제 완료" : "미결제"}
       </span>
     );
   };
@@ -278,8 +296,17 @@ export default function TournamentEntryActions({
 
   return (
     <>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <h3 className="font-bold text-gray-900 dark:text-white mb-4 text-lg">
+      <div
+        className="rounded-2xl p-6 shadow-lg"
+        style={{
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-color)",
+        }}
+      >
+        <h3
+          className="font-bold mb-4 text-lg"
+          style={{ color: "var(--text-primary)" }}
+        >
           참가 신청
         </h3>
         <div className="space-y-4">
@@ -287,13 +314,17 @@ export default function TournamentEntryActions({
             // 로그인하지 않은 경우
             <>
               <div className="text-center py-4">
-                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
                   참가 신청을 하려면 로그인이 필요합니다.
                 </p>
               </div>
               <button
                 onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)}
-                className="w-full bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
+                className="w-full rounded-xl py-3 font-medium transition-all hover:opacity-80"
+                style={{
+                  backgroundColor: "var(--bg-card-hover)",
+                  color: "var(--text-secondary)",
+                }}
               >
                 로그인하기
               </button>
@@ -302,40 +333,41 @@ export default function TournamentEntryActions({
             // 이미 신청한 경우
             <>
               {/* 신청 정보 요약 */}
-              <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 space-y-3">
+              <div
+                className="rounded-xl p-4 space-y-3"
+                style={{ backgroundColor: "var(--bg-card)" }}
+              >
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
                     신청 순서
                   </span>
-                  <span className="font-bold text-blue-600 dark:text-blue-400">
+                  <span
+                    className="font-bold"
+                    style={{ color: "var(--accent-color)" }}
+                  >
                     {entry.current_rank ?? "-"}번째
                   </span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
                     신청 상태
                   </span>
                   {getStatusBadge(entry.status)}
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="text-sm" style={{ color: "var(--text-muted)" }}>
                     결제 여부
                   </span>
-                  <span
-                    className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      entry.payment_status === "PAID"
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                    }`}
-                  >
-                    {entry.payment_status === "PAID" ? "결제 완료" : "미결제"}
-                  </span>
+                  {getPaymentBadge(entry.payment_status)}
                 </div>
               </div>
 
               {canEditOrCancel && (
                 <>
-                  <p className="text-sm text-center text-gray-600 dark:text-gray-400">
+                  <p
+                    className="text-sm text-center"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
                     {entry.status === "PENDING" &&
                       "주최자의 승인을 기다리고 있습니다."}
                     {entry.status === "CONFIRMED" &&
@@ -348,14 +380,22 @@ export default function TournamentEntryActions({
                     <button
                       onClick={() => setShowEditForm(true)}
                       disabled={isSubmitting}
-                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+                      style={{
+                        backgroundColor: "var(--accent-color)",
+                        color: "var(--bg-primary)",
+                      }}
                     >
                       수정하기
                     </button>
                     <button
                       onClick={() => setShowCancelModal(true)}
                       disabled={isSubmitting}
-                      className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+                      style={{
+                        backgroundColor: "var(--bg-card-hover)",
+                        color: "var(--text-secondary)",
+                      }}
                     >
                       {isSubmitting ? "처리 중..." : "참가 취소하기"}
                     </button>
@@ -363,32 +403,59 @@ export default function TournamentEntryActions({
                 </>
               )}
 
-              {!canEditOrCancel && !canAcceptEntry && (
-                <p className="text-sm text-center text-gray-600 dark:text-gray-400">
-                  접수 기간이 아닙니다. 수정·취소는 접수 중에만 가능합니다.
-                </p>
-              )}
+              {!canEditOrCancel &&
+                !canAcceptEntry &&
+                !["CANCELLED", "REJECTED"].includes(entry.status) && (
+                  <p
+                    className="text-sm text-center"
+                    style={{ color: "var(--text-secondary)" }}
+                  >
+                    {tournamentStatus === "COMPLETED" &&
+                      "대회가 종료되었습니다."}
+                    {tournamentStatus === "IN_PROGRESS" &&
+                      "대회가 진행 중입니다. 수정·취소가 불가합니다."}
+                    {tournamentStatus === "CLOSED" &&
+                      "접수가 마감되었습니다. 수정·취소가 불가합니다."}
+                    {tournamentStatus === "CANCELLED" &&
+                      "대회가 취소되었습니다."}
+                    {tournamentStatus === "OPEN" &&
+                      !withinPeriod &&
+                      "접수 기간이 아닙니다. 수정·취소는 접수 중에만 가능합니다."}
+                  </p>
+                )}
 
               {entry.status === "WAITLISTED" && (
-                <p className="text-sm text-center text-amber-600 dark:text-amber-400">
+                <p
+                  className="text-sm text-center"
+                  style={{ color: "#d97706" }}
+                >
                   대기자 목록에 등록되었습니다. 순번이 되면 연락드립니다.
                 </p>
               )}
 
               {entry.status === "APPROVED" && (
-                <p className="text-sm text-center text-green-600 dark:text-green-400">
+                <p
+                  className="text-sm text-center"
+                  style={{ color: "#059669" }}
+                >
                   참가 신청이 승인되었습니다!
                 </p>
               )}
 
               {entry.status === "REJECTED" && (
-                <p className="text-sm text-center text-red-600 dark:text-red-400">
+                <p
+                  className="text-sm text-center"
+                  style={{ color: "#dc2626" }}
+                >
                   참가 신청이 거절되었습니다.
                 </p>
               )}
 
               {entry.status === "CANCELLED" && (
-                <p className="text-sm text-center text-gray-500 dark:text-gray-400">
+                <p
+                  className="text-sm text-center"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   참가 신청이 취소되었습니다.
                 </p>
               )}
@@ -398,18 +465,25 @@ export default function TournamentEntryActions({
             <>
               <button
                 onClick={() => setShowEntryForm(true)}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl py-3 font-bold transition-all shadow hover:shadow-lg"
+                className="w-full rounded-xl py-3 font-bold transition-all hover:opacity-90"
+                style={{
+                  backgroundColor: "var(--accent-color)",
+                  color: "var(--bg-primary)",
+                }}
               >
                 참가 신청하기
               </button>
-              <p className="text-xs text-center text-gray-500">
+              <p
+                className="text-xs text-center"
+                style={{ color: "var(--text-muted)" }}
+              >
                 신청 후 주최자의 승인이 필요합니다.
               </p>
             </>
           ) : (
             // 접수 기간이 아닌 경우
             <div className="text-center py-4">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                 {tournamentStatus === "DRAFT" && "대회 준비 중입니다."}
                 {tournamentStatus === "CLOSED" && "접수가 마감되었습니다."}
                 {tournamentStatus === "IN_PROGRESS" && "대회가 진행 중입니다."}
@@ -424,7 +498,10 @@ export default function TournamentEntryActions({
 
         {/* 주최자용 마감 버튼 */}
         {isOrganizer && tournamentStatus === "OPEN" && (
-          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
+          <div
+            className="mt-4 pt-4"
+            style={{ borderTop: "1px solid var(--border-color)" }}
+          >
             <button
               onClick={() => setShowCloseModal(true)}
               disabled={isSubmitting}
@@ -432,7 +509,10 @@ export default function TournamentEntryActions({
             >
               참가 접수 마감
             </button>
-            <p className="text-xs text-center text-gray-500 mt-2">
+            <p
+              className="text-xs text-center mt-2"
+              style={{ color: "var(--text-muted)" }}
+            >
               마감 후에는 참가 신청을 받을 수 없습니다.
             </p>
           </div>
@@ -448,19 +528,30 @@ export default function TournamentEntryActions({
             style={{ zIndex: 9999 }}
           >
             <div
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative"
-              style={{ zIndex: 10000 }}
+              className="rounded-2xl p-6 max-w-md w-full relative"
+              style={{
+                zIndex: 10000,
+                backgroundColor: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+              }}
             >
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              <h3
+                className="text-xl font-bold mb-4"
+                style={{ color: "var(--text-primary)" }}
+              >
                 신청 취소 확인
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="mb-6" style={{ color: "var(--text-secondary)" }}>
                 정말로 참가 신청을 취소하시겠습니까?
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCancelModal(false)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
+                  className="flex-1 rounded-xl py-3 font-medium transition-all hover:opacity-80"
+                  style={{
+                    backgroundColor: "var(--bg-card-hover)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   아니오
                 </button>
@@ -486,19 +577,30 @@ export default function TournamentEntryActions({
             style={{ zIndex: 9999 }}
           >
             <div
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative"
-              style={{ zIndex: 10000 }}
+              className="rounded-2xl p-6 max-w-md w-full relative"
+              style={{
+                zIndex: 10000,
+                backgroundColor: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+              }}
             >
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              <h3
+                className="text-xl font-bold mb-4"
+                style={{ color: "var(--text-primary)" }}
+              >
                 참가 접수 마감
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="mb-6" style={{ color: "var(--text-secondary)" }}>
                 참가 접수를 마감하시겠습니까? 마감 후에는 더 이상 참가 신청을 받을 수 없습니다.
               </p>
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowCloseModal(false)}
-                  className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all"
+                  className="flex-1 rounded-xl py-3 font-medium transition-all hover:opacity-80"
+                  style={{
+                    backgroundColor: "var(--bg-card-hover)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   취소
                 </button>
