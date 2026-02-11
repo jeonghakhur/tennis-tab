@@ -1,11 +1,12 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/Navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
+import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
 
 // 전화번호 포맷팅 (010-1234-5678)
 function formatPhoneNumber(value: string): string {
@@ -204,6 +205,35 @@ export default function MyProfilePage() {
     }
     setTournamentsLoading(false);
   };
+
+  // 참가 대회 ID 목록 (Realtime 구독용)
+  const tournamentIds = useMemo(
+    () => tournaments.map((e) => e.tournament.id),
+    [tournaments],
+  );
+
+  // 대회 상태 변경 실시간 감지 → 로컬 상태 즉시 반영
+  const handleTournamentStatusChange = useCallback(
+    (tournamentId: string, newStatus: string) => {
+      setTournaments((prev) =>
+        prev.map((entry) =>
+          entry.tournament.id === tournamentId
+            ? {
+                ...entry,
+                tournament: { ...entry.tournament, status: newStatus },
+              }
+            : entry,
+        ),
+      );
+    },
+    [],
+  );
+
+  useTournamentStatusRealtime({
+    tournamentIds,
+    onStatusChange: handleTournamentStatusChange,
+    enabled: !tournamentsLoading && tournaments.length > 0,
+  });
 
   const loadMatches = async () => {
     setMatchesLoading(true);

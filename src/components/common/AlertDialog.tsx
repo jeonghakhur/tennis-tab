@@ -4,24 +4,33 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { Check, X, AlertCircle, Info } from "lucide-react";
 
+type DialogType = "info" | "warning" | "error" | "success";
+
+const DEFAULT_TITLES: Record<DialogType, string> = {
+  info: "알림",
+  warning: "주의",
+  error: "오류",
+  success: "완료",
+};
+
 interface AlertDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  title: string;
+  title?: string;
   message: string;
   confirmText?: string;
-  type?: "info" | "warning" | "error" | "success";
+  type?: DialogType;
 }
 
 interface ConfirmDialogProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
-  title: string;
+  title?: string;
   message: string;
   confirmText?: string;
   cancelText?: string;
-  type?: "info" | "warning" | "error" | "success";
+  type?: DialogType;
   isLoading?: boolean;
 }
 
@@ -57,16 +66,23 @@ export function AlertDialog({
       style={{ zIndex: 9999 }}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative shadow-2xl"
-        style={{ zIndex: 10000 }}
+        className="rounded-2xl p-6 max-w-md w-full relative shadow-2xl"
+        style={{
+          zIndex: 10000,
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-color)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-          {title}
+        <h3
+          className="text-xl font-bold mb-4"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {title || DEFAULT_TITLES[type]}
         </h3>
         <p
-          className="text-gray-600 dark:text-gray-400 mb-6"
-          style={{ whiteSpace: "pre-line" }}
+          className="mb-6"
+          style={{ color: "var(--text-secondary)", whiteSpace: "pre-line" }}
         >
           {message}
         </p>
@@ -121,16 +137,23 @@ export function ConfirmDialog({
       style={{ zIndex: 9999 }}
     >
       <div
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full relative shadow-2xl"
-        style={{ zIndex: 10000 }}
+        className="rounded-2xl p-6 max-w-md w-full relative shadow-2xl"
+        style={{
+          zIndex: 10000,
+          backgroundColor: "var(--bg-secondary)",
+          border: "1px solid var(--border-color)",
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
-          {title}
+        <h3
+          className="text-xl font-bold mb-4"
+          style={{ color: "var(--text-primary)" }}
+        >
+          {title || DEFAULT_TITLES[type]}
         </h3>
         <p
-          className="text-gray-600 dark:text-gray-400 mb-6"
-          style={{ whiteSpace: "pre-line" }}
+          className="mb-6"
+          style={{ color: "var(--text-secondary)", whiteSpace: "pre-line" }}
         >
           {message}
         </p>
@@ -138,7 +161,11 @@ export function ConfirmDialog({
           <button
             onClick={onClose}
             disabled={isLoading}
-            className="flex-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
+            style={{
+              backgroundColor: "var(--bg-card-hover)",
+              color: "var(--text-secondary)",
+            }}
           >
             {cancelText}
           </button>

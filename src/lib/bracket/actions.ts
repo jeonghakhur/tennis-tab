@@ -781,6 +781,9 @@ async function updateMatchResultCore(
       .from('bracket_matches')
       .update({ [updateField]: winnerId })
       .eq('id', match.next_match_id)
+
+    // 상대 피더가 빈 슬롯이면 자동 BYE 전파
+    await propagateByeIfNeeded(supabaseAdmin, match.next_match_id)
   }
 
   // 3/4위전에 패자 배정
@@ -1086,6 +1089,68 @@ async function updateGroupStandings(groupId: string) {
 }
 
 // ============================================================================
+// 자동 BYE 전파
+// ============================================================================
+
+/**
+ * 한 팀만 배정되고 상대 피더가 빈 슬롯(양 팀 없음)이면 자동 부전승 처리
+ * 재귀적으로 다음 라운드까지 전파
+ */
+async function propagateByeIfNeeded(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  matchId: string
+): Promise<void> {
+  const { data: match } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('id, team1_entry_id, team2_entry_id, next_match_id, next_match_slot, status')
+    .eq('id', matchId)
+    .single()
+
+  if (!match || match.status !== 'SCHEDULED') return
+
+  const hasTeam1 = !!match.team1_entry_id
+  const hasTeam2 = !!match.team2_entry_id
+
+  // 양 팀 모두 있거나 모두 없으면 BYE 아님
+  if (hasTeam1 === hasTeam2) return
+
+  // 비어있는 슬롯의 피더 매치 확인
+  const emptySlot = hasTeam1 ? 2 : 1
+  const { data: feeder } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('id, team1_entry_id, team2_entry_id')
+    .eq('next_match_id', matchId)
+    .eq('next_match_slot', emptySlot)
+    .single()
+
+  // 피더가 없거나 빈 슬롯(양 팀 없음)이면 → 상대가 올 수 없으므로 BYE
+  const feederIsEmpty = !feeder || (!feeder.team1_entry_id && !feeder.team2_entry_id)
+  if (!feederIsEmpty) return
+
+  const soloTeamId = hasTeam1 ? match.team1_entry_id : match.team2_entry_id
+
+  // BYE 처리
+  await supabaseAdmin
+    .from('bracket_matches')
+    .update({
+      winner_entry_id: soloTeamId,
+      status: 'BYE',
+    })
+    .eq('id', matchId)
+
+  // 다음 경기에 승자 배정 + 재귀 전파
+  if (match.next_match_id && match.next_match_slot) {
+    const field = match.next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+    await supabaseAdmin
+      .from('bracket_matches')
+      .update({ [field]: soloTeamId })
+      .eq('id', match.next_match_id)
+
+    await propagateByeIfNeeded(supabaseAdmin, match.next_match_id)
+  }
+}
+
+// ============================================================================
 // 본선 대진표 관련
 // ============================================================================
 
@@ -1367,6 +1432,14 @@ export async function generateMainBracket(configId: string, divisionId: string) 
           .update({ [field]: team1.entryId })
           .eq('id', matchData.next_match_id)
       }
+    }
+  }
+
+  // 2라운드부터 자동 BYE 전파 (빈 슬롯으로 인한 부전승 처리)
+  for (let round = 2; round <= totalRounds; round++) {
+    const roundMatchIds = matchesByRound.get(round) || []
+    for (const mId of roundMatchIds) {
+      await propagateByeIfNeeded(supabaseAdmin, mId)
     }
   }
 
@@ -1853,6 +1926,9 @@ export async function autoFillMainBracketResults(configId: string, phase?: Match
           .from('bracket_matches')
           .update({ [field]: winnerId })
           .eq('id', match.next_match_id)
+
+        // 상대 피더가 빈 슬롯이면 자동 BYE 전파
+        await propagateByeIfNeeded(supabaseAdmin, match.next_match_id)
       }
 
       // 패자를 3/4위전에 배정

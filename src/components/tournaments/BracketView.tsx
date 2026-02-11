@@ -248,19 +248,23 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
     <div className="space-y-6">
       {/* Division Tabs */}
       <div className="flex flex-wrap gap-2">
-        {divisions.map((division) => (
-          <button
-            key={division.id}
-            onClick={() => setSelectedDivision(division)}
-            className={`px-4 py-2 rounded-lg font-medium transition-all text-white ${
-              selectedDivision?.id === division.id
-                ? 'bg-(--accent-color)'
-                : 'bg-(--bg-card) hover:bg-(--bg-card-hover)'
-            }`}
-          >
-            {division.name}
-          </button>
-        ))}
+        {divisions.map((division) => {
+          const isSelected = selectedDivision?.id === division.id
+          return (
+            <button
+              key={division.id}
+              onClick={() => setSelectedDivision(division)}
+              className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                isSelected
+                  ? 'bg-(--accent-color) text-white'
+                  : 'text-(--text-secondary) hover:bg-(--bg-card-hover)'
+              }`}
+              style={!isSelected ? { border: '1px solid var(--border-color)' } : undefined}
+            >
+              {division.name}
+            </button>
+          )
+        })}
       </div>
 
       {loading ? (
@@ -278,25 +282,27 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
         <>
           {/* Phase Tabs (if has preliminaries) */}
           {config.has_preliminaries && (
-            <div className="flex gap-1 p-1 bg-(--bg-card) rounded-xl w-fit">
+            <div className="flex gap-2 w-fit">
               <button
                 onClick={() => setActiveTab('preliminary')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-white ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                   activeTab === 'preliminary'
-                    ? 'bg-(--accent-color)'
-                    : 'hover:bg-white/10'
+                    ? 'bg-(--accent-color) text-white'
+                    : 'text-(--text-secondary) hover:bg-(--bg-card-hover)'
                 }`}
+                style={activeTab !== 'preliminary' ? { border: '1px solid var(--border-color)' } : undefined}
               >
                 <Users className="w-4 h-4" />
                 예선
               </button>
               <button
                 onClick={() => setActiveTab('main')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-white ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
                   activeTab === 'main'
-                    ? 'bg-(--accent-color)'
-                    : 'hover:bg-white/10'
+                    ? 'bg-(--accent-color) text-white'
+                    : 'text-(--text-secondary) hover:bg-(--bg-card-hover)'
                 }`}
+                style={activeTab !== 'main' ? { border: '1px solid var(--border-color)' } : undefined}
               >
                 <Trophy className="w-4 h-4" />
                 본선
@@ -369,10 +375,31 @@ function PreliminaryView({
     )
   }
 
+  // 내 조를 맨 위로 정렬
+  const sortedGroups = useMemo(() => {
+    if (!currentUserEntryIds || currentUserEntryIds.length === 0) return groups
+    return [...groups].sort((a, b) => {
+      const aHasMe = a.group_teams?.some((t) => currentUserEntryIds.includes(t.entry_id)) ?? false
+      const bHasMe = b.group_teams?.some((t) => currentUserEntryIds.includes(t.entry_id)) ?? false
+      if (aHasMe && !bHasMe) return -1
+      if (!aHasMe && bHasMe) return 1
+      return 0
+    })
+  }, [groups, currentUserEntryIds])
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      {groups.map((group) => {
+      {sortedGroups.map((group) => {
+        // 내 경기를 맨 위로 정렬
         const groupMatches = matches.filter((m) => m.group_id === group.id)
+          .sort((a, b) => {
+            if (!currentUserEntryIds || currentUserEntryIds.length === 0) return 0
+            const aIsMine = isMyEntry(a.team1_entry_id, currentUserEntryIds) || isMyEntry(a.team2_entry_id, currentUserEntryIds)
+            const bIsMine = isMyEntry(b.team1_entry_id, currentUserEntryIds) || isMyEntry(b.team2_entry_id, currentUserEntryIds)
+            if (aIsMine && !bIsMine) return -1
+            if (!aIsMine && bIsMine) return 1
+            return 0
+          })
         const standings = group.group_teams
           ?.slice()
           .sort((a, b) => {
@@ -482,13 +509,18 @@ function MainBracketView({
   const activePhases = phaseOrder.filter((phase) => matchesByPhase[phase]?.length > 0)
 
   // 라운드별 상태 계산
+  // 양쪽 팀이 모두 없는 빈 매치(bracket_size > 실제 참가자)는 카운트에서 제외
   const phaseStatus = useMemo(() => {
     const status: Record<string, { playable: boolean; completed: number; total: number; allDone: boolean }> = {}
     for (const phase of activePhases) {
       const phaseMatches = matchesByPhase[phase] || []
       const hasTeams = phaseMatches.some((m) => m.team1_entry_id || m.team2_entry_id)
-      const completed = phaseMatches.filter((m) => m.status === 'COMPLETED' || m.status === 'BYE').length
-      status[phase] = { playable: hasTeams, completed, total: phaseMatches.length, allDone: completed === phaseMatches.length }
+      // 빈 매치(양팀 null)는 전체/완료 카운트에서 모두 제외
+      const actualMatches = phaseMatches.filter((m) => m.team1_entry_id || m.team2_entry_id)
+      const completed = actualMatches.filter((m) => m.status === 'COMPLETED' || m.status === 'BYE').length
+      const total = actualMatches.length
+      // allDone: 실제 경기가 모두 완료되었거나, 실제 경기가 없는 라운드(전부 빈 매치)도 완료로 간주
+      status[phase] = { playable: hasTeams, completed, total, allDone: total === 0 || completed === total }
     }
     return status
   }, [activePhases, matchesByPhase])
@@ -516,15 +548,38 @@ function MainBracketView({
   // 현재 활성 라운드 (마지막 visible)
   const currentPhase = visiblePhases.length > 0 ? visiblePhases[visiblePhases.length - 1] : null
 
-  // 선택된 라운드 (기본: 현재 활성 라운드)
-  const [selectedPhase, setSelectedPhase] = useState<MatchPhase | null>(currentPhase)
+  // 내 경기가 있는 라운드 찾기 (진행중 우선, 없으면 마지막 완료)
+  const myPhase = useMemo(() => {
+    if (!currentUserEntryIds || currentUserEntryIds.length === 0) return null
+    const hasMyMatch = (phase: MatchPhase) =>
+      matchesByPhase[phase]?.some(
+        (m) => isMyEntry(m.team1_entry_id, currentUserEntryIds) || isMyEntry(m.team2_entry_id, currentUserEntryIds)
+      )
+    // 우선: 아직 진행 중인(미완료) 내 경기가 있는 라운드
+    const activeMyPhase = visiblePhases.find(
+      (phase) =>
+        hasMyMatch(phase) &&
+        matchesByPhase[phase]?.some(
+          (m) =>
+            m.status !== 'COMPLETED' && m.status !== 'BYE' &&
+            (isMyEntry(m.team1_entry_id, currentUserEntryIds) || isMyEntry(m.team2_entry_id, currentUserEntryIds))
+        )
+    )
+    if (activeMyPhase) return activeMyPhase
+    // 차선: 내 경기가 있는 가장 마지막 라운드
+    const allMyPhases = visiblePhases.filter((phase) => hasMyMatch(phase))
+    return allMyPhases.length > 0 ? allMyPhases[allMyPhases.length - 1] : null
+  }, [visiblePhases, matchesByPhase, currentUserEntryIds])
+
+  // 선택된 라운드 (기본: 내 경기 라운드 > 현재 활성 라운드)
+  const [selectedPhase, setSelectedPhase] = useState<MatchPhase | null>(myPhase || currentPhase)
 
   // 데이터 갱신 시 selectedPhase 보정
   useEffect(() => {
     if (!selectedPhase || !visiblePhases.includes(selectedPhase)) {
-      setSelectedPhase(currentPhase)
+      setSelectedPhase(myPhase || currentPhase)
     }
-  }, [visiblePhases, selectedPhase, currentPhase])
+  }, [visiblePhases, selectedPhase, myPhase, currentPhase])
 
   if (matches.length === 0) {
     return (
@@ -535,7 +590,19 @@ function MainBracketView({
     )
   }
 
-  const selectedMatches = selectedPhase ? (matchesByPhase[selectedPhase] || []) : []
+  // 내 경기를 맨 위로 정렬
+  const selectedMatches = useMemo(() => {
+    const raw = selectedPhase ? (matchesByPhase[selectedPhase] || []) : []
+    if (!currentUserEntryIds || currentUserEntryIds.length === 0) return raw
+    return [...raw].sort((a, b) => {
+      const aIsMine = isMyEntry(a.team1_entry_id, currentUserEntryIds) || isMyEntry(a.team2_entry_id, currentUserEntryIds)
+      const bIsMine = isMyEntry(b.team1_entry_id, currentUserEntryIds) || isMyEntry(b.team2_entry_id, currentUserEntryIds)
+      if (aIsMine && !bIsMine) return -1
+      if (!aIsMine && bIsMine) return 1
+      return 0
+    })
+  }, [selectedPhase, matchesByPhase, currentUserEntryIds])
+
   // 다음 미개방 라운드 이름 (표시용)
   const nextLockedPhase = activePhases.find((phase) => !visiblePhases.includes(phase))
 
