@@ -12,36 +12,12 @@ import {
   hasValidationErrors,
   type ClubValidationErrors,
 } from '@/lib/utils/validation'
+import {
+  generateClubDummy,
+  generateClubInvalidDummy,
+} from '@/lib/utils/devDummy'
 
 const isDev = process.env.NODE_ENV === 'development'
-
-// DEV 전용 더미 데이터
-const DUMMY_DATA: CreateClubInput = {
-  name: '마포테니스클럽',
-  representative_name: '김대표',
-  description: '매주 토요일 오전 마포구민체육센터에서 정기 모임을 진행합니다. 초보부터 고수까지 환영합니다.',
-  city: '서울특별시',
-  district: '마포구',
-  address: '마포구 월드컵로 212 구민체육센터 테니스장',
-  contact_phone: '01055551234',
-  contact_email: 'mapo.tennis.club@gmail.com',
-  join_type: 'APPROVAL',
-  max_members: 50,
-}
-
-// DEV 전용 잘못된 데이터
-const INVALID_DUMMY_DATA: CreateClubInput = {
-  name: '가', // 2자 미만
-  representative_name: '김', // 2자 미만
-  description: '',
-  city: '',
-  district: '',
-  address: '',
-  contact_phone: 'abc가나다', // 숫자가 아닌 문자
-  contact_email: 'not-an-email', // 잘못된 이메일
-  join_type: 'OPEN',
-  max_members: -5, // 음수
-}
 
 interface ClubFormProps {
   club?: Club | null
@@ -152,14 +128,14 @@ export function ClubForm({ club }: ClubFormProps) {
           <div className="flex gap-2 pb-2 border-b border-dashed border-amber-500/30">
             <button
               type="button"
-              onClick={() => { setForm(DUMMY_DATA); setFieldErrors({}) }}
+              onClick={() => { setForm(generateClubDummy()); setFieldErrors({}) }}
               className="px-3 py-1.5 text-xs font-mono rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
             >
               DEV: 정상 더미 데이터
             </button>
             <button
               type="button"
-              onClick={() => { setForm(INVALID_DUMMY_DATA); setFieldErrors({}) }}
+              onClick={() => { setForm(generateClubInvalidDummy()); setFieldErrors({}) }}
               className="px-3 py-1.5 text-xs font-mono rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors"
             >
               DEV: 잘못된 데이터

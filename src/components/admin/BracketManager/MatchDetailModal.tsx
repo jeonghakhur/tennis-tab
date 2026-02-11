@@ -224,13 +224,13 @@ export function MatchDetailModal({
         {/* 승수 표시 */}
         <div className="flex items-center justify-center gap-4 py-3 mb-5 bg-(--bg-secondary)/50 rounded-lg -mx-5 px-5">
           <span
-            className={`text-sm font-bold ${team1Wins >= winsNeeded ? "text-emerald-400" : "text-(--text-primary)"}`}
+            className={`text-sm font-bold ${team1Wins >= winsNeeded ? "text-(--color-success)" : "text-(--text-primary)"}`}
           >
             {team1Wins}승
           </span>
           <span className="text-(--text-muted)">:</span>
           <span
-            className={`text-sm font-bold ${team2Wins >= winsNeeded ? "text-emerald-400" : "text-(--text-primary)"}`}
+            className={`text-sm font-bold ${team2Wins >= winsNeeded ? "text-(--color-success)" : "text-(--text-primary)"}`}
           >
             {team2Wins}승
           </span>
@@ -383,7 +383,7 @@ export function MatchDetailModal({
         <button
           onClick={handleSave}
           disabled={!canSave}
-          className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
+          className="flex-1 px-4 py-2.5 rounded-xl bg-(--color-success) text-white hover:bg-(--color-success-emphasis) transition-colors font-medium disabled:opacity-40 disabled:cursor-not-allowed"
         >
           저장
         </button>

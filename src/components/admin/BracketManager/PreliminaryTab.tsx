@@ -90,7 +90,7 @@ export function PreliminaryTab({
           {onAutoFill && hasScheduledMatches && process.env.NODE_ENV === "development" && (
             <button
               onClick={onAutoFill}
-              className="px-4 py-2 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-sm font-medium"
+              className="btn-outline-purple btn-dashed"
             >
               자동 결과 입력 (DEV)
             </button>
@@ -98,7 +98,7 @@ export function PreliminaryTab({
           {onDelete && matches.length > 0 && (
             <button
               onClick={onDelete}
-              className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+              className="btn-outline-danger"
             >
               예선 경기 삭제
             </button>
@@ -163,7 +163,7 @@ export function PreliminaryTab({
                             <span
                               className={`w-6 h-6 inline-flex items-center justify-center rounded-full text-xs font-bold ${
                                 index < 2
-                                  ? "bg-emerald-500/20 text-emerald-400"
+                                  ? "bg-(--color-success-subtle) text-(--color-success)"
                                   : "bg-(--bg-secondary) text-(--text-muted)"
                               }`}
                             >

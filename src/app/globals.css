@@ -201,6 +201,50 @@
   --court-green: #ccff00;
   --court-dark: #0a0a0a;
   --court-info: #06b6d4;
+
+  /* Semantic Colors */
+  --color-success: #2dd4bf;
+  --color-danger: #fb7185;
+  --color-warning: #fbbf24;
+  --color-info: #38bdf8;
+  --color-purple: #a78bfa;
+  --color-orange: #fb923c;
+
+  /* Semantic Emphasis (진한 버전 — 배지, 강조 텍스트) */
+  --color-success-emphasis: #14b8a6;
+  --color-danger-emphasis: #f43f5e;
+  --color-warning-emphasis: #f59e0b;
+  --color-info-emphasis: #0ea5e9;
+  --color-purple-emphasis: #8b5cf6;
+  --color-orange-emphasis: #f97316;
+
+  /* Semantic Subtle Backgrounds */
+  --color-success-subtle: rgba(45, 212, 191, 0.08);
+  --color-danger-subtle: rgba(251, 113, 133, 0.08);
+  --color-warning-subtle: rgba(251, 191, 36, 0.08);
+  --color-info-subtle: rgba(56, 189, 248, 0.08);
+  --color-purple-subtle: rgba(167, 139, 250, 0.08);
+  --color-orange-subtle: rgba(251, 146, 60, 0.08);
+
+  /* Semantic Borders */
+  --color-success-border: rgba(45, 212, 191, 0.25);
+  --color-danger-border: rgba(251, 113, 133, 0.25);
+  --color-warning-border: rgba(251, 191, 36, 0.25);
+  --color-info-border: rgba(56, 189, 248, 0.25);
+  --color-purple-border: rgba(167, 139, 250, 0.25);
+  --color-orange-border: rgba(251, 146, 60, 0.25);
+
+  /* Neutral Gray Scale */
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-400: #a1a1aa;
+  --gray-500: #71717a;
+  --gray-600: #52525b;
+  --gray-700: #3f3f46;
+  --gray-800: #27272a;
+  --gray-900: #18181b;
 }
 
 /* Light Theme */
@@ -222,6 +266,50 @@
   --court-green: #2d5a27;
   --court-dark: #fafafa;
   --court-info: #155e75;
+
+  /* Semantic Colors */
+  --color-success: #0d9488;
+  --color-danger: #e11d48;
+  --color-warning: #d97706;
+  --color-info: #0284c7;
+  --color-purple: #7c3aed;
+  --color-orange: #ea580c;
+
+  /* Semantic Emphasis (진한 버전) */
+  --color-success-emphasis: #0f766e;
+  --color-danger-emphasis: #be123c;
+  --color-warning-emphasis: #b45309;
+  --color-info-emphasis: #0369a1;
+  --color-purple-emphasis: #6d28d9;
+  --color-orange-emphasis: #c2410c;
+
+  /* Semantic Subtle Backgrounds */
+  --color-success-subtle: rgba(13, 148, 136, 0.06);
+  --color-danger-subtle: rgba(225, 29, 72, 0.06);
+  --color-warning-subtle: rgba(217, 119, 6, 0.06);
+  --color-info-subtle: rgba(2, 132, 199, 0.06);
+  --color-purple-subtle: rgba(124, 58, 237, 0.06);
+  --color-orange-subtle: rgba(234, 88, 12, 0.06);
+
+  /* Semantic Borders */
+  --color-success-border: rgba(13, 148, 136, 0.2);
+  --color-danger-border: rgba(225, 29, 72, 0.2);
+  --color-warning-border: rgba(217, 119, 6, 0.2);
+  --color-info-border: rgba(2, 132, 199, 0.2);
+  --color-purple-border: rgba(124, 58, 237, 0.2);
+  --color-orange-border: rgba(234, 88, 12, 0.2);
+
+  /* Neutral Gray Scale */
+  --gray-50: #fafafa;
+  --gray-100: #f4f4f5;
+  --gray-200: #e4e4e7;
+  --gray-300: #d4d4d8;
+  --gray-400: #a1a1aa;
+  --gray-500: #71717a;
+  --gray-600: #52525b;
+  --gray-700: #3f3f46;
+  --gray-800: #27272a;
+  --gray-900: #18181b;
 }
 
 html {
@@ -354,6 +442,153 @@ body {
   font-size: 1.25rem;
   padding: 1.25rem 2.5rem;
   border-radius: 0.625rem;
+}
+
+/* ── Semantic Buttons (Solid) ─────────────────────────────── */
+/* 공통 기반: 각 버튼에 직접 포함 (Tailwind @apply 없이) */
+
+.btn-danger {
+  background-color: var(--color-danger);
+  color: #fff;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-danger:hover {
+  background-color: var(--color-danger-emphasis);
+}
+
+.btn-success {
+  background-color: var(--color-success);
+  color: #fff;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-success:hover {
+  background-color: var(--color-success-emphasis);
+}
+
+.btn-warning {
+  background-color: var(--color-warning);
+  color: #fff;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-warning:hover {
+  background-color: var(--color-warning-emphasis);
+}
+
+.btn-info {
+  background-color: var(--color-info);
+  color: #fff;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-info:hover {
+  background-color: var(--color-info-emphasis);
+}
+
+/* ── Outline Buttons ──────────────────────────────────────── */
+
+.btn-outline-danger {
+  background-color: var(--color-danger-subtle);
+  color: var(--color-danger);
+  border: 1px solid var(--color-danger-border);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-outline-danger:hover {
+  background-color: var(--color-danger-border);
+}
+
+.btn-outline-success {
+  background-color: var(--color-success-subtle);
+  color: var(--color-success);
+  border: 1px solid var(--color-success-border);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-outline-success:hover {
+  background-color: var(--color-success-border);
+}
+
+.btn-outline-warning {
+  background-color: var(--color-warning-subtle);
+  color: var(--color-warning);
+  border: 1px solid var(--color-warning-border);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-outline-warning:hover {
+  background-color: var(--color-warning-border);
+}
+
+.btn-outline-info {
+  background-color: var(--color-info-subtle);
+  color: var(--color-info);
+  border: 1px solid var(--color-info-border);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-outline-info:hover {
+  background-color: var(--color-info-border);
+}
+
+.btn-outline-purple {
+  background-color: var(--color-purple-subtle);
+  color: var(--color-purple);
+  border: 1px solid var(--color-purple-border);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-outline-purple:hover {
+  background-color: var(--color-purple-border);
+}
+
+.btn-outline-secondary {
+  background-color: var(--bg-card);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.15s ease;
+}
+.btn-outline-secondary:hover {
+  background-color: var(--bg-card-hover);
+  border-color: var(--text-muted);
+}
+
+/* Outline 변형: dashed border (DEV 전용 등) */
+.btn-dashed {
+  border-style: dashed;
 }
 
 /* Glass Card */

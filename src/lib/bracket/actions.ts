@@ -717,6 +717,79 @@ export async function getPreliminaryMatches(configId: string) {
  * 경기 결과 입력
  */
 /**
+ * 결승/3·4위전 완료 시 대회 자동 완료 처리
+ * 1. 해당 bracket_config의 모든 본선 매치가 완료(COMPLETED/BYE)인지 확인
+ * 2. 완료 시 bracket_config.status → 'COMPLETED'
+ * 3. 같은 tournament의 모든 bracket_config가 COMPLETED인지 확인
+ * 4. 전부 완료 시 tournaments.status → 'COMPLETED'
+ */
+async function checkAndCompleteTournament(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  bracketConfigId: string,
+) {
+  // 해당 config의 본선 매치 중 미완료 건이 있는지 확인
+  const { data: pendingMatches } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('id')
+    .eq('bracket_config_id', bracketConfigId)
+    .neq('phase', 'PRELIMINARY')
+    .not('status', 'in', '("COMPLETED","BYE")')
+    .limit(1)
+
+  // 미완료 매치가 있으면 아직 완료 아님
+  if (pendingMatches && pendingMatches.length > 0) return
+
+  // bracket_config → COMPLETED
+  await supabaseAdmin
+    .from('bracket_configs')
+    .update({ status: 'COMPLETED' })
+    .eq('id', bracketConfigId)
+
+  // tournament_id 역추적: bracket_configs → division → tournament
+  const { data: configData } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id')
+    .eq('id', bracketConfigId)
+    .single()
+  if (!configData) return
+
+  const { data: divisionData } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('tournament_id')
+    .eq('id', configData.division_id)
+    .single()
+  if (!divisionData) return
+
+  const tournamentId = divisionData.tournament_id
+
+  // 같은 tournament의 모든 부서 조회
+  const { data: allDivisions } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+
+  if (!allDivisions || allDivisions.length === 0) return
+
+  const divisionIds = allDivisions.map(d => d.id)
+
+  // 모든 부서의 bracket_config 조회
+  const { data: allConfigs } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('id, status, division_id')
+    .in('division_id', divisionIds)
+
+  // 모든 부서에 bracket_config가 있고, 전부 COMPLETED여야 대회 완료
+  if (!allConfigs || allConfigs.length < divisionIds.length) return
+  if (!allConfigs.every(c => c.status === 'COMPLETED')) return
+
+  // tournament → COMPLETED
+  await supabaseAdmin
+    .from('tournaments')
+    .update({ status: 'COMPLETED' })
+    .eq('id', tournamentId)
+}
+
+/**
  * 경기 결과 저장 핵심 로직 (관리자/선수 공용)
  * 점수 저장, 승자 전파, 예선 순위 업데이트 포함
  */
@@ -793,6 +866,11 @@ async function updateMatchResultCore(
       .from('bracket_matches')
       .update({ [updateField]: loserId })
       .eq('id', match.loser_next_match_id)
+  }
+
+  // 결승/3·4위전 결과 입력 시 대회 자동 완료 체크
+  if (match.phase === 'FINAL' || match.phase === 'THIRD_PLACE') {
+    await checkAndCompleteTournament(supabaseAdmin, match.bracket_config_id)
   }
 
   return { winnerId }

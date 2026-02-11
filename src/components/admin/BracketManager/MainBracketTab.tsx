@@ -170,7 +170,7 @@ export function MainBracketTab({
           {onDelete && matches.length > 0 && (
             <button
               onClick={onDelete}
-              className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+              className="btn-outline-danger"
             >
               본선 대진표 삭제
             </button>
@@ -208,7 +208,7 @@ export function MainBracketTab({
                       ({phaseMatches.length}경기)
                     </span>
                     {allCompleted && (
-                      <span className="px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 text-xs font-medium">
+                      <span className="px-2 py-0.5 rounded-full bg-(--color-success-subtle) text-(--color-success) text-xs font-medium">
                         완료
                       </span>
                     )}
@@ -218,7 +218,7 @@ export function MainBracketTab({
                       process.env.NODE_ENV === "development" && (
                         <button
                           onClick={() => onAutoFillPhase(phase)}
-                          className="px-3 py-1.5 rounded-lg bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 border-dashed transition-colors text-xs font-medium"
+                          className="btn-outline-purple btn-dashed btn-sm"
                         >
                           자동 입력 (DEV)
                         </button>
@@ -254,7 +254,7 @@ export function MainBracketTab({
                   <div className="mt-3 flex justify-end">
                     <button
                       onClick={onDeleteLatestRound}
-                      className="px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 border border-amber-500/30 transition-colors text-xs font-medium"
+                      className="btn-outline-warning btn-sm"
                     >
                       {phaseLabels[phase]} 삭제
                     </button>
@@ -270,7 +270,7 @@ export function MainBracketTab({
       {seedingGroups && seedingGroups.length > 0 && !hasFinal && (
         <div className="space-y-4 mt-6 pt-6 border-t border-(--border-color)">
           {!allPrelimsDone && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 text-sm font-medium">
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-(--color-warning-subtle) border border-(--color-warning-border) text-(--color-warning) text-sm font-medium">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" />
               {matches.length === 0
                 ? "예선이 아직 완료되지 않았습니다. 모든 예선 경기가 끝나야 본선 대진표를 생성할 수 있습니다."

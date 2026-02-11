@@ -52,22 +52,22 @@ const entryStatusConfig: Record<
 > = {
   PENDING: {
     label: '승인 대기',
-    className: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+    className: 'bg-(--color-warning-subtle) text-(--color-warning)',
     order: 1,
   },
   APPROVED: {
     label: '승인됨',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300',
+    className: 'bg-(--color-success-subtle) text-(--color-success)',
     order: 2,
   },
   WAITLISTED: {
     label: '대기자',
-    className: 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300',
+    className: 'bg-(--color-purple-subtle) text-(--color-purple)',
     order: 3,
   },
   REJECTED: {
     label: '거절됨',
-    className: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+    className: 'bg-(--color-danger-subtle) text-(--color-danger)',
     order: 4,
   },
 }
@@ -79,11 +79,11 @@ const paymentStatusConfig: Record<
 > = {
   PENDING: {
     label: '미결제',
-    className: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300'
+    className: 'bg-(--color-danger-subtle) text-(--color-danger)'
   },
   COMPLETED: {
     label: '결제완료',
-    className: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300'
+    className: 'bg-(--color-success-subtle) text-(--color-success)'
   },
 }
 
@@ -407,7 +407,7 @@ export function EntriesManager({
                     isSelected
                       ? 'border-(--accent-color) bg-(--accent-color)/10 ring-2 ring-(--accent-color)/30'
                       : isFull
-                        ? 'border-rose-500/30 bg-rose-500/5 hover:border-rose-500/50'
+                        ? 'border-(--color-danger-border) bg-(--color-danger-subtle) hover:border-(--color-danger)'
                         : 'border-(--border-color) bg-(--bg-card) hover:border-(--border-accent)'
                   }`}
                 >
@@ -420,7 +420,7 @@ export function EntriesManager({
                         </span>
                       )}
                       {isFull && !isSelected && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400">
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-(--color-danger-subtle) text-(--color-danger)">
                           마감
                         </span>
                       )}
@@ -438,7 +438,7 @@ export function EntriesManager({
                     <div className="h-2 bg-(--bg-secondary) rounded-full overflow-hidden mb-2">
                       <div
                         className={`h-full transition-all ${
-                          isFull ? 'bg-rose-500' : 'bg-(--accent-color)'
+                          isFull ? 'bg-(--color-danger)' : 'bg-(--accent-color)'
                         }`}
                         style={{ width: `${fillPercent}%` }}
                       />
@@ -584,7 +584,7 @@ export function EntriesManager({
                 }
               }}
               disabled={processing !== null}
-              className="px-3 py-2 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 font-medium border-2 border-transparent hover:border-emerald-500 focus:border-emerald-500 focus:outline-none transition-colors text-sm"
+              className="px-3 py-2 rounded-lg bg-(--color-success-subtle) text-(--color-success) font-medium border-2 border-(--color-success-border) hover:border-(--color-success) focus:border-(--color-success) focus:outline-none transition-colors text-sm"
             >
               <option value="">상태 일괄 변경</option>
               {Object.entries(entryStatusConfig).map(([key, { label }]) => (
@@ -602,7 +602,7 @@ export function EntriesManager({
                 }
               }}
               disabled={processing !== null}
-              className="px-3 py-2 rounded-lg bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 font-medium border-2 border-transparent hover:border-sky-500 focus:border-sky-500 focus:outline-none transition-colors text-sm"
+              className="px-3 py-2 rounded-lg bg-(--color-info-subtle) text-(--color-info) font-medium border-2 border-(--color-info-border) hover:border-(--color-info) focus:border-(--color-info) focus:outline-none transition-colors text-sm"
             >
               <option value="">결제 일괄 변경</option>
               {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
@@ -816,7 +816,7 @@ export function EntriesManager({
                         <button
                           onClick={() => setConfirmDialog({ isOpen: true, entryId: entry.id })}
                           disabled={isProcessing}
-                          className="p-2.5 rounded-lg hover:bg-rose-100 dark:hover:bg-rose-500/20 text-rose-500 transition-colors"
+                          className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
                           title="삭제"
                         >
                           <Trash2 className="w-5 h-5" />

@@ -13,22 +13,12 @@ import {
   hasValidationErrors,
   type AssociationValidationErrors,
 } from '@/lib/utils/validation'
+import {
+  generateAssociationDummy,
+  generateAssociationInvalidDummy,
+} from '@/lib/utils/devDummy'
 
 const isDev = process.env.NODE_ENV === 'development'
-
-// DEV 전용 더미 데이터
-const DUMMY_DATA: CreateAssociationInput = {
-  name: '마포구테니스협회',
-  region: '서울특별시',
-  district: '마포구',
-  description: '마포구 관내 테니스 동호인을 위한 협회입니다. 매년 구민 테니스 대회를 개최합니다.',
-  president_name: '김회장',
-  president_phone: '010-1234-5678',
-  president_email: 'president@mapo-tennis.kr',
-  secretary_name: '이사무',
-  secretary_phone: '010-8765-4321',
-  secretary_email: 'secretary@mapo-tennis.kr',
-}
 
 interface AssociationFormProps {
   association?: Association | null
@@ -116,26 +106,15 @@ export function AssociationForm({ association }: AssociationFormProps) {
     }
   }
 
-  // DEV 전용: 더미 데이터로 폼 채우기
+  // DEV 전용: 랜덤 더미 데이터로 폼 채우기
   const fillDummy = () => {
-    setForm(DUMMY_DATA)
+    setForm(generateAssociationDummy())
     setFieldErrors({})
   }
 
   // DEV 전용: 잘못된 데이터로 폼 채우기 (밸리데이션 테스트)
   const fillInvalidDummy = () => {
-    setForm({
-      name: '가', // 2자 미만
-      region: '',
-      district: '',
-      description: '',
-      president_name: '',
-      president_phone: '123', // 잘못된 전화번호
-      president_email: 'invalid-email', // 잘못된 이메일
-      secretary_name: '',
-      secretary_phone: '99999999999', // 01X로 시작하지 않음
-      secretary_email: '@no-local-part.com', // 잘못된 이메일
-    })
+    setForm(generateAssociationInvalidDummy())
     setFieldErrors({})
   }
 

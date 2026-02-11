@@ -745,7 +745,7 @@ export function BracketManager({
             }`}
           >
             {isClosed && (
-              <div className="mb-4 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm font-medium">
+              <div className="mb-4 px-4 py-3 rounded-lg bg-(--color-warning-subtle) border border-(--color-warning-border) text-(--color-warning) text-sm font-medium">
                 마감된 대회입니다. 대진표를 수정할 수 없습니다.
               </div>
             )}

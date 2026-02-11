@@ -714,7 +714,7 @@ function MatchCard({
 
   if (isBye) {
     return (
-      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-(--bg-secondary) opacity-60 border border-(--border-color)">
+      <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-(--bg-secondary) border border-(--border-color)">
         <span className="text-xs text-(--text-muted) font-mono">#{match.match_number}</span>
         <span className="text-sm text-(--text-primary)">{team1Text}</span>
         <span className="text-xs text-(--text-muted)">(부전승)</span>

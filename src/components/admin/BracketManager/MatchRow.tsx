@@ -67,7 +67,7 @@ export function MatchRow({
 
   if (match.status === "BYE") {
     return (
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-(--bg-secondary) opacity-60">
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-(--bg-secondary) border border-(--border-color)">
         <span className="text-xs text-(--text-muted)">
           #{match.match_number}
         </span>
@@ -83,7 +83,7 @@ export function MatchRow({
     <div
       className={`rounded-xl border overflow-hidden ${
         match.status === "COMPLETED"
-          ? "bg-emerald-500/5 border-emerald-500/20"
+          ? "bg-(--color-success-subtle) border-(--color-success-border)"
           : "bg-(--bg-secondary) border-(--border-color)"
       }`}
     >
@@ -97,7 +97,7 @@ export function MatchRow({
         <div
           className={`flex-1 text-right ${
             match.winner_entry_id === match.team1_entry_id
-              ? "font-bold text-emerald-400"
+              ? "font-bold text-(--color-success)"
               : "text-(--text-primary)"
           }`}
         >
@@ -138,7 +138,7 @@ export function MatchRow({
             />
             <button
               onClick={handleSubmit}
-              className="p-1 rounded bg-emerald-500 text-white"
+              className="p-1 rounded bg-(--color-success) text-white"
             >
               <Check className="w-4 h-4" />
             </button>
@@ -168,7 +168,7 @@ export function MatchRow({
         <div
           className={`flex-1 text-left ${
             match.winner_entry_id === match.team2_entry_id
-              ? "font-bold text-emerald-400"
+              ? "font-bold text-(--color-success)"
               : "text-(--text-primary)"
           }`}
         >

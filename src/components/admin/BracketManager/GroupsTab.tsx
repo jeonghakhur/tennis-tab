@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Users, GripVertical } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Users, GripVertical, Shuffle } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -184,6 +184,47 @@ export function GroupsTab({
     setHasChanges(false);
   };
 
+  // 시드 배정 모드 여부 (예선 없고 본선 생성 콜백이 있으면 시드 배정)
+  const isSeedingMode = !hasPreliminary && !!onGenerateMainBracket;
+
+  // 빈 그룹이 있고 2팀 이상인 그룹이 있으면 재배정 가능
+  const canRedistribute = useMemo(() => {
+    if (!isSeedingMode) return false;
+    const hasEmpty = localGroups.some((g) => (g.group_teams?.length ?? 0) === 0);
+    const hasMulti = localGroups.some((g) => (g.group_teams?.length ?? 0) >= 2);
+    return hasEmpty && hasMulti;
+  }, [isSeedingMode, localGroups]);
+
+  // 자동 배정: 시드 폴드 배치 (상위 시드 BYE, 하위 시드끼리 대전)
+  // 예) 5팀, 4그룹 → [S1] [S2] [S3,S6(없으면 빈)] [S4,S5]
+  // → 상위 시드가 BYE로 자동 진출, 다음 라운드 빈 슬롯 최소화
+  const handleAutoAssign = () => {
+    const allTeams = localGroups
+      .flatMap((g) => g.group_teams || [])
+      .sort((a, b) => (a.seed_number ?? 0) - (b.seed_number ?? 0));
+
+    const M = localGroups.length; // 그룹(매치) 수
+    const N = allTeams.length;    // 팀 수
+
+    const newGroups = localGroups.map((g, i) => {
+      const groupTeams: GroupTeam[] = [];
+      // Phase 1: 각 그룹에 시드 순 1명씩 배정
+      if (i < N) {
+        groupTeams.push(allTeams[i]);
+      }
+      // Phase 2: 남은 팀을 역순으로 배정 (상위 시드 vs 하위 시드)
+      // 그룹 0 → 마지막 시드, 그룹 1 → 끝에서 두 번째, ...
+      const secondIdx = M * 2 - 1 - i;
+      if (secondIdx >= M && secondIdx < N) {
+        groupTeams.push(allTeams[secondIdx]);
+      }
+      return { ...g, group_teams: groupTeams };
+    });
+
+    setLocalGroups(newGroups);
+    setHasChanges(true);
+  };
+
   // 드래그 중인 팀 찾기
   const activeTeam = activeId
     ? localGroups
@@ -208,19 +249,28 @@ export function GroupsTab({
               <span className="relative z-10">자동 편성</span>
             </button>
           )}
+          {isSeedingMode && canRedistribute && (
+            <button
+              onClick={handleAutoAssign}
+              className="btn-outline-info btn-sm flex items-center gap-1.5"
+            >
+              <Shuffle className="w-4 h-4" />
+              자동 배정
+            </button>
+          )}
           {localGroups.length > 0 && (
             <>
               {hasChanges && onTeamMove && (
                 <>
                   <button
                     onClick={handleReset}
-                    className="px-4 py-2 rounded-lg bg-gray-500/10 text-gray-600 dark:text-gray-400 hover:bg-gray-500/20 border border-gray-500/30 transition-colors text-sm font-medium"
+                    className="btn-outline-secondary"
                   >
                     취소
                   </button>
                   <button
                     onClick={handleSave}
-                    className="px-4 py-2 rounded-lg bg-blue-600 hover:bg-blue-700 text-white transition-colors text-sm font-medium"
+                    className="btn-info"
                   >
                     저장하기
                   </button>
@@ -258,7 +308,7 @@ export function GroupsTab({
               {onDelete && (
                 <button
                   onClick={onDelete}
-                  className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+                  className="btn-outline-danger"
                 >
                   조 편성 삭제
                 </button>

@@ -72,12 +72,12 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
           <span
             className={`px-2 py-1 rounded-full text-xs font-medium ${
               config.status === "DRAFT"
-                ? "bg-gray-500/20 text-gray-400"
+                ? "bg-(--bg-card-hover) text-(--text-muted)"
                 : config.status === "PRELIMINARY"
-                  ? "bg-amber-500/20 text-amber-400"
+                  ? "bg-(--color-warning-subtle) text-(--color-warning)"
                   : config.status === "MAIN"
-                    ? "bg-blue-500/20 text-blue-400"
-                    : "bg-emerald-500/20 text-emerald-400"
+                    ? "bg-(--color-info-subtle) text-(--color-info)"
+                    : "bg-(--color-success-subtle) text-(--color-success)"
             }`}
           >
             {config.status === "DRAFT"
@@ -100,7 +100,7 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
         <div className="pt-4 border-t border-(--border-color)">
           <button
             onClick={onDelete}
-            className="px-4 py-2 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30 transition-colors text-sm font-medium"
+            className="btn-outline-danger"
           >
             전체 대진표 설정 삭제
           </button>

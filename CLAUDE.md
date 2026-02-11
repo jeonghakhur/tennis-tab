@@ -375,7 +375,7 @@ function EditUserModal({ user, isOpen, onClose, onSave }) {
 [클라이언트]          [서버 (Server Action)]      [DB]
 sanitizeInput()  →  sanitizeObject()          → NOT NULL, CHECK
 validateXxxInput()  validateXxxInput()          UNIQUE 제약
-필드별 에러 표시     첫 번째 에러 반환           에러 코드 변환
+순차 검증+AlertDialog 첫 번째 에러 반환           에러 코드 변환
 ```
 
 ### 1단계: 공용 검증 유틸리티 (`src/lib/utils/validation.ts`)
@@ -390,45 +390,51 @@ validateXxxInput()  validateXxxInput()          UNIQUE 제약
 ### 2단계: 클라이언트 폼 컴포넌트
 
 ```tsx
-// DEV 전용 더미 데이터 상수 (정상 + 잘못된 데이터)
+import { generateXxxDummy, generateXxxInvalidDummy } from '@/lib/utils/devDummy'
+
 const isDev = process.env.NODE_ENV === 'development'
-const DUMMY_DATA: CreateXxxInput = { /* 정상 값 */ }
-const INVALID_DUMMY_DATA: CreateXxxInput = { /* 의도적으로 잘못된 값 */ }
 
-// 상태
-const [fieldErrors, setFieldErrors] = useState<XxxValidationErrors>({})
+// 순차 검증: FIELD_ORDER 순서대로 첫 에러만 AlertDialog 표시
+const FIELD_ORDER: (keyof XxxValidationErrors)[] = ['name', 'phone', 'email', ...]
 
-// 필드 변경 시 sanitize + 에러 클리어
-const handleChange = useCallback((field: keyof CreateXxxInput, value: string) => {
-  const sanitized = sanitizeInput(value)
-  setForm((prev) => ({ ...prev, [field]: sanitized }))
-  setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
-}, [])
+// 에러 필드 자동 포커스용 ref
+const errorFieldRef = useRef<keyof XxxValidationErrors | null>(null)
+const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
-// submit 전 검증
 const validateForm = useCallback((): boolean => {
   const errors = validateXxxInput(form)
-  setFieldErrors(errors)
-  return !hasValidationErrors(errors)
+  if (!hasValidationErrors(errors)) { setFieldErrors({}); return true }
+  for (const field of FIELD_ORDER) {
+    if (errors[field]) {
+      errorFieldRef.current = field
+      setFieldErrors({ [field]: errors[field] })
+      setAlert({ isOpen: true, message: errors[field]!, type: 'error' })
+      return false
+    }
+  }
+  return true
 }, [form])
 
-// 인풋 스타일 (에러 시 빨간 테두리)
-const inputClass = (field: keyof XxxValidationErrors) =>
-  `w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
-    fieldErrors[field]
-      ? 'border-red-500 focus:border-red-500'
-      : 'border-(--border-color) focus:border-(--accent-color)'
-  }`
+// AlertDialog 닫힐 때 에러 필드로 포커스 복귀
+<AlertDialog isOpen={alert.isOpen} onClose={() => {
+  setAlert({ ...alert, isOpen: false })
+  const key = errorFieldRef.current
+  if (key) { fieldRefs.current[key]?.focus(); errorFieldRef.current = null }
+}} ... />
 
-// DEV 버튼 (isDev && !isEdit 일 때만)
+// 폼에 noValidate 필수 (브라우저 네이티브 검증 비활성화)
+<form onSubmit={handleSubmit} noValidate>
+
+// 각 input에 ref 콜백 연결
+<input ref={(el) => { fieldRefs.current.name = el }} ... />
+
+// DEV 버튼: faker 기반 랜덤 데이터 (클릭할 때마다 다른 값)
 {isDev && !isEdit && (
   <div className="flex gap-2 pb-2 border-b border-dashed border-amber-500/30">
-    <button type="button" onClick={() => { setForm(DUMMY_DATA); setFieldErrors({}) }}
-      className="px-3 py-1.5 text-xs font-mono rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/30">
+    <button type="button" onClick={() => { setForm(generateXxxDummy()); setFieldErrors({}) }} ...>
       DEV: 정상 더미 데이터
     </button>
-    <button type="button" onClick={() => { setForm(INVALID_DUMMY_DATA); setFieldErrors({}) }}
-      className="px-3 py-1.5 text-xs font-mono rounded-lg bg-red-500/10 text-red-500 border border-red-500/30">
+    <button type="button" onClick={() => { setForm(generateXxxInvalidDummy()); setFieldErrors({}) }} ...>
       DEV: 잘못된 데이터
     </button>
   </div>
@@ -438,33 +444,28 @@ const inputClass = (field: keyof XxxValidationErrors) =>
 ### 3단계: 서버 사이드 (Server Action)
 
 ```tsx
-// 1. sanitize → 2. validate → 3. DB 조작
 const sanitized = sanitizeObject(data)
 const validationErrors = validateXxxInput(sanitized)
 if (hasValidationErrors(validationErrors)) {
   const firstError = Object.values(validationErrors).find(Boolean)
   return { error: firstError || '입력값을 확인해주세요.' }
 }
-// ... DB 조작은 sanitized 값 사용
 ```
 
-### 잘못된 더미 데이터 설계 가이드
+### DEV 더미 데이터 생성기 (`src/lib/utils/devDummy.ts`)
 
-| 필드 타입 | 잘못된 값 예시 | 검증 대상 |
-|-----------|---------------|----------|
-| 이름(필수) | `'가'` (1자) | minLength 2 |
-| 이메일 | `'not-an-email'` | 이메일 형식 |
-| 전화번호 | `'1234'` | 01X 10~11자리 |
-| 숫자(양수) | `-5` | >= 1 |
-| 날짜 | `'1990-13'` | YYYY-MM 형식 |
-| 범위 | `rating: 99999` | 1~9999 |
-| 년도 | `'2030'` | 1950~현재년도 |
+`@faker-js/faker` 한국어 로케일 기반. 정상/잘못된 데이터 모두 클릭할 때마다 랜덤 생성.
+
+- **정상 데이터**: `generateXxxDummy()` — 한국 이름, 지역, 전화번호, 이메일 등 현실적인 값
+- **잘못된 데이터**: `generateXxxInvalidDummy()` — 필드별 잘못된 값 배열에서 랜덤 선택
+
+새 도메인 폼 추가 시 `devDummy.ts`에 `generateXxxDummy()` / `generateXxxInvalidDummy()` 쌍을 추가한다.
 
 ### 적용 사례
 
-- **협회**: `AssociationForm.tsx` ← `validateAssociationInput`
-- **클럽**: `ClubForm.tsx` ← `validateClubInput`
-- **클럽 회원**: `ClubMemberList.tsx` ← `validateMemberInput`
+- **협회**: `AssociationForm.tsx` ← `validateAssociationInput` / `generateAssociationDummy`
+- **클럽**: `ClubForm.tsx` ← `validateClubInput` / `generateClubDummy`
+- **클럽 회원**: `ClubMemberList.tsx` ← `validateMemberInput` / `generateMemberDummy`
 
 # Response Guidelines
 

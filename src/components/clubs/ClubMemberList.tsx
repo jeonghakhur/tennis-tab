@@ -19,27 +19,12 @@ import {
   hasValidationErrors,
   type MemberValidationErrors,
 } from '@/lib/utils/validation'
+import {
+  generateMemberDummy,
+  generateMemberInvalidDummy,
+} from '@/lib/utils/devDummy'
 
 const isDev = process.env.NODE_ENV === 'development'
-
-// DEV 전용 더미 데이터
-const MEMBER_DUMMY: UnregisteredMemberInput = {
-  name: '박테니',
-  birth_date: '1990-05',
-  gender: 'MALE',
-  phone: '010-9876-5432',
-  start_year: '2018',
-  rating: 1200,
-}
-
-const MEMBER_INVALID_DUMMY: UnregisteredMemberInput = {
-  name: '', // 빈 이름
-  birth_date: '1990-13', // 잘못된 월
-  gender: undefined,
-  phone: '555', // 잘못된 전화번호
-  start_year: '2030', // 미래
-  rating: 99999, // 범위 초과
-}
 
 interface ClubMemberListProps {
   clubId: string
@@ -390,14 +375,14 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
               <div className="flex gap-2 pb-2 border-b border-dashed border-amber-500/30">
                 <button
                   type="button"
-                  onClick={() => { setNewMember(MEMBER_DUMMY); setMemberErrors({}) }}
+                  onClick={() => { setNewMember(generateMemberDummy()); setMemberErrors({}) }}
                   className="px-3 py-1.5 text-xs font-mono rounded-lg bg-amber-500/10 text-amber-500 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
                 >
                   DEV: 정상 더미
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setNewMember(MEMBER_INVALID_DUMMY); setMemberErrors({}) }}
+                  onClick={() => { setNewMember(generateMemberInvalidDummy()); setMemberErrors({}) }}
                   className="px-3 py-1.5 text-xs font-mono rounded-lg bg-red-500/10 text-red-500 border border-red-500/30 hover:bg-red-500/20 transition-colors"
                 >
                   DEV: 잘못된 데이터
