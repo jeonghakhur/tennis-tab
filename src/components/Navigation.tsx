@@ -28,7 +28,7 @@ export function Navigation() {
           <Link href="/tournaments" className="nav-link text-sm tracking-wide">
             대회
           </Link>
-          <Link href="/#clubs" className="nav-link text-sm tracking-wide">
+          <Link href="/clubs" className="nav-link text-sm tracking-wide">
             클럽
           </Link>
           <Link href="/#community" className="nav-link text-sm tracking-wide">

@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { formatPhoneNumber, unformatPhoneNumber } from "@/lib/utils/phone";
+import { ClubSelector } from "@/components/clubs/ClubSelector";
 import type { StartYear } from "@/lib/supabase/types";
 
 interface FormData {
@@ -21,9 +22,6 @@ interface FormData {
   phone: string;
   start_year: StartYear | "";
   rating: string;
-  club: string;
-  club_city: string;
-  club_district: string;
 }
 
 // 입력값 보안 검증 (XSS 방지)
@@ -51,9 +49,6 @@ export default function ProfileEditPage() {
     phone: "",
     start_year: "",
     rating: "",
-    club: "",
-    club_city: "",
-    club_district: "",
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,9 +61,6 @@ export default function ProfileEditPage() {
         phone: profile.phone ? formatPhoneNumber(profile.phone) : "",
         start_year: profile.start_year || "",
         rating: profile.rating ? profile.rating.toString() : "",
-        club: profile.club || "",
-        club_city: profile.club_city || "",
-        club_district: profile.club_district || "",
       });
     }
   }, [profile]);
@@ -123,9 +115,6 @@ export default function ProfileEditPage() {
         phone: phoneDigits || undefined,
         start_year: startYear,
         rating: rating,
-        club: formData.club || undefined,
-        club_city: formData.club_city || undefined,
-        club_district: formData.club_district || undefined,
       });
 
       if (result.error) {
@@ -222,27 +211,6 @@ export default function ProfileEditPage() {
       value: `${currentYear - 10}년 이전`,
       label: `${currentYear - 10}년 이전 (10년 이상)`,
     },
-  ];
-
-  // 한국 시도 데이터
-  const cityOptions = [
-    { value: "서울특별시", label: "서울특별시" },
-    { value: "부산광역시", label: "부산광역시" },
-    { value: "대구광역시", label: "대구광역시" },
-    { value: "인천광역시", label: "인천광역시" },
-    { value: "광주광역시", label: "광주광역시" },
-    { value: "대전광역시", label: "대전광역시" },
-    { value: "울산광역시", label: "울산광역시" },
-    { value: "세종특별자치시", label: "세종특별자치시" },
-    { value: "경기도", label: "경기도" },
-    { value: "강원도", label: "강원도" },
-    { value: "충청북도", label: "충청북도" },
-    { value: "충청남도", label: "충청남도" },
-    { value: "전라북도", label: "전라북도" },
-    { value: "전라남도", label: "전라남도" },
-    { value: "경상북도", label: "경상북도" },
-    { value: "경상남도", label: "경상남도" },
-    { value: "제주특별자치도", label: "제주특별자치도" },
   ];
 
   return (
@@ -422,112 +390,8 @@ export default function ProfileEditPage() {
               </p>
             </div>
 
-            {/* 소속 클럽 */}
-            <div>
-              <label
-                htmlFor="club"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                소속 클럽
-              </label>
-              <input
-                type="text"
-                id="club"
-                name="club"
-                value={formData.club}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg outline-none"
-                style={{
-                  backgroundColor: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  color: "var(--text-primary)",
-                }}
-                placeholder="소속 클럽명을 입력하세요"
-              />
-            </div>
-
-            {/* 클럽 지역 - 시도 */}
-            <div>
-              <label
-                htmlFor="club_city"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                클럽 지역 - 시도
-              </label>
-              <Select
-                key={`club-city-${formData.club_city}`}
-                value={formData.club_city || "NONE"}
-                onValueChange={(value) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    club_city: value === "NONE" ? "" : value,
-                  }));
-                  setError(null);
-                  setSuccess(false);
-                }}
-              >
-                <SelectTrigger
-                  className="w-full h-12 px-4"
-                  style={{
-                    backgroundColor: "var(--bg-card)",
-                    border: "1px solid var(--border-color)",
-                    color: "var(--text-primary)",
-                  }}
-                >
-                  <SelectValue placeholder="선택 안함" />
-                </SelectTrigger>
-                <SelectContent
-                  style={{
-                    backgroundColor: "var(--bg-secondary)",
-                    border: "1px solid var(--border-color)",
-                  }}
-                >
-                  <SelectItem
-                    key="none"
-                    value="NONE"
-                    style={{ color: "var(--text-muted)" }}
-                  >
-                    선택 안함
-                  </SelectItem>
-                  {cityOptions.map((option) => (
-                    <SelectItem
-                      key={option.value}
-                      value={option.value}
-                      style={{ color: "var(--text-primary)" }}
-                    >
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* 클럽 지역 - 시군구 */}
-            <div>
-              <label
-                htmlFor="club_district"
-                className="block text-sm font-medium mb-2"
-                style={{ color: "var(--text-secondary)" }}
-              >
-                클럽 지역 - 시군구
-              </label>
-              <input
-                type="text"
-                id="club_district"
-                name="club_district"
-                value={formData.club_district}
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-lg outline-none"
-                style={{
-                  backgroundColor: "var(--bg-card)",
-                  border: "1px solid var(--border-color)",
-                  color: "var(--text-primary)",
-                }}
-                placeholder="시군구를 입력하세요 (예: 강남구, 수원시)"
-              />
-            </div>
+            {/* 소속 클럽 (ClubSelector — 클럽 검색/가입/탈퇴 통합) */}
+            <ClubSelector onClubChange={() => refresh()} />
 
             {/* 에러 메시지 */}
             {error && (

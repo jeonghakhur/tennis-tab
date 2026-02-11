@@ -24,9 +24,10 @@ import type { PreliminaryGroup, GroupTeam } from "./types";
 interface GroupsTabProps {
   groups: PreliminaryGroup[];
   hasPreliminary: boolean;
+  title?: string;
   onAutoGenerate?: () => void;
   onGenerateMatches?: () => void;
-  onGenerateMainBracket?: () => void;
+  onGenerateMainBracket?: (seedOrder: string[]) => void;
   onDelete?: () => void;
   onTeamMove?: () => Promise<void>;
   onError: (message: string) => void;
@@ -35,6 +36,7 @@ interface GroupsTabProps {
 export function GroupsTab({
   groups,
   hasPreliminary,
+  title = "예선 조 편성",
   onAutoGenerate,
   onGenerateMatches,
   onGenerateMainBracket,
@@ -191,7 +193,7 @@ export function GroupsTab({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
-          예선 조 편성
+          {title}
           {hasChanges && (
             <span className="ml-2 text-sm text-amber-500">
               • 저장되지 않음
@@ -234,7 +236,13 @@ export function GroupsTab({
               ) : (
                 onGenerateMainBracket && (
                   <button
-                    onClick={onGenerateMainBracket}
+                    onClick={() => {
+                      // localGroups에서 entry_id 순서 추출
+                      const seedOrder = localGroups.flatMap(
+                        (g) => (g.group_teams || []).map((t) => t.entry_id),
+                      );
+                      onGenerateMainBracket(seedOrder);
+                    }}
                     className="btn-primary btn-sm"
                   >
                     <span className="relative z-10">본선 대진표 생성</span>

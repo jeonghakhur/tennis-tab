@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Trophy, Save, MapPin } from "lucide-react";
+import { Trophy, Save, MapPin, AlertTriangle } from "lucide-react";
 import { MatchRow } from "./MatchRow";
-import type { BracketConfig, BracketMatch } from "./types";
+import { GroupsTab } from "./GroupsTab";
+import type { BracketConfig, BracketMatch, PreliminaryGroup } from "./types";
 import { phaseLabels } from "./types";
 import type { MatchPhase } from "@/lib/supabase/types";
 import type { CourtInfoUpdate } from "@/lib/bracket/actions";
@@ -23,6 +24,10 @@ interface MainBracketTabProps {
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
   onCourtBatchSave?: (updates: CourtInfoUpdate[]) => void;
+  // 시드 배치 미리보기 props
+  seedingGroups?: PreliminaryGroup[];
+  allPrelimsDone?: boolean;
+  onGenerateBracketWithSeeds?: (seedOrder: string[]) => void;
 }
 
 const PHASE_ORDER: MatchPhase[] = [
@@ -47,6 +52,9 @@ export function MainBracketTab({
   isTeamMatch,
   onOpenDetail,
   onCourtBatchSave,
+  seedingGroups,
+  allPrelimsDone,
+  onGenerateBracketWithSeeds,
 }: MainBracketTabProps) {
 
   // 코트 정보 상태
@@ -120,7 +128,8 @@ export function MainBracketTab({
           )}
         </h3>
         <div className="flex gap-2">
-          {onGenerateBracket && (config.status === "DRAFT" || config.status === "PRELIMINARY") && (
+          {/* 시드 배치 모드에서는 기존 생성 버튼 숨김 (GroupsTab 내부에 생성 버튼 있음) */}
+          {!seedingGroups && onGenerateBracket && (config.status === "DRAFT" || config.status === "PRELIMINARY") && (
             <button onClick={onGenerateBracket} className="btn-primary btn-sm">
               <span className="relative z-10">본선 대진표 생성</span>
             </button>
@@ -136,7 +145,27 @@ export function MainBracketTab({
         </div>
       </div>
 
-      {matches.length === 0 ? (
+      {matches.length === 0 && seedingGroups && seedingGroups.length > 0 ? (
+        /* 시드 배치 미리보기 모드 */
+        <div className="space-y-4">
+          {!allPrelimsDone && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-500 text-sm font-medium">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              예선이 아직 완료되지 않았습니다. 모든 예선 경기가 끝나야 본선 대진표를 생성할 수 있습니다.
+            </div>
+          )}
+          <p className="text-sm text-(--text-muted)">
+            드래그하여 시드 순서를 조정하세요. 같은 조 안의 팀끼리 1라운드에서 대진합니다.
+          </p>
+          <GroupsTab
+            groups={seedingGroups}
+            hasPreliminary={false}
+            title="본선 시드 배정"
+            onGenerateMainBracket={allPrelimsDone ? onGenerateBracketWithSeeds : undefined}
+            onError={() => {}}
+          />
+        </div>
+      ) : matches.length === 0 ? (
         <div className="text-center py-8 text-(--text-muted)">
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>본선 대진표가 없습니다.</p>

@@ -6,7 +6,8 @@ import {
   LayoutDashboard,
   Users,
   Trophy,
-  Settings,
+  Building2,
+  Shield,
   ChevronLeft,
   Menu,
 } from 'lucide-react'
@@ -35,6 +36,18 @@ const menuItems = [
     name: '대회 관리',
     href: '/admin/tournaments',
     icon: Trophy,
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as UserRole[],
+  },
+  {
+    name: '협회 관리',
+    href: '/admin/associations',
+    icon: Building2,
+    roles: ['SUPER_ADMIN', 'ADMIN'] as UserRole[],
+  },
+  {
+    name: '클럽 관리',
+    href: '/admin/clubs',
+    icon: Shield,
     roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as UserRole[],
   },
 ]

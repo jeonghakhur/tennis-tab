@@ -297,6 +297,7 @@ body {
 .btn-primary {
   position: relative;
   overflow: hidden;
+  isolation: isolate;
   background-color: var(--accent-color);
   color: var(--bg-primary);
   font-family: var(--font-display);
@@ -315,6 +316,7 @@ body {
   transform: translateX(-100%);
   transition: transform 0.3s ease;
   border-radius: 0.5rem;
+  z-index: -1;
 }
 
 .btn-primary:hover::before {
@@ -415,6 +417,65 @@ body {
 .badge-progress {
   background-color: #d4744a;
   color: white;
+}
+
+/* 클럽 역할 뱃지 */
+.badge-role-owner {
+  background-color: var(--accent-color);
+  color: var(--bg-primary);
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.badge-role-admin {
+  background-color: var(--court-info);
+  color: white;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+.badge-role-member {
+  background-color: var(--bg-card-hover);
+  color: var(--text-secondary);
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 9999px;
+  font-weight: 600;
+}
+
+/* 가입/비가입 표시 */
+.badge-registered {
+  color: var(--accent-color);
+  font-size: 0.75rem;
+}
+
+.badge-unregistered {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* 인풋 공통 */
+.input-field {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.5rem;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+  transition: border-color 0.2s ease;
+}
+
+.input-field:focus {
+  border-color: var(--accent-color);
+  outline: none;
+}
+
+.input-field::placeholder {
+  color: var(--text-muted);
 }
 
 /* Diagonal slices */

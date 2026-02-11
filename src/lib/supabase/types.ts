@@ -15,6 +15,11 @@ export type Json =
 export type StartYear = string
 
 export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
+
+// 클럽 관리 시스템 타입
+export type ClubJoinType = 'OPEN' | 'APPROVAL' | 'INVITE_ONLY'
+export type ClubMemberRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+export type ClubMemberStatus = 'PENDING' | 'INVITED' | 'ACTIVE' | 'LEFT' | 'REMOVED'
 export type TournamentStatus = 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
 export type MatchType = 'INDIVIDUAL_SINGLES' | 'INDIVIDUAL_DOUBLES' | 'TEAM_SINGLES' | 'TEAM_DOUBLES'
@@ -455,6 +460,192 @@ export interface Database {
           updated_at?: string
         }
       }
+      // 클럽 관리 시스템 테이블
+      associations: {
+        Row: {
+          id: string
+          name: string
+          region: string | null
+          district: string | null
+          description: string | null
+          president_name: string | null
+          president_phone: string | null
+          president_email: string | null
+          secretary_name: string | null
+          secretary_phone: string | null
+          secretary_email: string | null
+          created_by: string
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          region?: string | null
+          district?: string | null
+          description?: string | null
+          president_name?: string | null
+          president_phone?: string | null
+          president_email?: string | null
+          secretary_name?: string | null
+          secretary_phone?: string | null
+          secretary_email?: string | null
+          created_by: string
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          region?: string | null
+          district?: string | null
+          description?: string | null
+          president_name?: string | null
+          president_phone?: string | null
+          president_email?: string | null
+          secretary_name?: string | null
+          secretary_phone?: string | null
+          secretary_email?: string | null
+          created_by?: string
+          is_active?: boolean
+          updated_at?: string
+        }
+      }
+      association_managers: {
+        Row: {
+          id: string
+          association_id: string
+          user_id: string
+          assigned_by: string
+          assigned_at: string
+        }
+        Insert: {
+          id?: string
+          association_id: string
+          user_id: string
+          assigned_by: string
+          assigned_at?: string
+        }
+        Update: {
+          id?: string
+          association_id?: string
+          user_id?: string
+          assigned_by?: string
+          assigned_at?: string
+        }
+      }
+      clubs: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          city: string | null
+          district: string | null
+          address: string | null
+          contact_phone: string | null
+          contact_email: string | null
+          join_type: ClubJoinType
+          association_id: string | null
+          max_members: number | null
+          is_active: boolean
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          city?: string | null
+          district?: string | null
+          address?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
+          join_type?: ClubJoinType
+          association_id?: string | null
+          max_members?: number | null
+          is_active?: boolean
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          city?: string | null
+          district?: string | null
+          address?: string | null
+          contact_phone?: string | null
+          contact_email?: string | null
+          join_type?: ClubJoinType
+          association_id?: string | null
+          max_members?: number | null
+          is_active?: boolean
+          created_by?: string
+          updated_at?: string
+        }
+      }
+      club_members: {
+        Row: {
+          id: string
+          club_id: string
+          user_id: string | null
+          is_registered: boolean
+          name: string
+          birth_date: string | null
+          gender: string | null
+          phone: string | null
+          start_year: string | null
+          rating: number | null
+          role: ClubMemberRole
+          status: ClubMemberStatus
+          status_reason: string | null
+          invited_by: string | null
+          joined_at: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          club_id: string
+          user_id?: string | null
+          is_registered?: boolean
+          name: string
+          birth_date?: string | null
+          gender?: string | null
+          phone?: string | null
+          start_year?: string | null
+          rating?: number | null
+          role?: ClubMemberRole
+          status?: ClubMemberStatus
+          status_reason?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          club_id?: string
+          user_id?: string | null
+          is_registered?: boolean
+          name?: string
+          birth_date?: string | null
+          gender?: string | null
+          phone?: string | null
+          start_year?: string | null
+          rating?: number | null
+          role?: ClubMemberRole
+          status?: ClubMemberStatus
+          status_reason?: string | null
+          invited_by?: string | null
+          joined_at?: string | null
+          updated_at?: string
+        }
+      }
       bracket_matches: {
         Row: {
           id: string
@@ -554,6 +745,9 @@ export interface Database {
       bracket_status: BracketStatus
       match_phase: MatchPhase
       match_status: MatchStatus
+      club_join_type: ClubJoinType
+      club_member_role: ClubMemberRole
+      club_member_status: ClubMemberStatus
     }
   }
 }

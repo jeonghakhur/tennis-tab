@@ -17,6 +17,7 @@ import {
   getPreliminaryMatches,
   generateMainBracket,
   getMainBracketMatches,
+  getAdvancingTeams,
   updateMatchResult,
   autoFillPreliminaryResults,
   autoFillMainBracketResults,
@@ -104,6 +105,11 @@ export function BracketManager({
   // 단체전 세트별 결과 입력 모달
   const [detailMatch, setDetailMatch] = useState<BracketMatch | null>(null);
 
+  // 본선 시드 배치 미리보기 상태
+  const [seedingGroups, setSeedingGroups] = useState<PreliminaryGroup[]>([]);
+  const [allPrelimsDone, setAllPrelimsDone] = useState(false);
+  const [pendingSeedOrder, setPendingSeedOrder] = useState<string[]>([]);
+
   const showError = useCallback((title: string, message: string) => {
     setAlertDialog({ isOpen: true, title, message, type: "error" });
   }, []);
@@ -142,6 +148,57 @@ export function BracketManager({
 
         const { data: mainData } = await getMainBracketMatches(configData.id);
         setMainMatches(mainData || []);
+
+        // 예선 있는 대회에서 본선 미생성 시 → 시드 배치 미리보기 데이터 로딩
+        if (configData.has_preliminaries && (!mainData || mainData.length === 0)) {
+          const { data: advData } = await getAdvancingTeams(configData.id);
+          if (advData && advData.teams.length > 0) {
+            // bracketSize 계산 (서버 calculateBracketSize와 동일)
+            const teamCount = advData.teams.length;
+            const bracketSize =
+              teamCount <= 4 ? 4
+              : teamCount <= 8 ? 8
+              : teamCount <= 16 ? 16
+              : teamCount <= 32 ? 32
+              : teamCount <= 64 ? 64
+              : 128;
+            // 1라운드 매치 수 = bracketSize / 2 → 그룹 수 고정
+            // 예: 128강이면 64그룹, 빈 슬롯도 표시하여 DnD로 BYE 배치 가능
+            const totalGroups = bracketSize / 2;
+
+            const virtualGroups: PreliminaryGroup[] = [];
+            for (let i = 0; i < totalGroups; i++) {
+              const team1 = advData.teams[i * 2];
+              const team2 = advData.teams[i * 2 + 1];
+              const groupTeams = [team1, team2]
+                .filter((t): t is NonNullable<typeof t> => !!t)
+                .map((t) => ({
+                  id: `seeding-team-${t.entryId}`,
+                  entry_id: t.entryId,
+                  seed_number: t.seed,
+                  final_rank: null,
+                  wins: 0,
+                  losses: 0,
+                  points_for: 0,
+                  points_against: 0,
+                  entry: t.entry,
+                }));
+              virtualGroups.push({
+                id: `seeding-group-${i}`,
+                name: `${i + 1}`,
+                display_order: i + 1,
+                group_teams: groupTeams,
+              });
+            }
+            setSeedingGroups(virtualGroups);
+            setAllPrelimsDone(advData.allPrelimsDone);
+          } else {
+            setSeedingGroups([]);
+            setAllPrelimsDone(false);
+          }
+        } else {
+          setSeedingGroups([]);
+        }
       }
     } catch {
       showError("오류", "데이터를 불러오는 중 오류가 발생했습니다.");
@@ -322,10 +379,12 @@ export function BracketManager({
       const { data, error } = await generateMainBracket(
         config.id,
         selectedDivision.id,
+        pendingSeedOrder.length > 0 ? pendingSeedOrder : undefined,
       );
       if (error) {
         showError("본선 대진표 생성 실패", error);
       } else {
+        setPendingSeedOrder([]);
         await loadBracketData();
         setActiveTab("main");
         showSuccess(
@@ -339,6 +398,12 @@ export function BracketManager({
       setShowGenerateMainConfirm(false);
     }
   };
+
+  // 시드 배치 미리보기에서 시드 순서 확인 후 생성 요청
+  const handleRequestGenerateMainWithSeeds = useCallback((seedOrder: string[]) => {
+    setPendingSeedOrder(seedOrder);
+    setShowGenerateMainConfirm(true);
+  }, []);
 
   // 테스트용: 예선 자동 결과 입력
   const handleAutoFillPreliminary = async () => {
@@ -613,9 +678,13 @@ export function BracketManager({
           </div>
 
           {/* Tab Content */}
+          {/* 조 편성 탭과 본선 시드 배치 모드에서는 bg-(--bg-card)로 통일 (DnD 시 glass-card hover 방지) */}
           <div
             className={`rounded-xl p-6 border border-(--border-color) ${
-              activeTab === "groups" ? "bg-(--bg-card)" : "glass-card"
+              activeTab === "groups" ||
+              (activeTab === "main" && config.has_preliminaries && mainMatches.length === 0 && seedingGroups.length > 0)
+                ? "bg-(--bg-card)"
+                : "glass-card"
             }`}
           >
             {isClosed && (
@@ -645,7 +714,10 @@ export function BracketManager({
                   setShowAutoGenerateConfirm(true);
                 }}
                 onGenerateMatches={isClosed ? undefined : () => setShowGeneratePrelimConfirm(true)}
-                onGenerateMainBracket={isClosed ? undefined : () => setShowGenerateMainConfirm(true)}
+                onGenerateMainBracket={isClosed ? undefined : (seedOrder: string[]) => {
+                  setPendingSeedOrder(seedOrder);
+                  setShowGenerateMainConfirm(true);
+                }}
                 onDelete={isClosed ? undefined : () => setShowDeleteGroupsConfirm(true)}
                 onTeamMove={isClosed ? undefined : loadBracketData}
                 onError={(msg) => showError("오류", msg)}
@@ -678,6 +750,9 @@ export function BracketManager({
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={isClosed ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
+                seedingGroups={config.has_preliminaries && mainMatches.length === 0 ? seedingGroups : undefined}
+                allPrelimsDone={allPrelimsDone}
+                onGenerateBracketWithSeeds={isClosed ? undefined : handleRequestGenerateMainWithSeeds}
               />
             )}
           </div>
@@ -736,10 +811,17 @@ export function BracketManager({
 
       <ConfirmDialog
         isOpen={showGenerateMainConfirm}
-        onClose={() => setShowGenerateMainConfirm(false)}
+        onClose={() => {
+          setShowGenerateMainConfirm(false);
+          setPendingSeedOrder([]);
+        }}
         onConfirm={handleGenerateMainBracket}
         title="본선 대진표 생성"
-        message="현재 조 편성 순서대로 본선 대진표를 생성하시겠습니까?"
+        message={
+          pendingSeedOrder.length > 0
+            ? "현재 시드 배정 순서대로 본선 대진표를 생성하시겠습니까?"
+            : "현재 조 편성 순서대로 본선 대진표를 생성하시겠습니까?"
+        }
         type="info"
         isLoading={loading}
       />

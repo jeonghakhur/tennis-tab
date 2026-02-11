@@ -1151,6 +1151,106 @@ async function propagateByeIfNeeded(
 }
 
 // ============================================================================
+// 예선 진출팀 조회 (본선 시드 배치 미리보기용)
+// ============================================================================
+
+/** 진출팀 정보 */
+export interface AdvancingTeam {
+  entryId: string
+  seed: number
+  groupName: string
+  groupRank: number
+  entry?: {
+    id: string
+    player_name: string
+    club_name: string | null
+    partner_data: { name: string; rating: number; club: string | null } | null
+  }
+}
+
+/**
+ * 예선 결과에서 본선 진출팀 추출 (읽기 전용 — auth 불필요)
+ * 1위 → 2위 순 크로스 시드 배치
+ * allPrelimsDone: 모든 예선 경기가 COMPLETED/BYE인지
+ */
+export async function getAdvancingTeams(configId: string): Promise<{
+  data: { teams: AdvancingTeam[]; allPrelimsDone: boolean } | null
+  error: string | null
+}> {
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { data: null, error: idError }
+
+  const supabase = await createClient()
+
+  // 예선 경기 완료 여부 확인
+  const { data: prelimMatches } = await supabase
+    .from('bracket_matches')
+    .select('id, status')
+    .eq('bracket_config_id', configId)
+    .eq('phase', 'PRELIMINARY')
+
+  const allPrelimsDone = !!prelimMatches && prelimMatches.length > 0 &&
+    prelimMatches.every(m => m.status === 'COMPLETED' || m.status === 'BYE')
+
+  // 조별 진출팀 추출
+  const { data: groups } = await supabase
+    .from('preliminary_groups')
+    .select(`
+      *,
+      group_teams (
+        *,
+        entry:tournament_entries (id, player_name, club_name, partner_data)
+      )
+    `)
+    .eq('bracket_config_id', configId)
+    .order('display_order', { ascending: true })
+
+  if (!groups || groups.length === 0) {
+    return { data: { teams: [], allPrelimsDone }, error: null }
+  }
+
+  let seedNumber = 1
+  const firstPlaceTeams: AdvancingTeam[] = []
+  const secondPlaceTeams: AdvancingTeam[] = []
+
+  for (const group of groups) {
+    const teams = (group.group_teams || [])
+      .filter((t: { final_rank: number | null }) => t.final_rank)
+      .sort((a: { final_rank: number }, b: { final_rank: number }) => a.final_rank - b.final_rank)
+
+    if (teams[0]) {
+      firstPlaceTeams.push({
+        entryId: teams[0].entry_id,
+        seed: 0, // 나중에 재배정
+        groupName: group.name,
+        groupRank: 1,
+        entry: teams[0].entry,
+      })
+    }
+    if (teams[1]) {
+      secondPlaceTeams.push({
+        entryId: teams[1].entry_id,
+        seed: 0,
+        groupName: group.name,
+        groupRank: 2,
+        entry: teams[1].entry,
+      })
+    }
+  }
+
+  // 1위 → 2위 크로스 시드
+  const allTeams: AdvancingTeam[] = []
+  for (const team of firstPlaceTeams) {
+    allTeams.push({ ...team, seed: seedNumber++ })
+  }
+  for (const team of secondPlaceTeams) {
+    allTeams.push({ ...team, seed: seedNumber++ })
+  }
+
+  return { data: { teams: allTeams, allPrelimsDone }, error: null }
+}
+
+// ============================================================================
 // 본선 대진표 관련
 // ============================================================================
 
@@ -1188,7 +1288,7 @@ function getPhaseForRound(bracketSize: number, roundNumber: number): MatchPhase 
 /**
  * 본선 대진표 생성
  */
-export async function generateMainBracket(configId: string, divisionId: string) {
+export async function generateMainBracket(configId: string, divisionId: string, seedOrder?: string[]) {
   const authResult = await checkBracketManagementAuth()
   if (authResult.error) return { error: authResult.error }
 
@@ -1213,8 +1313,11 @@ export async function generateMainBracket(configId: string, divisionId: string) 
 
   let advancingTeams: { entryId: string; seed: number }[] = []
 
-  if (config.has_preliminaries) {
-    // 예선 결과에서 진출팀 추출
+  if (seedOrder && seedOrder.length > 0) {
+    // 관리자가 지정한 시드 순서 사용 (시드 배치 미리보기에서 DnD로 조정된 순서)
+    advancingTeams = seedOrder.map((entryId, i) => ({ entryId, seed: i + 1 }))
+  } else if (config.has_preliminaries) {
+    // 예선 결과에서 진출팀 추출 (기존 자동 로직)
     const { data: groups } = await supabaseAdmin
       .from('preliminary_groups')
       .select(`
