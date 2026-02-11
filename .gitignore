@@ -38,3 +38,15 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# bkit / pdca (자동 생성 상태 파일)
+.bkit/
+docs/.bkit-memory.json
+docs/.pdca-status.json
+docs/.pdca-snapshots/
+
+# claude code (에이전트 메모리)
+.claude/agent-memory/
+
+# yarn (npm 사용 — package-lock.json만 추적)
+yarn.lock
