@@ -1,6 +1,6 @@
 {
   "version": "2.0",
-  "lastUpdated": "2026-02-10T09:05:03.669Z",
+  "lastUpdated": "2026-02-11T06:14:04.594Z",
   "activeFeatures": [
     "bracket",
     "data",
@@ -8,10 +8,27 @@
     "profile",
     "supabase",
     "BracketManager",
-    "realtime"
+    "realtime",
+    "ui",
+    "[id]",
+    "associations",
+    "clubs",
+    "admin",
+    "new",
+    "managers",
+    "tennis-tab",
+    "edit"
   ],
   "primaryFeature": "bracket",
   "features": {
+    "club-management": {
+      "phase": "archived",
+      "matchRate": 93,
+      "iterationCount": 1,
+      "startedAt": "2026-02-11T04:23:45.873Z",
+      "archivedAt": "2026-02-11T06:30:00.000Z",
+      "archivedTo": "docs/archive/2026-02/club-management/"
+    },
     "bracket": {
       "phase": "do",
       "phaseNumber": 3,
@@ -21,7 +38,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:33:24.560Z",
-        "lastUpdated": "2026-02-10T09:05:01.141Z"
+        "lastUpdated": "2026-02-11T05:57:50.338Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/bracket/actions.ts"
     },
@@ -34,7 +51,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:33:59.242Z",
-        "lastUpdated": "2026-02-10T04:55:48.903Z"
+        "lastUpdated": "2026-02-11T02:39:02.489Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/data/user.ts"
     },
@@ -47,7 +64,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:35:51.733Z",
-        "lastUpdated": "2026-02-10T09:05:02.443Z"
+        "lastUpdated": "2026-02-11T05:04:25.235Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/tournaments/BracketView.tsx"
     },
@@ -60,7 +77,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:39:11.685Z",
-        "lastUpdated": "2026-02-10T04:55:40.301Z"
+        "lastUpdated": "2026-02-11T04:35:01.376Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/my/profile/page.tsx"
     },
@@ -73,7 +90,7 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T04:39:53.685Z",
-        "lastUpdated": "2026-02-10T05:39:23.406Z"
+        "lastUpdated": "2026-02-11T05:13:06.491Z"
       },
       "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/supabase/types.ts"
     },
@@ -86,9 +103,9 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T05:39:28.062Z",
-        "lastUpdated": "2026-02-10T09:05:03.669Z"
+        "lastUpdated": "2026-02-11T06:14:04.594Z"
       },
-      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/admin/BracketManager/types.ts"
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/admin/BracketManager/index.tsx"
     },
     "realtime": {
       "phase": "do",
@@ -99,9 +116,126 @@
       "documents": {},
       "timestamps": {
         "started": "2026-02-10T06:42:53.661Z",
-        "lastUpdated": "2026-02-10T07:39:30.509Z"
+        "lastUpdated": "2026-02-11T04:34:39.467Z"
       },
-      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/realtime/useMatchesRealtime.ts"
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/lib/realtime/useTournamentStatusRealtime.ts"
+    },
+    "ui": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T01:34:34.569Z",
+        "lastUpdated": "2026-02-11T01:34:34.569Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/ui/skeleton.tsx"
+    },
+    "[id]": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T02:11:19.290Z",
+        "lastUpdated": "2026-02-11T04:42:52.125Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/clubs/[id]/page.tsx"
+    },
+    "associations": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:27:53.012Z",
+        "lastUpdated": "2026-02-11T05:13:27.506Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/associations/AssociationForm.tsx"
+    },
+    "clubs": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:28:00.474Z",
+        "lastUpdated": "2026-02-11T05:30:51.836Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/clubs/ClubMemberList.tsx"
+    },
+    "admin": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:33:51.569Z",
+        "lastUpdated": "2026-02-11T04:33:56.907Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/admin/AdminSidebar.tsx"
+    },
+    "new": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:34:40.768Z",
+        "lastUpdated": "2026-02-11T04:36:45.486Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/admin/clubs/new/page.tsx"
+    },
+    "managers": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:35:31.112Z",
+        "lastUpdated": "2026-02-11T04:35:31.112Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/admin/associations/[id]/managers/page.tsx"
+    },
+    "tennis-tab": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:35:50.043Z",
+        "lastUpdated": "2026-02-11T04:41:40.085Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/components/Navigation.tsx"
+    },
+    "edit": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-11T04:43:41.290Z",
+        "lastUpdated": "2026-02-11T04:44:30.188Z"
+      },
+      "lastFile": "/Users/jeonghak/work/person/tennis-tab/src/app/my/profile/edit/page.tsx"
     }
   },
   "pipeline": {
@@ -112,7 +246,7 @@
   "session": {
     "startedAt": "2026-02-10T04:21:27.630Z",
     "onboardingCompleted": false,
-    "lastActivity": "2026-02-10T09:05:03.669Z"
+    "lastActivity": "2026-02-11T06:14:04.594Z"
   },
   "history": [
     {
@@ -1185,6 +1319,726 @@
     },
     {
       "timestamp": "2026-02-10T09:05:03.669Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T01:34:34.569Z",
+      "feature": "ui",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T01:36:10.855Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:00:18.162Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:00:32.471Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:07:02.118Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:11:19.290Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:15:39.169Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:19:09.729Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:20:23.214Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:23:01.055Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:37:41.356Z",
+      "feature": "data",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:37:49.581Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:37:53.551Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:37:58.429Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:38:32.735Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T02:39:02.489Z",
+      "feature": "data",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:23:45.873Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:27:53.012Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:28:00.474Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:28:46.965Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:30:06.368Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:30:20.553Z",
+      "feature": "supabase",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:30:35.851Z",
+      "feature": "supabase",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:30:40.250Z",
+      "feature": "supabase",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:33:51.569Z",
+      "feature": "admin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:33:56.907Z",
+      "feature": "admin",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:34:15.057Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:34:33.757Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:34:39.467Z",
+      "feature": "realtime",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:34:40.768Z",
+      "feature": "new",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:34:50.085Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:34:50.989Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:35:01.376Z",
+      "feature": "profile",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:35:21.036Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:35:31.112Z",
+      "feature": "managers",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:35:50.043Z",
+      "feature": "tennis-tab",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:36:03.113Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:36:09.350Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:36:30.450Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:36:35.482Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:36:45.486Z",
+      "feature": "new",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:36:49.449Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:37:01.593Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:37:26.856Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:37:50.972Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:38:13.170Z",
+      "feature": "tennis-tab",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:38:21.250Z",
+      "feature": "tennis-tab",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:38:25.577Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:38:41.419Z",
+      "feature": "tennis-tab",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:41:05.063Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:41:18.593Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:41:27.457Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:41:34.670Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:41:40.085Z",
+      "feature": "tennis-tab",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:41:57.789Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:42:07.734Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:42:18.651Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:42:52.125Z",
+      "feature": "[id]",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:43:33.858Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:43:41.290Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:43:49.304Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:43:54.127Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:43:58.887Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:44:04.195Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:44:17.848Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:44:30.188Z",
+      "feature": "edit",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:47:49.221Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:48:04.730Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T04:57:14.463Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:04:25.235Z",
+      "feature": "tournaments",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:09:42.622Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:09:44.747Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:09:50.093Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:09:54.215Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:10:08.288Z",
+      "feature": "supabase",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:10:13.528Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:10:26.330Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:12:53.267Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:12:55.981Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:12:58.321Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:13:01.461Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:13:03.128Z",
+      "feature": "supabase",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:13:06.491Z",
+      "feature": "supabase",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:13:11.472Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:13:27.506Z",
+      "feature": "associations",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:09.352Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:18.391Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:18.992Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:19.655Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:23.911Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:25.304Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:25.623Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:29:32.042Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:07.900Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:12.430Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:16.297Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:23.548Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:32.099Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:38.933Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:30:51.836Z",
+      "feature": "clubs",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:57:31.961Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:57:35.827Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:57:50.338Z",
+      "feature": "bracket",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:02.972Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:07.216Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:11.996Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:19.003Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:32.946Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:40.523Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:58:44.419Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:02.340Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:15.551Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:21.771Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:33.633Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:44.155Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:49.123Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T05:59:57.606Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T06:00:05.005Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T06:05:38.043Z",
+      "feature": "BracketManager",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-11T06:14:04.594Z",
       "feature": "BracketManager",
       "phase": "do",
       "action": "updated"
