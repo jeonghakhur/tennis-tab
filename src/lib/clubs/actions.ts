@@ -896,6 +896,75 @@ export async function removeMember(memberId: string, reason: string): Promise<{ 
   return {}
 }
 
+/** 제거/탈퇴 회원 원복 (owner/admin) */
+export async function restoreMember(memberId: string): Promise<{ error?: string }> {
+  const idError = validateId(memberId, '회원 ID')
+  if (idError) return { error: idError }
+
+  const admin = createAdminClient()
+
+  const { data: member } = await admin
+    .from('club_members')
+    .select('id, club_id, user_id, status')
+    .eq('id', memberId)
+    .single()
+
+  if (!member) return { error: '회원을 찾을 수 없습니다.' }
+  if (member.status !== 'REMOVED' && member.status !== 'LEFT') {
+    return { error: '제거/탈퇴 상태의 회원만 원복할 수 있습니다.' }
+  }
+
+  const { error: authError } = await checkClubOwnerAuth(member.club_id)
+  if (authError) return { error: authError }
+
+  // 가입 회원인 경우 기존 ACTIVE 멤버십 유무 확인 (대표 클럽 자동 지정용)
+  let shouldBePrimary = false
+  if (member.user_id) {
+    const { count: activeCount } = await admin
+      .from('club_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', member.user_id)
+      .eq('status', 'ACTIVE')
+    shouldBePrimary = (activeCount ?? 0) === 0
+  }
+
+  const { error } = await admin
+    .from('club_members')
+    .update({
+      status: 'ACTIVE',
+      is_primary: shouldBePrimary,
+      status_reason: null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', memberId)
+
+  if (error) return { error: '회원 원복에 실패했습니다.' }
+
+  // 첫 클럽이면 profiles.club 레거시 필드 동기화
+  if (shouldBePrimary && member.user_id) {
+    const { data: club } = await admin
+      .from('clubs')
+      .select('name, city, district')
+      .eq('id', member.club_id)
+      .single()
+
+    if (club) {
+      await admin
+        .from('profiles')
+        .update({
+          club: club.name,
+          club_city: club.city,
+          club_district: club.district,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', member.user_id)
+    }
+  }
+
+  revalidatePath(`/admin/clubs/${member.club_id}`)
+  return {}
+}
+
 /** 자발적 탈퇴 (본인) */
 export async function leaveClub(clubId: string): Promise<{ error?: string }> {
   const idError = validateId(clubId, '클럽 ID')

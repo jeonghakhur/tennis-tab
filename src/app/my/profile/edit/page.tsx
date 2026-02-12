@@ -532,7 +532,7 @@ export default function ProfileEditPage() {
               </p>
             </div>
 
-            {/* 소속 클럽 (ClubSelector — 클럽 검색/가입/탈퇴 통합) */}
+            {/* 소속 클럽 — 가입된 클럽 표시 + 대표 클럽 지정 */}
             <ClubSelector onClubChange={() => refresh()} />
 
             {/* 에러 메시지 */}

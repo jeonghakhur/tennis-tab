@@ -5,14 +5,16 @@ import type { ClubMember, ClubMemberRole, UnregisteredMemberInput, GenderType } 
 import {
   addUnregisteredMember,
   removeMember,
+  restoreMember,
   updateMemberRole,
   respondJoinRequest,
   searchUsersForInvite,
   inviteMember,
 } from '@/lib/clubs/actions'
+import { useClubMembersRealtime } from '@/lib/realtime/useClubMembersRealtime'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
-import { UserPlus, UserMinus, Search, Mail } from 'lucide-react'
+import { UserPlus, UserMinus, RotateCcw, Search, Mail } from 'lucide-react'
 import {
   sanitizeInput,
   validateMemberInput,
@@ -45,6 +47,9 @@ const GENDER_LABEL: Record<GenderType, string> = { MALE: '남성', FEMALE: '여�
 export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) {
   const [members, setMembers] = useState(initialMembers)
   const [filter, setFilter] = useState<MemberFilter>('all')
+
+  // Realtime 구독 — club_members 변경 시 자동 반영
+  useClubMembersRealtime({ clubId, onMembersChange: setMembers })
   const [addModalOpen, setAddModalOpen] = useState(false)
   const [removeModalOpen, setRemoveModalOpen] = useState(false)
   const [selectedMember, setSelectedMember] = useState<ClubMember | null>(null)
@@ -116,9 +121,8 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       return
     }
     setToast({ isOpen: true, message: `${userName}님을 초대했습니다.`, type: 'success' })
-    // 검색 결과에서 제거
+    // 검색 결과에서 제거 (Realtime이 members 상태를 자동 갱신)
     setInviteResults((prev) => prev.filter((u) => u.id !== userId))
-    window.location.reload()
   }
 
   // 필드 변경 핸들러 (sanitize + 에러 클리어)
@@ -164,7 +168,6 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
     setAddModalOpen(false)
     setNewMember({ name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined })
     setMemberErrors({})
-    window.location.reload()
   }
 
   // 모달 초기화
@@ -188,11 +191,28 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       return
     }
 
-    setMembers((prev) => prev.filter((m) => m.id !== selectedMember.id))
+    // Realtime이 members 상태를 자동 갱신
     setToast({ isOpen: true, message: '회원이 제거되었습니다.', type: 'success' })
     setRemoveModalOpen(false)
     setSelectedMember(null)
     setRemoveReason('')
+  }
+
+  // 회원 원복 (REMOVED/LEFT → ACTIVE)
+  const handleRestoreMember = (member: ClubMember) => {
+    setConfirm({
+      isOpen: true,
+      message: `${member.name}님을 다시 활성 회원으로 원복하시겠습니까?`,
+      onConfirm: async () => {
+        setConfirm((prev) => ({ ...prev, isOpen: false }))
+        const result = await restoreMember(member.id)
+        if (result.error) {
+          setAlert({ isOpen: true, message: result.error, type: 'error' })
+          return
+        }
+        setToast({ isOpen: true, message: `${member.name}님이 원복되었습니다.`, type: 'success' })
+      },
+    })
   }
 
   // 역할 변경
@@ -201,14 +221,12 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       isOpen: true,
       message: `${member.name}님의 역할을 ${newRole}(으)로 변경하시겠습니까?`,
       onConfirm: async () => {
+        setConfirm((prev) => ({ ...prev, isOpen: false }))
         const result = await updateMemberRole(member.id, newRole)
         if (result.error) {
           setAlert({ isOpen: true, message: result.error, type: 'error' })
           return
         }
-        setMembers((prev) =>
-          prev.map((m) => (m.id === member.id ? { ...m, role: newRole } : m))
-        )
         setToast({ isOpen: true, message: '역할이 변경되었습니다.', type: 'success' })
       },
     })
@@ -222,15 +240,11 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       return
     }
 
-    if (approve) {
-      setMembers((prev) =>
-        prev.map((m) => (m.id === member.id ? { ...m, status: 'ACTIVE' } : m))
-      )
-      setToast({ isOpen: true, message: `${member.name}님의 가입을 승인했습니다.`, type: 'success' })
-    } else {
-      setMembers((prev) => prev.filter((m) => m.id !== member.id))
-      setToast({ isOpen: true, message: `${member.name}님의 가입을 거절했습니다.`, type: 'success' })
-    }
+    // Realtime이 members 상태를 자동 갱신
+    const message = approve
+      ? `${member.name}님의 가입을 승인했습니다.`
+      : `${member.name}님의 가입을 거절했습니다.`
+    setToast({ isOpen: true, message, type: 'success' })
   }
 
   return (
@@ -359,7 +373,19 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                   </div>
                 </div>
 
-                {/* 관리 버튼 (OWNER, 제거/탈퇴 회원은 제외) */}
+                {/* 제거/탈퇴 회원: 원복 버튼 */}
+                {(member.status === 'REMOVED' || member.status === 'LEFT') && (
+                  <button
+                    onClick={() => handleRestoreMember(member)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                    title="원복"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    원복
+                  </button>
+                )}
+
+                {/* 활성 회원 관리 버튼 (OWNER 제외) */}
                 {member.role !== 'OWNER' && member.status !== 'REMOVED' && member.status !== 'LEFT' && (
                   <div className="flex items-center gap-2">
                     {/* 역할 변경 */}

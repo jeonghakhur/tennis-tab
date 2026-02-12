@@ -22,23 +22,20 @@ export function ChatInput({ history, onResponse, onError, onLoadingChange }: Cha
   const [query, setQuery] = useState('')
   const [isFocused, setIsFocused] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    const trimmed = query.trim()
-    if (!trimmed) return
-
+  /** 메시지 전송 공통 로직 */
+  const sendMessage = async (text: string) => {
     onLoadingChange(true)
     onError('')
     try {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: trimmed }),
+        body: JSON.stringify({ message: text, history }),
       })
       const data: ChatResponse = await res.json()
 
       if (data.success) {
-        onResponse(data)
+        onResponse(text, data)
         setQuery('')
       } else {
         onError(data.error)
@@ -50,30 +47,17 @@ export function ChatInput({ history, onResponse, onError, onLoadingChange }: Cha
     }
   }
 
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    const trimmed = query.trim()
+    if (!trimmed) return
+    await sendMessage(trimmed)
+  }
+
   /** 예시 프롬프트 클릭 → 즉시 전송 */
   const handleExampleClick = async (text: string) => {
     setQuery(text)
-    onLoadingChange(true)
-    onError('')
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text }),
-      })
-      const data: ChatResponse = await res.json()
-
-      if (data.success) {
-        onResponse(data)
-        setQuery('')
-      } else {
-        onError(data.error)
-      }
-    } catch {
-      onError('네트워크 오류가 발생했습니다.')
-    } finally {
-      onLoadingChange(false)
-    }
+    await sendMessage(text)
   }
 
   return (

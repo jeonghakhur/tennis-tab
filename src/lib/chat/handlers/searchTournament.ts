@@ -30,9 +30,16 @@ export async function handleSearchTournament(
   let query = admin
     .from('tournaments')
     .select('id, title, location, address, start_date, end_date, status, entry_fee, max_participants')
-    .in('status', ['OPEN', 'CLOSED', 'IN_PROGRESS'])
     .order('start_date', { ascending: true })
     .limit(5)
+
+  // 상태 필터: 명시적 요청 시 해당 상태만, 아니면 COMPLETED 제외
+  if (entities.status) {
+    const mapped = STATUS_MAP[entities.status]
+    if (mapped) query = query.eq('status', mapped)
+  } else {
+    query = query.in('status', ['OPEN', 'CLOSED', 'IN_PROGRESS'])
+  }
 
   // 지역 필터
   if (entities.location) {
@@ -48,12 +55,6 @@ export async function handleSearchTournament(
   }
   if (entities.date_range?.end) {
     query = query.lte('start_date', entities.date_range.end)
-  }
-
-  // 상태 필터 (사용자가 명시적으로 요청한 경우)
-  if (entities.status) {
-    const mapped = STATUS_MAP[entities.status]
-    if (mapped) query = query.eq('status', mapped)
   }
 
   const { data: tournaments, error } = await query
