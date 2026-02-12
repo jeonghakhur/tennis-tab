@@ -7,7 +7,7 @@ import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/val
 
 // Supabase 에러 메시지 → 한국어 변환
 function translateAuthError(message: string): string {
-  if (message.includes('User already registered')) {
+  if (message.includes('already') && message.includes('registered')) {
     return '이미 가입된 이메일입니다.'
   }
   if (message.includes('Invalid login credentials')) {
