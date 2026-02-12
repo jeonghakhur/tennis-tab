@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS associations (
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now(),
 
-  UNIQUE(created_by)  -- ADMIN 1인당 1협회 제한
+  -- ADMIN 1인 1협회 제한은 서버 액션에서 처리 (SUPER_ADMIN은 제한 없음)
 );
 
 -- 협회 매니저 테이블

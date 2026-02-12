@@ -2,10 +2,10 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { createAssociation, updateAssociation } from '@/lib/associations/actions'
+import { createAssociation, updateAssociation, deleteAssociation } from '@/lib/associations/actions'
 import type { Association, CreateAssociationInput } from '@/lib/associations/types'
 import { Toast } from '@/components/common/Toast'
-import { AlertDialog } from '@/components/common/AlertDialog'
+import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import {
   sanitizeInput,
@@ -44,6 +44,7 @@ export function AssociationForm({ association }: AssociationFormProps) {
   const [loading, setLoading] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+  const [deleteConfirm, setDeleteConfirm] = useState(false)
   const errorFieldRef = useRef<keyof AssociationValidationErrors | null>(null)
   const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
@@ -100,6 +101,23 @@ export function AssociationForm({ association }: AssociationFormProps) {
         type: 'success',
       })
 
+      setTimeout(() => router.push('/admin/associations'), 500)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 협회 삭제
+  const handleDelete = async () => {
+    if (!association) return
+    setLoading(true)
+    try {
+      const result = await deleteAssociation(association.id)
+      if (result.error) {
+        setAlert({ isOpen: true, message: result.error, type: 'error' })
+        return
+      }
+      setToast({ isOpen: true, message: '협회가 삭제되었습니다.', type: 'success' })
       setTimeout(() => router.push('/admin/associations'), 500)
     } finally {
       setLoading(false)
@@ -347,6 +365,22 @@ export function AssociationForm({ association }: AssociationFormProps) {
             <span className="relative z-10">{isEdit ? '수정' : '생성'}</span>
           </button>
         </div>
+
+        {/* 수정 모드: 삭제 버튼 */}
+        {isEdit && (
+          <div className="pt-4 border-t border-(--border-color)">
+            <button
+              type="button"
+              onClick={() => setDeleteConfirm(true)}
+              className="w-full px-4 py-2 rounded-lg text-sm font-medium text-red-500 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 transition-colors"
+            >
+              협회 삭제
+            </button>
+            <p className="text-xs text-(--text-muted) mt-2 text-center">
+              소속 클럽은 독립 클럽으로 전환되고, 매니저는 일반 사용자로 변경됩니다.
+            </p>
+          </div>
+        )}
       </form>
 
       <Toast
@@ -369,6 +403,19 @@ export function AssociationForm({ association }: AssociationFormProps) {
         message={alert.message}
         type={alert.type}
       />
+
+      {isEdit && (
+        <ConfirmDialog
+          isOpen={deleteConfirm}
+          onClose={() => setDeleteConfirm(false)}
+          onConfirm={handleDelete}
+          title="협회 삭제"
+          message={`"${association!.name}" 협회를 삭제하시겠습니까?\n소속 클럽은 독립 클럽으로 전환되고, 매니저는 일반 사용자로 변경됩니다.`}
+          type="warning"
+          confirmText="삭제"
+          cancelText="취소"
+        />
+      )}
     </>
   )
 }

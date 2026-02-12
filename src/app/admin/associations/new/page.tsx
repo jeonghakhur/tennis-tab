@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
-import { isAdmin } from '@/lib/auth/roles'
+import { isAdmin, isSuperAdmin } from '@/lib/auth/roles'
 import { AssociationForm } from '@/components/associations/AssociationForm'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
@@ -19,6 +19,8 @@ export default async function NewAssociationPage() {
 
   if (!isAdmin(profile?.role)) redirect('/admin')
 
+  const superAdmin = isSuperAdmin(profile?.role)
+
   return (
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
@@ -33,7 +35,9 @@ export default async function NewAssociationPage() {
             협회 생성
           </h1>
           <p className="text-(--text-secondary) mt-1">
-            새로운 협회를 생성합니다. (1인 1협회 제한)
+            {superAdmin
+              ? '새로운 협회를 생성합니다.'
+              : '새로운 협회를 생성합니다. (1인 1협회 제한)'}
           </p>
         </div>
       </div>

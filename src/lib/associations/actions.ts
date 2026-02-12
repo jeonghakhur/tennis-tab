@@ -58,7 +58,7 @@ async function checkAssociationOwnerAuth(associationId: string) {
 // 협회 CRUD
 // ============================================================================
 
-/** 협회 생성 (ADMIN, 1인 1협회 제한) */
+/** 협회 생성 (ADMIN: 1인 1협회 제한, SUPER_ADMIN: 제한 없음) */
 export async function createAssociation(data: CreateAssociationInput): Promise<{ error?: string }> {
   const { error: authError, user } = await checkAdminAuth()
   if (authError || !user) return { error: authError || '로그인이 필요합니다.' }
@@ -74,15 +74,17 @@ export async function createAssociation(data: CreateAssociationInput): Promise<{
 
   const admin = createAdminClient()
 
-  // 기존 협회 존재 확인 (UNIQUE 제약으로도 보호되지만 UX용 사전 검증)
-  const { data: existing } = await admin
-    .from('associations')
-    .select('id')
-    .eq('created_by', user.id)
-    .maybeSingle()
+  // ADMIN만 1인 1협회 제한 (SUPER_ADMIN은 제한 없음)
+  if (user.role !== 'SUPER_ADMIN') {
+    const { data: existing } = await admin
+      .from('associations')
+      .select('id')
+      .eq('created_by', user.id)
+      .maybeSingle()
 
-  if (existing) {
-    return { error: '이미 협회를 보유하고 있습니다. (1인 1협회 제한)' }
+    if (existing) {
+      return { error: '이미 협회를 보유하고 있습니다. (1인 1협회 제한)' }
+    }
   }
 
   const { error } = await admin.from('associations').insert({

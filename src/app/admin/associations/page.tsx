@@ -4,6 +4,7 @@ import { isAdmin, isSuperAdmin } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import { Building2, Users, Shield, MapPin } from 'lucide-react'
+import { DeleteAssociationButton } from '@/components/associations/DeleteAssociationButton'
 
 type AssociationWithCounts = {
   id: string
@@ -132,19 +133,24 @@ export default async function AdminAssociationsPage() {
                   </span>
                 </div>
 
-                <div className="flex gap-2">
-                  <Link
-                    href={`/admin/associations/${a.id}`}
-                    className="btn-secondary btn-sm text-xs"
-                  >
-                    수정
-                  </Link>
+                <div className="flex items-center gap-2">
                   <Link
                     href={`/admin/associations/${a.id}/managers`}
                     className="btn-primary btn-sm text-xs"
                   >
                     매니저 관리
                   </Link>
+                  <Link
+                    href={`/admin/associations/${a.id}`}
+                    className="btn-warning btn-sm text-xs"
+                  >
+                    수정
+                  </Link>
+                  <DeleteAssociationButton
+                    associationId={a.id}
+                    associationName={a.name}
+                    className="btn-danger btn-sm text-xs"
+                  />
                 </div>
               </div>
             ))}
