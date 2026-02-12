@@ -59,6 +59,8 @@ export interface CreateClubInput {
   contact_email: string
   join_type?: ClubJoinType
   max_members?: number
+  association_id?: string | null
+  association_name?: string  // 직접 입력 시 이름으로 협회 찾기/생성
 }
 
 export interface UpdateClubInput {
@@ -72,6 +74,8 @@ export interface UpdateClubInput {
   contact_email?: string
   join_type?: ClubJoinType
   max_members?: number | null
+  association_id?: string | null
+  association_name?: string  // 직접 입력 시 이름으로 협회 찾기/생성
 }
 
 export interface UnregisteredMemberInput {

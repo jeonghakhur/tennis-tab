@@ -87,14 +87,49 @@ export async function createClub(data: CreateClubInput): Promise<{ error?: strin
 
   const admin = createAdminClient()
 
-  // 협회 소속 매니저인지 확인
-  const { data: managerAssoc } = await admin
-    .from('association_managers')
-    .select('association_id')
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  const associationId = managerAssoc?.association_id ?? null
+  // association_id 결정: 명시 전달 > 이름으로 찾기/생성 > 자동 감지
+  let associationId: string | null = null
+  if (sanitized.association_id !== undefined) {
+    // 명시적으로 전달된 경우 — 권한 검증
+    if (sanitized.association_id && user.role !== 'SUPER_ADMIN') {
+      const { data: mgr } = await admin
+        .from('association_managers')
+        .select('association_id')
+        .eq('user_id', user.id)
+        .eq('association_id', sanitized.association_id)
+        .maybeSingle()
+      if (!mgr) return { error: '해당 협회의 관리자가 아닙니다.' }
+    }
+    associationId = sanitized.association_id || null
+  } else if (sanitized.association_name?.trim()) {
+    // 직접 입력: 이름으로 기존 협회 찾기 → 없으면 생성 (SUPER_ADMIN만)
+    const trimmedName = sanitized.association_name.trim()
+    const { data: found } = await admin
+      .from('associations')
+      .select('id')
+      .eq('name', trimmedName)
+      .maybeSingle()
+    if (found) {
+      associationId = found.id
+    } else if (user.role === 'SUPER_ADMIN') {
+      const { data: created } = await admin
+        .from('associations')
+        .insert({ name: trimmedName, created_by: user.id })
+        .select('id')
+        .single()
+      if (created) associationId = created.id
+    } else {
+      return { error: '해당 이름의 협회를 찾을 수 없습니다.' }
+    }
+  } else if (sanitized.association_name === undefined) {
+    // 하위 호환: 미전달 시 자동 감지
+    const { data: managerAssoc } = await admin
+      .from('association_managers')
+      .select('association_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    associationId = managerAssoc?.association_id ?? null
+  }
 
   // 클럽 생성
   const { data: club, error } = await admin
@@ -173,6 +208,47 @@ export async function updateClub(clubId: string, data: UpdateClubInput): Promise
   }
 
   const admin = createAdminClient()
+  const user = await getCurrentUser()
+
+  // association_id / association_name 처리
+  let resolvedAssociationId: string | null | undefined = undefined
+  if (sanitized.association_id !== undefined) {
+    // 기존 협회 선택 — 권한 검증
+    if (sanitized.association_id && user?.role !== 'SUPER_ADMIN') {
+      const { data: mgr } = await admin
+        .from('association_managers')
+        .select('association_id')
+        .eq('user_id', user!.id)
+        .eq('association_id', sanitized.association_id)
+        .maybeSingle()
+      if (!mgr) return { error: '해당 협회의 관리자가 아닙니다.' }
+    }
+    resolvedAssociationId = sanitized.association_id || null
+  } else if (sanitized.association_name?.trim()) {
+    // 직접 입력: 이름으로 찾기 → 없으면 생성 (SUPER_ADMIN만)
+    const trimmedName = sanitized.association_name.trim()
+    const { data: found } = await admin
+      .from('associations')
+      .select('id')
+      .eq('name', trimmedName)
+      .maybeSingle()
+    if (found) {
+      resolvedAssociationId = found.id
+    } else if (user?.role === 'SUPER_ADMIN') {
+      const { data: created } = await admin
+        .from('associations')
+        .insert({ name: trimmedName, created_by: user.id })
+        .select('id')
+        .single()
+      resolvedAssociationId = created?.id ?? null
+    } else {
+      return { error: '해당 이름의 협회를 찾을 수 없습니다.' }
+    }
+  } else if (sanitized.association_name === '') {
+    // 빈 문자열 = 독립 클럽으로 전환
+    resolvedAssociationId = null
+  }
+
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
 
   if (sanitized.name !== undefined) updateData.name = sanitized.name.trim()
@@ -185,6 +261,7 @@ export async function updateClub(clubId: string, data: UpdateClubInput): Promise
   if (sanitized.contact_email !== undefined) updateData.contact_email = sanitized.contact_email?.trim() || null
   if (sanitized.join_type !== undefined) updateData.join_type = sanitized.join_type
   if (sanitized.max_members !== undefined) updateData.max_members = sanitized.max_members
+  if (resolvedAssociationId !== undefined) updateData.association_id = resolvedAssociationId
 
   const { error } = await admin
     .from('clubs')

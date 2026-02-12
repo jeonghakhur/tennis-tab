@@ -7,10 +7,12 @@ import { updateClub } from '@/lib/clubs/actions'
 import { ClubMemberList } from './ClubMemberList'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
+import { AssociationCombobox, type AssociationValue } from './AssociationCombobox'
 
 interface ClubDetailTabsProps {
   club: Club
   initialMembers: ClubMember[]
+  associations?: Array<{ id: string; name: string }>
 }
 
 type Tab = 'info' | 'members'
@@ -29,7 +31,7 @@ const STATUS_LABEL: Record<ClubMemberStatus, string> = {
   REMOVED: '제거됨',
 }
 
-export function ClubDetailTabs({ club, initialMembers }: ClubDetailTabsProps) {
+export function ClubDetailTabs({ club, initialMembers, associations = [] }: ClubDetailTabsProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('members')
   const [loading, setLoading] = useState(false)
@@ -45,7 +47,24 @@ export function ClubDetailTabs({ club, initialMembers }: ClubDetailTabsProps) {
     address: club.address || '',
     contact_phone: club.contact_phone || '',
     contact_email: club.contact_email || '',
+    association_id: club.association_id as string | null,
+    association_name: '',
   })
+  const [assocValue, setAssocValue] = useState<AssociationValue>({
+    association_id: club.association_id,
+    association_name: (club.associations as { name: string } | null)?.name || '',
+  })
+
+  const handleAssocChange = (val: AssociationValue) => {
+    setAssocValue(val)
+    if (val.association_id) {
+      setInfoForm((prev) => ({ ...prev, association_id: val.association_id, association_name: '' }))
+    } else if (val.association_name) {
+      setInfoForm((prev) => ({ ...prev, association_id: null, association_name: val.association_name }))
+    } else {
+      setInfoForm((prev) => ({ ...prev, association_id: null, association_name: '' }))
+    }
+  }
 
   const handleInfoSave = async () => {
     setLoading(true)
@@ -101,6 +120,17 @@ export function ClubDetailTabs({ club, initialMembers }: ClubDetailTabsProps) {
               value={infoForm.name}
               onChange={(e) => setInfoForm({ ...infoForm, name: e.target.value })}
               className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+            />
+          </div>
+          {/* 소속 협회 */}
+          <div>
+            <label className="block text-sm font-medium text-(--text-primary) mb-1">
+              소속 협회
+            </label>
+            <AssociationCombobox
+              associations={associations}
+              value={assocValue}
+              onChange={handleAssocChange}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">

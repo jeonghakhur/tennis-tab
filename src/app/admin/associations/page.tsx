@@ -3,10 +3,10 @@ import { createClient } from '@/lib/supabase/server'
 import { isAdmin, isSuperAdmin } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { Building2, Users, Shield, MapPin } from 'lucide-react'
-import { DeleteAssociationButton } from '@/components/associations/DeleteAssociationButton'
+import { Building2, Users, Shield } from 'lucide-react'
+import { AssociationList } from '@/components/associations/AssociationList'
 
-type AssociationWithCounts = {
+export type AssociationWithCounts = {
   id: string
   name: string
   region: string | null
@@ -87,75 +87,7 @@ export default async function AdminAssociationsPage() {
           </Link>
         </div>
 
-        {list.length === 0 ? (
-          <div className="glass-card rounded-xl p-8 text-center space-y-4">
-            <Building2 className="w-12 h-12 mx-auto text-(--text-muted)" />
-            <p className="text-(--text-muted)">등록된 협회가 없습니다.</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {list.map((a) => (
-              <div key={a.id} className="glass-card rounded-xl p-5 space-y-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <h2 className="text-lg font-bold text-(--text-primary)">
-                      {a.name}
-                    </h2>
-                    {(a.region || a.district) && (
-                      <div className="flex items-center gap-1.5 mt-1">
-                        <MapPin className="w-3.5 h-3.5 text-(--text-muted)" />
-                        <span className="text-sm text-(--text-secondary)">
-                          {[a.region, a.district].filter(Boolean).join(' ')}
-                        </span>
-                      </div>
-                    )}
-                    {a.description && (
-                      <p className="text-(--text-muted) mt-1.5 text-sm line-clamp-2">
-                        {a.description}
-                      </p>
-                    )}
-                  </div>
-                  {!a.is_active && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-500/10 text-red-500 font-medium">
-                      비활성
-                    </span>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-4 text-sm text-(--text-muted)">
-                  <span className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4" />
-                    매니저 {a.manager_count}명
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <Shield className="w-4 h-4" />
-                    클럽 {a.club_count}개
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Link
-                    href={`/admin/associations/${a.id}/managers`}
-                    className="btn-primary btn-sm text-xs"
-                  >
-                    매니저 관리
-                  </Link>
-                  <Link
-                    href={`/admin/associations/${a.id}`}
-                    className="btn-warning btn-sm text-xs"
-                  >
-                    수정
-                  </Link>
-                  <DeleteAssociationButton
-                    associationId={a.id}
-                    associationName={a.name}
-                    className="btn-danger btn-sm text-xs"
-                  />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
+        <AssociationList associations={list} />
       </div>
     )
   }

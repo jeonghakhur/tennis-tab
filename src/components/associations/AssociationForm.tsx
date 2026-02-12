@@ -22,9 +22,11 @@ const isDev = process.env.NODE_ENV === 'development'
 
 interface AssociationFormProps {
   association?: Association | null
+  /** 저장/삭제 후 이동할 URL (검색 파라미터 유지용) */
+  returnUrl?: string
 }
 
-export function AssociationForm({ association }: AssociationFormProps) {
+export function AssociationForm({ association, returnUrl = '/admin/associations' }: AssociationFormProps) {
   const router = useRouter()
   const isEdit = !!association
 
@@ -101,7 +103,7 @@ export function AssociationForm({ association }: AssociationFormProps) {
         type: 'success',
       })
 
-      setTimeout(() => router.push('/admin/associations'), 500)
+      setTimeout(() => router.push(returnUrl), 500)
     } finally {
       setLoading(false)
     }
@@ -118,7 +120,7 @@ export function AssociationForm({ association }: AssociationFormProps) {
         return
       }
       setToast({ isOpen: true, message: '협회가 삭제되었습니다.', type: 'success' })
-      setTimeout(() => router.push('/admin/associations'), 500)
+      setTimeout(() => router.push(returnUrl), 500)
     } finally {
       setLoading(false)
     }

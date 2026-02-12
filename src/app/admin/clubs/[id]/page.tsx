@@ -9,10 +9,13 @@ import type { Club, ClubMember } from '@/lib/clubs/types'
 
 interface Props {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ q?: string }>
 }
 
-export default async function ClubDetailPage({ params }: Props) {
+export default async function ClubDetailPage({ params, searchParams }: Props) {
   const { id } = await params
+  const { q } = await searchParams
+  const listUrl = q ? `/admin/clubs?q=${encodeURIComponent(q)}` : '/admin/clubs'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -63,11 +66,29 @@ export default async function ClubDetailPage({ params }: Props) {
     .order('role', { ascending: true })
     .order('name', { ascending: true })
 
+  // 협회 목록 fetch (SUPER_ADMIN: 전체, 기타: 자신의 협회만)
+  const isSuperAdmin = profile?.role === 'SUPER_ADMIN'
+  let associations: { id: string; name: string }[] = []
+
+  if (isSuperAdmin) {
+    const { data: assocData } = await admin.from('associations').select('id, name').order('name')
+    associations = assocData || []
+  } else {
+    const { data: mgr } = await admin
+      .from('association_managers')
+      .select('association_id, associations:association_id(id, name)')
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (mgr?.associations) {
+      associations = [mgr.associations as unknown as { id: string; name: string }]
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
         <Link
-          href="/admin/clubs"
+          href={listUrl}
           className="p-2 rounded-lg hover:bg-(--bg-card) text-(--text-secondary)"
         >
           <ChevronLeft className="w-5 h-5" />
@@ -86,6 +107,7 @@ export default async function ClubDetailPage({ params }: Props) {
       <ClubDetailTabs
         club={club as Club}
         initialMembers={(members || []) as ClubMember[]}
+        associations={associations}
       />
     </div>
   )

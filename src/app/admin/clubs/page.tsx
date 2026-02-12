@@ -3,14 +3,9 @@ import { createClient } from '@/lib/supabase/server'
 import { hasMinimumRole } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { Plus, Shield, Users, MapPin } from 'lucide-react'
-import type { ClubJoinType } from '@/lib/clubs/types'
-
-const JOIN_TYPE_LABELS: Record<ClubJoinType, string> = {
-  OPEN: '자유 가입',
-  APPROVAL: '승인제',
-  INVITE_ONLY: '초대 전용',
-}
+import { Plus, Shield } from 'lucide-react'
+import { ClubList } from '@/components/clubs/ClubList'
+import type { ClubWithCounts } from '@/components/clubs/ClubList'
 
 export default async function AdminClubsPage() {
   const supabase = await createClient()
@@ -98,6 +93,17 @@ export default async function AdminClubsPage() {
     }
   }
 
+  // ClubList에 전달할 데이터 변환
+  const list: ClubWithCounts[] = (clubs || []).map((club) => ({
+    id: club.id,
+    name: club.name,
+    city: club.city,
+    district: club.district,
+    join_type: club.join_type,
+    association_name: (club.associations as { name: string } | null)?.name ?? null,
+    member_count: memberCounts.get(club.id) || 0,
+  }))
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -113,47 +119,7 @@ export default async function AdminClubsPage() {
         </Link>
       </div>
 
-      {!clubs || clubs.length === 0 ? (
-        <div className="glass-card rounded-xl p-8 text-center space-y-4">
-          <Shield className="w-12 h-12 mx-auto text-(--text-muted)" />
-          <p className="text-(--text-muted)">관리 중인 클럽이 없습니다.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {clubs.map((club) => {
-            const assocName = (club.associations as { name: string } | null)?.name
-            return (
-              <div key={club.id} className="glass-card rounded-xl p-5 space-y-3">
-                <div>
-                  <h3 className="text-lg font-bold text-(--text-primary)">{club.name}</h3>
-                  {(club.city || club.district) && (
-                    <p className="text-sm text-(--text-secondary) flex items-center gap-1 mt-0.5">
-                      <MapPin className="w-3 h-3" />
-                      {[club.city, club.district].filter(Boolean).join(' ')}
-                    </p>
-                  )}
-                </div>
-                <div className="flex items-center gap-3 text-sm text-(--text-muted)">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3.5 h-3.5" />
-                    회원 {memberCounts.get(club.id) || 0}명
-                  </span>
-                  <span>·</span>
-                  <span>{assocName || '독립 클럽'}</span>
-                  <span>·</span>
-                  <span>{JOIN_TYPE_LABELS[club.join_type as ClubJoinType] || club.join_type}</span>
-                </div>
-                <Link
-                  href={`/admin/clubs/${club.id}`}
-                  className="btn-secondary btn-sm inline-block text-center"
-                >
-                  관리
-                </Link>
-              </div>
-            )
-          })}
-        </div>
-      )}
+      <ClubList clubs={list} />
     </div>
   )
 }

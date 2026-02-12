@@ -16,11 +16,13 @@ import {
   generateClubDummy,
   generateClubInvalidDummy,
 } from '@/lib/utils/devDummy'
+import { AssociationCombobox, type AssociationValue } from './AssociationCombobox'
 
 const isDev = process.env.NODE_ENV === 'development'
 
 interface ClubFormProps {
   club?: Club | null
+  associations?: Array<{ id: string; name: string }>
 }
 
 const JOIN_TYPE_OPTIONS: { value: ClubJoinType; label: string; desc: string }[] = [
@@ -29,7 +31,7 @@ const JOIN_TYPE_OPTIONS: { value: ClubJoinType; label: string; desc: string }[] 
   { value: 'INVITE_ONLY', label: '초대 전용', desc: '관리자가 초대한 회원만 가입' },
 ]
 
-export function ClubForm({ club }: ClubFormProps) {
+export function ClubForm({ club, associations = [] }: ClubFormProps) {
   const router = useRouter()
   const isEdit = !!club
 
@@ -44,6 +46,13 @@ export function ClubForm({ club }: ClubFormProps) {
     contact_email: club?.contact_email || '',
     join_type: club?.join_type || 'APPROVAL',
     max_members: club?.max_members || undefined,
+    association_id: club?.association_id ?? null,
+    association_name: '',
+  })
+  // 협회 combobox 상태 (association_id + association_name을 함께 관리)
+  const [assocValue, setAssocValue] = useState<AssociationValue>({
+    association_id: club?.association_id ?? null,
+    association_name: (club?.associations as { name: string } | null)?.name || '',
   })
   const [fieldErrors, setFieldErrors] = useState<ClubValidationErrors>({})
   const [loading, setLoading] = useState(false)
@@ -57,6 +66,21 @@ export function ClubForm({ club }: ClubFormProps) {
     const sanitized = sanitizeInput(value)
     setForm((prev) => ({ ...prev, [field]: sanitized }))
     setFieldErrors((prev) => ({ ...prev, [field]: undefined }))
+  }, [])
+
+  // 협회 combobox 변경 → form에 반영
+  const handleAssocChange = useCallback((val: AssociationValue) => {
+    setAssocValue(val)
+    if (val.association_id) {
+      // 기존 협회 선택
+      setForm((prev) => ({ ...prev, association_id: val.association_id, association_name: '' }))
+    } else if (val.association_name) {
+      // 직접 입력
+      setForm((prev) => ({ ...prev, association_id: null, association_name: val.association_name }))
+    } else {
+      // 독립 클럽
+      setForm((prev) => ({ ...prev, association_id: null, association_name: '' }))
+    }
   }, [])
 
   // 클라이언트 순차 검증 — 필드 순서대로 첫 에러만 AlertDialog로 표시
@@ -158,6 +182,18 @@ export function ClubForm({ club }: ClubFormProps) {
             className={inputClass('name')}
           />
           {fieldErrors.name && <p className="mt-1 text-xs text-red-500">{fieldErrors.name}</p>}
+        </div>
+
+        {/* 소속 협회 */}
+        <div>
+          <label className="block text-sm font-medium text-(--text-primary) mb-1">
+            소속 협회
+          </label>
+          <AssociationCombobox
+            associations={associations}
+            value={assocValue}
+            onChange={handleAssocChange}
+          />
         </div>
 
         {/* 대표자명 */}

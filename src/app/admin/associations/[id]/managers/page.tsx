@@ -9,10 +9,13 @@ import type { AssociationManager } from '@/lib/associations/types'
 
 interface Props {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ q?: string }>
 }
 
-export default async function ManagersPage({ params }: Props) {
+export default async function ManagersPage({ params, searchParams }: Props) {
   const { id } = await params
+  const { q } = await searchParams
+  const listUrl = q ? `/admin/associations?q=${encodeURIComponent(q)}` : '/admin/associations'
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -56,7 +59,7 @@ export default async function ManagersPage({ params }: Props) {
     <div className="space-y-6 max-w-2xl">
       <div className="flex items-center gap-3">
         <Link
-          href="/admin/associations"
+          href={listUrl}
           className="p-2 rounded-lg hover:bg-(--bg-card) text-(--text-secondary)"
         >
           <ChevronLeft className="w-5 h-5" />
