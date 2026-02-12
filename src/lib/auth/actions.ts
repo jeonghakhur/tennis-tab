@@ -44,7 +44,7 @@ export async function signUpWithEmail(email: string, password: string, name: str
   if (pwErr) return { error: pwErr }
 
   const supabase = await createClient()
-  const { error } = await supabase.auth.signUp({
+  const { data, error } = await supabase.auth.signUp({
     email: sanitizedEmail,
     password,
     options: {
@@ -54,6 +54,12 @@ export async function signUpWithEmail(email: string, password: string, name: str
 
   if (error) {
     return { error: translateAuthError(error.message) }
+  }
+
+  // Supabase는 이메일 열거 공격 방지를 위해 중복 이메일에도 200을 반환.
+  // identities가 빈 배열이면 이미 등록된 이메일 (user_repeated_signup)
+  if (data.user && data.user.identities?.length === 0) {
+    return { error: '이미 가입된 이메일입니다.' }
   }
 
   return { success: true, message: '인증 이메일을 발송했습니다. 이메일을 확인해주세요.' }
