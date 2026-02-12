@@ -17,27 +17,27 @@ const statusConfig: Record<
 > = {
   DRAFT: {
     label: '초안',
-    className: 'bg-(--bg-card-hover) text-(--text-muted)',
+    className: 'bg-subtle-secondary',
   },
   OPEN: {
     label: '모집중',
-    className: 'bg-(--color-success-subtle) text-(--color-success)',
+    className: 'bg-subtle-success',
   },
   CLOSED: {
     label: '마감',
-    className: 'bg-(--color-orange-subtle) text-(--color-orange)',
+    className: 'bg-subtle-orange',
   },
   IN_PROGRESS: {
     label: '진행중',
-    className: 'bg-(--color-info-subtle) text-(--color-info)',
+    className: 'bg-subtle-info',
   },
   COMPLETED: {
     label: '완료',
-    className: 'bg-(--bg-card-hover) text-(--text-muted)',
+    className: 'bg-subtle-secondary',
   },
   CANCELLED: {
     label: '취소',
-    className: 'bg-(--color-danger-subtle) text-(--color-danger)',
+    className: 'bg-subtle-danger',
   },
 }
 

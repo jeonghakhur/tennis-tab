@@ -6,14 +6,15 @@ import { BracketView } from '@/components/tournaments/BracketView'
 import { TournamentRealtimeRefresher } from '@/components/tournaments/TournamentRealtimeRefresher'
 import { getPlayerEntryIds } from '@/lib/bracket/actions'
 import type { MatchType, TournamentStatus } from '@/lib/supabase/types'
+import { Badge, type BadgeVariant } from '@/components/common/Badge'
 
-const STATUS_BADGE: Record<string, { label: string; className: string }> = {
-  DRAFT: { label: '작성 중', className: 'bg-(--color-secondary-subtle) text-(--text-muted)' },
-  OPEN: { label: '모집 중', className: 'bg-(--color-success-subtle) text-(--color-success)' },
-  CLOSED: { label: '마감', className: 'bg-(--color-danger-subtle) text-(--color-danger)' },
-  IN_PROGRESS: { label: '진행 중', className: 'bg-(--color-info-subtle) text-(--color-info)' },
-  COMPLETED: { label: '종료', className: 'bg-(--color-secondary-subtle) text-(--text-muted)' },
-  CANCELLED: { label: '취소', className: 'bg-(--color-secondary-subtle) text-(--text-muted) line-through' },
+const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant; className?: string }> = {
+  DRAFT: { label: '작성 중', variant: 'secondary' },
+  OPEN: { label: '모집 중', variant: 'success' },
+  CLOSED: { label: '마감', variant: 'orange' },
+  IN_PROGRESS: { label: '진행 중', variant: 'info' },
+  COMPLETED: { label: '종료', variant: 'secondary' },
+  CANCELLED: { label: '취소', variant: 'danger', className: 'line-through' },
 }
 
 interface PageProps {
@@ -71,9 +72,9 @@ export default async function TournamentBracketPage({ params }: PageProps) {
           {(() => {
             const badge = STATUS_BADGE[tournament.status] || STATUS_BADGE.DRAFT
             return (
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium shrink-0 ${badge.className}`}>
+              <Badge variant={badge.variant} className={`shrink-0${badge.className ? ` ${badge.className}` : ''}`}>
                 {badge.label}
-              </span>
+              </Badge>
             )
           })()}
         </div>

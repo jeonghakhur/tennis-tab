@@ -6,6 +6,7 @@ import { TournamentStatus, MatchType } from "@/lib/supabase/types";
 import TournamentActions from "@/components/tournaments/TournamentActions";
 import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
+import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 
 interface Props {
@@ -133,11 +134,17 @@ export default async function TournamentDetailPage({ params }: Props) {
       : MATCH_TYPE_LABELS[tournament.match_type] || tournament.match_type
     : "";
 
-  // 상태 배지 스타일
-  const statusBadgeStyle = (() => {
-    if (tournament.status === "OPEN") return "badge-open";
-    if (tournament.status === "IN_PROGRESS") return "badge-progress";
-    return "badge-closed";
+  // 상태 배지 variant
+  const statusBadgeVariant = (() => {
+    const map: Record<string, BadgeVariant> = {
+      DRAFT: "secondary",
+      OPEN: "success",
+      CLOSED: "orange",
+      IN_PROGRESS: "info",
+      COMPLETED: "secondary",
+      CANCELLED: "danger",
+    };
+    return map[tournament.status] || "secondary";
   })();
 
   const statusLabel = (() => {
@@ -181,11 +188,9 @@ export default async function TournamentDetailPage({ params }: Props) {
         <div className="flex flex-col md:flex-row md:items-start justify-between gap-6">
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-3 mb-3">
-              <span
-                className={`px-2.5 py-0.5 rounded-full text-sm font-medium ${statusBadgeStyle}`}
-              >
+              <Badge variant={statusBadgeVariant}>
                 {statusLabel}
-              </span>
+              </Badge>
               <span
                 className="text-sm"
                 style={{ color: "var(--text-muted)" }}

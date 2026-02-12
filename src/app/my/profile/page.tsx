@@ -7,6 +7,7 @@ import { Navigation } from "@/components/Navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
+import { Badge, type BadgeVariant } from "@/components/common/Badge";
 
 // 전화번호 포맷팅 (010-1234-5678)
 function formatPhoneNumber(value: string): string {
@@ -748,17 +749,18 @@ export default function MyProfilePage() {
                         </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        <span
-                          className={`px-3 py-1 text-xs rounded-full font-display tracking-wider ${
+                        <Badge
+                          variant={
                             entry.status === "CONFIRMED"
-                              ? "badge-open"
+                              ? "success"
                               : entry.status === "PENDING"
-                                ? "badge-progress"
-                                : "badge-closed"
-                          }`}
+                                ? "warning"
+                                : "secondary"
+                          }
+                          className="font-display tracking-wider"
                         >
                           {entryStatusLabels[entry.status]}
-                        </span>
+                        </Badge>
                         <span
                           className="text-xs"
                           style={{ color: "var(--text-muted)" }}
@@ -878,13 +880,12 @@ export default function MyProfilePage() {
                           >
                             {PHASE_LABELS[match.phase] || match.phase}
                           </span>
-                          <span
-                            className={`px-3 py-1 rounded-full font-display tracking-wider text-xs ${
-                              isWinner ? "badge-open" : "badge-closed"
-                            }`}
+                          <Badge
+                            variant={isWinner ? "success" : "secondary"}
+                            className="font-display tracking-wider"
                           >
                             {isWinner ? "승" : "패"}
-                          </span>
+                          </Badge>
                         </div>
                       </div>
 

@@ -7,6 +7,7 @@ import { Navigation } from '@/components/Navigation'
 import { getClubs, getClubMemberCount } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType } from '@/lib/clubs/types'
 import { Search, MapPin, Users, Building2 } from 'lucide-react'
+import { Badge, type BadgeVariant } from '@/components/common/Badge'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -14,10 +15,10 @@ const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   INVITE_ONLY: '초대 전용',
 }
 
-const JOIN_TYPE_BADGE: Record<ClubJoinType, string> = {
-  OPEN: 'badge-open',
-  APPROVAL: 'badge-progress',
-  INVITE_ONLY: 'badge-closed',
+const JOIN_TYPE_VARIANT: Record<ClubJoinType, BadgeVariant> = {
+  OPEN: 'success',
+  APPROVAL: 'warning',
+  INVITE_ONLY: 'secondary',
 }
 
 // 한국 시도 데이터
@@ -179,9 +180,9 @@ export default function ClubsPage() {
                         {memberCounts[club.id] ?? 0}명
                       </span>
                     </div>
-                    <span className={`px-2 py-0.5 text-xs rounded-full font-medium ${JOIN_TYPE_BADGE[club.join_type]}`}>
+                    <Badge variant={JOIN_TYPE_VARIANT[club.join_type]}>
                       {JOIN_TYPE_LABEL[club.join_type]}
-                    </span>
+                    </Badge>
                   </div>
                 </Link>
               ))}

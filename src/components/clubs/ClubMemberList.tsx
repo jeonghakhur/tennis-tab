@@ -23,6 +23,7 @@ import {
   generateMemberDummy,
   generateMemberInvalidDummy,
 } from '@/lib/utils/devDummy'
+import { Badge, type BadgeVariant } from '@/components/common/Badge'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -33,10 +34,10 @@ interface ClubMemberListProps {
 
 type MemberFilter = 'all' | 'registered' | 'unregistered'
 
-const ROLE_BADGE: Record<ClubMemberRole, { label: string; className: string }> = {
-  OWNER: { label: 'OWNER', className: 'bg-(--accent-color) text-(--bg-primary)' },
-  ADMIN: { label: 'ADMIN', className: 'bg-blue-500 text-white' },
-  MEMBER: { label: 'MEMBER', className: 'bg-(--bg-card-hover) text-(--text-secondary)' },
+const ROLE_BADGE: Record<ClubMemberRole, { label: string; variant: BadgeVariant }> = {
+  OWNER: { label: 'OWNER', variant: 'warning' },
+  ADMIN: { label: 'ADMIN', variant: 'info' },
+  MEMBER: { label: 'MEMBER', variant: 'secondary' },
 }
 
 const GENDER_LABEL: Record<GenderType, string> = { MALE: '남성', FEMALE: '여성' }
@@ -311,9 +312,9 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium text-(--text-primary)">{member.name}</span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${ROLE_BADGE[member.role].className}`}>
+                    <Badge variant={ROLE_BADGE[member.role].variant}>
                       {ROLE_BADGE[member.role].label}
-                    </span>
+                    </Badge>
                     <span className={`text-xs ${member.is_registered ? 'text-(--accent-color)' : 'text-(--text-muted)'}`}>
                       {member.is_registered ? '가입회원' : '비가입회원'}
                     </span>

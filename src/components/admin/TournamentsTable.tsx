@@ -12,6 +12,7 @@ import {
   MapPin,
 } from 'lucide-react'
 import type { Database, TournamentStatus, EntryStatus, PaymentStatus } from '@/lib/supabase/types'
+import { Badge, type BadgeVariant } from '@/components/common/Badge'
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
@@ -29,36 +30,36 @@ type SortOrder = 'asc' | 'desc'
 
 const statusConfig: Record<
   TournamentStatus,
-  { label: string; className: string; order: number }
+  { label: string; variant: BadgeVariant; order: number }
 > = {
   DRAFT: {
     label: '초안',
-    className: 'bg-(--bg-card-hover) text-(--text-muted)',
+    variant: 'secondary',
     order: 1
   },
   OPEN: {
     label: '모집중',
-    className: 'bg-(--color-success-subtle) text-(--color-success)',
+    variant: 'success',
     order: 2
   },
   CLOSED: {
     label: '마감',
-    className: 'bg-(--color-orange-subtle) text-(--color-orange)',
+    variant: 'orange',
     order: 3
   },
   IN_PROGRESS: {
     label: '진행중',
-    className: 'bg-(--color-info-subtle) text-(--color-info)',
+    variant: 'info',
     order: 4
   },
   COMPLETED: {
     label: '완료',
-    className: 'bg-(--bg-card-hover) text-(--text-muted)',
+    variant: 'secondary',
     order: 5
   },
   CANCELLED: {
     label: '취소',
-    className: 'bg-(--color-danger-subtle) text-(--color-danger)',
+    variant: 'danger',
     order: 6
   },
 }
@@ -290,13 +291,9 @@ export function TournamentsTable({
                         </div>
                       </td>
                       <td className="p-4">
-                        <span
-                          className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                            statusConfig[tournament.status].className
-                          }`}
-                        >
+                        <Badge variant={statusConfig[tournament.status].variant}>
                           {statusConfig[tournament.status].label}
-                        </span>
+                        </Badge>
                       </td>
                       <td className="p-4 hidden lg:table-cell">
                         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -367,13 +364,9 @@ export function TournamentsTable({
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {tournament.title}
               </span>
-              <span
-                className={`px-3 py-1.5 rounded-full text-sm font-medium ${
-                  statusConfig[tournament.status].className
-                }`}
-              >
+              <Badge variant={statusConfig[tournament.status].variant}>
                 {statusConfig[tournament.status].label}
-              </span>
+              </Badge>
             </div>
             <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
               상세보기 →

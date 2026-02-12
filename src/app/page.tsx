@@ -5,6 +5,7 @@ import { useEffect, useState, FormEvent } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/components/AuthProvider";
 import { UserAvatar } from "@/components/UserAvatar";
+import { Badge, type BadgeVariant } from "@/components/common/Badge";
 
 const examplePrompts = [
   { text: "이번 주 서울 대회 뭐 있어?", icon: "🔍" },
@@ -536,10 +537,10 @@ function TournamentCard({
   maxParticipants: number;
   status: "OPEN" | "CLOSED" | "IN_PROGRESS";
 }) {
-  const statusClasses = {
-    OPEN: "badge-open",
-    CLOSED: "badge-closed",
-    IN_PROGRESS: "badge-progress",
+  const statusVariants: Record<string, BadgeVariant> = {
+    OPEN: "success",
+    CLOSED: "orange",
+    IN_PROGRESS: "info",
   };
 
   const statusLabels = {
@@ -551,11 +552,9 @@ function TournamentCard({
   return (
     <div className="glass-card p-6 group">
       <div className="flex items-start justify-between mb-4">
-        <span
-          className={`px-3 py-1 text-xs font-display tracking-wider ${statusClasses[status]}`}
-        >
+        <Badge variant={statusVariants[status]} className="font-display tracking-wider">
           {statusLabels[status]}
-        </span>
+        </Badge>
         <span style={{ color: "var(--text-muted)" }} className="text-sm">
           {date}
         </span>

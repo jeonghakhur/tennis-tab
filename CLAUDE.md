@@ -365,6 +365,55 @@ function EditUserModal({ user, isOpen, onClose, onSave }) {
 - 이미지 미리보기
 - 상세 정보 표시
 
+### Badge
+상태/역할 표시용 배지 컴포넌트 - `/src/components/common/Badge.tsx`
+
+**Variants**: `secondary` | `success` | `danger` | `warning` | `info` | `purple` | `orange`
+
+**기본 사용법:**
+```tsx
+import { Badge, type BadgeVariant } from '@/components/common/Badge'
+
+<Badge variant="success">모집 중</Badge>
+<Badge variant="danger" className="line-through">취소</Badge>
+```
+
+**상태 config 패턴:**
+```tsx
+const statusConfig: Record<Status, { label: string; variant: BadgeVariant }> = {
+  OPEN: { label: '모집중', variant: 'success' },
+  CLOSED: { label: '마감', variant: 'orange' },
+}
+
+<Badge variant={statusConfig[status].variant}>
+  {statusConfig[status].label}
+</Badge>
+```
+
+**vs 직접 클래스 사용:**
+- `<Badge>`: 표시용 `<span>` 배지 (모든 배지에 사용)
+- `badge-*` 직접 사용: 금지 — 반드시 `<Badge>` 컴포넌트 사용
+- `bg-subtle-*`: `<select>` 등 비 `<span>` 요소의 상태 색상
+
+### Bootstrap 5.3 유틸리티 클래스
+
+`globals.css`에 정의된 시맨틱 색상 유틸리티.
+
+**`.text-bg-*`** — Solid 배경 + 텍스트 (배지 외 div, card 등):
+```html
+<div class="text-bg-success px-3 py-2 rounded-lg">성공</div>
+```
+
+**`.bg-subtle-*`** — Subtle 배경 + 텍스트 (select, alert 등):
+```html
+<select class="bg-subtle-warning px-3 py-2 rounded-lg font-semibold">
+```
+기존 `bg-(--color-success-subtle) text-(--color-success)` 2클래스를 1클래스로 대체.
+
+**사용 가이드:**
+- `secondary`, `success`, `danger`, `warning`, `info`, `purple`, `orange` 7가지 variant 지원
+- 테마 전환 자동 지원 (dark/light)
+
 ## DEV 전용 더미 데이터 + 입력 검증 패턴
 
 새 폼(생성/수정) 컴포넌트를 만들 때 반드시 적용하는 3단계 보안 + QA 패턴.

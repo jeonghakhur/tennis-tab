@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { Database } from '@/lib/supabase/types';
+import { Badge, type BadgeVariant } from '@/components/common/Badge';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 
@@ -22,30 +23,21 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   };
 
   const getStatusBadge = (status: string) => {
-    const styles: Record<string, string> = {
-      DRAFT: 'bg-(--color-secondary-subtle) text-(--text-muted)',
-      OPEN: 'bg-(--color-success-subtle) text-(--color-success)',
-      CLOSED: 'bg-(--color-danger-subtle) text-(--color-danger)',
-      IN_PROGRESS: 'bg-(--color-info-subtle) text-(--color-info)',
-      COMPLETED: 'bg-(--color-secondary-subtle) text-(--text-muted)',
-      CANCELLED: 'bg-(--color-secondary-subtle) text-(--text-muted) line-through',
-    };
-    const labels: Record<string, string> = {
-      DRAFT: '작성 중',
-      OPEN: '모집 중',
-      CLOSED: '마감',
-      IN_PROGRESS: '진행 중',
-      COMPLETED: '종료',
-      CANCELLED: '취소',
+    const badgeMap: Record<string, { label: string; variant: BadgeVariant }> = {
+      DRAFT: { label: '작성 중', variant: 'secondary' },
+      OPEN: { label: '모집 중', variant: 'success' },
+      CLOSED: { label: '마감', variant: 'orange' },
+      IN_PROGRESS: { label: '진행 중', variant: 'info' },
+      COMPLETED: { label: '종료', variant: 'secondary' },
+      CANCELLED: { label: '취소', variant: 'danger' },
     };
 
-    const style = styles[status] || styles.DRAFT;
-    const label = labels[status] || status;
+    const { label, variant } = badgeMap[status] || badgeMap.DRAFT;
 
     return (
-      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${style}`}>
+      <Badge variant={variant} className={status === 'CANCELLED' ? 'line-through' : undefined}>
         {label}
-      </span>
+      </Badge>
     );
   };
 

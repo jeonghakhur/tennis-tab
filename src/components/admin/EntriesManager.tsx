@@ -52,22 +52,22 @@ const entryStatusConfig: Record<
 > = {
   PENDING: {
     label: '승인 대기',
-    className: 'bg-(--color-warning-subtle) text-(--color-warning)',
+    className: 'bg-subtle-warning',
     order: 1,
   },
   APPROVED: {
     label: '승인됨',
-    className: 'bg-(--color-success-subtle) text-(--color-success)',
+    className: 'bg-subtle-success',
     order: 2,
   },
   WAITLISTED: {
     label: '대기자',
-    className: 'bg-(--color-purple-subtle) text-(--color-purple)',
+    className: 'bg-subtle-purple',
     order: 3,
   },
   REJECTED: {
     label: '거절됨',
-    className: 'bg-(--color-danger-subtle) text-(--color-danger)',
+    className: 'bg-subtle-danger',
     order: 4,
   },
 }
@@ -79,11 +79,11 @@ const paymentStatusConfig: Record<
 > = {
   PENDING: {
     label: '미결제',
-    className: 'bg-(--color-danger-subtle) text-(--color-danger)'
+    className: 'bg-subtle-danger'
   },
   COMPLETED: {
     label: '결제완료',
-    className: 'bg-(--color-success-subtle) text-(--color-success)'
+    className: 'bg-subtle-success'
   },
 }
 
