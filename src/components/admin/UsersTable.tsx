@@ -1,12 +1,12 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Search, ChevronDown, ChevronUp, User } from 'lucide-react'
 import type { Database } from '@/lib/supabase/types'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS, isSuperAdmin, isAdmin } from '@/lib/auth/roles'
 import { changeUserRole } from '@/lib/auth/admin'
-import { AlertDialog } from '@/components/common/AlertDialog'
+import { AlertDialog, Toast } from '@/components/common/AlertDialog'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -26,6 +26,10 @@ export function UsersTable({
   currentUserId,
   currentUserRole,
 }: UsersTableProps) {
+  // 서버에서 받은 props를 로컬 상태로 관리 (즉시 UI 반영용)
+  const [localUsers, setLocalUsers] = useState(users)
+  useEffect(() => { setLocalUsers(users) }, [users])
+
   const [searchQuery, setSearchQuery] = useState('')
   const [sortField, setSortField] = useState<SortField>('created_at')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
@@ -41,6 +45,11 @@ export function UsersTable({
     title: '',
     message: '',
     type: 'info',
+  })
+  const [toast, setToast] = useState({
+    isOpen: false,
+    message: '',
+    type: 'success' as const,
   })
 
   const handleSort = (field: SortField) => {
@@ -65,6 +74,17 @@ export function UsersTable({
           message: result.error,
           type: 'error',
         })
+      } else {
+        // 즉시 로컬 상태 반영
+        setLocalUsers((prev) =>
+          prev.map((u) => (u.id === userId ? { ...u, role: newRole } : u))
+        )
+        const targetUser = localUsers.find((u) => u.id === userId)
+        setToast({
+          isOpen: true,
+          message: `${targetUser?.name ?? '사용자'}의 권한이 ${ROLE_LABELS[newRole]}(으)로 변경되었습니다.`,
+          type: 'success',
+        })
       }
     } catch {
       setAlertDialog({
@@ -79,7 +99,7 @@ export function UsersTable({
   }
 
   const filteredAndSortedUsers = useMemo(() => {
-    let filtered = users
+    let filtered = localUsers
 
     // Search filter
     if (searchQuery) {
@@ -132,7 +152,7 @@ export function UsersTable({
         ? (aVal as number) - (bVal as number)
         : (bVal as number) - (aVal as number)
     })
-  }, [users, searchQuery, sortField, sortOrder, roleFilter])
+  }, [localUsers, searchQuery, sortField, sortOrder, roleFilter])
 
   const SortIcon = ({ field }: { field: SortField }) => {
     if (sortField !== field) return null
@@ -177,7 +197,7 @@ export function UsersTable({
       {/* Stats */}
       <div className="flex items-center gap-4 text-sm text-(--text-secondary)">
         <span>
-          총 <strong className="text-(--text-primary)">{users.length}</strong>명
+          총 <strong className="text-(--text-primary)">{localUsers.length}</strong>명
         </span>
         {searchQuery || roleFilter !== 'ALL' ? (
           <span>
@@ -371,6 +391,12 @@ export function UsersTable({
         title={alertDialog.title}
         message={alertDialog.message}
         type={alertDialog.type}
+      />
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type={toast.type}
       />
     </div>
   )

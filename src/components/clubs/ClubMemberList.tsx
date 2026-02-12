@@ -191,7 +191,10 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       return
     }
 
-    // Realtime이 members 상태를 자동 갱신
+    // 즉시 UI 반영 (Realtime도 백업으로 동작)
+    setMembers((prev) =>
+      prev.map((m) => m.id === selectedMember.id ? { ...m, status: 'REMOVED' as const, status_reason: removeReason } : m)
+    )
     setToast({ isOpen: true, message: '회원이 제거되었습니다.', type: 'success' })
     setRemoveModalOpen(false)
     setSelectedMember(null)
@@ -210,6 +213,9 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
           setAlert({ isOpen: true, message: result.error, type: 'error' })
           return
         }
+        setMembers((prev) =>
+          prev.map((m) => m.id === member.id ? { ...m, status: 'ACTIVE' as const, status_reason: null } : m)
+        )
         setToast({ isOpen: true, message: `${member.name}님이 원복되었습니다.`, type: 'success' })
       },
     })
@@ -227,6 +233,9 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
           setAlert({ isOpen: true, message: result.error, type: 'error' })
           return
         }
+        setMembers((prev) =>
+          prev.map((m) => (m.id === member.id ? { ...m, role: newRole } : m))
+        )
         setToast({ isOpen: true, message: '역할이 변경되었습니다.', type: 'success' })
       },
     })
@@ -240,11 +249,15 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
       return
     }
 
-    // Realtime이 members 상태를 자동 갱신
-    const message = approve
-      ? `${member.name}님의 가입을 승인했습니다.`
-      : `${member.name}님의 가입을 거절했습니다.`
-    setToast({ isOpen: true, message, type: 'success' })
+    if (approve) {
+      setMembers((prev) =>
+        prev.map((m) => (m.id === member.id ? { ...m, status: 'ACTIVE' as const } : m))
+      )
+      setToast({ isOpen: true, message: `${member.name}님의 가입을 승인했습니다.`, type: 'success' })
+    } else {
+      setMembers((prev) => prev.filter((m) => m.id !== member.id))
+      setToast({ isOpen: true, message: `${member.name}님의 가입을 거절했습니다.`, type: 'success' })
+    }
   }
 
   return (

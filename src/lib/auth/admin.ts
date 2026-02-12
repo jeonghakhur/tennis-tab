@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { UserRole } from '@/lib/supabase/types'
 import { isSuperAdmin, isAdmin } from './roles'
 import { revalidatePath } from 'next/cache'
@@ -68,8 +69,9 @@ export async function changeUserRole(userId: string, newRole: UserRole) {
     }
   }
 
-  // 권한 변경
-  const { error } = await supabase
+  // 권한 변경 — RLS가 자기 자신만 UPDATE 허용하므로 admin client 사용
+  const admin = createAdminClient()
+  const { error } = await admin
     .from('profiles')
     .update({ role: newRole })
     .eq('id', userId)
