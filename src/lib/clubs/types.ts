@@ -32,6 +32,7 @@ export interface ClubMember {
   club_id: string
   user_id: string | null
   is_registered: boolean
+  is_primary: boolean
   name: string
   birth_date: string | null
   gender: GenderType | null

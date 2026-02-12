@@ -57,12 +57,11 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
     if (!membership) redirect('/admin/clubs')
   }
 
-  // 회원 목록 조회
+  // 회원 목록 조회 (REMOVED/LEFT 포함 — 클라이언트에서 필터링)
   const { data: members } = await admin
     .from('club_members')
     .select('*')
     .eq('club_id', id)
-    .in('status', ['ACTIVE', 'PENDING', 'INVITED'])
     .order('role', { ascending: true })
     .order('name', { ascending: true })
 

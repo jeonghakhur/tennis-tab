@@ -69,6 +69,64 @@ async function checkClubOwnerAuth(clubId: string) {
   return { error: null, user, clubRole: member.role as ClubMemberRole }
 }
 
+/**
+ * 대표 클럽 재지정 헬퍼 (탈퇴/제거 시 사용)
+ * 남은 ACTIVE 멤버십 중 가장 먼저 가입한 클럽을 대표로 설정.
+ * 남은 멤버십이 없으면 profiles.club을 null로 초기화.
+ */
+async function reassignPrimaryClub(
+  admin: ReturnType<typeof createAdminClient>,
+  userId: string
+) {
+  // 남은 ACTIVE 멤버십 중 가장 먼저 가입한 클럽
+  const { data: nextPrimary } = await admin
+    .from('club_members')
+    .select('id, club_id')
+    .eq('user_id', userId)
+    .eq('status', 'ACTIVE')
+    .order('joined_at', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle()
+
+  if (nextPrimary) {
+    await admin
+      .from('club_members')
+      .update({ is_primary: true, updated_at: new Date().toISOString() })
+      .eq('id', nextPrimary.id)
+
+    // profiles.club 레거시 필드 동기화
+    const { data: club } = await admin
+      .from('clubs')
+      .select('name, city, district')
+      .eq('id', nextPrimary.club_id)
+      .single()
+
+    if (club) {
+      await admin
+        .from('profiles')
+        .update({
+          club: club.name,
+          club_city: club.city,
+          club_district: club.district,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', userId)
+    }
+  } else {
+    // 남은 클럽 없음 → profiles.club 초기화
+    await admin
+      .from('profiles')
+      .update({
+        club: null,
+        club_city: null,
+        club_district: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', userId)
+  }
+}
+
 // ============================================================================
 // 클럽 CRUD
 // ============================================================================
@@ -154,6 +212,15 @@ export async function createClub(data: CreateClubInput): Promise<{ error?: strin
 
   if (error || !club) return { error: '클럽 생성에 실패했습니다.' }
 
+  // 기존 ACTIVE 멤버십 유무 확인 (대표 클럽 자동 지정용)
+  const { count: activeCount } = await admin
+    .from('club_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  const isFirstClub = (activeCount ?? 0) === 0
+
   // 생성자를 OWNER로 등록
   await admin.from('club_members').insert({
     club_id: club.id,
@@ -166,7 +233,22 @@ export async function createClub(data: CreateClubInput): Promise<{ error?: strin
     gender: user.gender || null,
     role: 'OWNER',
     status: 'ACTIVE',
+    is_primary: isFirstClub,
   })
+
+  // 첫 클럽이면 profiles.club 레거시 필드 동기화
+  if (isFirstClub) {
+    const clubName = sanitized.name.trim()
+    await admin
+      .from('profiles')
+      .update({
+        club: clubName,
+        club_city: sanitized.city?.trim() || null,
+        club_district: sanitized.district?.trim() || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+  }
 
   revalidatePath('/admin/clubs')
   return {}
@@ -402,7 +484,6 @@ export async function getClubMembers(
     .from('club_members')
     .select('*')
     .eq('club_id', clubId)
-    .in('status', ['ACTIVE', 'PENDING', 'INVITED'])
     .order('role', { ascending: true }) // OWNER, ADMIN, MEMBER 순
     .order('name', { ascending: true })
 
@@ -493,6 +574,16 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     }
   }
 
+  // 기존 ACTIVE 멤버십 유무 확인 (대표 클럽 자동 지정용)
+  const { count: activeCount } = await admin
+    .from('club_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  const isFirstClub = (activeCount ?? 0) === 0
+  const shouldBePrimary = isFirstClub && status === 'ACTIVE'
+
   // profiles 데이터로 club_members 자동 채움
   const { error } = await admin.from('club_members').insert({
     club_id: clubId,
@@ -505,6 +596,7 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     gender: user.gender || null,
     role: 'MEMBER',
     status,
+    is_primary: shouldBePrimary,
     introduction: sanitizedIntro,
   })
 
@@ -513,8 +605,8 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     return { error: '클럽 가입에 실패했습니다.' }
   }
 
-  // profiles.club 등 하위 호환 필드 업데이트 (OPEN 방식으로 즉시 가입된 경우만)
-  if (status === 'ACTIVE') {
+  // 첫 클럽이면 profiles.club 레거시 필드 동기화
+  if (shouldBePrimary) {
     await admin
       .from('profiles')
       .update({
@@ -598,10 +690,20 @@ export async function respondInvitation(
   if (member.status !== 'INVITED') return { error: '대기 중인 초대가 아닙니다.' }
 
   if (accept) {
+    // 기존 ACTIVE 멤버십 유무 확인 (대표 클럽 자동 지정용)
+    const { count: activeCount } = await admin
+      .from('club_members')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'ACTIVE')
+
+    const isFirstClub = (activeCount ?? 0) === 0
+
     const { error } = await admin
       .from('club_members')
       .update({
         status: 'ACTIVE',
+        is_primary: isFirstClub,
         joined_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -609,23 +711,25 @@ export async function respondInvitation(
 
     if (error) return { error: '초대 수락에 실패했습니다.' }
 
-    // profiles.club 하위 호환 업데이트
-    const { data: club } = await admin
-      .from('clubs')
-      .select('name, city, district')
-      .eq('id', member.club_id)
-      .single()
+    // 첫 클럽이면 profiles.club 레거시 필드 동기화
+    if (isFirstClub) {
+      const { data: club } = await admin
+        .from('clubs')
+        .select('name, city, district')
+        .eq('id', member.club_id)
+        .single()
 
-    if (club) {
-      await admin
-        .from('profiles')
-        .update({
-          club: club.name,
-          club_city: club.city,
-          club_district: club.district,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id)
+      if (club) {
+        await admin
+          .from('profiles')
+          .update({
+            club: club.name,
+            club_city: club.city,
+            club_district: club.district,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
+      }
     }
   } else {
     // 거절 시 레코드 삭제
@@ -660,10 +764,22 @@ export async function respondJoinRequest(
   if (authError) return { error: authError }
 
   if (approve) {
+    // 기존 ACTIVE 멤버십 유무 확인 (대표 클럽 자동 지정용)
+    let isFirstClub = false
+    if (member.user_id) {
+      const { count: activeCount } = await admin
+        .from('club_members')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', member.user_id)
+        .eq('status', 'ACTIVE')
+      isFirstClub = (activeCount ?? 0) === 0
+    }
+
     const { error } = await admin
       .from('club_members')
       .update({
         status: 'ACTIVE',
+        is_primary: isFirstClub,
         joined_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
@@ -671,8 +787,8 @@ export async function respondJoinRequest(
 
     if (error) return { error: '승인 처리에 실패했습니다.' }
 
-    // profiles.club 하위 호환 업데이트
-    if (member.user_id) {
+    // 첫 클럽이면 profiles.club 레거시 필드 동기화
+    if (isFirstClub && member.user_id) {
       const { data: club } = await admin
         .from('clubs')
         .select('name, city, district')
@@ -749,7 +865,7 @@ export async function removeMember(memberId: string, reason: string): Promise<{ 
 
   const { data: member } = await admin
     .from('club_members')
-    .select('id, club_id, role, user_id')
+    .select('id, club_id, role, user_id, is_primary')
     .eq('id', memberId)
     .single()
 
@@ -763,6 +879,7 @@ export async function removeMember(memberId: string, reason: string): Promise<{ 
     .from('club_members')
     .update({
       status: 'REMOVED',
+      is_primary: false,
       status_reason: reason.trim(),
       updated_at: new Date().toISOString(),
     })
@@ -770,17 +887,9 @@ export async function removeMember(memberId: string, reason: string): Promise<{ 
 
   if (error) return { error: '회원 제거에 실패했습니다.' }
 
-  // 가입 회원인 경우 profiles.club 초기화
-  if (member.user_id) {
-    await admin
-      .from('profiles')
-      .update({
-        club: null,
-        club_city: null,
-        club_district: null,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', member.user_id)
+  // 가입 회원인 경우 대표 클럽 재지정
+  if (member.user_id && member.is_primary) {
+    await reassignPrimaryClub(admin, member.user_id)
   }
 
   revalidatePath(`/admin/clubs/${member.club_id}`)
@@ -799,7 +908,7 @@ export async function leaveClub(clubId: string): Promise<{ error?: string }> {
 
   const { data: member } = await admin
     .from('club_members')
-    .select('id, role')
+    .select('id, role, is_primary')
     .eq('club_id', clubId)
     .eq('user_id', user.id)
     .eq('status', 'ACTIVE')
@@ -808,26 +917,23 @@ export async function leaveClub(clubId: string): Promise<{ error?: string }> {
   if (!member) return { error: '해당 클럽의 회원이 아닙니다.' }
   if (member.role === 'OWNER') return { error: '클럽 소유자는 탈퇴할 수 없습니다. 클럽을 삭제하거나 소유권을 이전해주세요.' }
 
+  const wasPrimary = member.is_primary
+
   const { error } = await admin
     .from('club_members')
     .update({
       status: 'LEFT',
+      is_primary: false,
       updated_at: new Date().toISOString(),
     })
     .eq('id', member.id)
 
   if (error) return { error: '탈퇴 처리에 실패했습니다.' }
 
-  // profiles.club 초기화
-  await admin
-    .from('profiles')
-    .update({
-      club: null,
-      club_city: null,
-      club_district: null,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', user.id)
+  // 대표 클럽이었으면 남은 클럽 중 자동 재지정
+  if (wasPrimary) {
+    await reassignPrimaryClub(admin, user.id)
+  }
 
   revalidatePath('/my/profile')
   revalidatePath(`/clubs/${clubId}`)
@@ -893,37 +999,120 @@ export async function getClubPublicMembers(
   return { data: data || [] }
 }
 
-/** 사용자의 현재 클럽 멤버십 조회 (프로필용) */
+/** 사용자의 현재 클럽 멤버십 조회 (프로필용 — 하위 호환) */
 export async function getMyClubMembership(): Promise<{
   data: { club: Club; membership: ClubMember } | null
   error?: string
 }> {
+  const result = await getMyClubMemberships()
+  if (!result.data || result.data.length === 0) return { data: null }
+
+  // 대표 클럽 우선, 없으면 첫 번째
+  const primary = result.data.find((m) => m.membership.is_primary) || result.data[0]
+  return { data: { club: primary.club, membership: primary.membership } }
+}
+
+/** 사용자의 모든 ACTIVE 클럽 멤버십 조회 (다중 클럽용) */
+export async function getMyClubMemberships(): Promise<{
+  data: Array<{ club: Club; membership: ClubMember }>
+  error?: string
+}> {
   const user = await getCurrentUser()
-  if (!user) return { data: null }
+  if (!user) return { data: [] }
 
   const admin = createAdminClient()
 
-  // ACTIVE 상태인 클럽 멤버십 조회 (1개만)
-  const { data: member } = await admin
+  // 모든 ACTIVE 멤버십 조회
+  const { data: members } = await admin
     .from('club_members')
     .select('*')
     .eq('user_id', user.id)
     .eq('status', 'ACTIVE')
-    .limit(1)
-    .maybeSingle()
+    .order('is_primary', { ascending: false }) // 대표 클럽 먼저
+    .order('joined_at', { ascending: true, nullsFirst: false })
 
-  if (!member) return { data: null }
+  if (!members || members.length === 0) return { data: [] }
 
-  // 해당 클럽 정보 조회
-  const { data: club } = await admin
+  // 클럽 정보 일괄 조회
+  const clubIds = members.map((m) => m.club_id)
+  const { data: clubs } = await admin
     .from('clubs')
     .select(`*, associations:association_id (name)`)
-    .eq('id', member.club_id)
+    .in('id', clubIds)
+
+  if (!clubs) return { data: [] }
+
+  const clubMap = new Map(clubs.map((c) => [c.id, c as Club]))
+
+  return {
+    data: members
+      .map((m) => {
+        const club = clubMap.get(m.club_id)
+        if (!club) return null
+        return { club, membership: m as ClubMember }
+      })
+      .filter((item): item is NonNullable<typeof item> => item !== null),
+  }
+}
+
+/** 대표 클럽 지정 */
+export async function setPrimaryClub(clubId: string): Promise<{ error?: string }> {
+  const idError = validateId(clubId, '클럽 ID')
+  if (idError) return { error: idError }
+
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const admin = createAdminClient()
+
+  // 해당 클럽의 ACTIVE 멤버십 확인
+  const { data: targetMember } = await admin
+    .from('club_members')
+    .select('id')
+    .eq('club_id', clubId)
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
     .single()
 
-  if (!club) return { data: null }
+  if (!targetMember) return { error: '해당 클럽의 활성 회원이 아닙니다.' }
 
-  return { data: { club: club as Club, membership: member as ClubMember } }
+  // 기존 대표 해제
+  await admin
+    .from('club_members')
+    .update({ is_primary: false, updated_at: new Date().toISOString() })
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+    .eq('is_primary', true)
+
+  // 새 대표 지정
+  const { error } = await admin
+    .from('club_members')
+    .update({ is_primary: true, updated_at: new Date().toISOString() })
+    .eq('id', targetMember.id)
+
+  if (error) return { error: '대표 클럽 지정에 실패했습니다.' }
+
+  // profiles.club 레거시 필드 동기화
+  const { data: club } = await admin
+    .from('clubs')
+    .select('name, city, district')
+    .eq('id', clubId)
+    .single()
+
+  if (club) {
+    await admin
+      .from('profiles')
+      .update({
+        club: club.name,
+        club_city: club.city,
+        club_district: club.district,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', user.id)
+  }
+
+  revalidatePath('/my/profile')
+  return {}
 }
 
 /** 클럽 검색 (프로필에서 클럽 선택용 — INVITE_ONLY 제외) */
