@@ -69,7 +69,7 @@ export function ChatSection() {
   const isEmpty = messages.length === 0 && !loading
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col flex-1 min-h-0 pb-20">
       {isEmpty ? (
         /* 빈 상태: 웰컴 + 예시 프롬프트 */
         <div className="flex-1 flex items-center justify-center">

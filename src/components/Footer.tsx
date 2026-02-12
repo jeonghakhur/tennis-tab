@@ -1,8 +1,14 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export function Footer() {
+    const pathname = usePathname();
+
+    // 홈(채팅 전체 화면)에서는 푸터 숨김
+    if (pathname === '/') return null;
+
     return (
         <footer className="border-t border-themed py-16">
             <div className="max-w-7xl mx-auto px-6">
