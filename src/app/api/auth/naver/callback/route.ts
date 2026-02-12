@@ -68,6 +68,14 @@ export async function GET(request: NextRequest) {
     const email = naverProfile.email
     const name = naverProfile.name || naverProfile.nickname
     const avatarUrl = naverProfile.profile_image
+    // 네이버 추가 프로필 정보 (profiles.gender CHECK: 'M' | 'F')
+    const gender: string | undefined = naverProfile.gender === 'M' || naverProfile.gender === 'F'
+      ? naverProfile.gender
+      : undefined
+    const birthYear: string | undefined = naverProfile.birthyear || undefined
+    const phone: string | undefined = naverProfile.mobile
+      ? naverProfile.mobile.replace(/[^0-9]/g, '')
+      : undefined
 
     if (!email) {
       throw new Error('이메일 정보를 가져올 수 없습니다.')
@@ -88,27 +96,19 @@ export async function GET(request: NextRequest) {
       }
     )
 
-    // 4. 기존 사용자 확인
-    const { data: existingUser } = await serviceSupabase.auth.admin.listUsers()
-    const user = existingUser?.users.find((u) => u.email === email)
+    // 4. 기존 사용자 확인 (profiles 테이블에서 이메일로 조회)
+    const { data: existingProfile } = await serviceSupabase
+      .from('profiles')
+      .select('id')
+      .eq('email', email)
+      .single()
 
     let userId: string
 
-    if (user) {
-      // 기존 사용자
-      userId = user.id
-
-      // 프로필 업데이트
-      await serviceSupabase
-        .from('profiles')
-        .update({
-          name,
-          avatar_url: avatarUrl,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', userId)
+    if (existingProfile) {
+      userId = existingProfile.id
     } else {
-      // 신규 사용자 생성
+      // 신규 사용자 생성 (트리거가 profiles 행을 자동 생성)
       const { data: newUser, error: createError } =
         await serviceSupabase.auth.admin.createUser({
           email,
@@ -116,6 +116,9 @@ export async function GET(request: NextRequest) {
           user_metadata: {
             name,
             avatar_url: avatarUrl,
+            gender,
+            birth_year: birthYear,
+            phone,
             provider: 'naver',
           },
         })
@@ -126,6 +129,21 @@ export async function GET(request: NextRequest) {
 
       userId = newUser.user.id
     }
+
+    // 신규/기존 모두: 네이버 프로필 정보로 명시적 업데이트
+    const updateData: Record<string, string> = {
+      updated_at: new Date().toISOString(),
+    }
+    if (name) updateData.name = name
+    if (avatarUrl) updateData.avatar_url = avatarUrl
+    if (gender) updateData.gender = gender
+    if (birthYear) updateData.birth_year = birthYear
+    if (phone) updateData.phone = phone
+
+    await serviceSupabase
+      .from('profiles')
+      .update(updateData)
+      .eq('id', userId)
 
     // 5. 세션 생성 (매직 링크 방식)
     const { data: linkData, error: linkError } =

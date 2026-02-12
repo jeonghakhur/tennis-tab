@@ -1,6 +1,7 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
@@ -173,6 +174,46 @@ export async function signOut() {
 }
 
 /**
+ * 회원 탈퇴
+ * - 대회 주최, 협회 생성, 클럽 생성 이력이 있으면 차단
+ * - RESTRICT FK 사전 정리 후 auth.users 삭제 → profiles CASCADE 삭제
+ */
+export async function deleteAccount() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const adminClient = createAdminClient()
+
+  // 차단 조건 확인: NOT NULL FK로 삭제 불가능한 소유 항목
+  const [tournaments, associations, clubs] = await Promise.all([
+    adminClient.from('tournaments').select('id', { count: 'exact', head: true }).eq('organizer_id', user.id),
+    adminClient.from('associations').select('id', { count: 'exact', head: true }).eq('created_by', user.id),
+    adminClient.from('clubs').select('id', { count: 'exact', head: true }).eq('created_by', user.id),
+  ])
+
+  const blockers: string[] = []
+  if ((tournaments.count ?? 0) > 0) blockers.push('주최한 대회')
+  if ((associations.count ?? 0) > 0) blockers.push('생성한 협회')
+  if ((clubs.count ?? 0) > 0) blockers.push('생성한 클럽')
+
+  if (blockers.length > 0) {
+    return { error: `${blockers.join(', ')}이(가) 있어 탈퇴할 수 없습니다.\n해당 항목을 먼저 삭제하거나 양도해주세요.` }
+  }
+
+  // RESTRICT FK 사전 정리 (admin client로 RLS 우회)
+  await adminClient.from('association_admins').delete().eq('assigned_by', user.id)
+  await adminClient.from('club_members').update({ invited_by: null }).eq('invited_by', user.id)
+
+  // auth.users 삭제 → profiles CASCADE → 나머지 자동 처리
+  const { error } = await adminClient.auth.admin.deleteUser(user.id)
+  if (error) return { error: '회원 탈퇴 처리 중 오류가 발생했습니다.' }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+/**
  * 현재 로그인한 사용자 정보 가져오기
  */
 export async function getCurrentUser() {
@@ -205,9 +246,8 @@ export async function updateProfile(data: {
   phone?: string
   start_year?: string
   rating?: number
-  club?: string
-  club_city?: string
-  club_district?: string
+  gender?: string
+  birth_year?: string
 }) {
   const supabase = await createClient()
   const profile = await getCurrentUser()

@@ -1,149 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/components/AuthProvider";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
-
-const examplePrompts = [
-  { text: "이번 주 서울 대회 뭐 있어?", icon: "🔍" },
-  { text: "서울 오픈 대진표 보여줘", icon: "📊" },
-  { text: "서울 오픈 결과 알려줘", icon: "🏆" },
-  { text: "서울 오픈 참가 조건이 뭐야?", icon: "📋" },
-];
-
-function ChatInput() {
-  const [query, setQuery] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
-
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    if (query.trim()) {
-      // TODO: API 연동
-      console.log("Query:", query);
-    }
-  };
-
-  const handleExampleClick = (text: string) => {
-    setQuery(text);
-  };
-
-  return (
-    <div className="w-full max-w-3xl mx-auto opacity-0 animate-slide-up animate-delay-300">
-      <form onSubmit={handleSubmit} className="relative">
-        <div
-          className="relative rounded-2xl transition-all duration-300"
-          style={{
-            backgroundColor: "var(--bg-card)",
-            border: `1px solid ${isFocused ? "var(--accent-color)" : "var(--border-color)"}`,
-            boxShadow: isFocused ? "0 0 30px var(--shadow-glow)" : "none",
-          }}
-        >
-          <div className="flex items-center px-5 py-4">
-            <svg
-              className="w-6 h-6 mr-3 shrink-0"
-              style={{ color: "var(--accent-color)" }}
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-              />
-            </svg>
-            <input
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
-              placeholder="무엇이든 물어보세요..."
-              className="flex-1 bg-transparent outline-none text-lg"
-              style={{ color: "var(--text-primary)" }}
-            />
-            <button
-              type="submit"
-              className="ml-3 p-2.5 rounded-xl transition-all duration-300 hover:scale-105"
-              style={{
-                backgroundColor: query.trim() ? "var(--accent-color)" : "var(--bg-card-hover)",
-                color: query.trim() ? "var(--bg-primary)" : "var(--text-muted)",
-              }}
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </form>
-
-      {/* Example Prompts */}
-      <div className="mt-5">
-        <p
-          className="text-sm mb-3 text-center"
-          style={{ color: "var(--text-muted)" }}
-        >
-          이런 것들을 물어볼 수 있어요
-        </p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {examplePrompts.map((prompt, index) => (
-            <button
-              key={index}
-              onClick={() => handleExampleClick(prompt.text)}
-              className="px-4 py-2 text-sm rounded-full transition-all duration-300 hover:scale-105"
-              style={{
-                backgroundColor: "var(--bg-card)",
-                border: "1px solid var(--border-color)",
-                color: "var(--text-secondary)",
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-accent)";
-                e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = "var(--border-color)";
-                e.currentTarget.style.backgroundColor = "var(--bg-card)";
-              }}
-            >
-              <span className="mr-2">{prompt.icon}</span>
-              {prompt.text}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Login Hint */}
-      <p
-        className="text-xs text-center mt-6"
-        style={{ color: "var(--text-muted)" }}
-      >
-        <Link
-          href="/auth/login"
-          className="underline hover:no-underline"
-          style={{ color: "var(--accent-color)" }}
-        >
-          로그인
-        </Link>
-        하면 대회 참가 신청, 경기 결과 등록 등 더 많은 기능을 사용할 수 있어요
-      </p>
-    </div>
-  );
-}
+import { ChatSection } from "@/components/chat/ChatSection";
 
 function ScrollIndicator() {
   const [isVisible, setIsVisible] = useState(true);
@@ -265,7 +128,7 @@ function HeroSection() {
           자연스러운 대화로 모든 서비스를 이용하세요
         </p>
 
-        <ChatInput />
+        <ChatSection />
 
         <ScrollIndicator />
       </div>

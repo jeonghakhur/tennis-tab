@@ -32,7 +32,7 @@ interface ClubMemberListProps {
   initialMembers: ClubMember[]
 }
 
-type MemberFilter = 'all' | 'registered' | 'unregistered'
+type MemberFilter = 'all' | 'registered' | 'unregistered' | 'removed'
 
 const ROLE_BADGE: Record<ClubMemberRole, { label: string; variant: BadgeVariant }> = {
   OWNER: { label: 'OWNER', variant: 'warning' },
@@ -73,14 +73,19 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
   const errorFieldRef = useRef<keyof MemberValidationErrors | null>(null)
   const memberFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
-  // 필터된 회원 목록
+  // 필터된 회원 목록 (PENDING은 별도 섹션에 표시하므로 제외)
   const filteredMembers = members.filter((m) => {
+    if (m.status === 'PENDING') return false
+    if (filter === 'removed') return m.status === 'REMOVED' || m.status === 'LEFT'
+    // 제거/탈퇴 필터가 아닌 경우 제거/탈퇴 회원은 숨김
+    if (m.status === 'REMOVED' || m.status === 'LEFT') return false
     if (filter === 'registered') return m.is_registered
     if (filter === 'unregistered') return !m.is_registered
     return true
   })
 
   const activeCount = members.filter((m) => m.status === 'ACTIVE').length
+  const removedCount = members.filter((m) => m.status === 'REMOVED' || m.status === 'LEFT').length
   const pendingMembers = members.filter((m) => m.status === 'PENDING')
 
   // 사용자 검색 (디바운스 300ms)
@@ -291,19 +296,22 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
           </button>
         </div>
         <div className="flex rounded-lg overflow-hidden border border-(--border-color)">
-          {(['all', 'registered', 'unregistered'] as MemberFilter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                filter === f
-                  ? 'bg-(--accent-color) text-(--bg-primary)'
-                  : 'text-(--text-muted) hover:text-(--text-primary)'
-              }`}
-            >
-              {f === 'all' ? '전체' : f === 'registered' ? '가입회원' : '비가입회원'}
-            </button>
-          ))}
+          {(['all', 'registered', 'unregistered', 'removed'] as MemberFilter[]).map((f) => {
+            const label = { all: '전체', registered: '가입회원', unregistered: '비가입회원', removed: `제거/탈퇴${removedCount > 0 ? ` (${removedCount})` : ''}` }[f]
+            return (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className={`px-3 py-1.5 text-xs font-medium transition-colors ${
+                  filter === f
+                    ? 'bg-(--accent-color) text-(--bg-primary)'
+                    : 'text-(--text-muted) hover:text-(--text-primary)'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
@@ -332,6 +340,12 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                     {member.status === 'INVITED' && (
                       <span className="text-xs text-amber-500">초대됨</span>
                     )}
+                    {member.status === 'REMOVED' && (
+                      <Badge variant="danger">제거됨</Badge>
+                    )}
+                    {member.status === 'LEFT' && (
+                      <Badge variant="secondary">탈퇴</Badge>
+                    )}
                   </div>
                   <div className="flex items-center gap-2 text-xs text-(--text-muted) flex-wrap">
                     {member.phone && <span>{member.phone}</span>}
@@ -339,11 +353,14 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                     {member.birth_date && <span>{member.birth_date}</span>}
                     {member.start_year && <span>{member.start_year}년 입문</span>}
                     {member.rating && <span>레이팅 {member.rating}</span>}
+                    {member.status_reason && (member.status === 'REMOVED' || member.status === 'LEFT') && (
+                      <span className="text-red-400">사유: {member.status_reason}</span>
+                    )}
                   </div>
                 </div>
 
-                {/* 관리 버튼 (OWNER는 제거/변경 불가) */}
-                {member.role !== 'OWNER' && (
+                {/* 관리 버튼 (OWNER, 제거/탈퇴 회원은 제외) */}
+                {member.role !== 'OWNER' && member.status !== 'REMOVED' && member.status !== 'LEFT' && (
                   <div className="flex items-center gap-2">
                     {/* 역할 변경 */}
                     <select

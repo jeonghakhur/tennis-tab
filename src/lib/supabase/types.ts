@@ -69,6 +69,8 @@ export interface Database {
           club: string | null
           club_city: string | null
           club_district: string | null
+          gender: string | null
+          birth_year: string | null
           role: UserRole | null
           created_at: string
           updated_at: string
@@ -84,6 +86,8 @@ export interface Database {
           club?: string | null
           club_city?: string | null
           club_district?: string | null
+          gender?: string | null
+          birth_year?: string | null
           role?: UserRole | null
           created_at?: string
           updated_at?: string
@@ -99,6 +103,8 @@ export interface Database {
           club?: string | null
           club_city?: string | null
           club_district?: string | null
+          gender?: string | null
+          birth_year?: string | null
           role?: UserRole | null
           updated_at?: string
         }
@@ -594,6 +600,7 @@ export interface Database {
           club_id: string
           user_id: string | null
           is_registered: boolean
+          is_primary: boolean
           name: string
           birth_date: string | null
           gender: string | null
@@ -613,6 +620,7 @@ export interface Database {
           club_id: string
           user_id?: string | null
           is_registered?: boolean
+          is_primary?: boolean
           name: string
           birth_date?: string | null
           gender?: string | null
@@ -632,6 +640,7 @@ export interface Database {
           club_id?: string
           user_id?: string | null
           is_registered?: boolean
+          is_primary?: boolean
           name?: string
           birth_date?: string | null
           gender?: string | null
