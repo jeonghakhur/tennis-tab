@@ -41,6 +41,7 @@ export interface ClubMember {
   role: ClubMemberRole
   status: ClubMemberStatus
   status_reason: string | null
+  introduction: string | null
   invited_by: string | null
   joined_at: string | null
   created_at: string

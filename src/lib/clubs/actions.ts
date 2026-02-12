@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import {
+  sanitizeInput,
   sanitizeObject,
   validateClubInput,
   validateMemberInput,
@@ -457,7 +458,7 @@ export async function addUnregisteredMember(
 }
 
 /** 가입 회원 클럽 가입 (프로필에서 클럽 선택 → profiles 데이터로 자동 채움) */
-export async function joinClubAsRegistered(clubId: string): Promise<{ error?: string }> {
+export async function joinClubAsRegistered(clubId: string, introduction?: string): Promise<{ error?: string }> {
   const idError = validateId(clubId, '클럽 ID')
   if (idError) return { error: idError }
 
@@ -483,6 +484,15 @@ export async function joinClubAsRegistered(clubId: string): Promise<{ error?: st
   }
   status = club.join_type === 'OPEN' ? 'ACTIVE' : 'PENDING'
 
+  // 자기소개 검증 + 살균
+  let sanitizedIntro: string | null = null
+  if (introduction && introduction.trim()) {
+    sanitizedIntro = sanitizeInput(introduction.trim())
+    if (sanitizedIntro.length > 500) {
+      return { error: '자기소개는 500자 이내로 작성해주세요.' }
+    }
+  }
+
   // profiles 데이터로 club_members 자동 채움
   const { error } = await admin.from('club_members').insert({
     club_id: clubId,
@@ -495,6 +505,7 @@ export async function joinClubAsRegistered(clubId: string): Promise<{ error?: st
     gender: user.gender || null,
     role: 'MEMBER',
     status,
+    introduction: sanitizedIntro,
   })
 
   if (error) {

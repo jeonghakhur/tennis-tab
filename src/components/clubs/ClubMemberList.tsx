@@ -237,7 +237,8 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
             가입 승인 대기 ({pendingMembers.length}명)
           </h3>
           {pendingMembers.map((m) => (
-            <div key={m.id} className="flex items-center justify-between py-2 border-b border-(--border-color) last:border-0">
+            <div key={m.id} className="py-3 border-b border-(--border-color) last:border-0">
+              <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-(--text-primary)">{m.name}</p>
                 <p className="text-xs text-(--text-muted)">{m.phone}</p>
@@ -256,6 +257,16 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                   거절
                 </button>
               </div>
+              </div>
+              {/* 자기소개 */}
+              {m.introduction && (
+                <p
+                  className="mt-2 text-xs whitespace-pre-wrap rounded-lg px-3 py-2"
+                  style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+                >
+                  {m.introduction}
+                </p>
+              )}
             </div>
           ))}
         </div>
