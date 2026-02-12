@@ -14,7 +14,7 @@ export type Json =
 // 입문 년도 (문자열: '2026', '2025', ..., '2016년 이전')
 export type StartYear = string
 
-export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER'
+export type UserRole = 'SUPER_ADMIN' | 'ADMIN' | 'MANAGER' | 'USER' | 'RESTRICTED'
 
 // 클럽 관리 시스템 타입
 export type ClubJoinType = 'OPEN' | 'APPROVAL' | 'INVITE_ONLY'

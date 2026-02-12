@@ -8,6 +8,7 @@ export const ROLES = {
   ADMIN: 'ADMIN',
   MANAGER: 'MANAGER',
   USER: 'USER',
+  RESTRICTED: 'RESTRICTED',
 } as const
 
 /**
@@ -18,6 +19,7 @@ export const ROLE_DESCRIPTIONS: Record<UserRole, string> = {
   ADMIN: '대회 관리자 - 대회 생성, 수정, 삭제 및 전체 참가자 관리',
   MANAGER: '대회 운영자 - 자신이 생성한 대회만 관리 가능',
   USER: '일반 사용자 - 대회 참가, 결과 등록',
+  RESTRICTED: '제한 사용자 - 일부 서비스 이용이 제한됨',
 }
 
 /**
@@ -28,6 +30,7 @@ const ROLE_LEVELS: Record<UserRole, number> = {
   ADMIN: 3,
   MANAGER: 2,
   USER: 1,
+  RESTRICTED: 0,
 }
 
 /**
@@ -89,6 +92,7 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   ADMIN: '관리자',
   MANAGER: '운영자',
   USER: '일반 사용자',
+  RESTRICTED: '제한 사용자',
 }
 
 /**
@@ -99,4 +103,12 @@ export const ROLE_COLORS: Record<UserRole, string> = {
   ADMIN: 'text-orange-500',
   MANAGER: 'text-blue-500',
   USER: 'text-gray-500',
+  RESTRICTED: 'text-rose-700',
+}
+
+/**
+ * 제한 사용자 여부 확인
+ */
+export function isRestricted(role: UserRole | null | undefined): boolean {
+  return role === 'RESTRICTED'
 }

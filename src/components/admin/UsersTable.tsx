@@ -19,7 +19,7 @@ interface UsersTableProps {
 type SortField = 'name' | 'email' | 'role' | 'created_at'
 type SortOrder = 'asc' | 'desc'
 
-const roles: UserRole[] = ['USER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
+const roles: UserRole[] = ['RESTRICTED', 'USER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
 
 export function UsersTable({
   users,
@@ -282,7 +282,7 @@ export function UsersTable({
                   // 선택 가능한 역할 (ADMIN은 MANAGER, USER만)
                   const availableRoles = isCurrentUserSuperAdmin
                     ? roles
-                    : (['USER', 'MANAGER'] as UserRole[])
+                    : (['RESTRICTED', 'USER', 'MANAGER'] as UserRole[])
 
                   return (
                     <tr
