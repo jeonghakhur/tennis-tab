@@ -3,6 +3,127 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
+
+// Supabase 에러 메시지 → 한국어 변환
+function translateAuthError(message: string): string {
+  if (message.includes('User already registered')) {
+    return '이미 가입된 이메일입니다.'
+  }
+  if (message.includes('Invalid login credentials')) {
+    return '이메일 또는 비밀번호가 올바르지 않습니다.'
+  }
+  if (message.includes('Email not confirmed')) {
+    return '이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.'
+  }
+  if (message.includes('Password should be at least')) {
+    return '비밀번호는 최소 6자 이상이어야 합니다.'
+  }
+  if (message.includes('Email rate limit exceeded')) {
+    return '너무 많은 요청이 발생했습니다. 잠시 후 다시 시도해주세요.'
+  }
+  return message
+}
+
+/**
+ * 이메일 회원가입
+ */
+export async function signUpWithEmail(email: string, password: string, name: string) {
+  const sanitizedEmail = sanitizeInput(email)
+  const sanitizedName = sanitizeInput(name)
+
+  // 검증
+  const nameErr = validateMinLength(sanitizedName, 2, '이름')
+  if (nameErr) return { error: nameErr }
+
+  const emailErr = validateEmail(sanitizedEmail, '이메일')
+  if (emailErr) return { error: emailErr }
+  if (!sanitizedEmail) return { error: '이메일을 입력해주세요.' }
+
+  const pwErr = validateMinLength(password, 6, '비밀번호')
+  if (pwErr) return { error: pwErr }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signUp({
+    email: sanitizedEmail,
+    password,
+    options: {
+      data: { name: sanitizedName },
+    },
+  })
+
+  if (error) {
+    return { error: translateAuthError(error.message) }
+  }
+
+  return { success: true, message: '인증 이메일을 발송했습니다. 이메일을 확인해주세요.' }
+}
+
+/**
+ * 이메일 로그인
+ */
+export async function signInWithEmail(email: string, password: string) {
+  const sanitizedEmail = sanitizeInput(email)
+
+  const emailErr = validateEmail(sanitizedEmail, '이메일')
+  if (emailErr) return { error: emailErr }
+  if (!sanitizedEmail) return { error: '이메일을 입력해주세요.' }
+
+  if (!password) return { error: '비밀번호를 입력해주세요.' }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.signInWithPassword({
+    email: sanitizedEmail,
+    password,
+  })
+
+  if (error) {
+    return { error: translateAuthError(error.message) }
+  }
+
+  revalidatePath('/', 'layout')
+  return { success: true }
+}
+
+/**
+ * 비밀번호 재설정 이메일 발송
+ */
+export async function resetPassword(email: string) {
+  const sanitizedEmail = sanitizeInput(email)
+
+  const emailErr = validateEmail(sanitizedEmail, '이메일')
+  if (emailErr) return { error: emailErr }
+  if (!sanitizedEmail) return { error: '이메일을 입력해주세요.' }
+
+  const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const supabase = await createClient()
+  const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
+    redirectTo: `${origin}/auth/reset-password`,
+  })
+
+  if (error) {
+    return { error: translateAuthError(error.message) }
+  }
+
+  return { success: true, message: '비밀번호 재설정 이메일을 발송했습니다.' }
+}
+
+/**
+ * 비밀번호 변경 (재설정 링크 클릭 후)
+ */
+export async function updatePassword(newPassword: string) {
+  const pwErr = validateMinLength(newPassword, 6, '새 비밀번호')
+  if (pwErr) return { error: pwErr }
+
+  const supabase = await createClient()
+  const { error } = await supabase.auth.updateUser({ password: newPassword })
+
+  if (error) {
+    return { error: translateAuthError(error.message) }
+  }
+
+  return { success: true }
+}
 
 /**
  * 소셜 로그인 (구글, 카카오, 네이버)
