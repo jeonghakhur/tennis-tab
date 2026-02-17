@@ -1,9 +1,11 @@
-/** Phase 1 지원 Intent */
+/** 지원 Intent */
 export type Intent =
   | 'SEARCH_TOURNAMENT'
   | 'VIEW_BRACKET'
   | 'VIEW_RESULTS'
   | 'VIEW_REQUIREMENTS'
+  | 'APPLY_TOURNAMENT'
+  | 'CANCEL_ENTRY'
   | 'HELP'
 
 /** Gemini가 반환하는 Intent 분류 결과 */
@@ -25,6 +27,12 @@ export interface ChatEntities {
   date_expression?: string
   player_name?: string
   status?: string
+  /** "my" = 본인 데이터 조회, "all" = 전체 (기본값) */
+  scope?: 'my' | 'all'
+  /** scope: "my" 일 때 — 신청 상태 필터 */
+  entry_status?: string
+  /** scope: "my" 일 때 — 결제 상태 필터 */
+  payment_status?: string
 }
 
 /** Intent Handler 반환 결과 */
@@ -36,6 +44,8 @@ export interface HandlerResult {
     label: string
     href: string
   }>
+  /** 참가 신청 플로우 활성 여부 */
+  flow_active?: boolean
 }
 
 /** 대화 히스토리 메시지 */
@@ -61,6 +71,8 @@ export interface ChatSuccessResponse {
     label: string
     href: string
   }>
+  /** 참가 신청 플로우 활성 여부 */
+  flow_active?: boolean
 }
 
 /** POST /api/chat 에러 응답 */

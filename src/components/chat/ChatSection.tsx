@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { ChatInput, examplePrompts } from './ChatInput'
+import { ChatInput, examplePrompts, type ChatInputHandle } from './ChatInput'
 import { ChatMessageList, type DisplayMessage } from './ChatMessageList'
-import type { ChatSuccessResponse, ChatMessage, ChatResponse } from '@/lib/chat/types'
+import type { ChatSuccessResponse, ChatMessage } from '@/lib/chat/types'
 
 /** 전체 화면 채팅 UI */
 export function ChatSection() {
@@ -12,6 +12,8 @@ export function ChatSection() {
   const [history, setHistory] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [flowActive, setFlowActive] = useState(false)
+  const chatInputRef = useRef<ChatInputHandle>(null)
 
   const handleResponse = useCallback((userMessage: string, res: ChatSuccessResponse) => {
     setMessages((prev) => [
@@ -24,6 +26,7 @@ export function ChatSection() {
       { role: 'user', content: userMessage },
       { role: 'assistant', content: res.message },
     ])
+    setFlowActive(res.flow_active ?? false)
     setError(null)
   }, [])
 
@@ -31,40 +34,10 @@ export function ChatSection() {
     setError(err || null)
   }, [])
 
-  /** 예시 프롬프트 클릭 → 즉시 전송 */
-  const handleExampleClick = useCallback(async (text: string) => {
-    // 유저 메시지 즉시 표시
-    setMessages((prev) => [...prev, { role: 'user', content: text }])
-    setLoading(true)
-    setError(null)
-
-    try {
-      const res = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: text, history }),
-      })
-      const data: ChatResponse = await res.json()
-
-      if (data.success) {
-        setMessages((prev) => [
-          ...prev,
-          { role: 'assistant', content: data.message, links: data.links },
-        ])
-        setHistory((prev) => [
-          ...prev,
-          { role: 'user', content: text },
-          { role: 'assistant', content: data.message },
-        ])
-      } else {
-        setError(data.error)
-      }
-    } catch {
-      setError('네트워크 오류가 발생했습니다.')
-    } finally {
-      setLoading(false)
-    }
-  }, [history])
+  /** 예시 프롬프트 클릭 → ChatInput.sendMessage 위임 (메시지 관리 일원화) */
+  const handleExampleClick = useCallback((text: string) => {
+    chatInputRef.current?.send(text)
+  }, [])
 
   const isEmpty = messages.length === 0 && !loading
 
@@ -150,11 +123,13 @@ export function ChatSection() {
 
       {/* 하단 고정 입력창 */}
       <ChatInput
+        ref={chatInputRef}
         history={history}
         onResponse={handleResponse}
         onError={handleError}
         onLoadingChange={setLoading}
         disabled={loading}
+        placeholder={flowActive ? '답변을 입력하세요... ("취소"로 중단)' : undefined}
       />
     </div>
   )

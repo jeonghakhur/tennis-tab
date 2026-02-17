@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/lib/supabase/server';
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
 
@@ -93,13 +93,14 @@ export async function createEntry(
             }
         }
 
-        // 6. 이미 신청했는지 확인 (같은 부서에 중복 신청 방지)
+        // 6. 이미 신청했는지 확인 (같은 부서에 중복 신청 방지, 취소된 신청 제외)
         const { data: existingEntry, error: checkError } = await supabase
             .from('tournament_entries')
             .select('id')
             .eq('tournament_id', tournamentId)
             .eq('user_id', user.id)
             .eq('division_id', entryData.divisionId)
+            .neq('status', 'CANCELLED')
             .maybeSingle();
 
         if (checkError) {
@@ -149,16 +150,8 @@ export async function createEntry(
             status: initialStatus,
             payment_status: 'UNPAID',
         };
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!serviceRoleKey) {
-            console.error('SUPABASE_SERVICE_ROLE_KEY is not set');
-            return { success: false, error: '서버 설정 오류입니다. 관리자에게 문의하세요.' };
-        }
-        const supabaseAdmin = createSupabaseClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            serviceRoleKey
-        );
-        const { data: newEntry, error: insertError } = await supabaseAdmin
+        const admin = createAdminClient();
+        const { data: newEntry, error: insertError } = await admin
             .from('tournament_entries')
             .insert(insertPayload)
             .select('id')
@@ -285,12 +278,8 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
         }
 
         // 4. 신청 삭제 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!serviceRoleKey) {
-            return { success: false, error: '서버 설정 오류입니다.' };
-        }
-        const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey);
-        const { error: deleteError } = await supabaseAdmin
+        const admin = createAdminClient();
+        const { error: deleteError } = await admin
             .from('tournament_entries')
             .delete()
             .eq('id', entryId)
@@ -416,12 +405,8 @@ export async function updateEntry(
         }
 
         // 8. 신청 정보 업데이트 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-        if (!serviceRoleKey) {
-            return { success: false, error: '서버 설정 오류입니다.' };
-        }
-        const supabaseAdmin = createSupabaseClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceRoleKey);
-        const { error: updateError } = await supabaseAdmin
+        const admin = createAdminClient();
+        const { error: updateError } = await admin
             .from('tournament_entries')
             .update({
                 division_id: entryData.divisionId,

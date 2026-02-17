@@ -5,6 +5,9 @@ import { classifyIntent, GeminiQuotaError } from '@/lib/chat/classify'
 import { getHandler } from '@/lib/chat/handlers'
 import { saveChatLog } from '@/lib/chat/logs'
 import { checkRateLimit } from '@/lib/chat/rateLimit'
+import { getSession } from '@/lib/chat/entryFlow/sessionStore'
+import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
+import { getCancelSession, handleCancelFlow } from '@/lib/chat/cancelFlow/handler'
 import type { ChatResponse, ChatMessage } from '@/lib/chat/types'
 
 /** 메시지 길이 제한 */
@@ -71,15 +74,64 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
       )
     }
 
-    // 5. Intent 분류 (Gemini 2.0 Flash) — 대화 히스토리 포함
-    const history = Array.isArray(body.history) ? body.history.slice(-10) : []
+    // 5. 참가 신청 플로우 세션 확인 (Gemini 바이패스)
+    if (userId) {
+      const entrySession = getSession(userId)
+      if (entrySession) {
+        const flowResult = await handleEntryFlow(userId, sanitizedMessage)
+
+        // 채팅 로그 저장
+        saveChatLog({
+          userId,
+          sessionId: body.session_id,
+          message: sanitizedMessage,
+          response: flowResult.message,
+          intent: 'APPLY_TOURNAMENT',
+          entities: {} as Record<string, unknown>,
+        })
+
+        return NextResponse.json({
+          success: true,
+          intent: 'APPLY_TOURNAMENT',
+          message: flowResult.message,
+          links: flowResult.links,
+          flow_active: flowResult.flowActive,
+        } as ChatResponse)
+      }
+
+      // 참가 취소 플로우 세션 확인 (Gemini 바이패스)
+      const cancelSession = getCancelSession(userId)
+      if (cancelSession) {
+        const flowResult = await handleCancelFlow(userId, sanitizedMessage)
+
+        saveChatLog({
+          userId,
+          sessionId: body.session_id,
+          message: sanitizedMessage,
+          response: flowResult.message,
+          intent: 'CANCEL_ENTRY',
+          entities: {} as Record<string, unknown>,
+        })
+
+        return NextResponse.json({
+          success: true,
+          intent: 'CANCEL_ENTRY',
+          message: flowResult.message,
+          links: flowResult.links,
+          flow_active: flowResult.flowActive,
+        } as ChatResponse)
+      }
+    }
+
+    // 6. Intent 분류 (Gemini 2.0 Flash) — 대화 히스토리 포함 (길이 제한은 classifyIntent 내부에서 처리)
+    const history = Array.isArray(body.history) ? body.history : []
     const classification = await classifyIntent(sanitizedMessage, history)
 
-    // 6. Handler 실행
+    // 7. Handler 실행
     const handler = getHandler(classification.intent)
     const result = await handler(classification.entities, userId)
 
-    // 7. 채팅 로그 저장 (비동기, 실패 무시)
+    // 8. 채팅 로그 저장 (비동기, 실패 무시)
     saveChatLog({
       userId,
       sessionId: body.session_id,
@@ -89,13 +141,14 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
       entities: classification.entities as unknown as Record<string, unknown>,
     })
 
-    // 8. 응답 반환
+    // 9. 응답 반환
     return NextResponse.json({
       success: true,
       intent: classification.intent,
       message: result.message,
       data: result.data,
       links: result.links,
+      ...(result.flow_active !== undefined && { flow_active: result.flow_active }),
     } as ChatResponse)
   } catch (error) {
     // Gemini API 할당량 초과

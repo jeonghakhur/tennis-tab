@@ -15,11 +15,32 @@ const LIMITS = {
   authenticated: 30, // 회원: 30회/분
 } as const
 
+/** 마지막 정리 시각 */
+let lastCleanup = Date.now()
+
+/** 정리 주기: 5분 */
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+
+/** 만료된 Rate Limit 엔트리 일괄 정리 */
+function cleanupExpired(): void {
+  const now = Date.now()
+  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return
+  lastCleanup = now
+
+  for (const [key, entry] of rateLimitMap) {
+    if (now >= entry.resetAt) {
+      rateLimitMap.delete(key)
+    }
+  }
+}
+
 /** Rate limit 확인. 초과 시 { limited: true, retryAfter } 반환 */
 export function checkRateLimit(
   key: string,
   isAuthenticated: boolean,
 ): { limited: boolean; retryAfter?: number } {
+  cleanupExpired()
+
   const now = Date.now()
   const entry = rateLimitMap.get(key)
   const limit = isAuthenticated ? LIMITS.authenticated : LIMITS.anonymous
