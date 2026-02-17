@@ -2,6 +2,29 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { getCurrentUser } from '@/lib/auth/actions'
+import type { EntryStatus, PaymentStatus, PartnerData, TeamMember, TournamentStatus } from '@/lib/supabase/types'
+
+/** 사용자의 엔트리 정보 (대회/부서 정보 포함) */
+export interface MyEntry {
+  id: string
+  tournamentId: string
+  tournamentTitle: string
+  tournamentStartDate: string
+  tournamentEndDate: string
+  tournamentStatus: string
+  tournamentLocation: string
+  divisionName: string
+  status: EntryStatus
+  paymentStatus: PaymentStatus
+  playerName: string
+  phone: string
+  playerRating: number | null
+  clubName: string | null
+  teamOrder: string | null
+  partnerData: PartnerData | null
+  teamMembers: TeamMember[] | null
+  createdAt: string
+}
 
 /**
  * 사용자의 참가 대회 목록 조회
@@ -28,6 +51,105 @@ export async function getMyTournaments() {
   }
 
   return { entries }
+}
+
+// Supabase join 결과 타입 (1:1 관계는 object로 반환)
+interface EntryJoinResult {
+  id: string
+  tournament_id: string
+  status: EntryStatus
+  payment_status: PaymentStatus
+  player_name: string
+  phone: string
+  player_rating: number | null
+  club_name: string | null
+  team_order: string | null
+  partner_data: PartnerData | null
+  team_members: TeamMember[] | null
+  created_at: string
+  tournament: {
+    id: string
+    title: string
+    start_date: string
+    end_date: string
+    status: TournamentStatus
+    location: string
+  }
+  division: {
+    name: string
+  }
+}
+
+/**
+ * 사용자의 엔트리(참가 신청) 목록 조회
+ * - RLS 적용 (본인 데이터만)
+ * - CANCELLED 포함 (클라이언트에서 필터링)
+ * - 에러 시 빈 배열 반환
+ */
+export async function getMyEntries(statusFilter?: EntryStatus): Promise<MyEntry[]> {
+  try {
+    const supabase = await createClient()
+    const user = await getCurrentUser()
+
+    if (!user) {
+      return []
+    }
+
+    let query = supabase
+      .from('tournament_entries')
+      .select(`
+        id,
+        tournament_id,
+        status,
+        payment_status,
+        player_name,
+        phone,
+        player_rating,
+        club_name,
+        team_order,
+        partner_data,
+        team_members,
+        created_at,
+        tournament:tournaments!inner(id, title, start_date, end_date, status, location),
+        division:tournament_divisions!inner(name)
+      `)
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+
+    if (statusFilter) {
+      query = query.eq('status', statusFilter)
+    }
+
+    const { data, error } = await query
+
+    if (error) {
+      return []
+    }
+
+    // Supabase join 결과를 플랫한 MyEntry로 변환
+    return (data as unknown as EntryJoinResult[]).map((entry) => ({
+      id: entry.id,
+      tournamentId: entry.tournament_id,
+      tournamentTitle: entry.tournament.title,
+      tournamentStartDate: entry.tournament.start_date,
+      tournamentEndDate: entry.tournament.end_date,
+      tournamentStatus: entry.tournament.status,
+      tournamentLocation: entry.tournament.location,
+      divisionName: entry.division.name,
+      status: entry.status,
+      paymentStatus: entry.payment_status,
+      playerName: entry.player_name,
+      phone: entry.phone,
+      playerRating: entry.player_rating,
+      clubName: entry.club_name,
+      teamOrder: entry.team_order,
+      partnerData: entry.partner_data,
+      teamMembers: entry.team_members,
+      createdAt: entry.created_at,
+    }))
+  } catch {
+    return []
+  }
 }
 
 /**

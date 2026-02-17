@@ -51,7 +51,7 @@ export function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/posts" className="footer-link text-sm">
+                                <Link href="/community" className="footer-link text-sm">
                                     커뮤니티
                                 </Link>
                             </li>
@@ -67,7 +67,7 @@ export function Footer() {
                         </h4>
                         <ul className="space-y-3">
                             <li>
-                                <Link href="/help" className="footer-link text-sm">
+                                <Link href="/support" className="footer-link text-sm">
                                     고객센터
                                 </Link>
                             </li>
@@ -77,7 +77,7 @@ export function Footer() {
                                 </Link>
                             </li>
                             <li>
-                                <Link href="/contact" className="footer-link text-sm">
+                                <Link href="/support/inquiry" className="footer-link text-sm">
                                     문의하기
                                 </Link>
                             </li>

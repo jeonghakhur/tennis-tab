@@ -8,6 +8,7 @@ import {
   Trophy,
   Building2,
   Shield,
+  MessageSquare,
   ChevronLeft,
   Menu,
 } from 'lucide-react'
@@ -49,6 +50,12 @@ const menuItems = [
     href: '/admin/clubs',
     icon: Shield,
     roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as UserRole[],
+  },
+  {
+    name: '문의 관리',
+    href: '/admin/inquiries',
+    icon: MessageSquare,
+    roles: ['SUPER_ADMIN', 'ADMIN'] as UserRole[],
   },
 ]
 

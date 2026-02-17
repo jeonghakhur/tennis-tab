@@ -72,7 +72,7 @@ const PAYMENT_LABELS: Record<string, string> = {
  * Gemini intent 분류 후 호출됨
  */
 export async function handleCancelEntry(
-  _entities: ChatEntities,
+  entities: ChatEntities,
   userId?: string,
 ): Promise<HandlerResult & { flow_active?: boolean }> {
   // 비로그인
@@ -84,10 +84,10 @@ export async function handleCancelEntry(
     }
   }
 
-  // 취소 가능한 신청 조회
-  const entries = await fetchCancelableEntries(userId)
+  // 취소 가능한 전체 신청 조회
+  const allEntries = await fetchCancelableEntries(userId)
 
-  if (entries.length === 0) {
+  if (allEntries.length === 0) {
     return {
       success: true,
       message: '취소할 참가 신청이 없습니다.',
@@ -95,7 +95,32 @@ export async function handleCancelEntry(
     }
   }
 
-  // 단일 신청 → 바로 CONFIRM_CANCEL
+  // 대회명이 지정된 경우 → 이름 매칭으로 필터
+  let entries = allEntries
+  if (entities.tournament_name) {
+    const keyword = entities.tournament_name.toLowerCase()
+    const matched = allEntries.filter((e) =>
+      e.tournamentTitle.toLowerCase().includes(keyword),
+    )
+
+    if (matched.length === 0) {
+      // 매칭 실패 → 전체 목록 표시
+      return createSelectOrConfirm(userId, allEntries, `"${entities.tournament_name}" 대회 신청을 찾지 못했습니다.\n\n취소 가능한 신청 내역:`)
+    }
+
+    entries = matched
+  }
+
+  // 1건 → 바로 CONFIRM_CANCEL / 복수 → SELECT_ENTRY
+  return createSelectOrConfirm(userId, entries)
+}
+
+/** 엔트리 수에 따라 CONFIRM_CANCEL 또는 SELECT_ENTRY 세션 생성 */
+function createSelectOrConfirm(
+  userId: string,
+  entries: CancelableEntry[],
+  headerOverride?: string,
+): HandlerResult & { flow_active?: boolean } {
   if (entries.length === 1) {
     const entry = entries[0]
     const session: CancelFlowSession = {
@@ -127,7 +152,9 @@ export async function handleCancelEntry(
 
   return {
     success: true,
-    message: buildEntryListMessage(entries),
+    message: headerOverride
+      ? `${headerOverride}\n${buildEntryListBody(entries)}`
+      : buildEntryListMessage(entries),
     flow_active: true,
   }
 }
@@ -261,8 +288,8 @@ async function fetchCancelableEntries(userId: string): Promise<CancelableEntry[]
       status,
       payment_status,
       tournament_id,
-      tournaments!inner(title),
-      divisions!inner(name)
+      tournaments(title),
+      tournament_divisions(name)
     `)
     .eq('user_id', userId)
     .neq('status', 'CANCELLED')
@@ -274,7 +301,7 @@ async function fetchCancelableEntries(userId: string): Promise<CancelableEntry[]
     id: row.id as string,
     tournamentId: row.tournament_id as string,
     tournamentTitle: (row.tournaments as unknown as { title: string }).title,
-    divisionName: (row.divisions as unknown as { name: string }).name,
+    divisionName: (row.tournament_divisions as unknown as { name: string }).name,
     status: row.status as string,
     paymentStatus: row.payment_status as string,
   }))
@@ -288,16 +315,20 @@ function parseConfirm(message: string): 'yes' | 'no' | 'unknown' {
   return 'unknown'
 }
 
-/** 복수 신청 목록 메시지 */
-function buildEntryListMessage(entries: CancelableEntry[]): string {
-  const lines = ['취소 가능한 신청 내역:']
-  entries.forEach((e, i) => {
+/** 신청 목록 본문 (번호 + 상세) */
+function buildEntryListBody(entries: CancelableEntry[]): string {
+  const lines = entries.map((e, i) => {
     const status = STATUS_LABELS[e.status] ?? e.status
     const payment = PAYMENT_LABELS[e.paymentStatus] ?? e.paymentStatus
-    lines.push(`${i + 1}. ${e.tournamentTitle} (${e.divisionName}) — 상태: ${status} | 결제: ${payment}`)
+    return `${i + 1}. ${e.tournamentTitle} (${e.divisionName}) — 상태: ${status} | 결제: ${payment}`
   })
   lines.push('\n몇 번 신청을 취소하시겠어요? ("그만"으로 중단)')
   return lines.join('\n')
+}
+
+/** 복수 신청 목록 메시지 */
+function buildEntryListMessage(entries: CancelableEntry[]): string {
+  return `취소 가능한 신청 내역:\n${buildEntryListBody(entries)}`
 }
 
 /** 단일 신청 확인 메시지 */

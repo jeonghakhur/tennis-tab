@@ -319,3 +319,97 @@ export function validateMemberInput(data: {
 
   return errors
 }
+
+// ============================================================================
+// 포스트 검증
+// ============================================================================
+
+export interface PostValidationErrors {
+  category?: string
+  title?: string
+  content?: string
+}
+
+const VALID_POST_CATEGORIES = ['NOTICE', 'FREE', 'INFO', 'REVIEW']
+
+export function validatePostInput(data: {
+  category?: string
+  title?: string
+  content?: string
+}): PostValidationErrors {
+  const errors: PostValidationErrors = {}
+
+  if (!data.category || !VALID_POST_CATEGORIES.includes(data.category)) {
+    errors.category = '카테고리를 선택해주세요.'
+  }
+  if (!data.title || data.title.trim().length === 0) {
+    errors.title = '제목을 입력해주세요.'
+  } else if (data.title.trim().length > 100) {
+    errors.title = '제목은 100자 이내로 입력해주세요.'
+  }
+  if (!data.content || data.content.trim().length === 0) {
+    errors.content = '내용을 입력해주세요.'
+  } else if (data.content.trim().length > 5000) {
+    errors.content = '내용은 5000자 이내로 입력해주세요.'
+  }
+
+  return errors
+}
+
+// ============================================================================
+// 댓글 검증
+// ============================================================================
+
+export interface CommentValidationErrors {
+  content?: string
+}
+
+export function validateCommentInput(data: {
+  content?: string
+}): CommentValidationErrors {
+  const errors: CommentValidationErrors = {}
+
+  if (!data.content || data.content.trim().length === 0) {
+    errors.content = '댓글 내용을 입력해주세요.'
+  } else if (data.content.trim().length > 1000) {
+    errors.content = '댓글은 1000자 이내로 입력해주세요.'
+  }
+
+  return errors
+}
+
+// ============================================================================
+// 문의 검증
+// ============================================================================
+
+export interface InquiryValidationErrors {
+  category?: string
+  title?: string
+  content?: string
+}
+
+const VALID_INQUIRY_CATEGORIES = ['SERVICE', 'TOURNAMENT', 'ACCOUNT', 'ETC']
+
+export function validateInquiryInput(data: {
+  category?: string
+  title?: string
+  content?: string
+}): InquiryValidationErrors {
+  const errors: InquiryValidationErrors = {}
+
+  if (!data.category || !VALID_INQUIRY_CATEGORIES.includes(data.category)) {
+    errors.category = '문의 유형을 선택해주세요.'
+  }
+  if (!data.title || data.title.trim().length === 0) {
+    errors.title = '제목을 입력해주세요.'
+  } else if (data.title.trim().length > 100) {
+    errors.title = '제목은 100자 이내로 입력해주세요.'
+  }
+  if (!data.content || data.content.trim().length === 0) {
+    errors.content = '내용을 입력해주세요.'
+  } else if (data.content.trim().length > 3000) {
+    errors.content = '내용은 3000자 이내로 입력해주세요.'
+  }
+
+  return errors
+}
