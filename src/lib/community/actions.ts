@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import {
+  sanitizeInput,
   sanitizeObject,
   validatePostInput,
   validateCommentInput,
@@ -118,9 +119,14 @@ export async function createPost(
     }
   }
 
-  // 입력 검증
-  const sanitized = sanitizeObject(input)
-  const errors = validatePostInput(sanitized)
+  // 입력 검증: content는 HTML이므로 sanitizeObject 대신 title만 sanitize
+  const sanitizedTitle = sanitizeInput(input.title)
+  const sanitizedCategory = input.category
+  const errors = validatePostInput({
+    category: sanitizedCategory,
+    title: sanitizedTitle,
+    content: input.content,
+  })
   if (hasValidationErrors(errors)) {
     const firstError = Object.values(errors).find(Boolean)
     return { data: null, error: firstError || '입력값을 확인해주세요.' }
@@ -130,9 +136,10 @@ export async function createPost(
   const { data, error } = await admin
     .from('posts')
     .insert({
-      category: sanitized.category,
-      title: sanitized.title.trim(),
-      content: sanitized.content.trim(),
+      category: sanitizedCategory,
+      title: sanitizedTitle.trim(),
+      content: input.content,
+      attachments: input.attachments ?? [],
       author_id: user.id,
     })
     .select()
@@ -170,11 +177,12 @@ export async function updatePost(
     }
   }
 
-  const sanitized = sanitizeObject(input)
+  // content는 HTML이므로 sanitizeObject 대신 개별 sanitize
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (sanitized.title) updateData.title = sanitized.title.trim()
-  if (sanitized.content) updateData.content = sanitized.content.trim()
-  if (sanitized.category) updateData.category = sanitized.category
+  if (input.title) updateData.title = sanitizeInput(input.title).trim()
+  if (input.content) updateData.content = input.content
+  if (input.category) updateData.category = input.category
+  if (input.attachments !== undefined) updateData.attachments = input.attachments
 
   const { error } = await admin.from('posts').update(updateData).eq('id', id)
   if (error) return { error: error.message }

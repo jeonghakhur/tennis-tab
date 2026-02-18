@@ -66,6 +66,80 @@ export async function uploadImage(
   }
 }
 
+// 이미지 + 문서 파일 업로드 (커뮤니티 포스트 등에서 사용)
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const DOCUMENT_TYPES = [
+  'application/pdf',                                                             // .pdf
+  'application/msword',                                                          // .doc
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',      // .docx
+  'application/vnd.ms-excel',                                                    // .xls
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',           // .xlsx
+  'application/vnd.ms-powerpoint',                                               // .ppt
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation',   // .pptx
+  'application/x-hwp',                                                           // .hwp
+  'application/haansofthwp',                                                     // .hwp (대체)
+  'application/octet-stream',                                                    // .hwp (브라우저 폴백)
+]
+const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.hwp']
+const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+
+export async function uploadFile(
+  formData: FormData
+): Promise<{ url: string | null; error: string | null }> {
+  const file = formData.get('file') as File
+  const bucket = (formData.get('bucket') as string) || 'posts'
+  const folder = (formData.get('folder') as string) || 'attachments'
+
+  if (!file) {
+    return { url: null, error: '파일이 없습니다.' }
+  }
+
+  // 확장자 추출
+  const ext = '.' + (file.name.split('.').pop()?.toLowerCase() ?? '')
+  const isImage = IMAGE_TYPES.includes(file.type)
+  const isDocument = DOCUMENT_TYPES.includes(file.type) || DOCUMENT_EXTENSIONS.includes(ext)
+
+  if (!isImage && !isDocument) {
+    return {
+      url: null,
+      error: '지원하지 않는 파일 형식입니다. (이미지: JPG/PNG/WebP/GIF, 문서: PDF/Word/Excel/PPT/HWP)',
+    }
+  }
+
+  if (file.size > MAX_FILE_SIZE) {
+    return { url: null, error: '파일 크기는 10MB 이하여야 합니다.' }
+  }
+
+  try {
+    const supabaseAdmin = createAdminClient()
+    const fileExt = file.name.split('.').pop()
+    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+
+    const arrayBuffer = await file.arrayBuffer()
+    const buffer = new Uint8Array(arrayBuffer)
+
+    const { error: uploadError } = await supabaseAdmin.storage
+      .from(bucket)
+      .upload(fileName, buffer, {
+        contentType: file.type,
+        cacheControl: '3600',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      return { url: null, error: uploadError.message }
+    }
+
+    const { data: { publicUrl } } = supabaseAdmin.storage
+      .from(bucket)
+      .getPublicUrl(fileName)
+
+    return { url: publicUrl, error: null }
+  } catch (err: unknown) {
+    return { url: null, error: getErrorMessage(err) }
+  }
+}
+
 export async function deleteImage(
   url: string,
   bucket: string = 'tournaments'

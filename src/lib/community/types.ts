@@ -9,11 +9,20 @@ export const POST_CATEGORY_LABELS: Record<PostCategory, string> = {
   REVIEW: '대회후기',
 }
 
+/** 첨부파일 메타 (JSONB 배열로 DB 저장) */
+export interface PostAttachment {
+  url: string
+  name: string
+  size: number
+  type: 'image' | 'document'
+}
+
 export interface Post {
   id: string
   category: PostCategory
   title: string
   content: string
+  attachments: PostAttachment[]
   author_id: string
   view_count: number
   comment_count: number
@@ -39,12 +48,14 @@ export interface CreatePostInput {
   category: PostCategory
   title: string
   content: string
+  attachments?: PostAttachment[]
 }
 
 export interface UpdatePostInput {
   title?: string
   content?: string
   category?: PostCategory
+  attachments?: PostAttachment[]
 }
 
 export interface CreateCommentInput {

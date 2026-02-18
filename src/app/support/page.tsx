@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { MessageSquare, ClipboardList, LogIn } from 'lucide-react'
 

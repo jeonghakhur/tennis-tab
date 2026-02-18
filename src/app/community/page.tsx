@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { getPosts } from '@/lib/community/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
@@ -74,13 +73,7 @@ export default function CommunityPage() {
   }
 
   return (
-    <>
-      <Navigation />
-      <main
-        className="min-h-screen pt-20"
-        style={{ backgroundColor: 'var(--bg-primary)' }}
-      >
-        <div className="max-w-6xl mx-auto px-6 py-12">
+    <div className="max-w-screen-xl mx-auto px-6 py-12">
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-8">
             <div>
@@ -246,8 +239,6 @@ export default function CommunityPage() {
               </button>
             </nav>
           )}
-        </div>
-      </main>
-    </>
+    </div>
   )
 }

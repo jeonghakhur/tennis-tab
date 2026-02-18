@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { getPost, updatePost } from '@/lib/community/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
@@ -53,6 +52,7 @@ export default function EditPostPage() {
       category: data.category,
       title: data.title,
       content: data.content,
+      attachments: data.attachments,
     })
     setSubmitting(false)
 
@@ -67,49 +67,39 @@ export default function EditPostPage() {
 
   if (loading || authLoading) {
     return (
-      <>
-        <Navigation />
-        <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="max-w-3xl mx-auto px-6 py-12">
-            <div className="animate-pulse space-y-4">
-              <div className="h-8 w-32 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-              <div className="h-12 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-              <div className="h-12 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-              <div className="h-48 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-            </div>
-          </div>
-        </main>
-      </>
+      <div className="max-w-screen-xl mx-auto px-6 py-12">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 w-32 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="h-12 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="h-12 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="h-48 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+        </div>
+      </div>
     )
   }
 
   if (!post) {
     return (
-      <>
-        <Navigation />
-        <main className="min-h-screen pt-20 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="text-center">
-            <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
-              게시글을 찾을 수 없습니다
-            </h1>
-            <Link
-              href="/community"
-              className="text-sm hover:underline"
-              style={{ color: 'var(--accent-color)' }}
-            >
-              목록으로 돌아가기
-            </Link>
-          </div>
-        </main>
-      </>
+      <div className="flex items-center justify-center py-24">
+        <div className="text-center">
+          <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
+            게시글을 찾을 수 없습니다
+          </h1>
+          <Link
+            href="/community"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--accent-color)' }}
+          >
+            목록으로 돌아가기
+          </Link>
+        </div>
+      </div>
     )
   }
 
   return (
     <>
-      <Navigation />
-      <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-3xl mx-auto px-6 py-12">
+      <div className="max-w-screen-xl mx-auto px-6 py-12">
           {/* 뒤로가기 */}
           <Link
             href={`/community/${id}`}
@@ -134,14 +124,14 @@ export default function EditPostPage() {
                 category: post.category,
                 title: post.title,
                 content: post.content,
+                attachments: post.attachments,
               }}
               onSubmit={handleSubmit}
               isAdmin={isAdminUser}
               isSubmitting={submitting}
             />
           </div>
-        </div>
-      </main>
+      </div>
 
       <Toast
         isOpen={toast.isOpen}

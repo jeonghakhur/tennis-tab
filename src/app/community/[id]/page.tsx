@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { getPost, deletePost, togglePinPost } from '@/lib/community/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
@@ -11,8 +10,9 @@ import { CommentSection } from '@/components/community/CommentSection'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import { ArrowLeft, Eye, PenLine, Trash2, Pin } from 'lucide-react'
-import type { Post, PostCategory } from '@/lib/community/types'
+import Image from 'next/image'
+import { ArrowLeft, Eye, PenLine, Trash2, Pin, Download, FileText, FileSpreadsheet, Presentation, File } from 'lucide-react'
+import type { Post, PostCategory, PostAttachment } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
 import type { UserRole } from '@/lib/supabase/types'
 
@@ -21,6 +21,28 @@ const CATEGORY_VARIANT: Record<PostCategory, BadgeVariant> = {
   FREE: 'secondary',
   INFO: 'purple',
   REVIEW: 'orange',
+}
+
+/** 문서 아이콘 */
+function getDocIcon(name: string) {
+  const ext = name.split('.').pop()?.toLowerCase() ?? ''
+  switch (ext) {
+    case 'pdf': case 'doc': case 'docx': case 'hwp':
+      return <FileText className="w-5 h-5" />
+    case 'xls': case 'xlsx':
+      return <FileSpreadsheet className="w-5 h-5" />
+    case 'ppt': case 'pptx':
+      return <Presentation className="w-5 h-5" />
+    default:
+      return <File className="w-5 h-5" />
+  }
+}
+
+/** 파일 크기 포맷 */
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes}B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`
 }
 
 /** 날짜 포맷 (YYYY.MM.DD HH:mm) */
@@ -102,55 +124,45 @@ export default function PostDetailPage() {
 
   if (loading) {
     return (
-      <>
-        <Navigation />
-        <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="max-w-4xl mx-auto px-6 py-12">
-            <div className="animate-pulse space-y-4">
-              <div className="h-4 w-24 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-              <div className="h-8 w-3/4 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-              <div className="h-4 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-              <div className="h-64 w-full rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-            </div>
-          </div>
-        </main>
-      </>
+      <div className="max-w-screen-xl mx-auto px-6 py-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-4 w-24 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="h-8 w-3/4 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="h-4 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="h-64 w-full rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+        </div>
+      </div>
     )
   }
 
   if (!post) {
     return (
-      <>
-        <Navigation />
-        <main className="min-h-screen pt-20 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="text-center">
-            <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
-              게시글을 찾을 수 없습니다
-            </h1>
-            <Link
-              href="/community"
-              className="text-sm hover:underline"
-              style={{ color: 'var(--accent-color)' }}
-            >
-              목록으로 돌아가기
-            </Link>
-          </div>
-        </main>
-      </>
+      <div className="flex items-center justify-center py-24">
+        <div className="text-center">
+          <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
+            게시글을 찾을 수 없습니다
+          </h1>
+          <Link
+            href="/community"
+            className="text-sm hover:underline"
+            style={{ color: 'var(--accent-color)' }}
+          >
+            목록으로 돌아가기
+          </Link>
+        </div>
+      </div>
     )
   }
 
   return (
     <>
-      <Navigation />
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
-      <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12">
+      <div className="max-w-screen-xl mx-auto px-6 py-6">
           {/* 뒤로가기 */}
           <Link
             href="/community"
-            className="inline-flex items-center gap-1.5 text-sm mb-6 hover:underline"
+            className="inline-flex items-center gap-1.5 text-sm mb-4 hover:underline"
             style={{ color: 'var(--text-muted)' }}
           >
             <ArrowLeft className="w-4 h-4" />
@@ -158,9 +170,9 @@ export default function PostDetailPage() {
           </Link>
 
           {/* 포스트 헤더 */}
-          <article className="glass-card rounded-xl p-6 mb-6">
-            {/* 카테고리 + 고정 */}
-            <div className="flex items-center gap-2 mb-3">
+          <article className="glass-card rounded-xl p-5 mb-5">
+            {/* 카테고리 + 제목 (한 줄) */}
+            <div className="flex items-center gap-2 mb-1.5">
               <Badge variant={CATEGORY_VARIANT[post.category]}>
                 {POST_CATEGORY_LABELS[post.category]}
               </Badge>
@@ -168,83 +180,138 @@ export default function PostDetailPage() {
                 <Pin className="w-4 h-4" style={{ color: 'var(--accent-color)' }} aria-label="고정된 글" />
               )}
             </div>
-
-            {/* 제목 */}
             <h1
-              className="text-2xl font-display mb-3"
+              className="text-xl font-display mb-2"
               style={{ color: 'var(--text-primary)' }}
             >
               {post.title}
             </h1>
 
-            {/* 메타 정보 */}
+            {/* 메타 + 액션 버튼 (한 줄) */}
             <div
-              className="flex items-center gap-3 text-sm mb-4"
-              style={{ color: 'var(--text-muted)' }}
+              className="flex items-center flex-wrap gap-x-3 gap-y-2 text-xs pb-3 mb-4 border-b"
+              style={{ color: 'var(--text-muted)', borderColor: 'var(--border-color)' }}
             >
               <span>{post.author?.name ?? '알 수 없음'}</span>
               <span>{formatDate(post.created_at)}</span>
               <span className="flex items-center gap-1">
-                <Eye className="w-3.5 h-3.5" />
+                <Eye className="w-3 h-3" />
                 {post.view_count}
               </span>
-            </div>
 
-            {/* 액션 버튼 */}
-            {(canModify || isAdminUser) && (
-              <div
-                className="flex items-center gap-2 mb-4 pb-4 border-b"
-                style={{ borderColor: 'var(--border-color)' }}
-              >
-                {canModify && (
-                  <>
-                    <Link
-                      href={`/community/${post.id}/edit`}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-80"
+              {/* 액션 버튼 — 오른쪽 정렬 */}
+              {(canModify || isAdminUser) && (
+                <div className="flex items-center gap-1.5 ml-auto">
+                  {canModify && (
+                    <>
+                      <Link
+                        href={`/community/${post.id}/edit`}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-colors hover:opacity-80"
+                        style={{
+                          backgroundColor: 'var(--bg-card-hover)',
+                          color: 'var(--text-secondary)',
+                        }}
+                      >
+                        <PenLine className="w-3 h-3" />
+                        수정
+                      </Link>
+                      <button
+                        onClick={() => setConfirmDeleteOpen(true)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-colors hover:opacity-80"
+                        style={{
+                          backgroundColor: 'var(--bg-card-hover)',
+                          color: 'var(--court-danger)',
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        삭제
+                      </button>
+                    </>
+                  )}
+                  {isAdminUser && (
+                    <button
+                      onClick={handleTogglePin}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-md font-medium transition-colors hover:opacity-80"
                       style={{
                         backgroundColor: 'var(--bg-card-hover)',
                         color: 'var(--text-secondary)',
                       }}
                     >
-                      <PenLine className="w-3.5 h-3.5" />
-                      수정
-                    </Link>
-                    <button
-                      onClick={() => setConfirmDeleteOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-80"
-                      style={{
-                        backgroundColor: 'var(--bg-card-hover)',
-                        color: 'var(--court-danger)',
-                      }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      삭제
+                      <Pin className="w-3 h-3" />
+                      {post.is_pinned ? '고정 해제' : '고정'}
                     </button>
-                  </>
-                )}
-                {isAdminUser && (
-                  <button
-                    onClick={handleTogglePin}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors hover:opacity-80"
-                    style={{
-                      backgroundColor: 'var(--bg-card-hover)',
-                      color: 'var(--text-secondary)',
-                    }}
-                  >
-                    <Pin className="w-3.5 h-3.5" />
-                    {post.is_pinned ? '고정 해제' : '고정'}
-                  </button>
-                )}
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* 본문 (리치텍스트 HTML) */}
+            <div
+              className="prose prose-sm dark:prose-invert max-w-none"
+              style={{ color: 'var(--text-secondary)' }}
+              dangerouslySetInnerHTML={{ __html: post.content }}
+            />
+
+            {/* 첨부 이미지 */}
+            {post.attachments?.filter((a: PostAttachment) => a.type === 'image').length > 0 && (
+              <div className="mt-6 grid grid-cols-2 gap-3">
+                {post.attachments
+                  .filter((a: PostAttachment) => a.type === 'image')
+                  .map((att: PostAttachment) => (
+                    <a
+                      key={att.url}
+                      href={att.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="relative aspect-[4/3] rounded-lg overflow-hidden block"
+                    >
+                      <Image
+                        src={att.url}
+                        alt={att.name}
+                        fill
+                        className="object-cover hover:scale-105 transition-transform"
+                        unoptimized
+                      />
+                    </a>
+                  ))}
               </div>
             )}
 
-            {/* 본문 */}
-            <div
-              className="text-sm leading-relaxed whitespace-pre-wrap"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {post.content}
-            </div>
+            {/* 첨부 문서 */}
+            {post.attachments?.filter((a: PostAttachment) => a.type === 'document').length > 0 && (
+              <div className="mt-6 space-y-2">
+                <h4
+                  className="text-xs font-medium mb-2"
+                  style={{ color: 'var(--text-muted)' }}
+                >
+                  첨부파일
+                </h4>
+                {post.attachments
+                  .filter((a: PostAttachment) => a.type === 'document')
+                  .map((att: PostAttachment) => (
+                    <a
+                      key={att.url}
+                      href={att.url}
+                      download={att.name}
+                      className="flex items-center gap-3 px-4 py-2.5 rounded-lg hover:opacity-80 transition-opacity"
+                      style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                    >
+                      <span style={{ color: 'var(--text-muted)' }}>
+                        {getDocIcon(att.name)}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm truncate" style={{ color: 'var(--text-primary)' }}>
+                          {att.name}
+                        </p>
+                        <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                          {formatSize(att.size)}
+                        </p>
+                      </div>
+                      <Download className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                    </a>
+                  ))}
+              </div>
+            )}
           </article>
 
           {/* 댓글 영역 */}
@@ -255,8 +322,7 @@ export default function PostDetailPage() {
               isAdmin={isAdminUser}
             />
           </div>
-        </div>
-      </main>
+      </div>
 
       {/* 다이얼로그 */}
       <Toast

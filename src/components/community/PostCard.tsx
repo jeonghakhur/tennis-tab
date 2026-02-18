@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { Eye, MessageCircle, Pin } from 'lucide-react'
+import Image from 'next/image'
+import { Eye, MessageCircle, Pin, Paperclip } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import type { Post, PostCategory } from '@/lib/community/types'
+import type { Post, PostCategory, PostAttachment } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
 
 const CATEGORY_VARIANT: Record<PostCategory, BadgeVariant> = {
@@ -64,7 +65,7 @@ export function PostCard({ post }: PostCardProps) {
             </h3>
           </div>
 
-          {/* 메타 정보: 작성자 + 작성일 + 조회수 + 댓글 수 */}
+          {/* 메타 정보: 작성자 + 작성일 + 조회수 + 댓글 수 + 첨부 */}
           <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
             <span>{post.author?.name ?? '알 수 없음'}</span>
             <span>{formatRelativeTime(post.created_at)}</span>
@@ -76,8 +77,27 @@ export function PostCard({ post }: PostCardProps) {
               <MessageCircle className="w-3 h-3" />
               {post.comment_count}
             </span>
+            {post.attachments?.length > 0 && (
+              <span className="flex items-center gap-1">
+                <Paperclip className="w-3 h-3" />
+                {post.attachments.length}
+              </span>
+            )}
           </div>
         </div>
+
+        {/* 첫 이미지 썸네일 */}
+        {post.attachments?.find((a: PostAttachment) => a.type === 'image') && (
+          <div className="relative w-16 h-16 rounded-lg overflow-hidden shrink-0">
+            <Image
+              src={post.attachments.find((a: PostAttachment) => a.type === 'image')!.url}
+              alt=""
+              fill
+              className="object-cover"
+              unoptimized
+            />
+          </div>
+        )}
       </div>
     </Link>
   )

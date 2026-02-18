@@ -347,10 +347,17 @@ export function validatePostInput(data: {
   } else if (data.title.trim().length > 100) {
     errors.title = '제목은 100자 이내로 입력해주세요.'
   }
+  // content는 HTML(리치텍스트)이므로 빈 값만 검증 (HTML 태그 제외 후 빈 내용 체크)
   if (!data.content || data.content.trim().length === 0) {
     errors.content = '내용을 입력해주세요.'
-  } else if (data.content.trim().length > 5000) {
-    errors.content = '내용은 5000자 이내로 입력해주세요.'
+  } else {
+    // HTML 태그 제거 후 실제 텍스트가 비어있는지 확인
+    const textOnly = data.content.replace(/<[^>]*>/g, '').trim()
+    if (textOnly.length === 0) {
+      errors.content = '내용을 입력해주세요.'
+    } else if (data.content.length > 50000) {
+      errors.content = '내용이 너무 깁니다.'
+    }
   }
 
   return errors

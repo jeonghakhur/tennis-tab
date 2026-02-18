@@ -1,21 +1,40 @@
 'use client'
 
 import { useState, useCallback, useRef } from 'react'
+import dynamic from 'next/dynamic'
 import { AlertDialog } from '@/components/common/AlertDialog'
+import { PostAttachments } from '@/components/community/PostAttachments'
 import {
   validatePostInput,
   hasValidationErrors,
   type PostValidationErrors,
 } from '@/lib/utils/validation'
-import type { PostCategory, CreatePostInput } from '@/lib/community/types'
+import type { PostCategory, PostAttachment, CreatePostInput } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
+
+// RichTextEditor는 TipTap 의존 — SSR 방지를 위해 dynamic import
+const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="h-[300px] rounded-lg animate-pulse"
+      style={{ backgroundColor: 'var(--bg-card-hover)' }}
+    />
+  ),
+})
 
 // 최대 글자 수 상수
 const TITLE_MAX_LENGTH = 100
-const CONTENT_MAX_LENGTH = 5000
 
 // 순차 검증 필드 순서
 const FIELD_ORDER: (keyof PostValidationErrors)[] = ['category', 'title', 'content']
+
+interface PostFormData {
+  category: PostCategory
+  title: string
+  content: string
+  attachments: PostAttachment[]
+}
 
 interface PostFormProps {
   mode: 'create' | 'edit'
@@ -23,6 +42,7 @@ interface PostFormProps {
     category: PostCategory
     title: string
     content: string
+    attachments?: PostAttachment[]
   }
   onSubmit: (data: CreatePostInput) => Promise<void>
   isAdmin?: boolean
@@ -30,17 +50,18 @@ interface PostFormProps {
 }
 
 export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }: PostFormProps) {
-  const [form, setForm] = useState<CreatePostInput>({
+  const [form, setForm] = useState<PostFormData>({
     category: initialData?.category ?? 'FREE',
     title: initialData?.title ?? '',
     content: initialData?.content ?? '',
+    attachments: initialData?.attachments ?? [],
   })
   const [fieldErrors, setFieldErrors] = useState<Partial<PostValidationErrors>>({})
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
   // 에러 필드 자동 포커스용 ref
   const errorFieldRef = useRef<keyof PostValidationErrors | null>(null)
-  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>({})
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({})
 
   const validateForm = useCallback((): boolean => {
     const errors = validatePostInput(form)
@@ -63,7 +84,12 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!validateForm()) return
-    await onSubmit(form)
+    await onSubmit({
+      category: form.category,
+      title: form.title,
+      content: form.content,
+      attachments: form.attachments,
+    })
   }
 
   // 카테고리 옵션: NOTICE는 ADMIN+ 전용
@@ -140,40 +166,36 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
           </p>
         </div>
 
-        {/* 내용 */}
+        {/* 내용 (리치텍스트 에디터) */}
         <div>
           <label
-            htmlFor="post-content"
             className="block text-sm font-medium mb-1.5"
             style={{ color: 'var(--text-primary)' }}
           >
             내용
           </label>
-          <textarea
-            id="post-content"
-            ref={(el) => { fieldRefs.current.content = el }}
+          {fieldErrors.content && (
+            <p className="text-xs text-red-500 mb-1">{fieldErrors.content}</p>
+          )}
+          <RichTextEditor
             value={form.content}
-            onChange={(e) => setForm({ ...form, content: e.target.value })}
-            maxLength={CONTENT_MAX_LENGTH}
-            rows={12}
-            placeholder="내용을 입력해주세요"
-            className={`w-full px-3 py-2.5 rounded-lg text-sm resize-none outline-none ${
-              fieldErrors.content
-                ? 'border-2 border-red-500'
-                : 'border border-(--border-color) focus:border-(--accent-color)'
-            }`}
-            style={{
-              backgroundColor: 'var(--bg-input)',
-              color: 'var(--text-primary)',
-            }}
+            onChange={(html) => setForm({ ...form, content: html })}
+            placeholder="내용을 입력해주세요..."
           />
-          <p
-            className="text-xs mt-1 text-right"
-            style={{ color: 'var(--text-muted)' }}
-            aria-live="polite"
+        </div>
+
+        {/* 첨부파일 (이미지 + 문서) */}
+        <div>
+          <label
+            className="block text-sm font-medium mb-1.5"
+            style={{ color: 'var(--text-primary)' }}
           >
-            {form.content.length} / {CONTENT_MAX_LENGTH}
-          </p>
+            첨부파일 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
+          </label>
+          <PostAttachments
+            value={form.attachments}
+            onChange={(attachments) => setForm({ ...form, attachments })}
+          />
         </div>
 
         {/* 제출 버튼 */}
@@ -200,7 +222,7 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
         onClose={() => {
           setAlert({ ...alert, isOpen: false })
           const key = errorFieldRef.current
-          if (key) {
+          if (key && fieldRefs.current[key]) {
             fieldRefs.current[key]?.focus()
             errorFieldRef.current = null
           }
