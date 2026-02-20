@@ -1,244 +1,250 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
-import { getPosts } from '@/lib/community/actions'
+import { getPostsFeed } from '@/lib/community/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
-import { PostCard } from '@/components/community/PostCard'
-import { Search, PenLine } from 'lucide-react'
-import type { Post, PostCategory } from '@/lib/community/types'
-import { POST_CATEGORY_LABELS } from '@/lib/community/types'
+import { FeedCard } from '@/components/community/FeedCard'
+import { PenLine, Loader2, Search } from 'lucide-react'
+import { seedPosts } from '@/lib/community/seed'
+import type { Post } from '@/lib/community/types'
 import type { UserRole } from '@/lib/supabase/types'
 
-// 페이지당 게시글 수
-const PAGE_SIZE = 20
-
-// 카테고리 탭 (전체 포함)
-const CATEGORY_TABS: { key: PostCategory | 'ALL'; label: string }[] = [
-  { key: 'ALL', label: '전체' },
-  { key: 'NOTICE', label: POST_CATEGORY_LABELS.NOTICE },
-  { key: 'FREE', label: POST_CATEGORY_LABELS.FREE },
-  { key: 'INFO', label: POST_CATEGORY_LABELS.INFO },
-  { key: 'REVIEW', label: POST_CATEGORY_LABELS.REVIEW },
-]
+const isDev = process.env.NODE_ENV === 'development'
+const FEED_LIMIT = 5
 
 export default function CommunityPage() {
-  const { profile } = useAuth()
+  const { user, profile } = useAuth()
   const canWrite = hasMinimumRole(profile?.role as UserRole, 'MANAGER')
+  const isLoggedIn = !!user
 
   const [posts, setPosts] = useState<Post[]>([])
-  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
-  const [page, setPage] = useState(1)
-  const [category, setCategory] = useState<PostCategory | 'ALL'>('ALL')
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [nextCursor, setNextCursor] = useState<string | null>(null)
 
   // 검색 디바운스
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(searchInput)
-      setPage(1) // 검색 시 첫 페이지로
-    }, 300)
+    const timer = setTimeout(() => setSearch(searchInput), 300)
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  const loadPosts = useCallback(async () => {
+  // 무한 스크롤 감지 엘리먼트
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // 초기 로드 (검색어 변경 시에도 재실행)
+  const loadInitial = useCallback(async () => {
     setLoading(true)
-    const result = await getPosts({
-      category: category === 'ALL' ? undefined : category,
-      page,
-      limit: PAGE_SIZE,
-      search: search || undefined,
-    })
+    const result = await getPostsFeed({ limit: FEED_LIMIT, search: search || undefined })
     if (!result.error) {
       setPosts(result.data)
-      setTotal(result.total)
+      setNextCursor(result.nextCursor)
     }
     setLoading(false)
-  }, [category, page, search])
+  }, [search])
 
   useEffect(() => {
-    loadPosts()
-  }, [loadPosts])
+    loadInitial()
+  }, [loadInitial])
 
-  const totalPages = Math.ceil(total / PAGE_SIZE)
+  // 추가 로드
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    const result = await getPostsFeed({ cursor: nextCursor, limit: FEED_LIMIT, search: search || undefined })
+    if (!result.error) {
+      setPosts((prev) => [...prev, ...result.data])
+      setNextCursor(result.nextCursor)
+    }
+    setLoadingMore(false)
+  }, [nextCursor, loadingMore])
 
-  // 카테고리 변경 시 첫 페이지로
-  const handleCategoryChange = (cat: PostCategory | 'ALL') => {
-    setCategory(cat)
-    setPage(1)
-  }
+  // IntersectionObserver로 무한 스크롤
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    if (!sentinel) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && nextCursor && !loadingMore) {
+          loadMore()
+        }
+      },
+      { rootMargin: '200px' }
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [nextCursor, loadingMore, loadMore])
 
   return (
     <div className="max-w-screen-xl mx-auto px-6 py-12">
-          {/* 헤더 */}
-          <div className="flex items-center justify-between mb-8">
-            <div>
-              <h1
-                className="text-3xl font-display mb-2"
-                style={{ color: 'var(--text-primary)' }}
-              >
-                커뮤니티
-              </h1>
-              <p style={{ color: 'var(--text-muted)' }}>
-                테니스 관련 정보와 이야기를 공유해보세요.
-              </p>
-            </div>
-            {canWrite && (
-              <Link
-                href="/community/new"
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all hover:opacity-90"
-                style={{
-                  backgroundColor: 'var(--accent-color)',
-                  color: 'var(--bg-primary)',
-                }}
-              >
-                <PenLine className="w-4 h-4" />
-                글쓰기
-              </Link>
-            )}
-          </div>
-
-          {/* 카테고리 탭 */}
-          <div
-            className="flex gap-1 mb-6 overflow-x-auto pb-1"
-            role="tablist"
-            aria-label="카테고리 필터"
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1
+            className="text-3xl font-display mb-2"
+            style={{ color: 'var(--text-primary)' }}
           >
-            {CATEGORY_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                role="tab"
-                aria-selected={category === tab.key}
-                onClick={() => handleCategoryChange(tab.key)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  category === tab.key
-                    ? 'text-white'
-                    : 'hover:opacity-80'
-                }`}
-                style={{
-                  backgroundColor: category === tab.key ? 'var(--accent-color)' : 'var(--bg-card-hover)',
-                  color: category === tab.key ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                }}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
+            커뮤니티
+          </h1>
+          <p style={{ color: 'var(--text-muted)' }}>
+            테니스 관련 정보와 이야기를 공유해보세요.
+          </p>
+        </div>
+        {canWrite && (
+          <Link
+            href="/community/new"
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all hover:opacity-90"
+            style={{
+              backgroundColor: 'var(--accent-color)',
+              color: 'var(--bg-primary)',
+            }}
+          >
+            <PenLine className="w-4 h-4" />
+            글쓰기
+          </Link>
+        )}
+      </div>
 
-          {/* 검색 */}
-          <div className="relative mb-6">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-              style={{ color: 'var(--text-muted)' }}
-            />
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="제목 또는 내용으로 검색..."
-              aria-label="게시글 검색"
-              className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none border border-(--border-color) focus:border-(--accent-color)"
-              style={{
-                backgroundColor: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
+      {/* 검색 */}
+      <div className="relative mb-6">
+        <Search
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+          style={{ color: 'var(--text-muted)' }}
+        />
+        <input
+          type="text"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          placeholder="제목 또는 내용으로 검색..."
+          aria-label="게시글 검색"
+          className="w-full pl-10 pr-3 py-2.5 rounded-lg text-sm outline-none border border-(--border-color) focus:border-(--accent-color)"
+          style={{
+            backgroundColor: 'var(--bg-input)',
+            color: 'var(--text-primary)',
+          }}
+        />
+      </div>
 
-          {/* 포스트 목록 */}
-          {loading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="glass-card rounded-xl p-5 animate-pulse">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="h-5 w-16 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-                    <div className="h-5 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-                  </div>
-                  <div className="h-3 w-36 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+      {/* DEV: 더미 데이터 시드 */}
+      {isDev && posts.length === 0 && !loading && (
+        <div className="mb-4 p-3 rounded-lg border border-dashed border-amber-500/30 bg-amber-500/5">
+          <button
+            type="button"
+            onClick={async () => {
+              const result = await seedPosts()
+              if (result.error) {
+                alert(result.error)
+              } else {
+                alert(`${result.count}개 포스트 시드 완료`)
+                loadInitial()
+              }
+            }}
+            className="text-sm font-medium text-amber-600 dark:text-amber-400"
+          >
+            DEV: 더미 포스트 20개 시드
+          </button>
+        </div>
+      )}
+
+      {/* 피드 */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="glass-card rounded-xl animate-pulse">
+              {/* 헤더 스켈레톤 */}
+              <div className="flex items-center gap-3 px-4 py-3">
+                <div
+                  className="w-9 h-9 rounded-full"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                />
+                <div className="flex-1 space-y-1.5">
+                  <div
+                    className="h-3.5 w-24 rounded"
+                    style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                  />
                 </div>
-              ))}
+              </div>
+              {/* 본문 스켈레톤 */}
+              <div className="px-4 pb-3 space-y-2">
+                <div
+                  className="h-4 w-3/4 rounded"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                />
+                <div
+                  className="h-3 w-full rounded"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                />
+                <div
+                  className="h-3 w-2/3 rounded"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                />
+              </div>
+              {/* 이미지 스켈레톤 */}
+              <div
+                className="w-full"
+                style={{
+                  aspectRatio: '4/3',
+                  backgroundColor: 'var(--bg-card-hover)',
+                }}
+              />
+              {/* 액션바 스켈레톤 */}
+              <div className="flex gap-5 px-4 py-3">
+                <div
+                  className="h-4 w-12 rounded"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                />
+                <div
+                  className="h-4 w-12 rounded"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                />
+              </div>
             </div>
-          ) : posts.length === 0 ? (
-            <div className="glass-card rounded-xl p-12 text-center">
-              <p className="text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
-                {search ? '검색 결과가 없습니다' : '아직 작성된 글이 없습니다'}
-              </p>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                {search ? '다른 검색어를 시도해보세요.' : '첫 번째 글을 작성해보세요.'}
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              {posts.map((post) => (
-                <PostCard key={post.id} post={post} />
-              ))}
-            </div>
-          )}
+          ))}
+        </div>
+      ) : posts.length === 0 ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <p className="text-lg mb-2" style={{ color: 'var(--text-primary)' }}>
+            {search ? '검색 결과가 없습니다' : '아직 작성된 글이 없습니다'}
+          </p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {search ? '다른 검색어를 시도해보세요.' : '첫 번째 글을 작성해보세요.'}
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          {posts.map((post) => (
+            <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
+          ))}
+        </div>
+      )}
 
-          {/* 페이지네이션 */}
-          {totalPages > 1 && (
-            <nav
-              className="flex justify-center items-center gap-2 mt-8"
-              aria-label="페이지 네비게이션"
-            >
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: 'var(--bg-card-hover)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                이전
-              </button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1)
-                .filter((p) => {
-                  // 현재 페이지 주변 2개만 표시
-                  return Math.abs(p - page) <= 2 || p === 1 || p === totalPages
-                })
-                .map((p, idx, arr) => {
-                  // 생략 표시
-                  const prev = arr[idx - 1]
-                  const showEllipsis = prev !== undefined && p - prev > 1
-                  return (
-                    <span key={p} className="flex items-center">
-                      {showEllipsis && (
-                        <span className="px-1" style={{ color: 'var(--text-muted)' }}>...</span>
-                      )}
-                      <button
-                        onClick={() => setPage(p)}
-                        aria-current={p === page ? 'page' : undefined}
-                        className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
-                          p === page ? 'text-white' : ''
-                        }`}
-                        style={{
-                          backgroundColor: p === page ? 'var(--accent-color)' : 'var(--bg-card-hover)',
-                          color: p === page ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                        }}
-                      >
-                        {p}
-                      </button>
-                    </span>
-                  )
-                })}
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="px-3 py-2 rounded-lg text-sm transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
-                style={{
-                  backgroundColor: 'var(--bg-card-hover)',
-                  color: 'var(--text-secondary)',
-                }}
-              >
-                다음
-              </button>
-            </nav>
-          )}
+      {/* 무한 스크롤 sentinel */}
+      <div ref={sentinelRef} className="h-1" />
+
+      {/* 추가 로딩 스피너 */}
+      {loadingMore && (
+        <div className="flex justify-center py-6">
+          <Loader2
+            className="w-6 h-6 animate-spin"
+            style={{ color: 'var(--text-muted)' }}
+          />
+        </div>
+      )}
+
+      {/* 끝 표시 */}
+      {!loading && !nextCursor && posts.length > 0 && (
+        <p
+          className="text-center text-sm py-6"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          모든 게시글을 불러왔습니다
+        </p>
+      )}
     </div>
   )
 }

@@ -26,11 +26,14 @@ export interface Post {
   author_id: string
   view_count: number
   comment_count: number
+  like_count: number
   is_pinned: boolean
   created_at: string
   updated_at: string
   // JOIN 결과
   author?: { name: string; avatar_url: string | null }
+  // 현재 유저 좋아요 여부 (피드 조회 시)
+  is_liked?: boolean
 }
 
 export interface PostComment {

@@ -351,3 +351,101 @@ export async function deleteComment(
   revalidatePath(`/community/${postId}`)
   return {}
 }
+
+// ============================================================================
+// 피드 (무한 스크롤) + 좋아요
+// ============================================================================
+
+/** cursor 기반 피드 조회 (무한 스크롤) */
+export async function getPostsFeed(options?: {
+  cursor?: string // 마지막 포스트의 created_at
+  limit?: number
+  search?: string
+}): Promise<{ data: Post[]; nextCursor: string | null; error?: string }> {
+  const admin = createAdminClient()
+  const limit = options?.limit ?? 5
+
+  // 현재 로그인 유저 (좋아요 여부 체크용, 비로그인도 허용)
+  const user = await getCurrentUser().catch(() => null)
+
+  let query = admin
+    .from('posts')
+    .select('*, author:profiles!author_id(name, avatar_url)')
+    .order('is_pinned', { ascending: false })
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (options?.cursor) {
+    query = query.lt('created_at', options.cursor)
+  }
+
+  if (options?.search) {
+    query = query.or(`title.ilike.%${options.search}%,content.ilike.%${options.search}%`)
+  }
+
+  const { data, error } = await query
+
+  if (error) return { data: [], nextCursor: null, error: error.message }
+
+  const posts = (data ?? []) as Post[]
+
+  // 좋아요 여부 조회 (로그인 유저만)
+  if (user && posts.length > 0) {
+    const postIds = posts.map((p) => p.id)
+    const { data: likes } = await admin
+      .from('post_likes')
+      .select('post_id')
+      .eq('user_id', user.id)
+      .in('post_id', postIds)
+
+    const likedSet = new Set((likes ?? []).map((l) => l.post_id))
+    for (const post of posts) {
+      post.is_liked = likedSet.has(post.id)
+    }
+  }
+
+  // 다음 cursor: 마지막 포스트의 created_at (limit만큼 가져왔으면 더 있을 수 있음)
+  const nextCursor = posts.length === limit ? posts[posts.length - 1].created_at : null
+
+  return { data: posts, nextCursor }
+}
+
+/** 좋아요 토글 */
+export async function toggleLike(
+  postId: string
+): Promise<{ liked: boolean; likeCount: number; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user) return { liked: false, likeCount: 0, error: '로그인이 필요합니다.' }
+
+  const idErr = validateId(postId, '포스트 ID')
+  if (idErr) return { liked: false, likeCount: 0, error: idErr }
+
+  const admin = createAdminClient()
+
+  // 현재 좋아요 여부 확인
+  const { data: existing } = await admin
+    .from('post_likes')
+    .select('id')
+    .eq('post_id', postId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existing) {
+    // 좋아요 취소
+    await admin.from('post_likes').delete().eq('id', existing.id)
+  } else {
+    // 좋아요 추가
+    await admin.from('post_likes').insert({ post_id: postId, user_id: user.id })
+  }
+
+  // like_count 동기화: 실제 카운트
+  const { count } = await admin
+    .from('post_likes')
+    .select('id', { count: 'exact', head: true })
+    .eq('post_id', postId)
+
+  const likeCount = count ?? 0
+  await admin.from('posts').update({ like_count: likeCount }).eq('id', postId)
+
+  return { liked: !existing, likeCount }
+}

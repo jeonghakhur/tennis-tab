@@ -12,6 +12,7 @@ import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDial
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import { ImageLightbox } from '@/components/common/ImageLightbox'
 import Image from 'next/image'
+import { KakaoShareButton } from '@/components/community/KakaoShareButton'
 import { ArrowLeft, Eye, PenLine, Trash2, Pin, Download, FileText, FileSpreadsheet, Presentation, File } from 'lucide-react'
 import type { Post, PostCategory, PostAttachment } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
@@ -254,6 +255,14 @@ export default function PostDetailPage() {
                 <Eye className="w-3 h-3" />
                 {post.view_count}
               </span>
+
+              {/* 카카오톡 공유 */}
+              <KakaoShareButton
+                title={post.title}
+                content={post.content}
+                imageUrl={post.attachments?.find((a: PostAttachment) => a.type === 'image')?.url}
+                postId={post.id}
+              />
 
               {/* 액션 버튼 — 오른쪽 정렬 */}
               {(canModify || isAdminUser) && (
