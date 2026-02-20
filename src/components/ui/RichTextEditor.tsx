@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -13,6 +13,7 @@ import TableCell from '@tiptap/extension-table-cell';
 import TableHeader from '@tiptap/extension-table-header';
 import TextAlign from '@tiptap/extension-text-align';
 import Underline from '@tiptap/extension-underline';
+import Image from '@tiptap/extension-image';
 import { Extension } from '@tiptap/core';
 
 // 폰트 사이즈 확장
@@ -105,6 +106,8 @@ interface RichTextEditorProps {
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
+  /** 이미지 업로드 콜백 — 부모가 주입. 성공 시 URL, 실패 시 null 반환 */
+  onImageUpload?: (file: File) => Promise<string | null>;
 }
 
 const TEXT_COLORS = [
@@ -152,15 +155,20 @@ function MenuBar({
   editor,
   isHtmlMode,
   onToggleHtmlMode,
+  onImageUpload,
+  isUploading,
 }: {
   editor: Editor | null;
   isHtmlMode: boolean;
   onToggleHtmlMode: () => void;
+  onImageUpload?: (file: File) => Promise<void>;
+  isUploading?: boolean;
 }) {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showBgColorPicker, setShowBgColorPicker] = useState(false);
   const [showFontSize, setShowFontSize] = useState(false);
   const [showLineHeight, setShowLineHeight] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
 
   if (!editor) return null;
 
@@ -536,6 +544,46 @@ function MenuBar({
           </>
         )}
 
+        <Divider />
+
+        {/* 이미지 삽입 */}
+        {onImageUpload && (
+          <>
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              disabled={isUploading}
+              className={buttonClass(false)}
+              title="이미지 삽입"
+            >
+              {isUploading ? (
+                <span className="flex items-center gap-1">
+                  <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  업로드중
+                </span>
+              ) : (
+                '🖼 이미지'
+              )}
+            </button>
+            <input
+              ref={imageInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={async (e) => {
+                const file = e.target.files?.[0];
+                if (!file) return;
+                // input 초기화 (같은 파일 재선택 가능)
+                e.target.value = '';
+                await onImageUpload(file);
+              }}
+            />
+          </>
+        )}
+
         <div className="flex-1" />
 
         {/* HTML 모드 토글 */}
@@ -556,9 +604,31 @@ export default function RichTextEditor({
   value = '',
   onChange,
   placeholder = '내용을 입력하세요...',
+  onImageUpload,
 }: RichTextEditorProps) {
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [htmlContent, setHtmlContent] = useState(value);
+  const [isUploading, setIsUploading] = useState(false);
+
+  // ref로 최신 콜백/인스턴스를 유지 — editorProps 핸들러에서 안전하게 참조
+  const onImageUploadRef = useRef(onImageUpload);
+  onImageUploadRef.current = onImageUpload;
+  const editorRef = useRef<Editor | null>(null);
+
+  /** 이미지 파일 → 업로드 → URL로 삽입하는 공통 핸들러 */
+  const handleImageFile = useCallback(async (file: File) => {
+    const ed = editorRef.current;
+    if (!ed || !onImageUploadRef.current) return;
+    setIsUploading(true);
+    try {
+      const url = await onImageUploadRef.current(file);
+      if (url) {
+        ed.chain().focus().setImage({ src: url }).run();
+      }
+    } finally {
+      setIsUploading(false);
+    }
+  }, []);
 
   const editor = useEditor({
     extensions: [
@@ -575,6 +645,7 @@ export default function RichTextEditor({
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       FontSize,
       LineHeight,
+      Image.configure({ inline: true, allowBase64: false }),
     ],
     content: value,
     immediatelyRender: false,
@@ -583,7 +654,40 @@ export default function RichTextEditor({
       setHtmlContent(html);
       onChange?.(html);
     },
+    editorProps: {
+      // 클립보드 이미지 붙여넣기 가로채기
+      handlePaste: (_view, event) => {
+        const items = event.clipboardData?.items;
+        if (!items || !onImageUploadRef.current) return false;
+
+        for (const item of Array.from(items)) {
+          if (item.type.startsWith('image/')) {
+            const file = item.getAsFile();
+            if (file) {
+              handleImageFile(file);
+              return true;
+            }
+          }
+        }
+        return false;
+      },
+      // 드래그앤드롭 이미지 가로채기
+      handleDrop: (_view, event) => {
+        const files = event.dataTransfer?.files;
+        if (!files?.length || !onImageUploadRef.current) return false;
+
+        const imageFile = Array.from(files).find((f) => f.type.startsWith('image/'));
+        if (imageFile) {
+          handleImageFile(imageFile);
+          return true;
+        }
+        return false;
+      },
+    },
   });
+
+  // editor 인스턴스를 ref에 저장 — paste/drop 핸들러에서 참조
+  editorRef.current = editor;
 
   const handleToggleHtmlMode = useCallback(() => {
     if (isHtmlMode && editor) {
@@ -604,7 +708,13 @@ export default function RichTextEditor({
 
   return (
     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
-      <MenuBar editor={editor} isHtmlMode={isHtmlMode} onToggleHtmlMode={handleToggleHtmlMode} />
+      <MenuBar
+        editor={editor}
+        isHtmlMode={isHtmlMode}
+        onToggleHtmlMode={handleToggleHtmlMode}
+        onImageUpload={onImageUpload ? handleImageFile : undefined}
+        isUploading={isUploading}
+      />
 
       {isHtmlMode ? (
         <textarea
@@ -707,6 +817,12 @@ export default function RichTextEditor({
         .tiptap mark {
           border-radius: 0.25rem;
           padding: 0.125rem 0.25rem;
+        }
+        .tiptap img {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.5rem;
+          margin: 0.5rem 0;
         }
       `}</style>
     </div>

@@ -9,6 +9,7 @@ import {
   hasValidationErrors,
   type PostValidationErrors,
 } from '@/lib/utils/validation'
+import { uploadFile } from '@/lib/storage/actions'
 import type { PostCategory, PostAttachment, CreatePostInput } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
 
@@ -23,8 +24,10 @@ const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
   ),
 })
 
-// 최대 글자 수 상수
+// 상수
 const TITLE_MAX_LENGTH = 100
+const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+const EDITOR_IMAGE_MAX_SIZE = 10 * 1024 * 1024 // 10MB
 
 // 순차 검증 필드 순서
 const FIELD_ORDER: (keyof PostValidationErrors)[] = ['category', 'title', 'content']
@@ -91,6 +94,31 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
       attachments: form.attachments,
     })
   }
+
+  /** 에디터 본문 이미지 업로드 핸들러 */
+  const handleEditorImageUpload = useCallback(async (file: File): Promise<string | null> => {
+    // 클라이언트 사전 검증
+    if (!IMAGE_MIME_TYPES.includes(file.type)) {
+      setAlert({ isOpen: true, message: 'JPG, PNG, WebP, GIF 이미지만 삽입할 수 있습니다.', type: 'error' })
+      return null
+    }
+    if (file.size > EDITOR_IMAGE_MAX_SIZE) {
+      setAlert({ isOpen: true, message: '이미지 크기는 10MB 이하여야 합니다.', type: 'error' })
+      return null
+    }
+
+    const formData = new FormData()
+    formData.append('file', file)
+    formData.append('bucket', 'posts')
+    formData.append('folder', 'images')
+
+    const result = await uploadFile(formData)
+    if (result.error) {
+      setAlert({ isOpen: true, message: `이미지 업로드 실패: ${result.error}`, type: 'error' })
+      return null
+    }
+    return result.url
+  }, [])
 
   // 카테고리 옵션: NOTICE는 ADMIN+ 전용
   const categoryOptions = Object.entries(POST_CATEGORY_LABELS).filter(
@@ -181,6 +209,7 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
             value={form.content}
             onChange={(html) => setForm({ ...form, content: html })}
             placeholder="내용을 입력해주세요..."
+            onImageUpload={handleEditorImageUpload}
           />
         </div>
 

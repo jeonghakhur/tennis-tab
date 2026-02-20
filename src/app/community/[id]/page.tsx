@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
@@ -10,6 +10,7 @@ import { CommentSection } from '@/components/community/CommentSection'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
+import { ImageLightbox } from '@/components/common/ImageLightbox'
 import Image from 'next/image'
 import { ArrowLeft, Eye, PenLine, Trash2, Pin, Download, FileText, FileSpreadsheet, Presentation, File } from 'lucide-react'
 import type { Post, PostCategory, PostAttachment } from '@/lib/community/types'
@@ -68,6 +69,10 @@ export default function PostDetailPage() {
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false)
+  const [lightbox, setLightbox] = useState({ isOpen: false, index: 0 })
+
+  // 본문 내용을 감싸는 ref — 인라인 이미지 클릭 이벤트 위임용
+  const contentRef = useRef<HTMLDivElement>(null)
 
   const isAdminUser = hasMinimumRole(profile?.role as UserRole, 'ADMIN')
   const isOwner = user && post?.author_id === user.id
@@ -102,6 +107,57 @@ export default function PostDetailPage() {
     // Toast 표시 후 이동
     setTimeout(() => router.push('/community'), 500)
   }
+
+  // 모든 이미지 수집: 본문 인라인 이미지 + 첨부 이미지
+  const allImages = useMemo(() => {
+    if (!post) return []
+    const imgs: { src: string; alt?: string }[] = []
+
+    // 1) 본문 HTML에서 <img> src 추출
+    if (post.content) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(post.content, 'text/html')
+      doc.querySelectorAll('img').forEach((img) => {
+        if (img.src) imgs.push({ src: img.src, alt: img.alt || '본문 이미지' })
+      })
+    }
+
+    // 2) 첨부 이미지
+    post.attachments
+      ?.filter((a: PostAttachment) => a.type === 'image')
+      .forEach((att: PostAttachment) => {
+        // 본문에 이미 포함된 URL은 중복 제거
+        if (!imgs.some((img) => img.src === att.url)) {
+          imgs.push({ src: att.url, alt: att.name })
+        }
+      })
+
+    return imgs
+  }, [post])
+
+  // 특정 이미지 URL로 라이트박스 열기
+  const openLightbox = useCallback((src: string) => {
+    const idx = allImages.findIndex((img) => img.src === src)
+    setLightbox({ isOpen: true, index: idx >= 0 ? idx : 0 })
+  }, [allImages])
+
+  // 본문 인라인 이미지 클릭 — 이벤트 위임
+  useEffect(() => {
+    const el = contentRef.current
+    if (!el) return
+
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (target.tagName === 'IMG') {
+        e.preventDefault()
+        const src = (target as HTMLImageElement).src
+        openLightbox(src)
+      }
+    }
+
+    el.addEventListener('click', handleClick)
+    return () => el.removeEventListener('click', handleClick)
+  }, [openLightbox])
 
   const handleTogglePin = async () => {
     if (!post) return
@@ -247,32 +303,34 @@ export default function PostDetailPage() {
 
             {/* 본문 (리치텍스트 HTML) */}
             <div
-              className="prose prose-sm dark:prose-invert max-w-none"
+              ref={contentRef}
+              className="prose prose-sm dark:prose-invert max-w-none [&_img]:cursor-pointer [&_img]:rounded-lg [&_img]:max-w-full"
               style={{ color: 'var(--text-secondary)' }}
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 
-            {/* 첨부 이미지 */}
+            {/* 첨부 이미지 — 세로 순차 배치, 클릭 시 라이트박스 */}
             {post.attachments?.filter((a: PostAttachment) => a.type === 'image').length > 0 && (
-              <div className="mt-6 grid grid-cols-2 gap-3">
+              <div className="mt-6 space-y-3">
                 {post.attachments
                   .filter((a: PostAttachment) => a.type === 'image')
                   .map((att: PostAttachment) => (
-                    <a
+                    <button
                       key={att.url}
-                      href={att.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="relative aspect-[4/3] rounded-lg overflow-hidden block"
+                      type="button"
+                      onClick={() => openLightbox(att.url)}
+                      className="block w-full rounded-lg overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2"
+                      style={{ focusRingColor: 'var(--accent-color)' } as React.CSSProperties}
                     >
                       <Image
                         src={att.url}
                         alt={att.name}
-                        fill
-                        className="object-cover hover:scale-105 transition-transform"
+                        width={800}
+                        height={600}
+                        className="w-full h-auto object-contain rounded-lg"
                         unoptimized
                       />
-                    </a>
+                    </button>
                   ))}
               </div>
             )}
@@ -344,6 +402,14 @@ export default function PostDetailPage() {
         title="게시글 삭제"
         message="이 게시글을 삭제하시겠습니까? 삭제된 글은 복구할 수 없습니다."
         type="warning"
+      />
+
+      {/* 이미지 라이트박스 (캐러셀 + 확대/축소) */}
+      <ImageLightbox
+        images={allImages}
+        initialIndex={lightbox.index}
+        isOpen={lightbox.isOpen}
+        onClose={() => setLightbox({ ...lightbox, isOpen: false })}
       />
     </>
   )
