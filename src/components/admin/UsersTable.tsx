@@ -7,13 +7,20 @@ import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS, isSuperAdmin, isAdmin } from '@/lib/auth/roles'
 import { changeUserRole } from '@/lib/auth/admin'
 import { AlertDialog, Toast } from '@/components/common/AlertDialog'
+import { Badge } from '@/components/common/Badge'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
+
+interface ClubRoleInfo {
+  clubName: string
+  role: string
+}
 
 interface UsersTableProps {
   users: Profile[]
   currentUserId: string
   currentUserRole: UserRole
+  clubRoleMap?: Record<string, ClubRoleInfo[]>
 }
 
 type SortField = 'name' | 'email' | 'role' | 'created_at'
@@ -21,10 +28,16 @@ type SortOrder = 'asc' | 'desc'
 
 const roles: UserRole[] = ['RESTRICTED', 'USER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
 
+const CLUB_ROLE_LABEL: Record<string, string> = {
+  OWNER: '회장',
+  ADMIN: '총무',
+}
+
 export function UsersTable({
   users,
   currentUserId,
   currentUserRole,
+  clubRoleMap = {},
 }: UsersTableProps) {
   // 서버에서 받은 props를 로컬 상태로 관리 (즉시 UI 반영용)
   const [localUsers, setLocalUsers] = useState(users)
@@ -326,7 +339,19 @@ export function UsersTable({
                         <p className="text-(--text-secondary)">
                           {user.club || '-'}
                         </p>
-                        {user.club_city && (
+                        {clubRoleMap[user.id] && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {clubRoleMap[user.id].map((cr, idx) => (
+                              <Badge
+                                key={idx}
+                                variant={cr.role === 'OWNER' ? 'warning' : 'info'}
+                              >
+                                {cr.clubName} {CLUB_ROLE_LABEL[cr.role] ?? cr.role}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                        {!clubRoleMap[user.id] && user.club_city && (
                           <p className="text-xs text-(--text-muted)">
                             {user.club_city} {user.club_district}
                           </p>

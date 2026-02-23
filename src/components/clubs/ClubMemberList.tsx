@@ -37,9 +37,9 @@ interface ClubMemberListProps {
 type MemberFilter = 'all' | 'registered' | 'unregistered' | 'removed'
 
 const ROLE_BADGE: Record<ClubMemberRole, { label: string; variant: BadgeVariant }> = {
-  OWNER: { label: 'OWNER', variant: 'warning' },
-  ADMIN: { label: 'ADMIN', variant: 'info' },
-  MEMBER: { label: 'MEMBER', variant: 'secondary' },
+  OWNER: { label: '회장', variant: 'warning' },
+  ADMIN: { label: '총무', variant: 'info' },
+  MEMBER: { label: '회원', variant: 'secondary' },
 }
 
 const GENDER_LABEL: Record<GenderType, string> = { MALE: '남성', FEMALE: '여성' }
@@ -407,8 +407,8 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                       onChange={(e) => handleRoleChange(member, e.target.value as ClubMemberRole)}
                       className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none"
                     >
-                      <option value="ADMIN">ADMIN</option>
-                      <option value="MEMBER">MEMBER</option>
+                      <option value="ADMIN">총무</option>
+                      <option value="MEMBER">회원</option>
                     </select>
                     {/* 제거 */}
                     <button

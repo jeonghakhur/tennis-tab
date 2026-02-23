@@ -28,6 +28,24 @@ export default async function AdminUsersPage() {
     .select('*')
     .order('created_at', { ascending: false })
 
+  // 클럽 회장/총무 정보 조회
+  const { data: clubRoles } = await supabase
+    .from('club_members')
+    .select('user_id, role, clubs(name)')
+    .in('role', ['OWNER', 'ADMIN'])
+    .eq('is_registered', true)
+    .not('user_id', 'is', null)
+
+  // user_id → [{club_name, role}] 맵 생성
+  const clubRoleMap: Record<string, Array<{ clubName: string; role: string }>> = {}
+  for (const cr of clubRoles ?? []) {
+    if (!cr.user_id) continue
+    const clubs = cr.clubs as unknown as { name: string } | null
+    const clubName = clubs?.name ?? ''
+    if (!clubRoleMap[cr.user_id]) clubRoleMap[cr.user_id] = []
+    clubRoleMap[cr.user_id].push({ clubName, role: cr.role })
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -45,6 +63,7 @@ export default async function AdminUsersPage() {
         users={users ?? []}
         currentUserId={user.id}
         currentUserRole={currentProfile?.role ?? 'USER'}
+        clubRoleMap={clubRoleMap}
       />
     </div>
   )
