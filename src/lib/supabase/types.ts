@@ -602,7 +602,7 @@ export interface Database {
           is_registered: boolean
           is_primary: boolean
           name: string
-          birth_date: string | null
+          birth_year: string | null
           gender: string | null
           phone: string | null
           start_year: string | null
@@ -622,7 +622,7 @@ export interface Database {
           is_registered?: boolean
           is_primary?: boolean
           name: string
-          birth_date?: string | null
+          birth_year?: string | null
           gender?: string | null
           phone?: string | null
           start_year?: string | null
@@ -642,7 +642,7 @@ export interface Database {
           is_registered?: boolean
           is_primary?: boolean
           name?: string
-          birth_date?: string | null
+          birth_year?: string | null
           gender?: string | null
           phone?: string | null
           start_year?: string | null

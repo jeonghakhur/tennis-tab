@@ -261,20 +261,20 @@ export function validateClubInput(data: {
 
 export interface MemberValidationErrors {
   name?: string
-  birth_date?: string
+  birth_year?: string
   phone?: string
   start_year?: string
   rating?: string
 }
 
-const BIRTH_DATE_REGEX = /^\d{4}-(0[1-9]|1[0-2])$/
+const YEAR_REGEX = /^\d{4}$/
 const START_YEAR_REGEX = /^\d{4}$/
 const CURRENT_YEAR = new Date().getFullYear()
 
 /** 비가입 회원 입력 검증 */
 export function validateMemberInput(data: {
   name?: string
-  birth_date?: string
+  birth_year?: string
   phone?: string
   start_year?: string
   rating?: number
@@ -287,10 +287,15 @@ export function validateMemberInput(data: {
   const nameMaxErr = validateMaxLength(data.name, FIELD_MAX_LENGTH, '이름')
   if (nameMaxErr) errors.name = nameMaxErr
 
-  // 선택: 생년월일 (YYYY-MM)
-  if (data.birth_date && data.birth_date.trim().length > 0) {
-    if (!BIRTH_DATE_REGEX.test(data.birth_date.trim())) {
-      errors.birth_date = '생년월일은 YYYY-MM 형식이어야 합니다.'
+  // 선택: 출생년도 (YYYY)
+  if (data.birth_year && data.birth_year.trim().length > 0) {
+    if (!YEAR_REGEX.test(data.birth_year.trim())) {
+      errors.birth_year = '출생년도는 숫자 4자리(예: 1990)로 입력해주세요.'
+    } else {
+      const year = parseInt(data.birth_year.trim(), 10)
+      if (year < 1900 || year > CURRENT_YEAR) {
+        errors.birth_year = `출생년도는 1900~${CURRENT_YEAR} 사이여야 합니다.`
+      }
     }
   }
 

@@ -573,7 +573,7 @@ export async function addUnregisteredMember(
     user_id: null,
     is_registered: false,
     name: sanitized.name!.trim(),
-    birth_date: sanitized.birth_date?.trim() || null,
+    birth_year: sanitized.birth_year?.trim() || null,
     gender: sanitized.gender || null,
     phone: sanitized.phone?.trim() || null,
     start_year: sanitized.start_year?.trim() || null,
@@ -890,17 +890,9 @@ export async function updateMemberRole(
 
   const isSystemAdmin = hasMinimumRole(authUser?.role, 'ADMIN')
 
-  // 회장 역할 변경/지정은 시스템 관리자만 가능
-  if (member.role === 'OWNER' && !isSystemAdmin) {
-    return { error: '회장의 역할은 시스템 관리자만 변경할 수 있습니다.' }
-  }
-  if (newRole === 'OWNER' && !isSystemAdmin) {
-    return { error: '회장 지정은 시스템 관리자만 가능합니다.' }
-  }
-
   // 클럽 내 역할 기반 제한 (시스템 관리자는 제외)
-  if (!isSystemAdmin && (!clubRole || !['OWNER', 'ADMIN'].includes(clubRole))) {
-    return { error: '회장 또는 총무만 역할을 변경할 수 있습니다.' }
+  if (!isSystemAdmin && (!clubRole || !['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(clubRole))) {
+    return { error: '회장, 총무 또는 경기이사만 역할을 변경할 수 있습니다.' }
   }
 
   const { error } = await admin
@@ -947,15 +939,15 @@ export async function updateMemberInfo(
     const errors = validateMemberInput({ name: 'temp', ...sanitized } as UnregisteredMemberInput)
     if (errors.phone) return { error: errors.phone }
   }
-  if (sanitized.birth_date !== undefined && sanitized.birth_date) {
+  if (sanitized.birth_year !== undefined && sanitized.birth_year) {
     const errors = validateMemberInput({ name: 'temp', ...sanitized } as UnregisteredMemberInput)
-    if (errors.birth_date) return { error: errors.birth_date }
+    if (errors.birth_year) return { error: errors.birth_year }
   }
 
   // 업데이트할 필드만 추출
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (sanitized.name !== undefined) updateData.name = sanitized.name
-  if (sanitized.birth_date !== undefined) updateData.birth_date = sanitized.birth_date || null
+  if (sanitized.birth_year !== undefined) updateData.birth_year = sanitized.birth_year || null
   if (sanitized.gender !== undefined) updateData.gender = sanitized.gender || null
   if (sanitized.phone !== undefined) updateData.phone = sanitized.phone || null
   if (sanitized.start_year !== undefined) updateData.start_year = sanitized.start_year || null

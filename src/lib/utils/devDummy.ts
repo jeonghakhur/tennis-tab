@@ -116,12 +116,11 @@ export function generateClubDummy(): CreateClubInput {
 export function generateMemberDummy(): UnregisteredMemberInput {
   const currentYear = new Date().getFullYear()
   const birthYear = faker.number.int({ min: 1960, max: 2005 })
-  const birthMonth = String(faker.number.int({ min: 1, max: 12 })).padStart(2, '0')
   const startYear = faker.number.int({ min: 2000, max: currentYear })
 
   return {
     name: faker.person.fullName(),
-    birth_date: `${birthYear}-${birthMonth}`,
+    birth_year: String(birthYear),
     gender: pick(['MALE', 'FEMALE'] as const),
     phone: koreanPhone(),
     start_year: String(startYear),
@@ -138,7 +137,7 @@ const INVALID_EMAILS = [
   'invalid-email', '@no-local.com', 'no-at-sign', 'spaces in@email.com',
   'missing-domain@', '.starts-with-dot@mail.com', 'double@@at.com',
 ]
-const INVALID_BIRTH_DATES = ['1990-13', '2025-00', '99-01', 'not-a-date', '1800-06']
+const INVALID_BIRTH_YEARS = ['1800', '99', 'abcd', '20300', '']
 const INVALID_START_YEARS = ['2030', '1899', 'abcd', '20', '99999']
 const INVALID_RATINGS = [99999, -100, 0, 10000, -1]
 const INVALID_MAX_MEMBERS = [-5, -100, 0, -999]
@@ -179,7 +178,7 @@ export function generateClubInvalidDummy(): CreateClubInput {
 export function generateMemberInvalidDummy(): UnregisteredMemberInput {
   return {
     name: pick(INVALID_NAMES),
-    birth_date: pick(INVALID_BIRTH_DATES),
+    birth_year: pick(INVALID_BIRTH_YEARS),
     gender: undefined,
     phone: pick(INVALID_PHONES),
     start_year: pick(INVALID_START_YEARS),

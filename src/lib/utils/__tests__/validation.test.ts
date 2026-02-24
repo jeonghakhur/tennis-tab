@@ -371,7 +371,7 @@ describe('validateClubInput', () => {
 describe('validateMemberInput', () => {
   const validInput = {
     name: '홍길동',
-    birth_date: '2000-01',
+    birth_year: '2000',
     phone: '01012345678',
     start_year: '2020',
     rating: 1500,
@@ -387,25 +387,25 @@ describe('validateMemberInput', () => {
     expect(errors.name).toBeDefined()
   })
 
-  describe('birth_date 검증', () => {
-    it('유효한 형식(YYYY-MM)은 통과한다', () => {
-      expect(validateMemberInput({ ...validInput, birth_date: '2000-01' }).birth_date).toBeUndefined()
-      expect(validateMemberInput({ ...validInput, birth_date: '1990-12' }).birth_date).toBeUndefined()
+  describe('birth_year 검증', () => {
+    it('유효한 4자리 년도는 통과한다', () => {
+      expect(validateMemberInput({ ...validInput, birth_year: '2000' }).birth_year).toBeUndefined()
+      expect(validateMemberInput({ ...validInput, birth_year: '1990' }).birth_year).toBeUndefined()
     })
 
     it('빈 값은 통과한다', () => {
-      expect(validateMemberInput({ ...validInput, birth_date: '' }).birth_date).toBeUndefined()
-      expect(validateMemberInput({ ...validInput, birth_date: undefined }).birth_date).toBeUndefined()
+      expect(validateMemberInput({ ...validInput, birth_year: '' }).birth_year).toBeUndefined()
+      expect(validateMemberInput({ ...validInput, birth_year: undefined }).birth_year).toBeUndefined()
     })
 
-    it('잘못된 월(13)이면 에러를 반환한다', () => {
-      expect(validateMemberInput({ ...validInput, birth_date: '2000-13' }).birth_date).toBeDefined()
+    it('범위를 벗어나면 에러를 반환한다', () => {
+      expect(validateMemberInput({ ...validInput, birth_year: '1800' }).birth_year).toBeDefined()
     })
 
     it('형식이 맞지 않으면 에러를 반환한다', () => {
-      expect(validateMemberInput({ ...validInput, birth_date: 'abc' }).birth_date).toBeDefined()
-      expect(validateMemberInput({ ...validInput, birth_date: '2000' }).birth_date).toBeDefined()
-      expect(validateMemberInput({ ...validInput, birth_date: '2000-1' }).birth_date).toBeDefined()
+      expect(validateMemberInput({ ...validInput, birth_year: 'abc' }).birth_year).toBeDefined()
+      expect(validateMemberInput({ ...validInput, birth_year: '99' }).birth_year).toBeDefined()
+      expect(validateMemberInput({ ...validInput, birth_year: '2000-01' }).birth_year).toBeDefined()
     })
   })
 

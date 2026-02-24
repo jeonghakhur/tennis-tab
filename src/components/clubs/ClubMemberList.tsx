@@ -73,7 +73,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
   // 비가입 회원 추가 폼
   const [newMember, setNewMember] = useState<UnregisteredMemberInput>({
     name: '',
-    birth_date: '',
+    birth_year: '',
     gender: undefined,
     phone: '',
     start_year: '',
@@ -87,7 +87,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editMember, setEditMember] = useState<ClubMember | null>(null)
   const [editForm, setEditForm] = useState<UnregisteredMemberInput>({
-    name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined,
+    name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined,
   })
   const [editErrors, setEditErrors] = useState<MemberValidationErrors>({})
   const [editSaving, setEditSaving] = useState(false)
@@ -149,7 +149,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
   // 순차 검증 필드 순서
   const MEMBER_FIELD_ORDER: (keyof MemberValidationErrors)[] = [
-    'name', 'birth_date', 'phone', 'start_year', 'rating',
+    'name', 'birth_year', 'phone', 'start_year', 'rating',
   ]
 
   // 비가입 회원 추가
@@ -181,14 +181,14 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
     setToast({ isOpen: true, message: '회원이 등록되었습니다.', type: 'success' })
     setAddModalOpen(false)
-    setNewMember({ name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined })
+    setNewMember({ name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined })
     setMemberErrors({})
   }
 
   // 모달 초기화
   const resetAddModal = useCallback(() => {
     setAddModalOpen(false)
-    setNewMember({ name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined })
+    setNewMember({ name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined })
     setMemberErrors({})
   }, [])
 
@@ -261,7 +261,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
     setEditMember(member)
     setEditForm({
       name: member.name,
-      birth_date: member.birth_date || '',
+      birth_year: member.birth_year || '',
       gender: member.gender as GenderType | undefined,
       phone: member.phone || '',
       start_year: member.start_year || '',
@@ -278,7 +278,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
     // 검증
     const errors = validateMemberInput(editForm)
     if (hasValidationErrors(errors)) {
-      const FIELD_ORDER: (keyof MemberValidationErrors)[] = ['name', 'phone', 'birth_date', 'start_year', 'rating']
+      const FIELD_ORDER: (keyof MemberValidationErrors)[] = ['name', 'phone', 'birth_year', 'start_year', 'rating']
       for (const field of FIELD_ORDER) {
         if (errors[field]) {
           setEditErrors({ [field]: errors[field] })
@@ -301,7 +301,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
         prev.map((m) => m.id === editMember.id ? {
           ...m,
           name: editForm.name,
-          birth_date: editForm.birth_date || null,
+          birth_year: editForm.birth_year || null,
           gender: editForm.gender || null,
           phone: editForm.phone || null,
           start_year: editForm.start_year || null,
@@ -456,7 +456,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                   <div className="flex items-center gap-2 text-xs text-(--text-muted) flex-wrap">
                     {member.phone && <span>{member.phone}</span>}
                     {member.gender && <span>{GENDER_LABEL[member.gender as GenderType]}</span>}
-                    {member.birth_date && <span>{member.birth_date}</span>}
+                    {member.birth_year && <span>{member.birth_year}</span>}
                     {member.start_year && <span>{member.start_year}년 입문</span>}
                     {member.rating && <span>레이팅 {member.rating}</span>}
                     {member.status_reason && (member.status === 'REMOVED' || member.status === 'LEFT') && (
@@ -477,8 +477,8 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                   </button>
                 )}
 
-                {/* 활성 회원 관리 버튼 (시스템 관리자: 전체, 클럽 관리자: OWNER 제외) */}
-                {(isSystemAdmin || member.role !== 'OWNER') && member.status !== 'REMOVED' && member.status !== 'LEFT' && (
+                {/* 활성 회원 관리 버튼 */}
+                {member.status !== 'REMOVED' && member.status !== 'LEFT' && (
                   <div className="flex items-center gap-2">
                     {/* 역할 변경 */}
                     <select
@@ -486,7 +486,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                       onChange={(e) => handleRoleChange(member, e.target.value as ClubMemberRole)}
                       className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none"
                     >
-                      {isSystemAdmin && <option value="OWNER">회장</option>}
+                      <option value="OWNER">회장</option>
                       <option value="ADMIN">총무</option>
                       <option value="VICE_PRESIDENT">부회장</option>
                       <option value="ADVISOR">고문</option>
@@ -559,18 +559,18 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-(--text-primary) mb-1">생년월일</label>
+                <label className="block text-sm font-medium text-(--text-primary) mb-1">출생년도</label>
                 <input
-                  ref={(el) => { memberFieldRefs.current.birth_date = el }}
+                  ref={(el) => { memberFieldRefs.current.birth_year = el }}
                   type="text"
-                  value={newMember.birth_date || ''}
-                  onChange={(e) => handleMemberChange('birth_date', e.target.value)}
-                  placeholder="YYYY-MM"
+                  value={newMember.birth_year || ''}
+                  onChange={(e) => handleMemberChange('birth_year', e.target.value)}
+                  placeholder="YYYY"
                   className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
-                    memberErrors.birth_date ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                    memberErrors.birth_year ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
                   }`}
                 />
-                {memberErrors.birth_date && <p className="mt-1 text-xs text-red-500">{memberErrors.birth_date}</p>}
+                {memberErrors.birth_year && <p className="mt-1 text-xs text-red-500">{memberErrors.birth_year}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-(--text-primary) mb-1">성별</label>
@@ -726,18 +726,18 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-(--text-primary) mb-1">생년월일</label>
+                <label className="block text-sm font-medium text-(--text-primary) mb-1">출생년도</label>
                 <input
-                  ref={(el) => { editFieldRefs.current.birth_date = el }}
+                  ref={(el) => { editFieldRefs.current.birth_year = el }}
                   type="text"
-                  value={editForm.birth_date || ''}
-                  onChange={(e) => { setEditForm({ ...editForm, birth_date: e.target.value }); setEditErrors((prev) => ({ ...prev, birth_date: undefined })) }}
-                  placeholder="YYYY-MM"
+                  value={editForm.birth_year || ''}
+                  onChange={(e) => { setEditForm({ ...editForm, birth_year: e.target.value }); setEditErrors((prev) => ({ ...prev, birth_year: undefined })) }}
+                  placeholder="YYYY"
                   className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
-                    editErrors.birth_date ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                    editErrors.birth_year ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
                   }`}
                 />
-                {editErrors.birth_date && <p className="mt-1 text-xs text-red-500">{editErrors.birth_date}</p>}
+                {editErrors.birth_year && <p className="mt-1 text-xs text-red-500">{editErrors.birth_year}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-(--text-primary) mb-1">성별</label>
