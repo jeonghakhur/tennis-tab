@@ -7,6 +7,7 @@ import { MatchType, PartnerData, TeamMember } from "@/lib/supabase/types";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { unformatPhoneNumber } from "@/lib/utils/phone";
 import { AlertDialog } from "@/components/common/AlertDialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Division {
   id: string;
@@ -315,19 +316,16 @@ export default function TournamentEntryForm({
             <label className={labelClass}>
               참가 부서 <span className="text-red-500">*</span>
             </label>
-            <select
-              value={divisionId}
-              onChange={(e) => setDivisionId(e.target.value)}
-              className={inputClass}
-              required
-            >
-              <option value="">선택해주세요</option>
-              {divisions.map((division) => (
-                <option key={division.id} value={division.id}>
-                  {division.name}
-                </option>
-              ))}
-            </select>
+            <Select value={divisionId || undefined} onValueChange={setDivisionId}>
+              <SelectTrigger className={inputClass}>
+                <SelectValue placeholder="선택해주세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {divisions.map((division) => (
+                  <SelectItem key={division.id} value={division.id}>{division.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 참가자 기본 정보 */}

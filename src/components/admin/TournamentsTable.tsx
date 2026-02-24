@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { Database, TournamentStatus, EntryStatus, PaymentStatus } from '@/lib/supabase/types'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
@@ -182,20 +183,17 @@ export function TournamentsTable({
         </div>
 
         {/* Status Filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) =>
-            setStatusFilter(e.target.value as TournamentStatus | 'ALL')
-          }
-          className="px-4 py-2.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:border-emerald-500 dark:focus:border-emerald-400 focus:outline-none transition-colors"
-        >
-          <option value="ALL">모든 상태</option>
-          {Object.entries(statusConfig).map(([key, { label }]) => (
-            <option key={key} value={key}>
-              {label}
-            </option>
-          ))}
-        </select>
+        <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as TournamentStatus | 'ALL')}>
+          <SelectTrigger className="px-4 py-2.5 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:border-emerald-500 dark:focus:border-emerald-400 transition-colors">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">모든 상태</SelectItem>
+            {Object.entries(statusConfig).map(([key, { label }]) => (
+              <SelectItem key={key} value={key}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats */}

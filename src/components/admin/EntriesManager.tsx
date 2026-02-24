@@ -18,6 +18,7 @@ import {
   bulkUpdatePaymentStatus,
 } from '@/lib/admin/entries'
 import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Entry = Database['public']['Tables']['tournament_entries']['Row'] & {
   profiles: {
@@ -111,6 +112,9 @@ export function EntriesManager({
   const [divisionFilter, setDivisionFilter] = useState<string>('ALL')
   const [selectedEntries, setSelectedEntries] = useState<string[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
+  // 일괄 변경 select controlled state
+  const [bulkStatus, setBulkStatus] = useState('')
+  const [bulkPayment, setBulkPayment] = useState('')
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean
     title: string
@@ -512,49 +516,44 @@ export function EntriesManager({
 
         <div className="flex flex-wrap gap-3">
           {/* Status Filter */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as NormalizedStatus | 'ALL')}
-            className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
-          >
-            <option value="ALL">모든 상태</option>
-            {Object.entries(entryStatusConfig).map(([key, { label }]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as NormalizedStatus | 'ALL')}>
+            <SelectTrigger className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) transition-colors">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">모든 상태</SelectItem>
+              {Object.entries(entryStatusConfig).map(([key, { label }]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Payment Filter */}
-          <select
-            value={paymentFilter}
-            onChange={(e) =>
-              setPaymentFilter(e.target.value as 'PENDING' | 'COMPLETED' | 'ALL')
-            }
-            className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
-          >
-            <option value="ALL">모든 결제</option>
-            {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
+          <Select value={paymentFilter} onValueChange={(v) => setPaymentFilter(v as 'PENDING' | 'COMPLETED' | 'ALL')}>
+            <SelectTrigger className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) transition-colors">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">모든 결제</SelectItem>
+              {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
           {/* Division Filter */}
           {divisions.length > 0 && (
-            <select
-              value={divisionFilter}
-              onChange={(e) => setDivisionFilter(e.target.value)}
-              className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) focus:outline-none transition-colors"
-            >
-              <option value="ALL">모든 부서</option>
-              {divisions.map((div) => (
-                <option key={div.id} value={div.id}>
-                  {div.name}
-                </option>
-              ))}
-            </select>
+            <Select value={divisionFilter} onValueChange={setDivisionFilter}>
+              <SelectTrigger className="px-4 py-3 rounded-xl bg-(--bg-card) border border-(--border-color) text-(--text-primary) text-base focus:border-(--accent-color) transition-colors">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">모든 부서</SelectItem>
+                {divisions.map((div) => (
+                  <SelectItem key={div.id} value={div.id}>{div.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           )}
         </div>
       </div>
@@ -576,41 +575,35 @@ export function EntriesManager({
 
         {selectedEntries.length > 0 && (
           <div className="flex items-center gap-2">
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleBulkStatusChange(e.target.value as EntryStatus)
-                  e.target.value = ''
-                }
-              }}
+            <Select
+              value={bulkStatus || undefined}
+              onValueChange={(v) => { handleBulkStatusChange(v as EntryStatus); setBulkStatus('') }}
               disabled={processing !== null}
-              className="px-3 py-2 rounded-lg bg-(--color-success-subtle) text-(--color-success) font-medium border-2 border-(--color-success-border) hover:border-(--color-success) focus:border-(--color-success) focus:outline-none transition-colors text-sm"
             >
-              <option value="">상태 일괄 변경</option>
-              {Object.entries(entryStatusConfig).map(([key, { label }]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="px-3 py-2 rounded-lg bg-(--color-success-subtle) text-(--color-success) font-medium border-2 border-(--color-success-border) hover:border-(--color-success) focus:border-(--color-success) transition-colors text-sm">
+                <SelectValue placeholder="상태 일괄 변경" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(entryStatusConfig).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
 
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleBulkPaymentChange(e.target.value as PaymentStatus)
-                  e.target.value = ''
-                }
-              }}
+            <Select
+              value={bulkPayment || undefined}
+              onValueChange={(v) => { handleBulkPaymentChange(v as PaymentStatus); setBulkPayment('') }}
               disabled={processing !== null}
-              className="px-3 py-2 rounded-lg bg-(--color-info-subtle) text-(--color-info) font-medium border-2 border-(--color-info-border) hover:border-(--color-info) focus:border-(--color-info) focus:outline-none transition-colors text-sm"
             >
-              <option value="">결제 일괄 변경</option>
-              {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
-                <option key={key} value={key}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="px-3 py-2 rounded-lg bg-(--color-info-subtle) text-(--color-info) font-medium border-2 border-(--color-info-border) hover:border-(--color-info) focus:border-(--color-info) transition-colors text-sm">
+                <SelectValue placeholder="결제 일괄 변경" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
+                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
@@ -761,45 +754,36 @@ export function EntriesManager({
                         </span>
                       </td>
                       <td className="p-4">
-                        <select
+                        <Select
                           value={normalizedStatus}
-                          onChange={(e) =>
-                            handleStatusChange(entry.id, e.target.value as EntryStatus)
-                          }
+                          onValueChange={(v) => handleStatusChange(entry.id, v as EntryStatus)}
                           disabled={isProcessing}
-                          className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent focus:outline-none transition-colors cursor-pointer ${
-                            entryStatusConfig[normalizedStatus].className
-                          }`}
                         >
-                          {Object.entries(entryStatusConfig).map(([key, { label }]) => (
-                            <option key={key} value={key}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
+                          <SelectTrigger className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${entryStatusConfig[normalizedStatus].className}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(entryStatusConfig).map(([key, { label }]) => (
+                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="p-4">
-                        <select
+                        <Select
                           value={normalizedPayment}
-                          onChange={(e) =>
-                            handlePaymentChange(
-                              entry.id,
-                              e.target.value as PaymentStatus
-                            )
-                          }
+                          onValueChange={(v) => handlePaymentChange(entry.id, v as PaymentStatus)}
                           disabled={isProcessing}
-                          className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent focus:outline-none transition-colors cursor-pointer ${
-                            paymentStatusConfig[normalizedPayment].className
-                          }`}
                         >
-                          {Object.entries(paymentStatusConfig).map(
-                            ([key, { label }]) => (
-                              <option key={key} value={key}>
-                                {label}
-                              </option>
-                            )
-                          )}
-                        </select>
+                          <SelectTrigger className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${paymentStatusConfig[normalizedPayment].className}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
+                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
                         <p className="text-base text-(--text-primary)">

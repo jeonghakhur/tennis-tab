@@ -8,6 +8,7 @@ import { ROLE_LABELS, ROLE_COLORS, isSuperAdmin, isAdmin } from '@/lib/auth/role
 import { changeUserRole } from '@/lib/auth/admin'
 import { AlertDialog, Toast } from '@/components/common/AlertDialog'
 import { Badge } from '@/components/common/Badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -196,18 +197,17 @@ export function UsersTable({
         </div>
 
         {/* Role Filter */}
-        <select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value as UserRole | 'ALL')}
-          className="px-4 py-2.5 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary) focus:border-(--accent-color) focus:outline-none transition-colors"
-        >
-          <option value="ALL">모든 권한</option>
-          {roles.map((role) => (
-            <option key={role} value={role}>
-              {ROLE_LABELS[role]}
-            </option>
-          ))}
-        </select>
+        <Select value={roleFilter} onValueChange={(v) => setRoleFilter(v as UserRole | 'ALL')}>
+          <SelectTrigger className="px-4 py-2.5 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary) focus:border-(--accent-color) transition-colors">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">모든 권한</SelectItem>
+            {roles.map((role) => (
+              <SelectItem key={role} value={role}>{ROLE_LABELS[role]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Stats */}
@@ -368,22 +368,20 @@ export function UsersTable({
                       </td>
                       <td className="p-4">
                         {canChangeThisUserRole ? (
-                          <select
+                          <Select
                             value={user.role ?? 'USER'}
-                            onChange={(e) =>
-                              handleRoleChange(user.id, e.target.value as UserRole)
-                            }
+                            onValueChange={(v) => handleRoleChange(user.id, v as UserRole)}
                             disabled={changingRole === user.id}
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) focus:border-(--accent-color) focus:outline-none transition-colors ${
-                              changingRole === user.id ? 'opacity-50' : ''
-                            } ${ROLE_COLORS[user.role ?? 'USER']}`}
                           >
-                            {availableRoles.map((role) => (
-                              <option key={role} value={role}>
-                                {ROLE_LABELS[role]}
-                              </option>
-                            ))}
-                          </select>
+                            <SelectTrigger className={`px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) focus:border-(--accent-color) transition-colors ${changingRole === user.id ? 'opacity-50' : ''} ${ROLE_COLORS[user.role ?? 'USER']}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {availableRoles.map((role) => (
+                                <SelectItem key={role} value={role}>{ROLE_LABELS[role]}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
                         ) : (
                           <span
                             className={`px-3 py-1.5 rounded-lg text-sm font-medium ${

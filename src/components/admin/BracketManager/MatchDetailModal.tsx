@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Modal } from "@/components/common/Modal";
 import type { BracketMatch, SetDetail } from "./types";
 import type { MatchType } from "@/lib/supabase/types";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface MatchDetailModalProps {
   isOpen: boolean;
@@ -266,31 +267,21 @@ export function MatchDetailModal({
                       {team1Label}
                     </label>
                     {Array.from({ length: playersPerTeam }, (_, pIdx) => (
-                      <select
+                      <Select
                         key={`t1-${pIdx}`}
-                        value={set.team1_players[pIdx] || ""}
-                        onChange={(e) =>
-                          updatePlayer(
-                            setIndex,
-                            "team1",
-                            pIdx,
-                            e.target.value,
-                          )
-                        }
+                        value={set.team1_players[pIdx] || undefined}
+                        onValueChange={(v) => updatePlayer(setIndex, "team1", pIdx, v)}
                         disabled={disabled}
-                        className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50"
                       >
-                        <option value="">선수 선택</option>
-                        {team1Players.map((name) => (
-                          <option
-                            key={name}
-                            value={name}
-                            disabled={isPlayerDisabled(setIndex, "team1", name)}
-                          >
-                            {name}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
+                          <SelectValue placeholder="선수 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {team1Players.map((name) => (
+                            <SelectItem key={name} value={name} disabled={isPlayerDisabled(setIndex, "team1", name)}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ))}
                     <input
                       type="number"
@@ -323,31 +314,21 @@ export function MatchDetailModal({
                       {team2Label}
                     </label>
                     {Array.from({ length: playersPerTeam }, (_, pIdx) => (
-                      <select
+                      <Select
                         key={`t2-${pIdx}`}
-                        value={set.team2_players[pIdx] || ""}
-                        onChange={(e) =>
-                          updatePlayer(
-                            setIndex,
-                            "team2",
-                            pIdx,
-                            e.target.value,
-                          )
-                        }
+                        value={set.team2_players[pIdx] || undefined}
+                        onValueChange={(v) => updatePlayer(setIndex, "team2", pIdx, v)}
                         disabled={disabled}
-                        className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50"
                       >
-                        <option value="">선수 선택</option>
-                        {team2Players.map((name) => (
-                          <option
-                            key={name}
-                            value={name}
-                            disabled={isPlayerDisabled(setIndex, "team2", name)}
-                          >
-                            {name}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
+                          <SelectValue placeholder="선수 선택" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {team2Players.map((name) => (
+                            <SelectItem key={name} value={name} disabled={isPlayerDisabled(setIndex, "team2", name)}>{name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     ))}
                     <input
                       type="number"

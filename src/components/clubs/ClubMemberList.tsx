@@ -27,6 +27,7 @@ import {
   generateMemberInvalidDummy,
 } from '@/lib/utils/devDummy'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -93,16 +94,28 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
   const [editSaving, setEditSaving] = useState(false)
   const editFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
-  // 필터된 회원 목록 (PENDING은 별도 섹션에 표시하므로 제외)
-  const filteredMembers = members.filter((m) => {
-    if (m.status === 'PENDING') return false
-    if (filter === 'removed') return m.status === 'REMOVED' || m.status === 'LEFT'
-    // 제거/탈퇴 필터가 아닌 경우 제거/탈퇴 회원은 숨김
-    if (m.status === 'REMOVED' || m.status === 'LEFT') return false
-    if (filter === 'registered') return m.is_registered
-    if (filter === 'unregistered') return !m.is_registered
-    return true
-  })
+  // 역할 정렬 우선순위 (임원 상단)
+  const ROLE_PRIORITY: Record<string, number> = {
+    OWNER: 0, ADMIN: 1, MATCH_DIRECTOR: 2, VICE_PRESIDENT: 3, ADVISOR: 4, MEMBER: 5,
+  }
+
+  // 필터된 회원 목록 (PENDING은 별도 섹션에 표시하므로 제외) + 임원 상단, 가나다순 정렬
+  const filteredMembers = members
+    .filter((m) => {
+      if (m.status === 'PENDING') return false
+      if (filter === 'removed') return m.status === 'REMOVED' || m.status === 'LEFT'
+      // 제거/탈퇴 필터가 아닌 경우 제거/탈퇴 회원은 숨김
+      if (m.status === 'REMOVED' || m.status === 'LEFT') return false
+      if (filter === 'registered') return m.is_registered
+      if (filter === 'unregistered') return !m.is_registered
+      return true
+    })
+    .sort((a, b) => {
+      const pa = ROLE_PRIORITY[a.role] ?? 99
+      const pb = ROLE_PRIORITY[b.role] ?? 99
+      if (pa !== pb) return pa - pb
+      return a.name.localeCompare(b.name, 'ko')
+    })
 
   const activeCount = members.filter((m) => m.status === 'ACTIVE').length
   const removedCount = members.filter((m) => m.status === 'REMOVED' || m.status === 'LEFT').length
@@ -481,18 +494,19 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                 {member.status !== 'REMOVED' && member.status !== 'LEFT' && (
                   <div className="flex items-center gap-2">
                     {/* 역할 변경 */}
-                    <select
-                      value={member.role}
-                      onChange={(e) => handleRoleChange(member, e.target.value as ClubMemberRole)}
-                      className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none"
-                    >
-                      <option value="OWNER">회장</option>
-                      <option value="ADMIN">총무</option>
-                      <option value="VICE_PRESIDENT">부회장</option>
-                      <option value="ADVISOR">고문</option>
-                      <option value="MATCH_DIRECTOR">경기이사</option>
-                      <option value="MEMBER">회원</option>
-                    </select>
+                    <Select value={member.role} onValueChange={(v) => handleRoleChange(member, v as ClubMemberRole)}>
+                      <SelectTrigger size="sm" className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color)">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="OWNER">회장</SelectItem>
+                        <SelectItem value="ADMIN">총무</SelectItem>
+                        <SelectItem value="VICE_PRESIDENT">부회장</SelectItem>
+                        <SelectItem value="ADVISOR">고문</SelectItem>
+                        <SelectItem value="MATCH_DIRECTOR">경기이사</SelectItem>
+                        <SelectItem value="MEMBER">회원</SelectItem>
+                      </SelectContent>
+                    </Select>
                     {/* 제거 */}
                     <button
                       onClick={() => {

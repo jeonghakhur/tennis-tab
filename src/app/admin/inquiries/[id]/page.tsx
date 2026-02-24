@@ -21,6 +21,7 @@ import {
 import { hasMinimumRole } from '@/lib/auth/roles'
 import type { UserRole } from '@/lib/supabase/types'
 import { ChevronLeft, MessageCircle } from 'lucide-react'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const STATUS_VARIANT: Record<InquiryStatus, BadgeVariant> = {
   PENDING: 'warning',
@@ -150,21 +151,16 @@ export default function AdminInquiryDetailPage() {
                 <label htmlFor="status-select" className="text-sm" style={{ color: 'var(--text-muted)' }}>
                   상태:
                 </label>
-                <select
-                  id="status-select"
-                  value={inquiry.status}
-                  onChange={(e) => handleStatusChange(e.target.value as InquiryStatus)}
-                  className="px-3 py-1.5 rounded-lg text-sm bg-(--bg-input) border border-(--border-color) outline-none"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {(Object.entries(INQUIRY_STATUS_LABELS) as [InquiryStatus, string][]).map(
-                    ([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    )
-                  )}
-                </select>
+                <Select value={inquiry.status} onValueChange={(v) => handleStatusChange(v as InquiryStatus)}>
+                  <SelectTrigger id="status-select" className="px-3 py-1.5 rounded-lg text-sm bg-(--bg-input) border border-(--border-color)">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(Object.entries(INQUIRY_STATUS_LABELS) as [InquiryStatus, string][]).map(([value, label]) => (
+                      <SelectItem key={value} value={value}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
 

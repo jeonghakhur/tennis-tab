@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { updateTournamentStatus } from '@/lib/tournaments/actions'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import type { TournamentStatus } from '@/lib/supabase/types'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface TournamentStatusSelectorProps {
   tournamentId: string
@@ -97,20 +98,20 @@ export function TournamentStatusSelector({
 
   return (
     <>
-      <select
+      <Select
         value={currentStatus}
-        onChange={(e) => handleStatusChange(e.target.value as TournamentStatus)}
+        onValueChange={(v) => handleStatusChange(v as TournamentStatus)}
         disabled={isLoading}
-        className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none focus:border-gray-400 dark:focus:border-gray-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
-          statusConfig[currentStatus].className
-        }`}
       >
-        {Object.entries(statusConfig).map(([key, { label }]) => (
-          <option key={key} value={key}>
-            {label}
-          </option>
-        ))}
-      </select>
+        <SelectTrigger className={`px-4 py-2 rounded-lg text-sm font-semibold border-2 border-transparent hover:border-gray-300 dark:hover:border-gray-600 focus:border-gray-400 dark:focus:border-gray-500 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${statusConfig[currentStatus].className}`}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {Object.entries(statusConfig).map(([key, { label }]) => (
+            <SelectItem key={key} value={key}>{label}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       <AlertDialog
         isOpen={alertDialog.isOpen}

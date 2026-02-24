@@ -12,6 +12,7 @@ import {
   type InquiryCategory,
   type CreateInquiryInput,
 } from '@/lib/support/types'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 interface InquiryFormProps {
   onSubmit: (data: CreateInquiryInput) => Promise<void>
@@ -32,7 +33,7 @@ export function InquiryForm({ onSubmit, isSubmitting = false }: InquiryFormProps
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
   const errorFieldRef = useRef<keyof InquiryValidationErrors | null>(null)
-  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null>>({})
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | HTMLButtonElement | null>>({})
 
   const validateForm = useCallback((): boolean => {
     const errors = validateInquiryInput(form)
@@ -69,27 +70,24 @@ export function InquiryForm({ onSubmit, isSubmitting = false }: InquiryFormProps
           >
             문의 유형
           </label>
-          <select
-            id="inquiry-category"
-            ref={(el) => { fieldRefs.current.category = el }}
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value as InquiryCategory })}
-            className={`w-full px-3 py-2.5 rounded-lg bg-(--bg-input) border outline-none transition-colors ${
-              fieldErrors.category
-                ? 'border-red-500'
-                : 'border-(--border-color) focus:border-(--accent-color)'
-            }`}
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <option value="">유형을 선택하세요</option>
-            {(Object.entries(INQUIRY_CATEGORY_LABELS) as [InquiryCategory, string][]).map(
-              ([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              )
-            )}
-          </select>
+          <Select value={form.category || undefined} onValueChange={(v) => setForm({ ...form, category: v as InquiryCategory })}>
+            <SelectTrigger
+              id="inquiry-category"
+              ref={(el) => { fieldRefs.current.category = el }}
+              className={`w-full px-3 py-2.5 rounded-lg bg-(--bg-input) border transition-colors ${
+                fieldErrors.category
+                  ? 'border-red-500'
+                  : 'border-(--border-color) focus:border-(--accent-color)'
+              }`}
+            >
+              <SelectValue placeholder="유형을 선택하세요" />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.entries(INQUIRY_CATEGORY_LABELS) as [InquiryCategory, string][]).map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* 제목 */}

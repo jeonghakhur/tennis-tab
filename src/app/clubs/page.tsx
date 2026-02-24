@@ -9,6 +9,7 @@ import { getClubs, getClubMemberCountsBatch } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
 import { Search, MapPin, Users, Building2, Check } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -87,15 +88,18 @@ export default function ClubsPage() {
     fetchMemberships()
   }, [user])
 
-  // 내 클럽 우선 정렬
-  const sortedClubs = useMemo(() => {
-    if (myClubRoles.size === 0) return clubs
-    return [...clubs].sort((a, b) => {
-      const aIsMine = myClubRoles.has(a.id) ? 0 : 1
-      const bIsMine = myClubRoles.has(b.id) ? 0 : 1
-      return aIsMine - bIsMine
-    })
-  }, [clubs, myClubRoles])
+  // 내 클럽 우선 + 가나다순 정렬
+  const sortedClubs = useMemo(() =>
+    [...clubs].sort((a, b) => {
+      if (myClubRoles.size > 0) {
+        const aIsMine = myClubRoles.has(a.id) ? 0 : 1
+        const bIsMine = myClubRoles.has(b.id) ? 0 : 1
+        if (aIsMine !== bIsMine) return aIsMine - bIsMine
+      }
+      return a.name.localeCompare(b.name, 'ko')
+    }),
+    [clubs, myClubRoles]
+  )
 
   // 검색 디바운스
   const [searchInput, setSearchInput] = useState('')
@@ -140,16 +144,17 @@ export default function ClubsPage() {
                 className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
               />
             </div>
-            <select
-              value={cityFilter}
-              onChange={(e) => setCityFilter(e.target.value)}
-              className="px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
-            >
-              <option value="">전체 지역</option>
-              {CITY_OPTIONS.map((city) => (
-                <option key={city} value={city}>{city}</option>
-              ))}
-            </select>
+            <Select value={cityFilter || '__all__'} onValueChange={(v) => setCityFilter(v === '__all__' ? '' : v)}>
+              <SelectTrigger className="px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color)">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__all__">전체 지역</SelectItem>
+                {CITY_OPTIONS.map((city) => (
+                  <SelectItem key={city} value={city}>{city}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* 클럽 목록 */}

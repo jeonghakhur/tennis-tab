@@ -7,6 +7,7 @@ import { useAuth } from '../AuthProvider';
 import { UserRole, MatchType } from '@/lib/supabase/types';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import ImageUpload from '@/components/ui/ImageUpload';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
@@ -299,19 +300,16 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                     </div>
                     <div>
                         <label className={labelClass}>경기 방식</label>
-                        <select
-                            name="match_type"
-                            value={matchType}
-                            onChange={(e) => setMatchType(e.target.value as MatchType | '')}
-                            className={inputClass}
-                        >
-                            <option value="">선택해주세요</option>
-                            {MATCH_TYPES.map((type) => (
-                                <option key={type.value} value={type.value}>
-                                    {type.label}
-                                </option>
-                            ))}
-                        </select>
+                        <Select value={matchType || undefined} onValueChange={(v) => setMatchType(v as MatchType | '')}>
+                            <SelectTrigger name="match_type" className={inputClass}>
+                                <SelectValue placeholder="선택해주세요" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {MATCH_TYPES.map((type) => (
+                                    <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                     </div>
                 </div>
 

@@ -12,6 +12,7 @@ import {
 import { uploadFile } from '@/lib/storage/actions'
 import type { PostCategory, PostAttachment, CreatePostInput } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 // RichTextEditor는 TipTap 의존 — SSR 방지를 위해 dynamic import
 const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
@@ -64,7 +65,7 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
 
   // 에러 필드 자동 포커스용 ref
   const errorFieldRef = useRef<keyof PostValidationErrors | null>(null)
-  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | null>>({})
+  const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLSelectElement | HTMLButtonElement | null>>({})
 
   const validateForm = useCallback((): boolean => {
     const errors = validatePostInput(form)
@@ -137,25 +138,24 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
           >
             카테고리
           </label>
-          <select
-            id="post-category"
-            ref={(el) => { fieldRefs.current.category = el }}
-            value={form.category}
-            onChange={(e) => setForm({ ...form, category: e.target.value as PostCategory })}
-            className={`w-full px-3 py-2.5 rounded-lg text-sm outline-none ${
-              fieldErrors.category
-                ? 'border-2 border-red-500'
-                : 'border border-(--border-color) focus:border-(--accent-color)'
-            }`}
-            style={{
-              backgroundColor: 'var(--bg-input)',
-              color: 'var(--text-primary)',
-            }}
-          >
-            {categoryOptions.map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
+          <Select value={form.category} onValueChange={(v) => setForm({ ...form, category: v as PostCategory })}>
+            <SelectTrigger
+              id="post-category"
+              ref={(el) => { fieldRefs.current.category = el }}
+              className={`w-full px-3 py-2.5 rounded-lg text-sm bg-(--bg-input) text-(--text-primary) ${
+                fieldErrors.category
+                  ? 'border-2 border-red-500'
+                  : 'border border-(--border-color) focus:border-(--accent-color)'
+              }`}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {categoryOptions.map(([key, label]) => (
+                <SelectItem key={key} value={key}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* 제목 */}
