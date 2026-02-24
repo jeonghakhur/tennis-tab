@@ -1335,3 +1335,44 @@ export async function getClubMemberCount(clubId: string): Promise<number> {
 
   return count || 0
 }
+
+/** 여러 클럽의 활성 회원 수를 단일 쿼리로 일괄 조회 */
+export async function getClubMemberCountsBatch(
+  clubIds: string[]
+): Promise<Record<string, number>> {
+  if (clubIds.length === 0) return {}
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('club_members')
+    .select('club_id')
+    .in('club_id', clubIds)
+    .eq('status', 'ACTIVE')
+
+  const counts: Record<string, number> = {}
+  if (data) {
+    for (const row of data) {
+      counts[row.club_id] = (counts[row.club_id] || 0) + 1
+    }
+  }
+  return counts
+}
+
+/**
+ * 현재 사용자가 임원(OWNER/ADMIN/MATCH_DIRECTOR)인 클럽이 있는지 확인
+ * UserAvatar 드롭다운에서 "클럽 관리" 메뉴 표시 여부 판단용
+ */
+export async function hasOfficerClubs(): Promise<boolean> {
+  const user = await getCurrentUser()
+  if (!user) return false
+
+  const admin = createAdminClient()
+  const { count } = await admin
+    .from('club_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .in('role', ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'])
+    .eq('status', 'ACTIVE')
+
+  return (count || 0) > 0
+}

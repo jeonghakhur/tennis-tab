@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
-import { getClubs, getClubMemberCount } from '@/lib/clubs/actions'
-import type { Club, ClubJoinType } from '@/lib/clubs/types'
-import { Search, MapPin, Users, Building2 } from 'lucide-react'
+import { useAuth } from '@/components/AuthProvider'
+import { getClubs, getClubMemberCountsBatch } from '@/lib/clubs/actions'
+import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
+import { Search, MapPin, Users, Building2, Check } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
@@ -21,6 +22,15 @@ const JOIN_TYPE_VARIANT: Record<ClubJoinType, BadgeVariant> = {
   INVITE_ONLY: 'secondary',
 }
 
+const ROLE_LABEL: Record<string, string> = {
+  OWNER: '회장',
+  ADMIN: '총무',
+  MATCH_DIRECTOR: '경기이사',
+  VICE_PRESIDENT: '부회장',
+  ADVISOR: '고문',
+  MEMBER: '회원',
+}
+
 // 한국 시도 데이터
 const CITY_OPTIONS = [
   '서울특별시', '부산광역시', '대구광역시', '인천광역시',
@@ -31,11 +41,14 @@ const CITY_OPTIONS = [
 
 export default function ClubsPage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [clubs, setClubs] = useState<Club[]>([])
   const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('')
+  // 내 클럽 멤버십 맵 (clubId → role)
+  const [myClubRoles, setMyClubRoles] = useState<Map<string, ClubMemberRole>>(new Map())
 
   const loadClubs = useCallback(async () => {
     setLoading(true)
@@ -45,13 +58,9 @@ export default function ClubsPage() {
     })
     if (!result.error) {
       setClubs(result.data)
-      // 회원 수 병렬 조회
-      const counts: Record<string, number> = {}
-      await Promise.all(
-        result.data.map(async (club) => {
-          counts[club.id] = await getClubMemberCount(club.id)
-        })
-      )
+      // 회원 수 단일 쿼리로 일괄 조회
+      const clubIds = result.data.map((club) => club.id)
+      const counts = await getClubMemberCountsBatch(clubIds)
       setMemberCounts(counts)
     }
     setLoading(false)
@@ -60,6 +69,33 @@ export default function ClubsPage() {
   useEffect(() => {
     loadClubs()
   }, [loadClubs])
+
+  // 로그인 시 내 클럽 멤버십 조회
+  useEffect(() => {
+    if (!user) {
+      setMyClubRoles(new Map())
+      return
+    }
+    const fetchMemberships = async () => {
+      const { getMyClubMemberships } = await import('@/lib/clubs/actions')
+      const result = await getMyClubMemberships()
+      const map = new Map(
+        result.data.map((m) => [m.club.id, m.membership.role as ClubMemberRole])
+      )
+      setMyClubRoles(map)
+    }
+    fetchMemberships()
+  }, [user])
+
+  // 내 클럽 우선 정렬
+  const sortedClubs = useMemo(() => {
+    if (myClubRoles.size === 0) return clubs
+    return [...clubs].sort((a, b) => {
+      const aIsMine = myClubRoles.has(a.id) ? 0 : 1
+      const bIsMine = myClubRoles.has(b.id) ? 0 : 1
+      return aIsMine - bIsMine
+    })
+  }, [clubs, myClubRoles])
 
   // 검색 디바운스
   const [searchInput, setSearchInput] = useState('')
@@ -140,52 +176,67 @@ export default function ClubsPage() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clubs.map((club) => (
-                <Link
-                  key={club.id}
-                  href={`/clubs/${club.id}`}
-                  className="glass-card rounded-xl p-5 hover:bg-(--bg-card-hover) transition-colors group"
-                >
-                  {/* 클럽 이름 */}
-                  <h3
-                    className="font-display text-lg mb-2 group-hover:text-(--accent-color) transition-colors"
-                    style={{ color: 'var(--text-primary)' }}
+              {sortedClubs.map((club) => {
+                const myRole = myClubRoles.get(club.id)
+                const isMine = !!myRole
+
+                return (
+                  <Link
+                    key={club.id}
+                    href={`/clubs/${club.id}`}
+                    className={`glass-card rounded-xl p-5 hover:bg-(--bg-card-hover) transition-colors group relative ${
+                      isMine ? 'ring-1 ring-(--accent-color)/40' : ''
+                    }`}
                   >
-                    {club.name}
-                  </h3>
+                    {/* 가입 표시 */}
+                    {isMine && (
+                      <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-(--accent-color) text-(--bg-primary)">
+                        <Check className="w-3 h-3" />
+                        {ROLE_LABEL[myRole] || '회원'}
+                      </div>
+                    )}
 
-                  {/* 지역 */}
-                  {(club.city || club.district) && (
-                    <div className="flex items-center gap-1.5 mb-1.5">
-                      <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {[club.city, club.district].filter(Boolean).join(' ')}
+                    {/* 클럽 이름 */}
+                    <h3
+                      className="font-display text-lg mb-2 group-hover:text-(--accent-color) transition-colors"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {club.name}
+                    </h3>
+
+                    {/* 지역 */}
+                    {(club.city || club.district) && (
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {[club.city, club.district].filter(Boolean).join(' ')}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* 협회 */}
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <Building2 className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                        {club.associations?.name || '독립 클럽'}
                       </span>
                     </div>
-                  )}
 
-                  {/* 협회 */}
-                  <div className="flex items-center gap-1.5 mb-3">
-                    <Building2 className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                      {club.associations?.name || '독립 클럽'}
-                    </span>
-                  </div>
-
-                  {/* 하단 정보 */}
-                  <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                    <div className="flex items-center gap-1.5">
-                      <Users className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {memberCounts[club.id] ?? 0}명
-                      </span>
+                    {/* 하단 정보 */}
+                    <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {memberCounts[club.id] ?? 0}명
+                        </span>
+                      </div>
+                      <Badge variant={JOIN_TYPE_VARIANT[club.join_type]}>
+                        {JOIN_TYPE_LABEL[club.join_type]}
+                      </Badge>
                     </div>
-                    <Badge variant={JOIN_TYPE_VARIANT[club.join_type]}>
-                      {JOIN_TYPE_LABEL[club.join_type]}
-                    </Badge>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                )
+              })}
             </div>
           )}
         </div>

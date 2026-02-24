@@ -5,13 +5,14 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
-import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
+import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
+import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User } from 'lucide-react'
+import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings } from 'lucide-react'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -57,6 +58,11 @@ export default function ClubDetailPage() {
   const [isMember, setIsMember] = useState(false)
   const [myMembership, setMyMembership] = useState<PublicMember | null>(null)
 
+  // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
+  const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
+  const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
+  const [activeTab, setActiveTab] = useState<'info' | 'manage'>('info')
+
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [introduction, setIntroduction] = useState('')
 
@@ -68,14 +74,6 @@ export default function ClubDetailPage() {
     if (!id) return
     loadClubData()
   }, [id])
-
-  // 사용자 멤버십 확인
-  useEffect(() => {
-    if (user && members.length > 0) {
-      const myMember = members.find(() => false) // 공개 멤버 목록에는 user_id 없음
-      // 대신 서버에서 직접 확인 필요 — members에서 이름+역할로는 판단 불가
-    }
-  }, [user, members])
 
   const loadClubData = async () => {
     setLoading(true)
@@ -91,25 +89,39 @@ export default function ClubDetailPage() {
     setLoading(false)
   }
 
-  // 멤버십 확인 (로그인한 경우)
+  // 멤버십 확인 — 모든 클럽 멤버십에서 현재 클럽 확인
   useEffect(() => {
     if (!user || !id) return
     checkMembership()
   }, [user, id])
 
   const checkMembership = async () => {
-    const { getMyClubMembership } = await import('@/lib/clubs/actions')
-    const result = await getMyClubMembership()
-    if (result.data && result.data.club.id === id) {
+    const { getMyClubMemberships } = await import('@/lib/clubs/actions')
+    const result = await getMyClubMemberships()
+    const found = result.data.find((m) => m.club.id === id)
+    if (found) {
       setIsMember(true)
       setMyMembership({
-        id: result.data.membership.id,
-        name: result.data.membership.name,
-        role: result.data.membership.role,
-        is_registered: result.data.membership.is_registered,
+        id: found.membership.id,
+        name: found.membership.name,
+        role: found.membership.role,
+        is_registered: found.membership.is_registered,
       })
+    } else {
+      setIsMember(false)
+      setMyMembership(null)
     }
   }
+
+  // 임원인 경우 전체 회원 데이터 로드 (회원 관리용)
+  useEffect(() => {
+    if (!isOfficer || !id) return
+    const loadFullMembers = async () => {
+      const result = await getClubMembers(id)
+      if (!result.error) setFullMembers(result.data)
+    }
+    loadFullMembers()
+  }, [isOfficer, id])
 
   const handleJoin = () => {
     if (!user) {
@@ -218,73 +230,138 @@ export default function ClubDetailPage() {
             클럽 목록
           </Link>
 
-          {/* 클럽 헤더 */}
-          <div className="glass-card rounded-xl p-6 mb-6">
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div>
-                <h1
-                  className="text-2xl font-display mb-2"
-                  style={{ color: 'var(--text-primary)' }}
-                >
-                  {club.name}
-                </h1>
+          {/* 비회원: 기본 정보 + 가입 안내만 표시 */}
+          {!isMember ? (
+            <div className="glass-card rounded-xl p-6">
+              <h1
+                className="text-2xl font-display mb-3"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {club.name}
+              </h1>
 
-                <div className="flex flex-wrap items-center gap-3 mb-3">
-                  {(club.city || club.district) && (
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                        {[club.city, club.district].filter(Boolean).join(' ')}
-                      </span>
-                    </div>
-                  )}
+              <div className="flex flex-wrap items-center gap-3 mb-3">
+                {(club.city || club.district) && (
                   <div className="flex items-center gap-1.5">
-                    <Building2 className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                    <MapPin className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
                     <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      {club.associations?.name || '독립 클럽'}
+                      {[club.city, club.district].filter(Boolean).join(' ')}
                     </span>
                   </div>
-                  <div className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-                    <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                      회원 {memberCount}명
-                    </span>
-                  </div>
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {club.associations?.name || '독립 클럽'}
+                  </span>
                 </div>
-
-                {/* 대표자 & 연락처 */}
-                <div className="flex flex-wrap gap-4">
-                  {club.representative_name && (
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                        {club.representative_name}
-                      </span>
-                    </div>
-                  )}
-                  {club.contact_phone && (
-                    <div className="flex items-center gap-1.5">
-                      <Phone className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                        {club.contact_phone}
-                      </span>
-                    </div>
-                  )}
-                  {club.contact_email && (
-                    <div className="flex items-center gap-1.5">
-                      <Mail className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                        {club.contact_email}
-                      </span>
-                    </div>
-                  )}
+                <div className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    회원 {memberCount}명
+                  </span>
                 </div>
               </div>
 
-              {/* 가입/탈퇴 버튼 */}
-              <div className="shrink-0">
-                {isMember ? (
-                  <div className="text-center">
+              {/* 클럽 소개 */}
+              {club.description && (
+                <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                  <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+                    {club.description}
+                  </p>
+                </div>
+              )}
+
+              {/* 가입 안내 */}
+              <div className="mt-6 pt-4 border-t text-center space-y-3" style={{ borderColor: 'var(--border-color)' }}>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  클럽에 가입하면 회원 목록과 상세 정보를 볼 수 있습니다.
+                </p>
+                {club.join_type !== 'INVITE_ONLY' ? (
+                  <button
+                    onClick={handleJoin}
+                    className="btn-primary btn-sm"
+                  >
+                    {club.join_type === 'OPEN' ? '가입하기' : '가입 신청'}
+                  </button>
+                ) : (
+                  <span
+                    className="inline-block text-xs px-3 py-1 rounded-full"
+                    style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-muted)' }}
+                  >
+                    초대 전용 클럽입니다
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* 회원: 전체 상세 페이지 */
+            <>
+              {/* 클럽 헤더 */}
+              <div className="glass-card rounded-xl p-6 mb-6">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                  <div>
+                    <h1
+                      className="text-2xl font-display mb-2"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {club.name}
+                    </h1>
+
+                    <div className="flex flex-wrap items-center gap-3 mb-3">
+                      {(club.city || club.district) && (
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                            {[club.city, club.district].filter(Boolean).join(' ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1.5">
+                        <Building2 className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          {club.associations?.name || '독립 클럽'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                          회원 {memberCount}명
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 대표자 & 연락처 */}
+                    <div className="flex flex-wrap gap-4">
+                      {club.representative_name && (
+                        <div className="flex items-center gap-1.5">
+                          <User className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {club.representative_name}
+                          </span>
+                        </div>
+                      )}
+                      {club.contact_phone && (
+                        <div className="flex items-center gap-1.5">
+                          <Phone className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {club.contact_phone}
+                          </span>
+                        </div>
+                      )}
+                      {club.contact_email && (
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            {club.contact_email}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* 역할 + 탈퇴 */}
+                  <div className="shrink-0 text-center">
                     <span
                       className="block text-xs mb-2 px-3 py-1 rounded-full font-medium"
                       style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
@@ -301,101 +378,128 @@ export default function ClubDetailPage() {
                       </button>
                     )}
                   </div>
-                ) : club.join_type !== 'INVITE_ONLY' ? (
-                  <button
-                    onClick={handleJoin}
-                    className="btn-primary btn-sm"
-                  >
-                    {club.join_type === 'OPEN' ? '가입하기' : '가입 신청'}
-                  </button>
-                ) : (
-                  <span
-                    className="text-xs px-3 py-1 rounded-full"
-                    style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-muted)' }}
-                  >
-                    초대 전용
-                  </span>
+                </div>
+
+                {/* 클럽 소개 */}
+                {club.description && (
+                  <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                    <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
+                      {club.description}
+                    </p>
+                  </div>
+                )}
+
+                {/* 주소 */}
+                {club.address && (
+                  <div className="mt-3">
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                      📍 {club.address}
+                    </p>
+                  </div>
                 )}
               </div>
-            </div>
 
-            {/* 클럽 소개 */}
-            {club.description && (
-              <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                <p className="text-sm whitespace-pre-wrap" style={{ color: 'var(--text-secondary)' }}>
-                  {club.description}
-                </p>
-              </div>
-            )}
-
-            {/* 주소 */}
-            {club.address && (
-              <div className="mt-3">
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  📍 {club.address}
-                </p>
-              </div>
-            )}
-          </div>
-
-          {/* 회원 목록 */}
-          <div className="glass-card rounded-xl p-6">
-            <h2
-              className="font-display text-lg mb-4"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              회원 목록 ({memberCount}명)
-            </h2>
-
-            {members.length === 0 ? (
-              <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                아직 회원이 없습니다.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {members.map((member) => (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between py-2.5 px-3 rounded-lg"
-                    style={{ backgroundColor: 'var(--bg-card-hover)' }}
+              {/* 임원: 탭 헤더 (회원 목록 / 회원 관리) */}
+              {isOfficer && (
+                <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
+                  <button
+                    onClick={() => setActiveTab('info')}
+                    className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                      activeTab === 'info'
+                        ? 'text-(--accent-color)'
+                        : 'text-(--text-muted) hover:text-(--text-primary)'
+                    }`}
                   >
-                    <div className="flex items-center gap-3">
-                      {/* 아바타 */}
-                      <div
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                        style={{
-                          backgroundColor: ROLE_COLOR[member.role],
-                          color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
-                        }}
-                      >
-                        {member.name.charAt(0)}
-                      </div>
-                      <div>
-                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                          {member.name}
-                        </span>
-                        {!member.is_registered && (
-                          <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                            (비가입)
+                    회원 목록
+                    {activeTab === 'info' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                    )}
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('manage')}
+                    className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                      activeTab === 'manage'
+                        ? 'text-(--accent-color)'
+                        : 'text-(--text-muted) hover:text-(--text-primary)'
+                    }`}
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    회원 관리
+                    {activeTab === 'manage' && (
+                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {/* 회원 관리 탭 (임원 전용) */}
+              {isOfficer && activeTab === 'manage' ? (
+                <ClubMemberList
+                  clubId={id}
+                  initialMembers={fullMembers}
+                  isSystemAdmin={false}
+                />
+              ) : (
+                /* 회원 목록 */
+                <div className="glass-card rounded-xl p-6">
+                  <h2
+                    className="font-display text-lg mb-4"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    회원 목록 ({memberCount}명)
+                  </h2>
+
+                  {members.length === 0 ? (
+                    <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                      아직 회원이 없습니다.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {members.map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between py-2.5 px-3 rounded-lg"
+                          style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                              style={{
+                                backgroundColor: ROLE_COLOR[member.role],
+                                color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
+                              }}
+                            >
+                              {member.name.charAt(0)}
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {member.name}
+                              </span>
+                              {!member.is_registered && (
+                                <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  (비가입)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{
+                              backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
+                              color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
+                              border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
+                            }}
+                          >
+                            {ROLE_LABEL[member.role]}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      ))}
                     </div>
-                    <span
-                      className="text-xs px-2 py-0.5 rounded-full font-medium"
-                      style={{
-                        backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
-                        color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
-                        border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
-                      }}
-                    >
-                      {ROLE_LABEL[member.role]}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </main>
 

@@ -15,6 +15,8 @@ interface ClubDetailTabsProps {
   initialMembers: ClubMember[]
   associations?: Array<{ id: string; name: string }>
   isSystemAdmin?: boolean
+  /** 삭제/비활성화 후 돌아갈 경로 (기본: /admin/clubs) */
+  backUrl?: string
 }
 
 type Tab = 'info' | 'members'
@@ -36,7 +38,7 @@ const STATUS_LABEL: Record<ClubMemberStatus, string> = {
   REMOVED: '제거됨',
 }
 
-export function ClubDetailTabs({ club, initialMembers, associations = [], isSystemAdmin = false }: ClubDetailTabsProps) {
+export function ClubDetailTabs({ club, initialMembers, associations = [], isSystemAdmin = false, backUrl = '/admin/clubs' }: ClubDetailTabsProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('members')
   const [loading, setLoading] = useState(false)
@@ -120,7 +122,7 @@ export function ClubDetailTabs({ club, initialMembers, associations = [], isSyst
       }
       const msg = deleteModal.type === 'permanent' ? '클럽이 영구 삭제되었습니다.' : '클럽이 비활성화되었습니다.'
       setToast({ isOpen: true, message: msg, type: 'success' })
-      router.push('/admin/clubs')
+      router.push(backUrl)
     } finally {
       setLoading(false)
     }

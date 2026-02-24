@@ -11,8 +11,10 @@ import {
   MessageSquare,
   ChevronLeft,
   Menu,
+  LogOut,
 } from 'lucide-react'
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS } from '@/lib/auth/roles'
 
@@ -61,6 +63,7 @@ const menuItems = [
 
 export function AdminSidebar({ currentRole }: AdminSidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
   const filteredMenuItems = menuItems.filter((item) =>
@@ -152,8 +155,8 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
             })}
           </nav>
 
-          {/* Back to main site */}
-          <div className="p-4 border-t border-(--border-color)">
+          {/* Back to main site & Logout */}
+          <div className="p-4 border-t border-(--border-color) space-y-1">
             <Link
               href="/"
               className="flex items-center gap-3 px-4 py-3 rounded-lg text-(--text-secondary) hover:bg-(--bg-card) hover:text-(--text-primary) transition-all duration-200"
@@ -161,6 +164,17 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
               <ChevronLeft className="w-5 h-5" />
               <span className="font-medium">메인 사이트로</span>
             </Link>
+            <button
+              onClick={async () => {
+                const { signOut } = await import('@/lib/auth/actions')
+                await signOut()
+                router.push('/')
+              }}
+              className="flex items-center gap-3 px-4 py-3 rounded-lg text-(--text-secondary) hover:bg-red-500/10 hover:text-red-500 transition-all duration-200 w-full"
+            >
+              <LogOut className="w-5 h-5" />
+              <span className="font-medium">로그아웃</span>
+            </button>
           </div>
         </div>
       </aside>
