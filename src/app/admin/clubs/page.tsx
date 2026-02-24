@@ -23,16 +23,16 @@ export default async function AdminClubsPage() {
 
   const admin = createAdminClient()
 
-  // 내가 OWNER/ADMIN인 클럽 ID 조회
-  const isSuperAdmin = profile?.role === 'SUPER_ADMIN'
+  // 시스템 ADMIN 이상은 모든 클럽 조회 가능
+  const isSystemAdmin = hasMinimumRole(profile?.role, 'ADMIN')
 
   let clubIds: string[] = []
-  if (!isSuperAdmin) {
+  if (!isSystemAdmin) {
     const { data: memberships } = await admin
       .from('club_members')
       .select('club_id')
       .eq('user_id', user.id)
-      .in('role', ['OWNER', 'ADMIN'])
+      .in('role', ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'])
       .eq('status', 'ACTIVE')
 
     clubIds = memberships?.map((m) => m.club_id) || []
@@ -47,9 +47,9 @@ export default async function AdminClubsPage() {
     `)
     .order('created_at', { ascending: false })
 
-  if (!isSuperAdmin && clubIds.length > 0) {
+  if (!isSystemAdmin && clubIds.length > 0) {
     clubsQuery = clubsQuery.in('id', clubIds)
-  } else if (!isSuperAdmin && clubIds.length === 0) {
+  } else if (!isSystemAdmin && clubIds.length === 0) {
     // 소속 클럽이 없으면 빈 배열
     return (
       <div className="space-y-6">
@@ -102,6 +102,7 @@ export default async function AdminClubsPage() {
     join_type: club.join_type,
     association_name: (club.associations as { name: string } | null)?.name ?? null,
     member_count: memberCounts.get(club.id) || 0,
+    is_active: club.is_active,
   }))
 
   return (
@@ -110,7 +111,7 @@ export default async function AdminClubsPage() {
         <div>
           <h1 className="font-display text-2xl font-bold text-(--text-primary)">클럽 관리</h1>
           <p className="text-(--text-secondary) mt-1">
-            {isSuperAdmin ? '모든 클럽을 관리할 수 있습니다.' : '나의 클럽을 관리할 수 있습니다.'}
+            {isSystemAdmin ? '모든 클럽을 관리할 수 있습니다.' : '나의 클럽을 관리할 수 있습니다.'}
           </p>
         </div>
         <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1">

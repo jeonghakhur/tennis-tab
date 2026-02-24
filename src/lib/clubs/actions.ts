@@ -48,8 +48,8 @@ async function checkClubOwnerAuth(clubId: string) {
   const user = await getCurrentUser()
   if (!user) return { error: '로그인이 필요합니다.', user: null, clubRole: null }
 
-  // SUPER_ADMIN은 모든 클럽 접근 가능
-  if (user.role === 'SUPER_ADMIN') {
+  // 시스템 관리자(SUPER_ADMIN/ADMIN)는 모든 클럽 접근 가능
+  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
     return { error: null, user, clubRole: 'OWNER' as ClubMemberRole }
   }
 
@@ -62,7 +62,7 @@ async function checkClubOwnerAuth(clubId: string) {
     .eq('status', 'ACTIVE')
     .single()
 
-  if (!member || !['OWNER', 'ADMIN'].includes(member.role)) {
+  if (!member || !['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(member.role)) {
     return { error: '클럽 관리 권한이 없습니다.', user: null, clubRole: null }
   }
 
@@ -359,6 +359,7 @@ export async function updateClub(clubId: string, data: UpdateClubInput): Promise
 }
 
 /** 클럽 삭제 (OWNER만) */
+/** 클럽 비활성화 (soft delete — 회장/총무/경기이사) */
 export async function deleteClub(clubId: string): Promise<{ error?: string }> {
   const idError = validateId(clubId, '클럽 ID')
   if (idError) return { error: idError }
@@ -366,13 +367,62 @@ export async function deleteClub(clubId: string): Promise<{ error?: string }> {
   const { error: authError, clubRole } = await checkClubOwnerAuth(clubId)
   if (authError) return { error: authError }
 
+  // 회장만 비활성화 가능
   if (clubRole !== 'OWNER') return { error: '클럽 소유자만 삭제할 수 있습니다.' }
+
+  const admin = createAdminClient()
+
+  // soft delete: is_active = false
+  const { error } = await admin
+    .from('clubs')
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq('id', clubId)
+  if (error) return { error: '클럽 삭제에 실패했습니다.' }
+
+  revalidatePath('/admin/clubs')
+  return {}
+}
+
+/** 클럽 영구 삭제 (hard delete — 최고관리자/관리자만) */
+export async function permanentlyDeleteClub(clubId: string): Promise<{ error?: string }> {
+  const idError = validateId(clubId, '클럽 ID')
+  if (idError) return { error: idError }
+
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  // ADMIN 이상만 실제 삭제 가능
+  if (!hasMinimumRole(user.role, 'ADMIN')) {
+    return { error: '최고관리자 또는 관리자만 클럽을 영구 삭제할 수 있습니다.' }
+  }
 
   const admin = createAdminClient()
 
   // CASCADE로 club_members도 삭제됨
   const { error } = await admin.from('clubs').delete().eq('id', clubId)
-  if (error) return { error: '클럽 삭제에 실패했습니다.' }
+  if (error) return { error: '클럽 영구 삭제에 실패했습니다.' }
+
+  revalidatePath('/admin/clubs')
+  return {}
+}
+
+/** 클럽 활성화 (시스템 관리자 또는 클럽 회장) */
+export async function reactivateClub(clubId: string): Promise<{ error?: string }> {
+  const idError = validateId(clubId, '클럽 ID')
+  if (idError) return { error: idError }
+
+  const { error: authError, clubRole } = await checkClubOwnerAuth(clubId)
+  if (authError) return { error: authError }
+
+  if (clubRole !== 'OWNER') return { error: '클럽 소유자 또는 시스템 관리자만 활성화할 수 있습니다.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('clubs')
+    .update({ is_active: true, updated_at: new Date().toISOString() })
+    .eq('id', clubId)
+
+  if (error) return { error: '클럽 활성화에 실패했습니다.' }
 
   revalidatePath('/admin/clubs')
   return {}
@@ -441,12 +491,12 @@ export async function getMyClubs(): Promise<{ data: Club[]; error?: string }> {
 
   const admin = createAdminClient()
 
-  // 내가 OWNER/ADMIN으로 소속된 클럽 ID 조회
+  // 내가 OWNER/ADMIN/MATCH_DIRECTOR로 소속된 클럽 ID 조회
   const { data: memberships } = await admin
     .from('club_members')
     .select('club_id')
     .eq('user_id', user.id)
-    .in('role', ['OWNER', 'ADMIN'])
+    .in('role', ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'])
     .eq('status', 'ACTIVE')
 
   if (!memberships || memberships.length === 0) return { data: [] }
@@ -834,14 +884,24 @@ export async function updateMemberRole(
 
   if (!member) return { error: '회원을 찾을 수 없습니다.' }
   if (member.status !== 'ACTIVE') return { error: '활성 회원만 역할을 변경할 수 있습니다.' }
-  if (member.role === 'OWNER') return { error: '소유자의 역할은 변경할 수 없습니다.' }
 
-  const { error: authError, clubRole } = await checkClubOwnerAuth(member.club_id)
+  const { error: authError, clubRole, user: authUser } = await checkClubOwnerAuth(member.club_id)
   if (authError) return { error: authError }
 
-  // OWNER만 역할 변경 가능
-  if (clubRole !== 'OWNER') return { error: '클럽 소유자만 역할을 변경할 수 있습니다.' }
-  if (newRole === 'OWNER') return { error: '소유자 역할로 변경할 수 없습니다.' }
+  const isSystemAdmin = hasMinimumRole(authUser?.role, 'ADMIN')
+
+  // 회장 역할 변경/지정은 시스템 관리자만 가능
+  if (member.role === 'OWNER' && !isSystemAdmin) {
+    return { error: '회장의 역할은 시스템 관리자만 변경할 수 있습니다.' }
+  }
+  if (newRole === 'OWNER' && !isSystemAdmin) {
+    return { error: '회장 지정은 시스템 관리자만 가능합니다.' }
+  }
+
+  // 클럽 내 역할 기반 제한 (시스템 관리자는 제외)
+  if (!isSystemAdmin && (!clubRole || !['OWNER', 'ADMIN'].includes(clubRole))) {
+    return { error: '회장 또는 총무만 역할을 변경할 수 있습니다.' }
+  }
 
   const { error } = await admin
     .from('club_members')
@@ -849,6 +909,64 @@ export async function updateMemberRole(
     .eq('id', memberId)
 
   if (error) return { error: '역할 변경에 실패했습니다.' }
+
+  revalidatePath(`/admin/clubs/${member.club_id}`)
+  return {}
+}
+
+/** 회원 정보 수정 (owner/admin/match_director) */
+export async function updateMemberInfo(
+  memberId: string,
+  data: Partial<UnregisteredMemberInput>
+): Promise<{ error?: string }> {
+  const idError = validateId(memberId, '회원 ID')
+  if (idError) return { error: idError }
+
+  const admin = createAdminClient()
+
+  const { data: member } = await admin
+    .from('club_members')
+    .select('id, club_id, status')
+    .eq('id', memberId)
+    .single()
+
+  if (!member) return { error: '회원을 찾을 수 없습니다.' }
+
+  const { error: authError } = await checkClubOwnerAuth(member.club_id)
+  if (authError) return { error: authError }
+
+  // 입력값 살균
+  const sanitized = sanitizeObject(data)
+
+  // 전달된 필드만 검증
+  if (sanitized.name !== undefined) {
+    const errors = validateMemberInput(sanitized as UnregisteredMemberInput)
+    if (errors.name) return { error: errors.name }
+  }
+  if (sanitized.phone !== undefined && sanitized.phone) {
+    const errors = validateMemberInput({ name: 'temp', ...sanitized } as UnregisteredMemberInput)
+    if (errors.phone) return { error: errors.phone }
+  }
+  if (sanitized.birth_date !== undefined && sanitized.birth_date) {
+    const errors = validateMemberInput({ name: 'temp', ...sanitized } as UnregisteredMemberInput)
+    if (errors.birth_date) return { error: errors.birth_date }
+  }
+
+  // 업데이트할 필드만 추출
+  const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
+  if (sanitized.name !== undefined) updateData.name = sanitized.name
+  if (sanitized.birth_date !== undefined) updateData.birth_date = sanitized.birth_date || null
+  if (sanitized.gender !== undefined) updateData.gender = sanitized.gender || null
+  if (sanitized.phone !== undefined) updateData.phone = sanitized.phone || null
+  if (sanitized.start_year !== undefined) updateData.start_year = sanitized.start_year || null
+  if (sanitized.rating !== undefined) updateData.rating = sanitized.rating || null
+
+  const { error } = await admin
+    .from('club_members')
+    .update(updateData)
+    .eq('id', memberId)
+
+  if (error) return { error: '회원 정보 수정에 실패했습니다.' }
 
   revalidatePath(`/admin/clubs/${member.club_id}`)
   return {}

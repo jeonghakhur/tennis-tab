@@ -7,6 +7,7 @@ import {
   removeMember,
   restoreMember,
   updateMemberRole,
+  updateMemberInfo,
   respondJoinRequest,
   searchUsersForInvite,
   inviteMember,
@@ -32,6 +33,7 @@ const isDev = process.env.NODE_ENV === 'development'
 interface ClubMemberListProps {
   clubId: string
   initialMembers: ClubMember[]
+  isSystemAdmin?: boolean
 }
 
 type MemberFilter = 'all' | 'registered' | 'unregistered' | 'removed'
@@ -47,7 +49,7 @@ const ROLE_BADGE: Record<ClubMemberRole, { label: string; variant: BadgeVariant 
 
 const GENDER_LABEL: Record<GenderType, string> = { MALE: '남성', FEMALE: '여성' }
 
-export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) {
+export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }: ClubMemberListProps) {
   const [members, setMembers] = useState(initialMembers)
   const [filter, setFilter] = useState<MemberFilter>('all')
 
@@ -80,6 +82,16 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
   const [memberErrors, setMemberErrors] = useState<MemberValidationErrors>({})
   const errorFieldRef = useRef<keyof MemberValidationErrors | null>(null)
   const memberFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
+
+  // 회원 상세/수정 모달
+  const [editModalOpen, setEditModalOpen] = useState(false)
+  const [editMember, setEditMember] = useState<ClubMember | null>(null)
+  const [editForm, setEditForm] = useState<UnregisteredMemberInput>({
+    name: '', birth_date: '', gender: undefined, phone: '', start_year: '', rating: undefined,
+  })
+  const [editErrors, setEditErrors] = useState<MemberValidationErrors>({})
+  const [editSaving, setEditSaving] = useState(false)
+  const editFieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
   // 필터된 회원 목록 (PENDING은 별도 섹션에 표시하므로 제외)
   const filteredMembers = members.filter((m) => {
@@ -244,6 +256,65 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
     })
   }
 
+  // 회원 상세 열기
+  const openEditModal = (member: ClubMember) => {
+    setEditMember(member)
+    setEditForm({
+      name: member.name,
+      birth_date: member.birth_date || '',
+      gender: member.gender as GenderType | undefined,
+      phone: member.phone || '',
+      start_year: member.start_year || '',
+      rating: member.rating ?? undefined,
+    })
+    setEditErrors({})
+    setEditModalOpen(true)
+  }
+
+  // 회원 정보 저장
+  const handleEditSave = async () => {
+    if (!editMember || editSaving) return
+
+    // 검증
+    const errors = validateMemberInput(editForm)
+    if (hasValidationErrors(errors)) {
+      const FIELD_ORDER: (keyof MemberValidationErrors)[] = ['name', 'phone', 'birth_date', 'start_year', 'rating']
+      for (const field of FIELD_ORDER) {
+        if (errors[field]) {
+          setEditErrors({ [field]: errors[field] })
+          setAlert({ isOpen: true, message: errors[field]!, type: 'error' })
+          return
+        }
+      }
+      return
+    }
+
+    setEditSaving(true)
+    try {
+      const result = await updateMemberInfo(editMember.id, editForm)
+      if (result.error) {
+        setAlert({ isOpen: true, message: result.error, type: 'error' })
+        return
+      }
+      // 로컬 상태 즉시 반영
+      setMembers((prev) =>
+        prev.map((m) => m.id === editMember.id ? {
+          ...m,
+          name: editForm.name,
+          birth_date: editForm.birth_date || null,
+          gender: editForm.gender || null,
+          phone: editForm.phone || null,
+          start_year: editForm.start_year || null,
+          rating: editForm.rating ?? null,
+        } : m)
+      )
+      setToast({ isOpen: true, message: '회원 정보가 수정되었습니다.', type: 'success' })
+      setEditModalOpen(false)
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
   // 가입 신청 승인/거절
   const handleJoinResponse = async (member: ClubMember, approve: boolean) => {
     const result = await respondJoinRequest(member.id, approve)
@@ -360,7 +431,12 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
               <div className="flex items-start justify-between">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <span className="font-medium text-(--text-primary)">{member.name}</span>
+                    <button
+                      onClick={() => openEditModal(member)}
+                      className="font-medium text-(--text-primary) hover:text-(--accent-color) hover:underline transition-colors text-left"
+                    >
+                      {member.name}
+                    </button>
                     <Badge variant={ROLE_BADGE[member.role].variant}>
                       {ROLE_BADGE[member.role].label}
                     </Badge>
@@ -401,8 +477,8 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                   </button>
                 )}
 
-                {/* 활성 회원 관리 버튼 (OWNER 제외) */}
-                {member.role !== 'OWNER' && member.status !== 'REMOVED' && member.status !== 'LEFT' && (
+                {/* 활성 회원 관리 버튼 (시스템 관리자: 전체, 클럽 관리자: OWNER 제외) */}
+                {(isSystemAdmin || member.role !== 'OWNER') && member.status !== 'REMOVED' && member.status !== 'LEFT' && (
                   <div className="flex items-center gap-2">
                     {/* 역할 변경 */}
                     <select
@@ -410,6 +486,7 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                       onChange={(e) => handleRoleChange(member, e.target.value as ClubMemberRole)}
                       className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none"
                     >
+                      {isSystemAdmin && <option value="OWNER">회장</option>}
                       <option value="ADMIN">총무</option>
                       <option value="VICE_PRESIDENT">부회장</option>
                       <option value="ADVISOR">고문</option>
@@ -618,6 +695,147 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
             className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-red-500 text-white hover:bg-red-600 transition-colors"
           >
             제거 확인
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* 회원 상세/수정 모달 */}
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => { setEditModalOpen(false); setEditMember(null); setEditErrors({}) }}
+        title="회원 정보 수정"
+        size="lg"
+      >
+        <Modal.Body>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-(--text-primary) mb-1">
+                이름 <span className="text-red-500">*</span>
+              </label>
+              <input
+                ref={(el) => { editFieldRefs.current.name = el }}
+                type="text"
+                value={editForm.name}
+                onChange={(e) => { setEditForm({ ...editForm, name: e.target.value }); setEditErrors((prev) => ({ ...prev, name: undefined })) }}
+                maxLength={100}
+                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                  editErrors.name ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                }`}
+              />
+              {editErrors.name && <p className="mt-1 text-xs text-red-500">{editErrors.name}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-(--text-primary) mb-1">생년월일</label>
+                <input
+                  ref={(el) => { editFieldRefs.current.birth_date = el }}
+                  type="text"
+                  value={editForm.birth_date || ''}
+                  onChange={(e) => { setEditForm({ ...editForm, birth_date: e.target.value }); setEditErrors((prev) => ({ ...prev, birth_date: undefined })) }}
+                  placeholder="YYYY-MM"
+                  className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                    editErrors.birth_date ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                  }`}
+                />
+                {editErrors.birth_date && <p className="mt-1 text-xs text-red-500">{editErrors.birth_date}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-(--text-primary) mb-1">성별</label>
+                <div className="flex gap-4 py-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="edit-gender"
+                      checked={editForm.gender === 'MALE'}
+                      onChange={() => setEditForm({ ...editForm, gender: 'MALE' })}
+                      className="accent-(--accent-color)"
+                    />
+                    <span className="text-sm text-(--text-primary)">남성</span>
+                  </label>
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="edit-gender"
+                      checked={editForm.gender === 'FEMALE'}
+                      onChange={() => setEditForm({ ...editForm, gender: 'FEMALE' })}
+                      className="accent-(--accent-color)"
+                    />
+                    <span className="text-sm text-(--text-primary)">여성</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-(--text-primary) mb-1">연락처</label>
+              <input
+                ref={(el) => { editFieldRefs.current.phone = el }}
+                type="text"
+                value={editForm.phone || ''}
+                onChange={(e) => { setEditForm({ ...editForm, phone: e.target.value }); setEditErrors((prev) => ({ ...prev, phone: undefined })) }}
+                placeholder="010-1234-5678"
+                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                  editErrors.phone ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                }`}
+              />
+              {editErrors.phone && <p className="mt-1 text-xs text-red-500">{editErrors.phone}</p>}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-(--text-primary) mb-1">테니스 입문년도</label>
+                <input
+                  ref={(el) => { editFieldRefs.current.start_year = el }}
+                  type="text"
+                  value={editForm.start_year || ''}
+                  onChange={(e) => { setEditForm({ ...editForm, start_year: e.target.value }); setEditErrors((prev) => ({ ...prev, start_year: undefined })) }}
+                  placeholder="2020"
+                  className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                    editErrors.start_year ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                  }`}
+                />
+                {editErrors.start_year && <p className="mt-1 text-xs text-red-500">{editErrors.start_year}</p>}
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-(--text-primary) mb-1">레이팅</label>
+                <input
+                  ref={(el) => { editFieldRefs.current.rating = el }}
+                  type="number"
+                  value={editForm.rating || ''}
+                  onChange={(e) => {
+                    setEditForm({ ...editForm, rating: e.target.value ? Number(e.target.value) : undefined })
+                    setEditErrors((prev) => ({ ...prev, rating: undefined }))
+                  }}
+                  placeholder="1~9999"
+                  min={1}
+                  max={9999}
+                  className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                    editErrors.rating ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                  }`}
+                />
+                {editErrors.rating && <p className="mt-1 text-xs text-red-500">{editErrors.rating}</p>}
+              </div>
+            </div>
+            {/* 읽기 전용 정보 */}
+            {editMember && (
+              <div className="pt-3 border-t border-(--border-color) space-y-1 text-xs text-(--text-muted)">
+                <p>역할: {ROLE_BADGE[editMember.role].label} · 상태: {editMember.status === 'ACTIVE' ? '활성' : editMember.status}</p>
+                <p>{editMember.is_registered ? '가입회원' : '비가입회원'}{editMember.joined_at ? ` · 가입일: ${new Date(editMember.joined_at).toLocaleDateString('ko-KR')}` : ''}</p>
+              </div>
+            )}
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            onClick={() => { setEditModalOpen(false); setEditMember(null); setEditErrors({}) }}
+            className="btn-secondary btn-sm flex-1"
+          >
+            취소
+          </button>
+          <button
+            onClick={handleEditSave}
+            disabled={editSaving}
+            className={`btn-primary btn-sm flex-1 ${editSaving ? 'opacity-50' : ''}`}
+          >
+            {editSaving ? '저장 중...' : '저장'}
           </button>
         </Modal.Footer>
       </Modal>

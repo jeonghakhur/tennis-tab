@@ -1,7 +1,7 @@
 // 클럽 관련 타입 정의
 
 export type ClubJoinType = 'OPEN' | 'APPROVAL' | 'INVITE_ONLY'
-export type ClubMemberRole = 'OWNER' | 'ADMIN' | 'MEMBER'
+export type ClubMemberRole = 'OWNER' | 'ADMIN' | 'VICE_PRESIDENT' | 'ADVISOR' | 'MATCH_DIRECTOR' | 'MEMBER'
 export type ClubMemberStatus = 'PENDING' | 'INVITED' | 'ACTIVE' | 'LEFT' | 'REMOVED'
 export type GenderType = 'MALE' | 'FEMALE'
 

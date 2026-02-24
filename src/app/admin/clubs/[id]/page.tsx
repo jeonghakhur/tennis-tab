@@ -43,14 +43,14 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
 
   if (!club) notFound()
 
-  // 권한 확인: SUPER_ADMIN이거나 클럽 OWNER/ADMIN
-  if (profile?.role !== 'SUPER_ADMIN') {
+  // 권한 확인: 시스템 ADMIN 이상이거나 클럽 OWNER/ADMIN/MATCH_DIRECTOR
+  if (!hasMinimumRole(profile?.role, 'ADMIN')) {
     const { data: membership } = await admin
       .from('club_members')
       .select('role')
       .eq('club_id', id)
       .eq('user_id', user.id)
-      .in('role', ['OWNER', 'ADMIN'])
+      .in('role', ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'])
       .eq('status', 'ACTIVE')
       .maybeSingle()
 
@@ -65,11 +65,11 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
     .order('role', { ascending: true })
     .order('name', { ascending: true })
 
-  // 협회 목록 fetch (SUPER_ADMIN: 전체, 기타: 자신의 협회만)
-  const isSuperAdmin = profile?.role === 'SUPER_ADMIN'
+  // 협회 목록 fetch (시스템 관리자: 전체, 기타: 자신의 협회만)
+  const isSystemAdmin = hasMinimumRole(profile?.role, 'ADMIN')
   let associations: { id: string; name: string }[] = []
 
-  if (isSuperAdmin) {
+  if (isSystemAdmin) {
     const { data: assocData } = await admin.from('associations').select('id, name').order('name')
     associations = assocData || []
   } else {
@@ -107,6 +107,7 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
         club={club as Club}
         initialMembers={(members || []) as ClubMember[]}
         associations={associations}
+        isSystemAdmin={isSystemAdmin}
       />
     </div>
   )

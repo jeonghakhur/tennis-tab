@@ -20,14 +20,20 @@ const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
 }
 
 const ROLE_LABEL: Record<ClubMemberRole, string> = {
-  OWNER: '소유자',
-  ADMIN: '관리자',
+  OWNER: '회장',
+  ADMIN: '총무',
+  VICE_PRESIDENT: '부회장',
+  ADVISOR: '고문',
+  MATCH_DIRECTOR: '경기이사',
   MEMBER: '회원',
 }
 
 const ROLE_COLOR: Record<ClubMemberRole, string> = {
   OWNER: 'var(--accent-color)',
   ADMIN: 'var(--court-info)',
+  VICE_PRESIDENT: 'var(--color-purple)',
+  ADVISOR: 'var(--color-orange)',
+  MATCH_DIRECTOR: 'var(--color-success)',
   MEMBER: 'var(--text-muted)',
 }
 

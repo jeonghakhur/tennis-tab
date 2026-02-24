@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Shield, Users, MapPin, Search } from 'lucide-react'
+import { Badge } from '@/components/common/Badge'
 import { matchesKoreanSearch } from '@/lib/utils/korean'
 import type { ClubJoinType } from '@/lib/clubs/types'
 
@@ -21,6 +22,7 @@ export interface ClubWithCounts {
   join_type: string
   association_name: string | null
   member_count: number
+  is_active: boolean
 }
 
 interface Props {
@@ -101,9 +103,12 @@ export function ClubList({ clubs }: Props) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtered.map((club) => (
-            <div key={club.id} className="glass-card rounded-xl p-5 space-y-3">
+            <div key={club.id} className={`glass-card rounded-xl p-5 space-y-3 ${!club.is_active ? 'opacity-60 border border-red-500/30' : ''}`}>
               <div>
-                <h3 className="text-lg font-bold text-(--text-primary)">{club.name}</h3>
+                <div className="flex items-center gap-2">
+                  <h3 className={`text-lg font-bold ${!club.is_active ? 'text-(--text-muted)' : 'text-(--text-primary)'}`}>{club.name}</h3>
+                  {!club.is_active && <Badge variant="danger">비활성</Badge>}
+                </div>
                 {(club.city || club.district) && (
                   <p className="text-sm text-(--text-secondary) flex items-center gap-1 mt-0.5">
                     <MapPin className="w-3 h-3" />
