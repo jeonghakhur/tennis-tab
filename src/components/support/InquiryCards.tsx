@@ -1,0 +1,97 @@
+'use client'
+
+import Link from 'next/link'
+import { useAuth } from '@/components/AuthProvider'
+import { MessageSquare, ClipboardList, LogIn } from 'lucide-react'
+
+/** 고객센터 하단 — 1:1 문의 + 내 문의 내역 카드 */
+export function InquiryCards() {
+  const { user, loading } = useAuth()
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-lg mx-auto">
+      {/* 1:1 문의하기 */}
+      {user ? (
+        <Link
+          href="/support/inquiry"
+          className="glass-card rounded-xl p-6 text-center hover:bg-(--bg-card-hover) transition-colors group"
+        >
+          <MessageSquare
+            className="w-8 h-8 mx-auto mb-3 group-hover:text-(--accent-color) transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <h3
+            className="font-display text-base mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            1:1 문의하기
+          </h3>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            궁금한 점이 있으시면 문의해주세요.
+          </p>
+        </Link>
+      ) : (
+        <div className="glass-card rounded-xl p-6 text-center">
+          <LogIn
+            className="w-8 h-8 mx-auto mb-3"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <h3
+            className="font-display text-base mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            1:1 문의하기
+          </h3>
+          <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+            문의를 남기려면 로그인이 필요합니다.
+          </p>
+          <Link
+            href="/auth/login"
+            className="inline-block px-4 py-1.5 rounded-lg text-xs font-medium text-white"
+            style={{ backgroundColor: 'var(--accent-color)' }}
+          >
+            로그인
+          </Link>
+        </div>
+      )}
+
+      {/* 내 문의 내역 */}
+      {user ? (
+        <Link
+          href="/support/inquiry/history"
+          className="glass-card rounded-xl p-6 text-center hover:bg-(--bg-card-hover) transition-colors group"
+        >
+          <ClipboardList
+            className="w-8 h-8 mx-auto mb-3 group-hover:text-(--accent-color) transition-colors"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <h3
+            className="font-display text-base mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            내 문의 내역
+          </h3>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            접수한 문의의 처리 현황을 확인하세요.
+          </p>
+        </Link>
+      ) : (
+        <div className="glass-card rounded-xl p-6 text-center opacity-60">
+          <ClipboardList
+            className="w-8 h-8 mx-auto mb-3"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <h3
+            className="font-display text-base mb-1"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            내 문의 내역
+          </h3>
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {loading ? '로딩 중...' : '로그인 후 이용 가능합니다.'}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}

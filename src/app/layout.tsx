@@ -18,11 +18,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" data-scroll-behavior="smooth">
-      <body className="font-body antialiased">
+      <body className="font-body antialiased min-h-screen flex flex-col">
         <ThemeProvider>
           <AuthProvider>
             <Navigation />
-            <main className="min-h-screen pt-20">
+            <main className="flex-1 flex flex-col pt-20">
               {children}
             </main>
             <Footer />

@@ -43,10 +43,10 @@ export default function InquiryCreatePage() {
       <>
         <Navigation />
         <main
-          className="min-h-screen pt-20"
+          className=""
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
-          <div className="max-w-6xl mx-auto px-6 py-12 text-center">
+          <div className="max-w-[1920px] mx-auto px-6 py-12 text-center">
             <p className="mb-4" style={{ color: 'var(--text-primary)' }}>
               문의를 남기려면 로그인이 필요합니다.
             </p>
@@ -67,10 +67,10 @@ export default function InquiryCreatePage() {
     <>
       <Navigation />
       <main
-        className="min-h-screen pt-20"
+        className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
-        <div className="max-w-2xl mx-auto px-6 py-12">
+        <div className="max-w-[1920px] mx-auto px-6 py-12">
           {/* 뒤로가기 */}
           <Link
             href="/support"

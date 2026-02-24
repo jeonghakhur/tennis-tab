@@ -9,6 +9,7 @@ import {
   Building2,
   Shield,
   MessageSquare,
+  HelpCircle,
   ChevronLeft,
   Menu,
   LogOut,
@@ -57,6 +58,12 @@ const menuItems = [
     name: '문의 관리',
     href: '/admin/inquiries',
     icon: MessageSquare,
+    roles: ['SUPER_ADMIN', 'ADMIN'] as UserRole[],
+  },
+  {
+    name: 'FAQ 관리',
+    href: '/admin/faq',
+    icon: HelpCircle,
     roles: ['SUPER_ADMIN', 'ADMIN'] as UserRole[],
   },
 ]

@@ -152,7 +152,7 @@ export default function AdminInquiryDetailPage() {
                   상태:
                 </label>
                 <Select value={inquiry.status} onValueChange={(v) => handleStatusChange(v as InquiryStatus)}>
-                  <SelectTrigger id="status-select" className="px-3 py-1.5 rounded-lg text-sm bg-(--bg-input) border border-(--border-color)">
+                  <SelectTrigger size="sm" id="status-select" className="px-3 py-1.5 rounded-lg text-sm bg-(--bg-input) border border-(--border-color)">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

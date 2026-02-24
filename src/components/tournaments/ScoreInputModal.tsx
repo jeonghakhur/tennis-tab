@@ -451,7 +451,7 @@ function TeamScoreInput({
                         onValueChange={(v) => updatePlayer(setIndex, 'team1', pIdx, v)}
                         disabled={disabled}
                       >
-                        <SelectTrigger className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
+                        <SelectTrigger size="sm" className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
                           <SelectValue placeholder="선수 선택" />
                         </SelectTrigger>
                         <SelectContent>
@@ -487,7 +487,7 @@ function TeamScoreInput({
                         onValueChange={(v) => updatePlayer(setIndex, 'team2', pIdx, v)}
                         disabled={disabled}
                       >
-                        <SelectTrigger className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
+                        <SelectTrigger size="sm" className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
                           <SelectValue placeholder="선수 선택" />
                         </SelectTrigger>
                         <SelectContent>

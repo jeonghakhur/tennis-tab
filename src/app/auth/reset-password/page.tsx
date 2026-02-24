@@ -146,7 +146,7 @@ function ResetPasswordContent() {
     <>
       <Navigation />
       <main
-        className="min-h-screen flex items-center justify-center pt-20"
+        className="flex-1 flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         <div className="w-full max-w-md px-6">
@@ -291,7 +291,7 @@ function ResetPasswordLoading() {
     <>
       <Navigation />
       <main
-        className="min-h-screen flex items-center justify-center pt-20"
+        className="flex-1 flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         <div className="w-full max-w-md px-6 text-center">

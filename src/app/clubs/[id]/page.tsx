@@ -178,7 +178,7 @@ export default function ClubDetailPage() {
     return (
       <>
         <Navigation />
-        <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <main className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="max-w-4xl mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -195,7 +195,7 @@ export default function ClubDetailPage() {
     return (
       <>
         <Navigation />
-        <main className="min-h-screen pt-20 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <main className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="text-center">
             <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
               클럽을 찾을 수 없습니다
@@ -218,7 +218,7 @@ export default function ClubDetailPage() {
       <Navigation />
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
-      <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <main className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="max-w-4xl mx-auto px-6 py-12">
           {/* 뒤로가기 */}
           <Link

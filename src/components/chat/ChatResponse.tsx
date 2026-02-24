@@ -19,7 +19,7 @@ export function ChatResponse({ response, loading, error }: ChatResponseProps) {
       aria-live="polite"
       aria-label="AI 응답"
       aria-busy={loading}
-      className="w-full max-w-3xl mx-auto mt-6 animate-fade-in"
+      className="w-full max-w-[1920px] mx-auto mt-6 animate-fade-in"
     >
       {/* 로딩 */}
       {loading && (

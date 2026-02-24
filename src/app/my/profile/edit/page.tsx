@@ -199,7 +199,7 @@ export default function ProfileEditPage() {
       <>
         <Navigation />
         <main
-          className="min-h-screen pt-20"
+          className=""
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
           <div className="max-w-2xl mx-auto px-6 py-12">
@@ -232,7 +232,7 @@ export default function ProfileEditPage() {
       <>
         <Navigation />
         <main
-          className="min-h-screen pt-20 flex items-center justify-center"
+          className="flex-1 flex items-center justify-center"
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
           <div className="text-center">
@@ -278,7 +278,7 @@ export default function ProfileEditPage() {
     <>
       <Navigation />
       <main
-        className="min-h-screen pt-20"
+        className=""
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
         <div className="max-w-2xl mx-auto px-6 py-12">

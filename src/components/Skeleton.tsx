@@ -141,7 +141,7 @@ export function StatsSkeleton() {
  */
 export function ProfilePageSkeleton() {
   return (
-    <main className="min-h-screen pt-20" style={{ backgroundColor: 'var(--bg-primary)' }}>
+    <main className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
       <div className="max-w-6xl mx-auto px-6 py-12">
         <ProfileHeaderSkeleton />
         <StatsSkeleton />

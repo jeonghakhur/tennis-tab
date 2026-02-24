@@ -44,7 +44,7 @@ export default async function MyClubsPage() {
 
   if (!memberships || memberships.length === 0) {
     return (
-      <div className="max-w-3xl mx-auto px-4 py-8">
+      <div className="max-w-[1920px] mx-auto px-4 py-8">
         <h1 className="font-display text-2xl font-bold text-(--text-primary) mb-6">
           내 클럽 관리
         </h1>
@@ -90,7 +90,7 @@ export default async function MyClubsPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-[1920px] mx-auto px-4 py-8">
       <h1 className="font-display text-2xl font-bold text-(--text-primary) mb-6">
         내 클럽 관리
       </h1>

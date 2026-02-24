@@ -14,6 +14,18 @@ function stripHtml(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
 }
 
+// 본문 HTML에서 <img> src 추출
+const IMG_SRC_REGEX = /<img[^>]+src="([^"]+)"[^>]*>/g
+function extractContentImages(html: string): { url: string; name: string }[] {
+  const results: { url: string; name: string }[] = []
+  let match
+  const regex = new RegExp(IMG_SRC_REGEX.source, 'g')
+  while ((match = regex.exec(html)) !== null) {
+    results.push({ url: match[1], name: '본문 이미지' })
+  }
+  return results
+}
+
 // 상대 시간 표시
 function formatRelativeTime(dateStr: string): string {
   const now = Date.now()
@@ -42,9 +54,14 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
   const [likeLoading, setLikeLoading] = useState(false)
   const [expanded, setExpanded] = useState(false)
 
-  const images = (post.attachments ?? []).filter(
+  // 첨부 이미지 → content 인라인 이미지 순으로 합산
+  const attachmentImages = (post.attachments ?? []).filter(
     (a: PostAttachment) => a.type === 'image'
   )
+  const contentImages = attachmentImages.length > 0
+    ? [] // 첨부 이미지가 있으면 중복 방지
+    : extractContentImages(post.content)
+  const images = attachmentImages.length > 0 ? attachmentImages : contentImages
 
   const plainText = stripHtml(post.content)
   // 4줄 이상인지 대략 판단 (한 줄 약 60자 기준)

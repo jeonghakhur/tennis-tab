@@ -970,44 +970,184 @@ body {
   }
 }
 
-.editor-content {
-  line-height: 2;
+/* ── 커뮤니티 포스트 본문 콘텐츠 ── */
+.post-content {
+  line-height: 1.85;
+  font-size: 0.9375rem;
+  color: var(--text-secondary);
+  word-break: keep-all;
+  overflow-wrap: break-word;
 
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6 {
+  /* 제목 공통 */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: "Paperlogy", sans-serif;
     font-weight: 700;
-    margin: 1rem 0;
+    color: var(--text-primary);
+    line-height: 1.4;
   }
 
   h1 {
-    font-size: 1.5rem;
-  } 
+    font-size: 1.375rem;
+    margin: 2rem 0 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-accent);
+  }
 
   h2 {
-    font-size: 1.25rem;
+    font-size: 1.175rem;
+    margin: 1.75rem 0 0.75rem;
+    padding-bottom: 0.375rem;
+    border-bottom: 1px solid var(--border-color);
   }
 
   h3 {
-    font-size: 1.125rem;
+    font-size: 1.05rem;
+    margin: 1.5rem 0 0.5rem;
   }
 
   h4 {
-    font-size: 1rem;
+    font-size: 0.9375rem;
+    margin: 1.25rem 0 0.5rem;
   }
 
   h5 {
     font-size: 0.875rem;
+    margin: 1.25rem 0 0.375rem;
+    color: var(--accent-color);
   }
 
   h6 {
-    font-size: 0.75rem;
+    font-size: 0.8125rem;
+    margin: 1rem 0 0.375rem;
+    color: var(--text-muted);
   }
 
+  /* 첫 번째 제목 상단 마진 제거 */
+  > h1:first-child,
+  > h2:first-child,
+  > h3:first-child {
+    margin-top: 0;
+  }
 
+  /* 단락 */
+  p {
+    margin: 0.75rem 0;
+  }
+
+  p:first-child {
+    margin-top: 0;
+  }
+
+  p:last-child {
+    margin-bottom: 0;
+  }
+
+  /* 굵은 글씨 */
+  strong {
+    font-weight: 700;
+    color: var(--text-primary);
+  }
+
+  /* 순서 없는 목록 */
+  ul {
+    margin: 0.5rem 0;
+    padding-left: 1.25rem;
+    list-style: none;
+  }
+
+  ul > li {
+    position: relative;
+    padding-left: 0.25rem;
+    margin: 0.35rem 0;
+  }
+
+  ul > li::before {
+    content: "•";
+    position: absolute;
+    left: -1rem;
+    color: var(--accent-color);
+    font-weight: 700;
+  }
+
+  /* 순서 있는 목록 */
+  ol {
+    margin: 0.5rem 0;
+    padding-left: 1.5rem;
+    list-style: decimal;
+  }
+
+  ol > li {
+    margin: 0.35rem 0;
+    padding-left: 0.25rem;
+  }
+
+  ol > li::marker {
+    color: var(--accent-color);
+    font-weight: 600;
+  }
+
+  /* 수평선 */
+  hr {
+    border: none;
+    height: 1px;
+    background: var(--border-color);
+    margin: 1.5rem 0;
+  }
+
+  /* 연속 hr 병합 (마크다운 변환 시 중복 방지) */
+  hr + hr {
+    display: none;
+  }
+
+  /* 이미지 */
+  img {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    border-radius: 0.5rem;
+    margin: 1rem 0;
+    cursor: pointer;
+  }
+
+  /* 연속 이미지 간격 축소 */
+  img + img {
+    margin-top: 0.5rem;
+  }
+
+  /* 링크 */
+  a {
+    color: var(--accent-color);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+
+  a:hover {
+    opacity: 0.8;
+  }
+
+  /* 빨간색 span (규정 강조) */
+  span[style*="color:red"],
+  span[style*="color: red"] {
+    font-weight: 600;
+  }
+}
+
+/* ── TipTap 에디터 콘텐츠 (편집 모드) ── */
+.editor-content {
+  line-height: 1.85;
+  font-size: 0.9375rem;
+
+  h1, h2, h3, h4, h5, h6 {
+    font-weight: 700;
+    margin: 1rem 0;
+  }
+
+  h1 { font-size: 1.375rem; }
+  h2 { font-size: 1.175rem; }
+  h3 { font-size: 1.05rem; }
+  h4 { font-size: 0.9375rem; }
+  h5 { font-size: 0.875rem; }
+  h6 { font-size: 0.8125rem; }
 
   hr {
     margin: 1rem 0;

@@ -373,7 +373,7 @@ export function UsersTable({
                             onValueChange={(v) => handleRoleChange(user.id, v as UserRole)}
                             disabled={changingRole === user.id}
                           >
-                            <SelectTrigger className={`px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) focus:border-(--accent-color) transition-colors ${changingRole === user.id ? 'opacity-50' : ''} ${ROLE_COLORS[user.role ?? 'USER']}`}>
+                            <SelectTrigger size="sm" className={`px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) focus:border-(--accent-color) transition-colors ${changingRole === user.id ? 'opacity-50' : ''} ${ROLE_COLORS[user.role ?? 'USER']}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>

@@ -260,7 +260,7 @@ export default function PostDetailPage() {
               <KakaoShareButton
                 title={post.title}
                 content={post.content}
-                imageUrl={post.attachments?.find((a: PostAttachment) => a.type === 'image')?.url}
+                imageUrl={allImages[0]?.src}
                 postId={post.id}
               />
 
@@ -313,8 +313,7 @@ export default function PostDetailPage() {
             {/* 본문 (리치텍스트 HTML) */}
             <div
               ref={contentRef}
-              className="prose prose-sm dark:prose-invert max-w-none [&_img]:cursor-pointer [&_img]:rounded-lg [&_img]:max-w-full"
-              style={{ color: 'var(--text-secondary)' }}
+              className="post-content"
               dangerouslySetInnerHTML={{ __html: post.content }}
             />
 

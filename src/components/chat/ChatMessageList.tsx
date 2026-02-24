@@ -34,7 +34,7 @@ export function ChatMessageList({ messages, loading, error }: ChatMessageListPro
       aria-live="polite"
       aria-label="대화 내용"
     >
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-5">
+      <div className="max-w-[1920px] mx-auto px-4 py-6 space-y-5">
         {messages.map((msg, i) => (
           <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
             {msg.role === 'user' ? (

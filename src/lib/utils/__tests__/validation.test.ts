@@ -9,6 +9,7 @@ import {
   hasValidationErrors,
   validateClubInput,
   validateMemberInput,
+  validateInquiryInput,
 } from '../validation'
 
 // ============================================================================
@@ -455,6 +456,160 @@ describe('validateMemberInput', () => {
 
     it('소수이면 에러를 반환한다', () => {
       expect(validateMemberInput({ ...validInput, rating: 3.5 }).rating).toBeDefined()
+    })
+  })
+})
+
+// ============================================================================
+// validateInquiryInput — 검증 + 보안 테스트
+// ============================================================================
+
+describe('validateInquiryInput', () => {
+  const validInput = {
+    category: 'SERVICE',
+    title: '서비스 이용 문의입니다',
+    content: '문의 내용을 작성합니다.',
+  }
+
+  // ── 정상 케이스 ──────────────────────────────────────────────────────────
+  it('정상 입력은 에러가 없다', () => {
+    expect(hasValidationErrors(validateInquiryInput(validInput))).toBe(false)
+  })
+
+  it('모든 카테고리 값은 통과한다', () => {
+    const categories = ['SERVICE', 'TOURNAMENT', 'ACCOUNT', 'ETC']
+    categories.forEach((category) => {
+      expect(
+        hasValidationErrors(validateInquiryInput({ ...validInput, category }))
+      ).toBe(false)
+    })
+  })
+
+  it('제목 1자는 통과한다', () => {
+    expect(validateInquiryInput({ ...validInput, title: 'A' }).title).toBeUndefined()
+  })
+
+  it('제목 100자는 통과한다', () => {
+    expect(validateInquiryInput({ ...validInput, title: 'A'.repeat(100) }).title).toBeUndefined()
+  })
+
+  it('내용 1자는 통과한다', () => {
+    expect(validateInquiryInput({ ...validInput, content: '내용' }).content).toBeUndefined()
+  })
+
+  it('내용 3000자는 통과한다', () => {
+    expect(validateInquiryInput({ ...validInput, content: 'A'.repeat(3000) }).content).toBeUndefined()
+  })
+
+  // ── 카테고리 검증 ────────────────────────────────────────────────────────
+  describe('category', () => {
+    it('빈 문자열이면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, category: '' }).category).toBeDefined()
+    })
+
+    it('undefined이면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, category: undefined }).category).toBeDefined()
+    })
+
+    it('허용되지 않은 값이면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, category: 'INVALID' }).category).toBeDefined()
+      expect(validateInquiryInput({ ...validInput, category: 'service' }).category).toBeDefined()
+      expect(validateInquiryInput({ ...validInput, category: 'HACKING' }).category).toBeDefined()
+    })
+  })
+
+  // ── 제목 검증 ────────────────────────────────────────────────────────────
+  describe('title', () => {
+    it('빈 문자열이면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, title: '' }).title).toBeDefined()
+    })
+
+    it('공백만 있으면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, title: '   ' }).title).toBeDefined()
+    })
+
+    it('undefined이면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, title: undefined }).title).toBeDefined()
+    })
+
+    it('101자를 초과하면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, title: 'A'.repeat(101) }).title).toBeDefined()
+    })
+  })
+
+  // ── 내용 검증 ────────────────────────────────────────────────────────────
+  describe('content', () => {
+    it('빈 문자열이면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, content: '' }).content).toBeDefined()
+    })
+
+    it('공백만 있으면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, content: '   ' }).content).toBeDefined()
+    })
+
+    it('3001자를 초과하면 에러를 반환한다', () => {
+      expect(validateInquiryInput({ ...validInput, content: 'A'.repeat(3001) }).content).toBeDefined()
+    })
+  })
+
+  // ── 보안 테스트 ──────────────────────────────────────────────────────────
+  describe('보안 — XSS 공격 패턴', () => {
+    it('sanitize 후 정상 텍스트만 남으면 검증을 통과한다', () => {
+      // sanitizeObject를 거친 후의 결과물 검증
+      const xssTitle = sanitizeInput('<script>alert("xss")</script>문의 제목')
+      const xssContent = sanitizeInput('<img src=x onerror=alert(1)>내용입니다')
+      expect(validateInquiryInput({
+        ...validInput,
+        title: xssTitle,
+        content: xssContent,
+      })).toEqual({}) // 에러 없음 (tag 제거 후 유효 텍스트)
+    })
+
+    it('sanitize 후 빈 문자열이 되면 필수 에러를 반환한다', () => {
+      // 태그만으로 이루어진 입력 → sanitize 후 빈 문자열
+      const onlyTags = sanitizeInput('<script></script><img/>')
+      expect(onlyTags).toBe('')
+      expect(validateInquiryInput({ ...validInput, title: onlyTags }).title).toBeDefined()
+    })
+
+    it('javascript: 프로토콜은 sanitize 후 제거된다', () => {
+      const malicious = sanitizeInput('javascript:alert(1)')
+      expect(malicious).not.toContain('javascript:')
+    })
+
+    it('이벤트 핸들러 패턴은 sanitize 후 제거된다', () => {
+      const malicious = sanitizeInput('onclick=evil() 제목')
+      expect(malicious).not.toMatch(/on\w+\s*=/)
+    })
+
+    it('허용되지 않은 category 주입은 에러를 반환한다', () => {
+      // SQL injection 시도
+      expect(validateInquiryInput({ ...validInput, category: "' OR 1=1 --" }).category).toBeDefined()
+      // 스크립트 주입 시도
+      expect(validateInquiryInput({ ...validInput, category: '<script>' }).category).toBeDefined()
+      // 열거형 외 값
+      expect(validateInquiryInput({ ...validInput, category: 'ADMIN' }).category).toBeDefined()
+    })
+  })
+
+  // ── 경계값 테스트 ────────────────────────────────────────────────────────
+  describe('경계값', () => {
+    it('제목 100자 → 통과, 101자 → 에러', () => {
+      expect(validateInquiryInput({ ...validInput, title: 'A'.repeat(100) }).title).toBeUndefined()
+      expect(validateInquiryInput({ ...validInput, title: 'A'.repeat(101) }).title).toBeDefined()
+    })
+
+    it('내용 3000자 → 통과, 3001자 → 에러', () => {
+      expect(validateInquiryInput({ ...validInput, content: 'A'.repeat(3000) }).content).toBeUndefined()
+      expect(validateInquiryInput({ ...validInput, content: 'A'.repeat(3001) }).content).toBeDefined()
+    })
+
+    it('다국어 내용은 정상 처리된다', () => {
+      expect(hasValidationErrors(validateInquiryInput({
+        ...validInput,
+        title: '대회 관련 문의 🎾',
+        content: '테니스 대회 참가 방법에 대해 문의드립니다. Tennis tournament inquiry.',
+      }))).toBe(false)
     })
   })
 })

@@ -84,7 +84,7 @@ export function MyEntriesClient({ entries }: MyEntriesClientProps) {
     <>
       <Navigation />
       <main
-        className="min-h-screen pt-20"
+        className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-24">

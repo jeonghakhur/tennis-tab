@@ -112,7 +112,7 @@ export default function ClubsPage() {
     <>
       <Navigation />
       <main
-        className="min-h-screen pt-20"
+        className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
         <div className="max-w-6xl mx-auto px-6 py-12">

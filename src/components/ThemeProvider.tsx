@@ -70,7 +70,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, mounted }}>
-      <div style={{ visibility: mounted ? "visible" : "hidden" }}>
+      <div className="flex-1 flex flex-col" style={{ visibility: mounted ? "visible" : "hidden" }}>
         {children}
       </div>
     </ThemeContext.Provider>

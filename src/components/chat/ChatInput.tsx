@@ -66,7 +66,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
     return (
       <div className="fixed bottom-0 left-0 right-0 z-40 border-t" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-3xl mx-auto px-4 py-3">
+        <div className="max-w-[1920px] mx-auto px-4 py-3">
           <form onSubmit={handleSubmit} noValidate>
             <div
               className="relative rounded-2xl transition-all duration-200"
