@@ -39,6 +39,9 @@ type MemberFilter = 'all' | 'registered' | 'unregistered' | 'removed'
 const ROLE_BADGE: Record<ClubMemberRole, { label: string; variant: BadgeVariant }> = {
   OWNER: { label: '회장', variant: 'warning' },
   ADMIN: { label: '총무', variant: 'info' },
+  VICE_PRESIDENT: { label: '부회장', variant: 'purple' },
+  ADVISOR: { label: '고문', variant: 'orange' },
+  MATCH_DIRECTOR: { label: '경기이사', variant: 'success' },
   MEMBER: { label: '회원', variant: 'secondary' },
 }
 
@@ -408,6 +411,9 @@ export function ClubMemberList({ clubId, initialMembers }: ClubMemberListProps) 
                       className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none"
                     >
                       <option value="ADMIN">총무</option>
+                      <option value="VICE_PRESIDENT">부회장</option>
+                      <option value="ADVISOR">고문</option>
+                      <option value="MATCH_DIRECTOR">경기이사</option>
                       <option value="MEMBER">회원</option>
                     </select>
                     {/* 제거 */}

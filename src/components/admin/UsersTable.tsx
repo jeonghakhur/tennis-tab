@@ -31,6 +31,9 @@ const roles: UserRole[] = ['RESTRICTED', 'USER', 'MANAGER', 'ADMIN', 'SUPER_ADMI
 const CLUB_ROLE_LABEL: Record<string, string> = {
   OWNER: '회장',
   ADMIN: '총무',
+  VICE_PRESIDENT: '부회장',
+  ADVISOR: '고문',
+  MATCH_DIRECTOR: '경기이사',
 }
 
 export function UsersTable({
@@ -344,7 +347,13 @@ export function UsersTable({
                             {clubRoleMap[user.id].map((cr, idx) => (
                               <Badge
                                 key={idx}
-                                variant={cr.role === 'OWNER' ? 'warning' : 'info'}
+                                variant={
+                                  cr.role === 'OWNER' ? 'warning'
+                                    : cr.role === 'ADMIN' ? 'info'
+                                    : cr.role === 'VICE_PRESIDENT' ? 'purple'
+                                    : cr.role === 'ADVISOR' ? 'orange'
+                                    : 'success'
+                                }
                               >
                                 {cr.clubName} {CLUB_ROLE_LABEL[cr.role] ?? cr.role}
                               </Badge>

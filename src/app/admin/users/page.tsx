@@ -32,7 +32,7 @@ export default async function AdminUsersPage() {
   const { data: clubRoles } = await supabase
     .from('club_members')
     .select('user_id, role, clubs(name)')
-    .in('role', ['OWNER', 'ADMIN'])
+    .in('role', ['OWNER', 'ADMIN', 'VICE_PRESIDENT', 'ADVISOR', 'MATCH_DIRECTOR'])
     .eq('is_registered', true)
     .not('user_id', 'is', null)
 
