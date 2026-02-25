@@ -1,7 +1,8 @@
 'use client'
 
 import { useTheme } from '@/components/ThemeProvider'
-import { Sun, Moon, Bell } from 'lucide-react'
+import { useFontSize } from '@/components/FontSizeProvider'
+import { Sun, Moon } from 'lucide-react'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth/roles'
 
@@ -19,6 +20,7 @@ export function AdminHeader({
   userRole,
 }: AdminHeaderProps) {
   const { theme, toggleTheme } = useTheme()
+  const { isLarge, toggleFontSize } = useFontSize()
 
   return (
     <header className="shrink-0 bg-(--bg-secondary) border-b border-(--border-color)">
@@ -35,6 +37,27 @@ export function AdminHeader({
 
         {/* Right side actions */}
         <div className="flex items-center gap-4">
+          {/* 큰글씨 토글 */}
+          <button
+            type="button"
+            onClick={toggleFontSize}
+            className="p-2 rounded-lg hover:bg-(--bg-card) transition-colors"
+            title={isLarge ? '기본 글씨' : '큰 글씨'}
+            aria-label={isLarge ? '기본 글씨 크기로 변경' : '큰 글씨 모드로 변경'}
+            aria-pressed={isLarge}
+          >
+            <span
+              className="font-display font-bold block"
+              style={{
+                fontSize: isLarge ? '18px' : '14px',
+                color: isLarge ? 'var(--accent-color)' : 'var(--text-secondary)',
+                lineHeight: 1,
+              }}
+            >
+              가
+            </span>
+          </button>
+
           {/* Theme Toggle */}
           <button
             onClick={toggleTheme}

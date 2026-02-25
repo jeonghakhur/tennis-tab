@@ -1,6 +1,7 @@
 "use client";
 
 import { useAuth } from "@/components/AuthProvider";
+import { useFontSize } from "@/components/FontSizeProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Navigation } from "@/components/Navigation";
@@ -171,6 +172,7 @@ function MatchListSkeleton() {
 
 export default function MyProfilePage() {
   const { user, profile, loading } = useAuth();
+  const { isLarge, toggleFontSize } = useFontSize();
   const [stats, setStats] = useState<UserStats | null>(null);
   const [tournaments, setTournaments] = useState<TournamentEntry[]>([]);
   const [matches, setMatches] = useState<BracketMatch[]>([]);
@@ -702,6 +704,57 @@ export default function MyProfilePage() {
                 >
                   팔로워 기능은 추후 업데이트 예정입니다
                 </p>
+              </div>
+
+              {/* 화면 설정 */}
+              <div className="glass-card p-6">
+                <h3
+                  className="text-xl font-display mb-4"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  화면 설정
+                </h3>
+                <div
+                  className="flex items-center justify-between py-3 border-b"
+                  style={{ borderColor: "var(--border-color)" }}
+                >
+                  <div>
+                    <p
+                      className="text-sm font-medium"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      큰 글씨 모드
+                    </p>
+                    <p
+                      className="text-xs mt-0.5"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      텍스트를 1.25배 크게 표시합니다
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={isLarge}
+                    onClick={toggleFontSize}
+                    className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 outline-none"
+                    style={{
+                      backgroundColor: isLarge
+                        ? "var(--accent-color)"
+                        : "var(--border-color)",
+                    }}
+                  >
+                    <span className="sr-only">큰 글씨 모드</span>
+                    <span
+                      className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-300"
+                      style={{
+                        transform: isLarge
+                          ? "translateX(1.375rem)"
+                          : "translateX(0.25rem)",
+                      }}
+                    />
+                  </button>
+                </div>
               </div>
             </div>
           )}

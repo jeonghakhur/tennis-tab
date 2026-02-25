@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ThemeProvider } from "@/components/ThemeProvider";
+import { FontSizeProvider } from "@/components/FontSizeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
@@ -20,13 +21,15 @@ export default function RootLayout({
     <html lang="ko" data-scroll-behavior="smooth">
       <body className="font-body antialiased min-h-screen flex flex-col">
         <ThemeProvider>
-          <AuthProvider>
-            <Navigation />
-            <main className="flex-1 pt-20">
-              {children}
-            </main>
-            <Footer />
-          </AuthProvider>
+          <FontSizeProvider>
+            <AuthProvider>
+              <Navigation />
+              <main className="flex-1 pt-20">
+                {children}
+              </main>
+              <Footer />
+            </AuthProvider>
+          </FontSizeProvider>
         </ThemeProvider>
       </body>
     </html>

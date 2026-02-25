@@ -352,6 +352,12 @@ html {
   scroll-behavior: smooth;
 }
 
+@layer base {
+  html[data-font-size="large"] {
+    font-size: 20px; /* 1.25× 배율 — 브라우저 기본 16px에서 override */
+  }
+}
+
 body {
   font-family:
     "SUIT Variable",
