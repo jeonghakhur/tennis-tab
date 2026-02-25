@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
+import { cancelTossPayment } from '@/lib/payment/actions';
 
 // 결과 타입 정의
 export interface CreateEntryResult {
@@ -148,7 +149,7 @@ export async function createEntry(
             partner_data: entryData.partnerData ?? null,
             team_members: entryData.teamMembers ?? null,
             status: initialStatus,
-            payment_status: 'UNPAID',
+            payment_status: 'PENDING',
         };
         const admin = createAdminClient();
         const { data: newEntry, error: insertError } = await admin
@@ -277,7 +278,15 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
             return { success: false, error: '본인의 신청만 취소할 수 있습니다.' };
         }
 
-        // 4. 신청 삭제 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
+        // 4. 결제 완료 상태면 토스 결제 취소 먼저 처리
+        if (entry.payment_status === 'COMPLETED') {
+            const cancelResult = await cancelTossPayment(entryId)
+            if (!cancelResult.success) {
+                return { success: false, error: `결제 취소 실패: ${cancelResult.error}` }
+            }
+        }
+
+        // 5. 신청 삭제 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
         const admin = createAdminClient();
         const { error: deleteError } = await admin
             .from('tournament_entries')

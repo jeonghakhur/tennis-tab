@@ -142,6 +142,12 @@ export default function TournamentEntryActions({
     });
 
     if (result.success && result.entryId) {
+      // 참가비가 있는 대회는 결제 페이지로 이동
+      if (entryFee > 0) {
+        router.push(`/tournaments/${tournamentId}/payment?entryId=${result.entryId}`);
+        return result;
+      }
+      // 참가비 없는 대회는 기존 흐름 유지
       getUserEntry(tournamentId).then((e) => {
         if (e) setEntry(e as CurrentEntry);
       });
@@ -272,7 +278,7 @@ export default function TournamentEntryActions({
 
   // 결제 상태 배지
   const getPaymentBadge = (paymentStatus: string | undefined) => {
-    const isPaid = paymentStatus === "PAID";
+    const isPaid = paymentStatus === "COMPLETED";
     return (
       <span
         className="px-3 py-1 rounded-full text-sm font-medium"

@@ -8,6 +8,7 @@ import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
+import { PaymentSuccessToast } from "@/components/tournaments/PaymentSuccessToast";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -161,6 +162,8 @@ export default async function TournamentDetailPage({ params }: Props) {
     <div className="container mx-auto px-4 py-8 max-w-7xl">
       {/* 대회 상태 변경 실시간 감지 */}
       <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
+      {/* 결제 완료 토스트 (?paid=1 쿼리 감지) */}
+      <PaymentSuccessToast />
 
       {/* Header / Breadcrumb */}
       <div className="mb-6">
