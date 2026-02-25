@@ -22,7 +22,7 @@ export default function RootLayout({
         <ThemeProvider>
           <AuthProvider>
             <Navigation />
-            <main className="flex-1 flex flex-col pt-20">
+            <main className="flex-1 pt-20">
               {children}
             </main>
             <Footer />
