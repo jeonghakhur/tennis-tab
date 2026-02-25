@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
@@ -14,6 +15,7 @@ interface TournamentCardProps {
 
 export default function TournamentCard({ tournament }: TournamentCardProps) {
   const router = useRouter();
+  const [imgError, setImgError] = useState(false);
   const formatDate = (dateStr: string) => {
     return new Date(dateStr).toLocaleDateString('ko-KR', {
       month: 'long',
@@ -54,13 +56,14 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     >
       <div className="bg-(--bg-card) border border-(--border-color) rounded-xl overflow-hidden hover:shadow-lg transition-all duration-300 hover:border-(--accent-color)/30">
         <div className="aspect-[3/2] bg-(--bg-secondary) relative">
-          {tournament.poster_url ? (
+          {tournament.poster_url && !imgError ? (
             <Image
               src={tournament.poster_url}
               alt={tournament.title}
               fill
               className="object-cover"
               unoptimized
+              onError={() => setImgError(true)}
             />
           ) : (
             <div className="absolute inset-0 flex items-center justify-center text-4xl">

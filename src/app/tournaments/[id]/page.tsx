@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import Image from "next/image";
+import { TournamentPosterImage } from "@/components/tournaments/TournamentPosterImage";
 import { TournamentStatus, MatchType } from "@/lib/supabase/types";
 import TournamentActions from "@/components/tournaments/TournamentActions";
 import TournamentMap from "@/components/tournaments/TournamentMap";
@@ -257,15 +257,9 @@ export default async function TournamentDetailPage({ params }: Props) {
           {/* Poster Image */}
           {tournament.poster_url && (
             <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--bg-card)" }}>
-              <Image
+              <TournamentPosterImage
                 src={tournament.poster_url}
                 alt={tournament.title}
-                width={0}
-                height={0}
-                sizes="100vw"
-                className="w-full h-auto"
-                priority
-                unoptimized
               />
             </div>
           )}
