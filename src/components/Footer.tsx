@@ -11,7 +11,7 @@ export function Footer() {
 
   return (
     <footer className="border-t border-themed py-16">
-      <div className="max-w-7xl mx-auto px-6">
+      <div className="max-w-content mx-auto px-6">
         <div className="grid md:grid-cols-4 gap-12 mb-12">
           <div>
             <Link href="/" className="flex items-center gap-3 mb-6">

@@ -34,7 +34,7 @@ export default async function AdminTournamentsPage() {
       tournament_entries (id, status, payment_status, division_id),
       tournament_divisions (id, name, max_teams)
     `)
-    .order('created_at', { ascending: false })
+    .order('start_date', { ascending: false })
 
   if (!isAdminOrHigher) {
     query = query.eq('organizer_id', user.id)
@@ -60,6 +60,7 @@ export default async function AdminTournamentsPage() {
       <TournamentsTable
         tournaments={tournaments ?? []}
         showOrganizer={isAdminOrHigher}
+        showDelete
       />
     </div>
   )

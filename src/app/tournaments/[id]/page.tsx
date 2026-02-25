@@ -159,7 +159,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   })();
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-7xl">
+    <div className="max-w-content mx-auto px-4 py-8">
       {/* 대회 상태 변경 실시간 감지 */}
       <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
       {/* 결제 완료 토스트 (?paid=1 쿼리 감지) */}
@@ -256,15 +256,14 @@ export default async function TournamentDetailPage({ params }: Props) {
         <div className="lg:col-span-2 space-y-8">
           {/* Poster Image */}
           {tournament.poster_url && (
-            <div
-              className="relative aspect-[2/1] rounded-2xl overflow-hidden"
-              style={{ backgroundColor: "var(--bg-card)" }}
-            >
+            <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: "var(--bg-card)" }}>
               <Image
                 src={tournament.poster_url}
                 alt={tournament.title}
-                fill
-                className="object-cover"
+                width={0}
+                height={0}
+                sizes="100vw"
+                className="w-full h-auto"
                 priority
                 unoptimized
               />

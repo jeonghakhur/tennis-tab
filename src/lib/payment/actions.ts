@@ -35,10 +35,10 @@ export async function confirmPayment(params: {
 
     const admin = createAdminClient()
 
-    // entry + tournament 조회
+    // entry + tournament + division 조회
     const { data: entry, error: entryError } = await admin
       .from('tournament_entries')
-      .select('id, tournament_id, payment_status, tournaments!inner(entry_fee)')
+      .select('id, tournament_id, division_id, payment_status, created_at, status, tournaments!inner(entry_fee)')
       .eq('id', entryId)
       .single()
 
@@ -78,7 +78,7 @@ export async function confirmPayment(params: {
       return { success: false, error: `예상치 못한 결제 상태: ${tossData.status}` }
     }
 
-    // DB 업데이트 (migration: 12_add_payment_columns.sql 적용 필요)
+    // DB 업데이트
     const { error: updateError } = await admin
       .from('tournament_entries')
       .update({
@@ -93,10 +93,54 @@ export async function confirmPayment(params: {
       return { success: false, error: '결제 정보 저장 실패: ' + updateError.message }
     }
 
+    // 결제 완료 후 자동 승인: 신청 순서가 max_teams 이내이면 CONFIRMED
+    await autoConfirmIfWithinLimit(admin, entry)
+
     return { success: true }
   } catch (err) {
     const message = err instanceof Error ? err.message : '결제 승인 중 오류 발생'
     return { success: false, error: message }
+  }
+}
+
+/**
+ * 결제 완료 후 신청 순서(created_at 기준)가 division max_teams 이내이면 CONFIRMED로 자동 승인
+ */
+async function autoConfirmIfWithinLimit(
+  admin: ReturnType<typeof createAdminClient>,
+  entry: {
+    id: string
+    division_id: string
+    created_at: string
+    status: string
+  }
+) {
+  // 이미 CONFIRMED 상태면 건너뜀
+  if (entry.status === 'CONFIRMED') return
+
+  // division의 max_teams 조회
+  const { data: division } = await admin
+    .from('tournament_divisions')
+    .select('max_teams')
+    .eq('id', entry.division_id)
+    .single()
+
+  if (!division?.max_teams) return  // 정원 제한 없으면 CONFIRMED 처리
+
+  // 신청 순서: 비취소 엔트리 중 created_at이 이 엔트리보다 앞선 것의 수 + 1
+  const { count } = await admin
+    .from('tournament_entries')
+    .select('*', { count: 'exact', head: true })
+    .eq('division_id', entry.division_id)
+    .neq('status', 'CANCELLED')
+    .lte('created_at', entry.created_at)
+
+  const rank = count ?? 1
+  if (rank <= division.max_teams) {
+    await admin
+      .from('tournament_entries')
+      .update({ status: 'CONFIRMED' })
+      .eq('id', entry.id)
   }
 }
 

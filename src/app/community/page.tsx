@@ -81,7 +81,7 @@ export default function CommunityPage() {
   }, [nextCursor, loadingMore, loadMore])
 
   return (
-    <div className="max-w-screen-xl mx-auto px-6 py-12">
+    <div className="max-w-content mx-auto px-6 py-12">
       {/* 헤더 */}
       <div className="flex items-center justify-between mb-8">
         <div>

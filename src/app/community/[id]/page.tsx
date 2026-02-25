@@ -181,7 +181,7 @@ export default function PostDetailPage() {
 
   if (loading) {
     return (
-      <div className="max-w-screen-xl mx-auto px-6 py-6">
+      <div className="max-w-content mx-auto px-6 py-6">
         <div className="animate-pulse space-y-4">
           <div className="h-4 w-24 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
           <div className="h-8 w-3/4 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -215,7 +215,7 @@ export default function PostDetailPage() {
     <>
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
-      <div className="max-w-screen-xl mx-auto px-6 py-6">
+      <div className="max-w-content mx-auto px-6 py-6">
           {/* 뒤로가기 */}
           <Link
             href="/community"

@@ -254,7 +254,7 @@ export default function MyProfilePage() {
           className=""
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
-          <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="max-w-content mx-auto px-6 py-12">
             <ProfileHeaderSkeleton />
             <StatsCardsSkeleton />
           </div>
@@ -320,7 +320,7 @@ export default function MyProfilePage() {
         className=""
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
-        <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="max-w-content mx-auto px-6 py-12">
           {/* 프로필 헤더 */}
           <div className="glass-card p-8 mb-8">
             <div className="flex items-start gap-6">

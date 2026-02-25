@@ -142,7 +142,7 @@ export function StatsSkeleton() {
 export function ProfilePageSkeleton() {
   return (
     <main className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <div className="max-w-content mx-auto px-6 py-12">
         <ProfileHeaderSkeleton />
         <StatsSkeleton />
         <div className="flex gap-2 mb-6 border-b" style={{ borderColor: 'var(--border-color)' }}>

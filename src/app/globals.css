@@ -100,6 +100,10 @@
   font-display: swap;
 }
 
+@utility max-w-content {
+  max-width: 1920px;
+}
+
 @theme {
   --color-court-green: #ccff00;
   --color-court-dark: #0a0a0a;

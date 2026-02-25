@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   Search,
@@ -10,10 +11,13 @@ import {
   Users,
   Calendar,
   MapPin,
+  Trash2,
 } from 'lucide-react'
 import type { Database, TournamentStatus, EntryStatus, PaymentStatus } from '@/lib/supabase/types'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
+import { deleteTournament } from '@/lib/tournaments/actions'
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
@@ -24,6 +28,7 @@ type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
 interface TournamentsTableProps {
   tournaments: Tournament[]
   showOrganizer?: boolean
+  showDelete?: boolean
 }
 
 type SortField = 'title' | 'status' | 'start_date' | 'created_at' | 'entries'
@@ -68,11 +73,20 @@ const statusConfig: Record<
 export function TournamentsTable({
   tournaments,
   showOrganizer = false,
+  showDelete = false,
 }: TournamentsTableProps) {
+  const router = useRouter()
   const [searchQuery, setSearchQuery] = useState('')
-  const [sortField, setSortField] = useState<SortField>('created_at')
+  const [sortField, setSortField] = useState<SortField>('start_date')
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [statusFilter, setStatusFilter] = useState<TournamentStatus | 'ALL'>('ALL')
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' }>({
+    isOpen: false,
+    message: '',
+    type: 'success',
+  })
 
   const handleSort = (field: SortField) => {
     if (sortField === field) {
@@ -149,6 +163,23 @@ export function TournamentsTable({
     ) : (
       <ChevronDown className="w-4 h-4" />
     )
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    setIsDeleting(true)
+    try {
+      const result = await deleteTournament(deleteTarget.id)
+      if (result.success) {
+        setToast({ isOpen: true, message: '대회가 삭제되었습니다.', type: 'success' })
+        router.refresh()
+      } else {
+        setToast({ isOpen: true, message: result.error, type: 'error' })
+      }
+    } finally {
+      setIsDeleting(false)
+      setDeleteTarget(null)
+    }
   }
 
   const getEntryCounts = (
@@ -255,6 +286,9 @@ export function TournamentsTable({
                     <SortIcon field="entries" />
                   </button>
                 </th>
+                {showDelete && (
+                  <th className="p-4 w-12" aria-label="관리" />
+                )}
               </tr>
             </thead>
             <tbody>
@@ -332,12 +366,24 @@ export function TournamentsTable({
                           </div>
                         </div>
                       </td>
+                      {showDelete && (
+                        <td className="p-4">
+                          <button
+                            type="button"
+                            onClick={() => setDeleteTarget({ id: tournament.id, title: tournament.title })}
+                            aria-label={`${tournament.title} 삭제`}
+                            className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   )
                 })
               ) : (
                 <tr>
-                  <td colSpan={4} className="p-8 text-center">
+                  <td colSpan={showDelete ? 5 : 4} className="p-8 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400">
                       <Trophy className="w-12 h-12 opacity-50" />
                       <p>검색 결과가 없습니다.</p>
@@ -372,6 +418,26 @@ export function TournamentsTable({
           </Link>
         ))}
       </div>
+
+      {/* 삭제 확인 다이얼로그 */}
+      <ConfirmDialog
+        isOpen={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="대회 삭제"
+        message={`'${deleteTarget?.title}' 대회를 삭제하시겠습니까?\n\n삭제하면 참가 신청 및 관련 데이터가 모두 함께 삭제되며 복구할 수 없습니다.`}
+        confirmText="삭제"
+        cancelText="취소"
+        type="error"
+        isLoading={isDeleting}
+      />
+
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast((prev) => ({ ...prev, isOpen: false }))}
+        message={toast.message}
+        type={toast.type}
+      />
     </div>
   )
 }

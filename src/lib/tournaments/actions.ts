@@ -1,9 +1,17 @@
 'use server'
 
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { MatchType, UserRole } from '@/lib/supabase/types'
+
+/** UUID 형식 검증 */
+function validateId(id: string, fieldName: string): string | null {
+  if (!id || typeof id !== 'string' || id.trim().length === 0) {
+    return `${fieldName}이(가) 유효하지 않습니다.`
+  }
+  return null
+}
 
 // 대회 생성 권한이 있는 역할
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
@@ -120,11 +128,8 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
     return new Date(dateStr).toISOString()
   }
 
-  // Admin Client 생성 (Service Role Key 사용)
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_DecDZr1nAkc4vX_fn_Ur9Q_xgTv4_V3' // fallback for dev
-  )
+  // Admin Client 생성
+  const supabaseAdmin = createAdminClient()
 
   // 4. 대회 생성
   const posterUrl = formData.get('poster_url') as string
@@ -293,10 +298,7 @@ export async function updateTournament(
   }
 
   // Admin Client 생성
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_DecDZr1nAkc4vX_fn_Ur9Q_xgTv4_V3'
-  )
+  const supabaseAdmin = createAdminClient()
 
   // 5. 대회 업데이트
   const posterUrl = formData.get('poster_url') as string
@@ -420,6 +422,10 @@ export type DeleteTournamentResult =
   | { success: false; error: string }
 
 export async function deleteTournament(tournamentId: string): Promise<DeleteTournamentResult> {
+  // 0. 입력값 검증
+  const idError = validateId(tournamentId, '대회 ID')
+  if (idError) return { success: false, error: idError }
+
   const supabase = await createClient()
 
   // 1. 현재 사용자 확인
@@ -429,10 +435,10 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
     return { success: false, error: '로그인이 필요합니다.' }
   }
 
-  // 2. 대회 확인 및 권한 체크
+  // 2. 대회 확인 (poster_url도 함께 조회 — 삭제 후 Storage 정리용)
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('organizer_id')
+    .select('organizer_id, poster_url')
     .eq('id', tournamentId)
     .single()
 
@@ -440,24 +446,25 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
     return { success: false, error: '대회를 찾을 수 없습니다.' }
   }
 
-  // 3. 주최자 본인인지 확인
-  if (tournament.organizer_id !== user.id) {
+  // 3. 권한 확인 (주최자 본인 또는 ADMIN 이상)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdminOrHigher = ['ADMIN', 'SUPER_ADMIN'].includes(profile?.role ?? '')
+
+  if (!isAdminOrHigher && tournament.organizer_id !== user.id) {
     return { success: false, error: '대회를 삭제할 권한이 없습니다.' }
   }
 
   // Admin Client 생성
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_DecDZr1nAkc4vX_fn_Ur9Q_xgTv4_V3'
-  )
+  const supabaseAdmin = createAdminClient()
 
-  // 4. 참가부서 먼저 삭제 (외래키 제약조건)
-  await supabaseAdmin
-    .from('tournament_divisions')
-    .delete()
-    .eq('tournament_id', tournamentId)
-
-  // 5. 대회 삭제
+  // 4. 대회 삭제 — DB CASCADE가 모든 하위 데이터 처리
+  // (tournament_divisions → bracket_configs → preliminary_groups/bracket_matches,
+  //  tournament_entries → group_teams, matches)
   const { error: deleteError } = await supabaseAdmin
     .from('tournaments')
     .delete()
@@ -467,8 +474,20 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
     return { success: false, error: '대회 삭제에 실패했습니다. 다시 시도해주세요.' }
   }
 
+  // 5. Storage 포스터 이미지 정리 (실패해도 삭제 자체는 성공)
+  if (tournament.poster_url) {
+    try {
+      const urlObj = new URL(tournament.poster_url)
+      const pathMatch = urlObj.pathname.match(/\/storage\/v1\/object\/public\/[^/]+\/(.+)/)
+      if (pathMatch) {
+        await supabaseAdmin.storage.from('tournaments').remove([pathMatch[1]])
+      }
+    } catch { /* Storage 정리 실패는 무시 */ }
+  }
+
   // 6. 캐시 무효화
   revalidatePath('/tournaments')
+  revalidatePath('/admin/tournaments')
 
   return { success: true }
 }
@@ -509,10 +528,7 @@ export async function closeTournament(tournamentId: string): Promise<CloseTourna
   }
 
   // Admin Client 생성
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || 'sb_secret_DecDZr1nAkc4vX_fn_Ur9Q_xgTv4_V3'
-  )
+  const supabaseAdmin = createAdminClient()
 
   // 5. 대회 상태를 CLOSED로 변경
   const { error: updateError } = await supabaseAdmin
@@ -573,10 +589,7 @@ export async function updateTournamentStatus(
   }
 
   // 4. Admin Client로 상태 변경
-  const supabaseAdmin = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-  )
+  const supabaseAdmin = createAdminClient()
 
   const { error: updateError } = await supabaseAdmin
     .from('tournaments')

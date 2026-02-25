@@ -115,7 +115,7 @@ export default function ClubsPage() {
         className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
-        <div className="max-w-6xl mx-auto px-6 py-12">
+        <div className="max-w-content mx-auto px-6 py-12">
           {/* 헤더 */}
           <div className="mb-8">
             <h1

@@ -13,6 +13,7 @@ import { closeTournament } from "@/lib/tournaments/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
 import { AlertDialog } from "@/components/common/AlertDialog";
+import { Modal } from "@/components/common/Modal";
 
 interface Division {
   id: string;
@@ -79,6 +80,8 @@ export default function TournamentEntryActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  // 결제 선택 다이얼로그: 참가 신청 직후 결제 여부 확인
+  const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -142,15 +145,16 @@ export default function TournamentEntryActions({
     });
 
     if (result.success && result.entryId) {
-      // 참가비가 있는 대회는 결제 페이지로 이동
-      if (entryFee > 0) {
-        router.push(`/tournaments/${tournamentId}/payment?entryId=${result.entryId}`);
-        return result;
-      }
-      // 참가비 없는 대회는 기존 흐름 유지
+      // 엔트리 상태 갱신 (폼 닫힌 후 카드 표시)
       getUserEntry(tournamentId).then((e) => {
         if (e) setEntry(e as CurrentEntry);
       });
+
+      if (entryFee > 0) {
+        // 결제 선택 다이얼로그 표시
+        setPaymentPrompt({ entryId: result.entryId });
+        return result;
+      }
     }
 
     return result;
@@ -367,6 +371,24 @@ export default function TournamentEntryActions({
                   {getPaymentBadge(entry.payment_status)}
                 </div>
               </div>
+
+              {/* 미결제 상태일 때 결제 버튼 */}
+              {entryFee > 0 && entry.payment_status === "PENDING" && (
+                <button
+                  onClick={() =>
+                    router.push(
+                      `/tournaments/${tournamentId}/payment?entryId=${entry.id}`
+                    )
+                  }
+                  className="w-full rounded-xl py-3 font-bold transition-all hover:opacity-90"
+                  style={{
+                    backgroundColor: "var(--accent-color)",
+                    color: "var(--bg-primary)",
+                  }}
+                >
+                  참가비 {entryFee.toLocaleString()}원 결제하기
+                </button>
+              )}
 
               {canEditOrCancel && (
                 <>
@@ -677,6 +699,59 @@ export default function TournamentEntryActions({
         message={alertDialog.message}
         type={alertDialog.type}
       />
+
+      {/* 결제 선택 다이얼로그 */}
+      <Modal
+        isOpen={paymentPrompt !== null}
+        onClose={() => setPaymentPrompt(null)}
+        title="참가비 결제"
+        size="sm"
+        closeOnOverlayClick={false}
+      >
+        <Modal.Body>
+          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+            참가 신청이 완료되었습니다.
+          </p>
+          <p className="mt-3 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
+            참가비{" "}
+            <span style={{ color: "var(--accent-color)" }}>
+              {entryFee.toLocaleString()}원
+            </span>
+            을 지금 결제하시겠어요?
+          </p>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
+            나중에 결제하면 마이페이지에서 진행할 수 있습니다.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            onClick={() => setPaymentPrompt(null)}
+            className="flex-1 rounded-xl py-3 font-medium transition-all hover:opacity-80"
+            style={{
+              backgroundColor: "var(--bg-card-hover)",
+              color: "var(--text-secondary)",
+            }}
+          >
+            나중에 하기
+          </button>
+          <button
+            onClick={() => {
+              if (paymentPrompt) {
+                router.push(
+                  `/tournaments/${tournamentId}/payment?entryId=${paymentPrompt.entryId}`
+                );
+              }
+            }}
+            className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90"
+            style={{
+              backgroundColor: "var(--accent-color)",
+              color: "var(--bg-primary)",
+            }}
+          >
+            지금 결제하기
+          </button>
+        </Modal.Footer>
+      </Modal>
     </>
   );
 }

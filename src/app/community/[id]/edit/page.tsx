@@ -67,7 +67,7 @@ export default function EditPostPage() {
 
   if (loading || authLoading) {
     return (
-      <div className="max-w-screen-xl mx-auto px-6 py-12">
+      <div className="max-w-content mx-auto px-6 py-12">
         <div className="animate-pulse space-y-4">
           <div className="h-8 w-32 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
           <div className="h-12 w-full rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -99,7 +99,7 @@ export default function EditPostPage() {
 
   return (
     <>
-      <div className="max-w-screen-xl mx-auto px-6 py-12">
+      <div className="max-w-content mx-auto px-6 py-12">
           {/* 뒤로가기 */}
           <Link
             href={`/community/${id}`}

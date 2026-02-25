@@ -26,14 +26,14 @@ export default async function TournamentsPage() {
     const { data: tournaments, error } = await supabase
         .from('tournaments')
         .select('*')
-        .order('start_date', { ascending: true });
+        .order('start_date', { ascending: false });
 
     if (error) {
         console.error('Error fetching tournaments:', error);
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="max-w-content mx-auto px-4 py-8">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-3xl font-bold mb-2">대회 일정</h1>
