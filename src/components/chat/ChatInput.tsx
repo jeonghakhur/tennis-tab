@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef, useEffect, useImperativeHandle, forwardRef, FormEvent } from 'react'
+import Link from 'next/link'
 import type { ChatResponse, ChatSuccessResponse, ChatMessage } from '@/lib/chat/types'
 
 interface ChatInputProps {
@@ -10,6 +11,7 @@ interface ChatInputProps {
   onLoadingChange: (loading: boolean) => void
   disabled?: boolean
   placeholder?: string
+  isLoggedIn?: boolean
 }
 
 /** 외부에서 호출 가능한 메서드 */
@@ -18,15 +20,15 @@ export interface ChatInputHandle {
 }
 
 export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
-  function ChatInput({ history, onResponse, onError, onLoadingChange, disabled, placeholder }, ref) {
+  function ChatInput({ history, onResponse, onError, onLoadingChange, disabled, placeholder, isLoggedIn = true }, ref) {
     const [query, setQuery] = useState('')
     const [isFocused, setIsFocused] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
 
     // 전송 완료 후 입력창에 포커스 복귀
     useEffect(() => {
-      if (!disabled) inputRef.current?.focus()
-    }, [disabled])
+      if (!disabled && isLoggedIn) inputRef.current?.focus()
+    }, [disabled, isLoggedIn])
 
     const sendMessage = async (text: string) => {
       onLoadingChange(true)
@@ -62,6 +64,31 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
       const trimmed = query.trim()
       if (!trimmed || disabled) return
       await sendMessage(trimmed)
+    }
+
+    // 비로그인: 로그인 유도 배너
+    if (!isLoggedIn) {
+      return (
+        <div className="fixed bottom-0 left-0 right-0 z-40 border-t" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+          <div className="max-w-[1920px] mx-auto px-4 py-3">
+            <div
+              className="flex items-center justify-between gap-4 rounded-2xl px-5 py-3"
+              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+            >
+              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                채팅 기능을 이용하려면 로그인이 필요합니다.
+              </p>
+              <Link
+                href="/auth/login"
+                className="shrink-0 px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-90"
+                style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+              >
+                로그인하기
+              </Link>
+            </div>
+          </div>
+        </div>
+      )
     }
 
     return (

@@ -15,16 +15,21 @@ const MAX_MESSAGE_LENGTH = 500
 
 export async function POST(request: NextRequest): Promise<NextResponse<ChatResponse>> {
   try {
-    // 1. 로그인 확인 (Rate Limit key 결정용)
+    // 1. 로그인 확인 (비인증 요청 차단)
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     const userId = user?.id
     const isAuthenticated = !!userId
 
-    // Rate Limit key: 회원은 userId, 비회원은 IP
-    const rateLimitKey = userId
-      ?? request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
-      ?? 'unknown'
+    if (!isAuthenticated) {
+      return NextResponse.json(
+        { success: false, error: '로그인이 필요합니다.', code: 'UNAUTHORIZED' } as ChatResponse,
+        { status: 401 },
+      )
+    }
+
+    // Rate Limit key: 인증 후 userId는 반드시 string
+    const rateLimitKey = userId!
 
     // 2. Rate Limit 확인
     const rateResult = checkRateLimit(rateLimitKey, isAuthenticated)

@@ -6,8 +6,12 @@ import { ChatInput, examplePrompts, type ChatInputHandle } from './ChatInput'
 import { ChatMessageList, type DisplayMessage } from './ChatMessageList'
 import type { ChatSuccessResponse, ChatMessage } from '@/lib/chat/types'
 
+interface ChatSectionProps {
+  isLoggedIn: boolean
+}
+
 /** 전체 화면 채팅 UI */
-export function ChatSection() {
+export function ChatSection({ isLoggedIn }: ChatSectionProps) {
   const [messages, setMessages] = useState<DisplayMessage[]>([])
   const [history, setHistory] = useState<ChatMessage[]>([])
   const [loading, setLoading] = useState(false)
@@ -80,40 +84,61 @@ export function ChatSection() {
               </p>
             </div>
 
-            {/* 예시 프롬프트 그리드 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
-              {examplePrompts.map((prompt) => (
-                <button
-                  key={prompt.text}
-                  onClick={() => handleExampleClick(prompt.text)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm transition-all duration-200 hover:scale-[1.02]"
-                  style={{
-                    backgroundColor: 'var(--bg-card)',
-                    border: '1px solid var(--border-color)',
-                    color: 'var(--text-secondary)',
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-accent)'
-                    e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.borderColor = 'var(--border-color)'
-                    e.currentTarget.style.backgroundColor = 'var(--bg-card)'
-                  }}
-                >
-                  <span className="text-lg shrink-0">{prompt.icon}</span>
-                  <span>{prompt.text}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* 로그인 안내 */}
-            <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              <Link href="/auth/login" className="underline hover:no-underline" style={{ color: 'var(--accent-color)' }}>
-                로그인
-              </Link>
-              하면 대회 참가 신청, 경기 결과 등록 등 더 많은 기능을 사용할 수 있어요
-            </p>
+            {isLoggedIn ? (
+              /* 로그인 상태: 예시 프롬프트 그리드 */
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-8">
+                {examplePrompts.map((prompt) => (
+                  <button
+                    key={prompt.text}
+                    onClick={() => handleExampleClick(prompt.text)}
+                    className="flex items-center gap-3 px-4 py-3 rounded-xl text-left text-sm transition-all duration-200 hover:scale-[1.02]"
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-secondary)',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-accent)'
+                      e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.borderColor = 'var(--border-color)'
+                      e.currentTarget.style.backgroundColor = 'var(--bg-card)'
+                    }}
+                  >
+                    <span className="text-lg shrink-0">{prompt.icon}</span>
+                    <span>{prompt.text}</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              /* 비로그인 상태: 로그인 유도 */
+              <div className="mb-8 space-y-4">
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  대회 검색, 참가 신청, 경기 결과 등록 등 모든 기능을 이용하려면 로그인이 필요합니다.
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                  <Link
+                    href="/auth/login"
+                    className="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-90"
+                    style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+                  >
+                    로그인하기
+                  </Link>
+                  <Link
+                    href="/auth/signup"
+                    className="px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 hover:opacity-80"
+                    style={{
+                      backgroundColor: 'var(--bg-card)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-secondary)',
+                    }}
+                  >
+                    회원가입
+                  </Link>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -130,6 +155,7 @@ export function ChatSection() {
         onLoadingChange={setLoading}
         disabled={loading}
         placeholder={flowActive ? '답변을 입력하세요... ("취소"로 중단)' : undefined}
+        isLoggedIn={isLoggedIn}
       />
     </div>
   )
