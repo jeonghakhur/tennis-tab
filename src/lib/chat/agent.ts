@@ -1,0 +1,637 @@
+import { GoogleGenAI, Type, type Content, type FunctionDeclaration } from '@google/genai'
+import { createAdminClient } from '@/lib/supabase/admin'
+import { getAwards } from '@/lib/awards/actions'
+import { handleApplyTournament } from './handlers/applyTournament'
+import { handleCancelEntry } from './cancelFlow/handler'
+import type { ChatMessage } from './types'
+
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY
+
+/** 최대 tool 호출 라운드 (무한루프 방지) */
+const MAX_TOOL_ROUNDS = 5
+
+/** 히스토리 최대 턴 수 */
+const MAX_HISTORY_TURNS = 10
+
+type Link = { label: string; href: string }
+
+type ToolResult = {
+  content: string
+  links?: Link[]
+  flow_active?: boolean
+}
+
+export class GeminiQuotaError extends Error {
+  constructor() {
+    super('Gemini API 할당량이 초과되었습니다.')
+    this.name = 'GeminiQuotaError'
+  }
+}
+
+export type AgentResult = {
+  message: string
+  links?: Link[]
+  flow_active?: boolean
+}
+
+// ─── 유틸 ────────────────────────────────────────────────────────────────────
+
+function escapeLike(v: string) {
+  return v.replace(/%/g, '\\%').replace(/_/g, '\\_')
+}
+
+const STATUS_LABEL: Record<string, string> = {
+  OPEN: '모집중',
+  CLOSED: '마감',
+  IN_PROGRESS: '진행중',
+  COMPLETED: '완료',
+}
+
+const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'] as const
+
+function buildSystemPrompt() {
+  const now = new Date()
+  const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  const weekday = WEEKDAY[now.getDay()]
+
+  return `당신은 테니스 대회 플랫폼 "Tennis Tab"의 AI 어시스턴트입니다.
+사용자의 질문을 이해하고 적절한 도구를 호출하여 정보를 조회한 뒤, 자연스럽고 간결한 한국어로 답변합니다.
+
+오늘 날짜: ${date} (${weekday}요일)
+
+[응답 원칙]
+- 질문에 꼭 필요한 정보만 포함 (과도한 상세 정보 지양)
+- "목록" 또는 지역/날짜 검색 → 대회명과 상태 위주로 간결하게
+- "일정"을 묻는 경우 → 날짜와 장소 위주
+- "상세/자세히/요강" 요청 → 참가비, 부서, 기타 정보 포함
+- 정보는 반드시 도구를 통해 조회 (임의로 데이터를 만들지 말 것)
+- 참가 신청 의사 표현("신청할게", "신청하고 싶어") → initiate_apply_flow 호출
+- 취소 의사 표현("취소하고 싶어") → initiate_cancel_flow 호출
+- 날짜 표현(이번 주, 다음 달 등)은 오늘 날짜 기준으로 변환하여 date_start/date_end 설정`
+}
+
+// ─── Tool 선언 ────────────────────────────────────────────────────────────────
+
+const TOOL_DECLARATIONS = [
+  {
+    name: 'search_tournaments',
+    description: '대회 목록 검색. 지역, 날짜, 상태, 대회명으로 필터링 가능',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tournament_name: { type: Type.STRING, description: '대회명 (부분 일치)' },
+        location: { type: Type.STRING, description: '지역명 (예: 서울, 마포구)' },
+        status: { type: Type.STRING, description: 'OPEN(모집중) | IN_PROGRESS(진행중) | COMPLETED(완료)' },
+        date_start: { type: Type.STRING, description: '시작일 YYYY-MM-DD' },
+        date_end: { type: Type.STRING, description: '종료일 YYYY-MM-DD' },
+      },
+    },
+  },
+  {
+    name: 'get_tournament_detail',
+    description: '특정 대회의 전체 상세 정보 (참가비, 부서, 요강 포함)',
+    parameters: {
+      type: Type.OBJECT,
+      required: ['tournament_name'],
+      properties: {
+        tournament_name: { type: Type.STRING, description: '조회할 대회명' },
+      },
+    },
+  },
+  {
+    name: 'get_my_entries',
+    description: '로그인 사용자의 참가 신청 내역',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        entry_status: { type: Type.STRING, description: 'PENDING|APPROVED|REJECTED|CONFIRMED|WAITLISTED' },
+        payment_status: { type: Type.STRING, description: 'UNPAID|COMPLETED' },
+      },
+    },
+  },
+  {
+    name: 'get_bracket',
+    description: '대회 대진표 및 경기 현황 조회',
+    parameters: {
+      type: Type.OBJECT,
+      required: ['tournament_name'],
+      properties: {
+        tournament_name: { type: Type.STRING, description: '대회명' },
+      },
+    },
+  },
+  {
+    name: 'get_match_results',
+    description: '특정 대회의 경기 결과 조회',
+    parameters: {
+      type: Type.OBJECT,
+      required: ['tournament_name'],
+      properties: {
+        tournament_name: { type: Type.STRING, description: '대회명' },
+      },
+    },
+  },
+  {
+    name: 'get_my_schedule',
+    description: '내 예정 경기 일정 조회 (로그인 필요)',
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: 'get_my_results',
+    description: '내 경기 전적 및 결과 조회 (로그인 필요)',
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+  {
+    name: 'get_awards',
+    description: '입상 기록 / 명예의 전당 조회',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        player_name: { type: Type.STRING, description: '선수명' },
+        year: { type: Type.NUMBER, description: '연도' },
+        scope: { type: Type.STRING, description: 'my: 내 기록, all: 전체 기록' },
+      },
+    },
+  },
+  {
+    name: 'initiate_apply_flow',
+    description: '대회 참가 신청 플로우 시작 (로그인 필요)',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        tournament_name: { type: Type.STRING, description: '신청할 대회명 (없으면 전체 모집중 목록)' },
+      },
+    },
+  },
+  {
+    name: 'initiate_cancel_flow',
+    description: '참가 신청 취소 플로우 시작 (로그인 필요)',
+    parameters: { type: Type.OBJECT, properties: {} },
+  },
+] as unknown as FunctionDeclaration[]
+
+// ─── Tool 구현 ────────────────────────────────────────────────────────────────
+
+async function toolSearchTournaments(args: Record<string, unknown>): Promise<ToolResult> {
+  const admin = createAdminClient()
+  let query = admin
+    .from('tournaments')
+    .select('id, title, location, address, start_date, end_date, status, entry_fee, max_participants')
+    .order('start_date', { ascending: true })
+    .limit(8)
+
+  const status = args.status as string | undefined
+  const location = args.location as string | undefined
+  const name = args.tournament_name as string | undefined
+  const dateStart = args.date_start as string | undefined
+  const dateEnd = args.date_end as string | undefined
+
+  if (status) query = query.eq('status', status)
+  else query = query.in('status', ['OPEN', 'CLOSED', 'IN_PROGRESS'])
+  if (location) {
+    const esc = escapeLike(location)
+    query = query.or(`location.ilike.%${esc}%,address.ilike.%${esc}%`)
+  }
+  if (name) query = query.ilike('title', `%${escapeLike(name)}%`)
+  if (dateStart) query = query.gte('start_date', dateStart)
+  if (dateEnd) query = query.lte('start_date', dateEnd)
+
+  const { data } = await query
+  if (!data || data.length === 0) return { content: '조건에 맞는 대회가 없습니다.' }
+
+  const rows = data.map((t) => ({
+    id: t.id,
+    title: t.title,
+    status: STATUS_LABEL[t.status] ?? t.status,
+    start_date: t.start_date,
+    end_date: t.end_date ?? null,
+    location: [t.location, t.address].filter(Boolean).join(' ') || null,
+    entry_fee: t.entry_fee ?? 0,
+    max_participants: t.max_participants ?? null,
+  }))
+
+  return {
+    content: JSON.stringify(rows),
+    links: data.map((t) => ({ label: `${t.title} 상세`, href: `/tournaments/${t.id}` })),
+  }
+}
+
+async function toolGetTournamentDetail(args: Record<string, unknown>): Promise<ToolResult> {
+  const name = args.tournament_name as string
+  const admin = createAdminClient()
+
+  const { data } = await admin
+    .from('tournaments')
+    .select(`
+      id, title, location, address, start_date, end_date, status,
+      entry_fee, max_participants, host, match_type, format,
+      ball_type, eligibility, description, entry_start_date, entry_end_date, opening_ceremony,
+      tournament_divisions(name, match_date, match_location, prize_winner, prize_runner_up)
+    `)
+    .ilike('title', `%${escapeLike(name)}%`)
+    .limit(1)
+
+  if (!data || data.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }
+
+  const t = data[0]
+  return {
+    content: JSON.stringify({ ...t, status: STATUS_LABEL[t.status] ?? t.status }),
+    links: [{ label: `${t.title} 상세`, href: `/tournaments/${t.id}` }],
+  }
+}
+
+async function toolGetMyEntries(args: Record<string, unknown>, userId: string): Promise<ToolResult> {
+  const admin = createAdminClient()
+  let query = admin
+    .from('tournament_entries')
+    .select('status, payment_status, club_name, tournament_divisions(name), tournaments(id, title, start_date, status)')
+    .eq('user_id', userId)
+    .neq('status', 'CANCELLED')
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  const entryStatus = args.entry_status as string | undefined
+  const paymentStatus = args.payment_status as string | undefined
+  if (entryStatus) query = query.eq('status', entryStatus)
+  if (paymentStatus === 'UNPAID') query = query.in('payment_status', ['UNPAID', 'PENDING'])
+  else if (paymentStatus) query = query.eq('payment_status', paymentStatus)
+
+  const { data } = await query
+  if (!data || data.length === 0) return { content: '참가 신청 내역이 없습니다.' }
+
+  const rows = data.map((e) => {
+    const t = e.tournaments as unknown as { id: string; title: string; start_date: string; status: string }
+    const div = e.tournament_divisions as unknown as { name: string }
+    return {
+      tournament: t.title,
+      tournament_id: t.id,
+      start_date: t.start_date,
+      tournament_status: STATUS_LABEL[t.status] ?? t.status,
+      division: div?.name ?? null,
+      entry_status: e.status,
+      payment_status: e.payment_status,
+      club: e.club_name ?? null,
+    }
+  })
+
+  return {
+    content: JSON.stringify(rows),
+    links: [{ label: '내 신청 관리', href: '/my/entries' }],
+  }
+}
+
+async function toolGetBracket(args: Record<string, unknown>): Promise<ToolResult> {
+  const name = args.tournament_name as string
+  const admin = createAdminClient()
+
+  const { data: tournaments } = await admin
+    .from('tournaments')
+    .select('id, title, status')
+    .ilike('title', `%${escapeLike(name)}%`)
+    .limit(1)
+
+  if (!tournaments || tournaments.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }
+
+  const tournament = tournaments[0]
+  const { data: divisions } = await admin
+    .from('tournament_divisions')
+    .select('id, name')
+    .eq('tournament_id', tournament.id)
+
+  if (!divisions || divisions.length === 0) {
+    return {
+      content: `"${tournament.title}" 대진표가 아직 생성되지 않았습니다.`,
+      links: [{ label: `${tournament.title} 상세`, href: `/tournaments/${tournament.id}` }],
+    }
+  }
+
+  const { data: configs } = await admin
+    .from('bracket_configs')
+    .select('id, division_id')
+    .in('division_id', divisions.map((d) => d.id))
+
+  if (!configs || configs.length === 0) {
+    return {
+      content: `"${tournament.title}" 대진표가 아직 생성되지 않았습니다.`,
+      links: [{ label: `${tournament.title} 상세`, href: `/tournaments/${tournament.id}` }],
+    }
+  }
+
+  const divNameMap = new Map(divisions.map((d) => [d.id, d.name]))
+  const summaries: Record<string, unknown>[] = []
+
+  for (const config of configs) {
+    const { data: matches } = await admin
+      .from('bracket_matches')
+      .select('round_number, status')
+      .eq('bracket_config_id', config.id)
+      .is('group_id', null)
+
+    if (!matches || matches.length === 0) continue
+    const total = matches.length
+    const completed = matches.filter((m) => m.status === 'COMPLETED').length
+    const maxRound = Math.max(...matches.map((m) => m.round_number))
+    summaries.push({
+      division: divNameMap.get(config.division_id) ?? '본선',
+      total_matches: total,
+      completed_matches: completed,
+      max_round: maxRound,
+    })
+  }
+
+  return {
+    content: JSON.stringify({
+      tournament: tournament.title,
+      status: STATUS_LABEL[tournament.status] ?? tournament.status,
+      bracket: summaries,
+    }),
+    links: [{ label: `${tournament.title} 대진표`, href: `/tournaments/${tournament.id}/bracket` }],
+  }
+}
+
+async function toolGetMatchResults(args: Record<string, unknown>): Promise<ToolResult> {
+  const name = args.tournament_name as string
+  const admin = createAdminClient()
+
+  const { data: tournaments } = await admin
+    .from('tournaments')
+    .select('id, title')
+    .ilike('title', `%${escapeLike(name)}%`)
+    .limit(1)
+
+  if (!tournaments || tournaments.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }
+
+  const tournament = tournaments[0]
+  const { data: divisions } = await admin.from('tournament_divisions').select('id').eq('tournament_id', tournament.id)
+  if (!divisions || divisions.length === 0) return { content: `"${tournament.title}" 경기 기록이 없습니다.` }
+
+  const { data: configs } = await admin
+    .from('bracket_configs')
+    .select('id')
+    .in('division_id', divisions.map((d) => d.id))
+  if (!configs || configs.length === 0) return { content: `"${tournament.title}" 경기 기록이 없습니다.` }
+
+  const { data: matches } = await admin
+    .from('bracket_matches')
+    .select('round_number, match_number, team1_score, team2_score, entry1:team1_entry_id(player_name), entry2:team2_entry_id(player_name), winner:winner_entry_id(player_name)')
+    .in('bracket_config_id', configs.map((c) => c.id))
+    .eq('status', 'COMPLETED')
+    .order('updated_at', { ascending: false })
+    .limit(10)
+
+  if (!matches || matches.length === 0) {
+    return {
+      content: `"${tournament.title}" 완료된 경기가 없습니다.`,
+      links: [{ label: `${tournament.title} 대진표`, href: `/tournaments/${tournament.id}/bracket` }],
+    }
+  }
+
+  const rows = matches.map((m) => ({
+    round: m.round_number,
+    match: m.match_number,
+    player1: (m.entry1 as unknown as { player_name: string } | null)?.player_name ?? '?',
+    player2: (m.entry2 as unknown as { player_name: string } | null)?.player_name ?? '?',
+    score: `${m.team1_score ?? 0}:${m.team2_score ?? 0}`,
+    winner: (m.winner as unknown as { player_name: string } | null)?.player_name ?? '?',
+  }))
+
+  return {
+    content: JSON.stringify({ tournament: tournament.title, results: rows }),
+    links: [{ label: `${tournament.title} 전체 결과`, href: `/tournaments/${tournament.id}/bracket` }],
+  }
+}
+
+async function toolGetMySchedule(userId: string): Promise<ToolResult> {
+  const admin = createAdminClient()
+  const { data: entries } = await admin
+    .from('tournament_entries')
+    .select('id, tournaments(id, title)')
+    .eq('user_id', userId)
+    .neq('status', 'CANCELLED')
+
+  if (!entries || entries.length === 0) return { content: '참가 중인 대회가 없습니다.' }
+
+  const entryIds = entries.map((e) => e.id)
+  const { data: matches } = await admin
+    .from('bracket_matches')
+    .select('round_number, match_number, status, court_number, entry1:team1_entry_id(id, player_name), entry2:team2_entry_id(id, player_name)')
+    .or(`team1_entry_id.in.(${entryIds.join(',')}),team2_entry_id.in.(${entryIds.join(',')})`)
+    .in('status', ['SCHEDULED', 'IN_PROGRESS'])
+    .order('round_number')
+    .limit(10)
+
+  if (!matches || matches.length === 0) {
+    return { content: '예정된 경기가 없습니다.', links: [{ label: '내 신청 확인', href: '/my/entries' }] }
+  }
+
+  const tournamentMap = new Map(
+    entries.map((e) => {
+      const t = e.tournaments as unknown as { id: string; title: string }
+      return [e.id, t.title]
+    }),
+  )
+
+  const rows = matches.map((m) => {
+    const e1 = m.entry1 as unknown as { id: string; player_name: string } | null
+    const e2 = m.entry2 as unknown as { id: string; player_name: string } | null
+    const myId = e1 && entryIds.includes(e1.id) ? e1.id : e2?.id
+    return {
+      tournament: myId ? (tournamentMap.get(myId) ?? '') : '',
+      round: m.round_number,
+      match: m.match_number,
+      opponent: entryIds.includes(e1?.id ?? '') ? (e2?.player_name ?? 'TBD') : (e1?.player_name ?? 'TBD'),
+      court: m.court_number ?? null,
+      in_progress: m.status === 'IN_PROGRESS',
+    }
+  })
+
+  return {
+    content: JSON.stringify(rows),
+    links: [{ label: '내 신청 확인', href: '/my/entries' }],
+  }
+}
+
+async function toolGetMyResults(userId: string): Promise<ToolResult> {
+  const admin = createAdminClient()
+  const { data: entries } = await admin
+    .from('tournament_entries')
+    .select('id')
+    .eq('user_id', userId)
+    .neq('status', 'CANCELLED')
+
+  if (!entries || entries.length === 0) return { content: '참가한 대회가 없습니다.' }
+
+  const entryIds = entries.map((e) => e.id)
+  const { data: matches } = await admin
+    .from('bracket_matches')
+    .select('round_number, team1_score, team2_score, entry1:team1_entry_id(id, player_name), entry2:team2_entry_id(id, player_name), winner:winner_entry_id(id, player_name)')
+    .or(`team1_entry_id.in.(${entryIds.join(',')}),team2_entry_id.in.(${entryIds.join(',')})`)
+    .eq('status', 'COMPLETED')
+    .order('completed_at', { ascending: false })
+    .limit(10)
+
+  if (!matches || matches.length === 0) {
+    return { content: '완료된 경기가 없습니다.', links: [{ label: '내 신청 확인', href: '/my/entries' }] }
+  }
+
+  let wins = 0
+  let losses = 0
+  const rows = matches.map((m) => {
+    const e1 = m.entry1 as unknown as { id: string; player_name: string } | null
+    const e2 = m.entry2 as unknown as { id: string; player_name: string } | null
+    const w = m.winner as unknown as { id: string } | null
+    const isWin = !!w && entryIds.includes(w.id)
+    if (isWin) wins++
+    else losses++
+    return {
+      round: m.round_number,
+      opponent: entryIds.includes(e1?.id ?? '') ? (e2?.player_name ?? '?') : (e1?.player_name ?? '?'),
+      score: `${m.team1_score ?? 0}:${m.team2_score ?? 0}`,
+      result: isWin ? 'win' : 'loss',
+    }
+  })
+
+  return {
+    content: JSON.stringify({ wins, losses, matches: rows }),
+    links: [{ label: '내 신청 확인', href: '/my/entries' }],
+  }
+}
+
+async function toolGetAwards(args: Record<string, unknown>, userId?: string): Promise<ToolResult> {
+  try {
+    const awards = await getAwards({
+      playerName: args.player_name as string | undefined,
+      year: args.year as number | undefined,
+      userId: args.scope === 'my' ? userId : undefined,
+    })
+
+    if (awards.length === 0) {
+      return { content: '입상 기록이 없습니다.', links: [{ label: '명예의 전당', href: '/awards' }] }
+    }
+
+    return {
+      content: JSON.stringify(awards.slice(0, 15)),
+      links: [{ label: '명예의 전당 전체 보기', href: '/awards' }],
+    }
+  } catch {
+    return { content: '입상 기록 조회 중 오류가 발생했습니다.' }
+  }
+}
+
+async function toolInitiateApplyFlow(args: Record<string, unknown>, userId?: string): Promise<ToolResult> {
+  const result = await handleApplyTournament(
+    { tournament_name: args.tournament_name as string | undefined },
+    userId,
+  )
+  return { content: result.message, links: result.links, flow_active: result.flow_active }
+}
+
+async function toolInitiateCancelFlow(userId?: string): Promise<ToolResult> {
+  const result = await handleCancelEntry({}, userId)
+  return { content: result.message, links: result.links, flow_active: result.flow_active }
+}
+
+// ─── Tool dispatcher ──────────────────────────────────────────────────────────
+
+async function executeTool(name: string, args: Record<string, unknown>, userId?: string): Promise<ToolResult> {
+  switch (name) {
+    case 'search_tournaments':  return toolSearchTournaments(args)
+    case 'get_tournament_detail': return toolGetTournamentDetail(args)
+    case 'get_my_entries':      return userId ? toolGetMyEntries(args, userId) : { content: '내 신청 내역을 보려면 로그인이 필요합니다.' }
+    case 'get_bracket':         return toolGetBracket(args)
+    case 'get_match_results':   return toolGetMatchResults(args)
+    case 'get_my_schedule':     return userId ? toolGetMySchedule(userId) : { content: '내 경기 일정을 보려면 로그인이 필요합니다.' }
+    case 'get_my_results':      return userId ? toolGetMyResults(userId) : { content: '내 경기 결과를 보려면 로그인이 필요합니다.' }
+    case 'get_awards':          return toolGetAwards(args, userId)
+    case 'initiate_apply_flow': return toolInitiateApplyFlow(args, userId)
+    case 'initiate_cancel_flow': return toolInitiateCancelFlow(userId)
+    default:                    return { content: `알 수 없는 도구: ${name}` }
+  }
+}
+
+// ─── Main agent loop ──────────────────────────────────────────────────────────
+
+export async function runAgent(
+  message: string,
+  history: ChatMessage[],
+  userId?: string,
+): Promise<AgentResult> {
+  if (!GEMINI_API_KEY) throw new Error('GEMINI_API_KEY 환경변수가 설정되지 않았습니다.')
+
+  const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY })
+  const collectedLinks: Link[] = []
+  let flowActive: boolean | undefined
+
+  let contents: Content[] = [
+    ...history.slice(-(MAX_HISTORY_TURNS * 2)).map((msg) => ({
+      role: (msg.role === 'user' ? 'user' : 'model') as 'user' | 'model',
+      parts: [{ text: msg.content }],
+    })),
+    { role: 'user' as const, parts: [{ text: message }] },
+  ]
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    let response
+    try {
+      response = await ai.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents,
+        config: {
+          systemInstruction: buildSystemPrompt(),
+          tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
+          temperature: 0.4,
+        },
+      })
+    } catch (error: unknown) {
+      const msg = error instanceof Error ? error.message : String(error)
+      if (msg.includes('RESOURCE_EXHAUSTED') || msg.includes('429') || msg.includes('quota')) {
+        throw new GeminiQuotaError()
+      }
+      throw error
+    }
+
+    const parts = response.candidates?.[0]?.content?.parts ?? []
+    const fnCallPart = parts.find(
+      (p): p is { functionCall: { name: string; args: Record<string, unknown> } } =>
+        'functionCall' in p && !!p.functionCall,
+    )
+
+    // function call 없으면 최종 텍스트 응답
+    if (!fnCallPart) {
+      return {
+        message: response.text ?? '잠시 후 다시 시도해주세요.',
+        links: collectedLinks.length > 0 ? collectedLinks : undefined,
+        flow_active: flowActive,
+      }
+    }
+
+    const { name, args } = fnCallPart.functionCall
+
+    // Tool 실행
+    const toolResult = await executeTool(name, args ?? {}, userId)
+
+    // 링크 수집 (중복 제거)
+    for (const link of toolResult.links ?? []) {
+      if (!collectedLinks.find((l) => l.href === link.href)) collectedLinks.push(link)
+    }
+
+    // 플로우 시작된 경우 (apply/cancel): 바로 반환 (이후 메시지는 entryFlow/cancelFlow에서 처리)
+    if (toolResult.flow_active !== undefined) {
+      flowActive = toolResult.flow_active
+      return {
+        message: toolResult.content,
+        links: collectedLinks.length > 0 ? collectedLinks : undefined,
+        flow_active: flowActive,
+      }
+    }
+
+    // Gemini에게 tool 결과 전달
+    contents = [
+      ...contents,
+      { role: 'model' as const, parts: [{ functionCall: { name, args: args ?? {} } }] },
+      { role: 'user' as const, parts: [{ functionResponse: { name, response: { content: toolResult.content } } }] },
+    ]
+  }
+
+  return { message: '요청 처리 중 문제가 발생했습니다. 다시 시도해주세요.' }
+}

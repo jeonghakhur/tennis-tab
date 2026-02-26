@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeInput } from '@/lib/utils/validation'
-import { classifyIntent, GeminiQuotaError } from '@/lib/chat/classify'
-import { getHandler } from '@/lib/chat/handlers'
+import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
 import { saveChatLog } from '@/lib/chat/logs'
 import { checkRateLimit } from '@/lib/chat/rateLimit'
 import { getSession } from '@/lib/chat/entryFlow/sessionStore'
@@ -128,30 +127,25 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
       }
     }
 
-    // 6. Intent 분류 (Gemini 2.0 Flash) — 대화 히스토리 포함 (길이 제한은 classifyIntent 내부에서 처리)
+    // 6. Agent 실행 (Gemini 2.0 Flash Function Calling)
     const history = Array.isArray(body.history) ? body.history : []
-    const classification = await classifyIntent(sanitizedMessage, history)
+    const result = await runAgent(sanitizedMessage, history, userId)
 
-    // 7. Handler 실행
-    const handler = getHandler(classification.intent)
-    const result = await handler(classification.entities, userId)
-
-    // 8. 채팅 로그 저장 (비동기, 실패 무시)
+    // 7. 채팅 로그 저장 (비동기, 실패 무시)
     saveChatLog({
       userId,
       sessionId: body.session_id,
       message: sanitizedMessage,
       response: result.message,
-      intent: classification.intent,
-      entities: classification.entities as unknown as Record<string, unknown>,
+      intent: 'SEARCH_TOURNAMENT',
+      entities: {},
     })
 
-    // 9. 응답 반환
+    // 8. 응답 반환
     return NextResponse.json({
       success: true,
-      intent: classification.intent,
+      intent: 'SEARCH_TOURNAMENT',
       message: result.message,
-      data: result.data,
       links: result.links,
       ...(result.flow_active !== undefined && { flow_active: result.flow_active }),
     } as ChatResponse)
