@@ -292,8 +292,8 @@ export default function ClubDetailPage() {
             클럽 목록
           </Link>
 
-          {/* 비회원: 기본 정보 + 가입 안내만 표시 */}
-          {!isMember ? (
+          {/* 비회원(시스템 어드민 제외): 기본 정보 + 가입 안내만 표시 */}
+          {!isMember && !isSystemAdmin ? (
             <div className="glass-card rounded-xl p-6">
               <h1
                 className="text-2xl font-display mb-3"
@@ -422,24 +422,26 @@ export default function ClubDetailPage() {
                     </div>
                   </div>
 
-                  {/* 역할 + 탈퇴 */}
-                  <div className="shrink-0 text-center">
-                    <span
-                      className="block text-xs mb-2 px-3 py-1 rounded-full font-medium"
-                      style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
-                    >
-                      {ROLE_LABEL[myMembership?.role || 'MEMBER']}
-                    </span>
-                    {myMembership?.role !== 'OWNER' && (
-                      <button
-                        onClick={() => setConfirmLeave(true)}
-                        className="text-xs hover:underline"
-                        style={{ color: 'var(--text-muted)' }}
+                  {/* 역할 + 탈퇴 (회원인 경우만) */}
+                  {isMember && myMembership && (
+                    <div className="shrink-0 text-center">
+                      <span
+                        className="block text-xs mb-2 px-3 py-1 rounded-full font-medium"
+                        style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
                       >
-                        탈퇴하기
-                      </button>
-                    )}
-                  </div>
+                        {ROLE_LABEL[myMembership.role]}
+                      </span>
+                      {myMembership.role !== 'OWNER' && (
+                        <button
+                          onClick={() => setConfirmLeave(true)}
+                          className="text-xs hover:underline"
+                          style={{ color: 'var(--text-muted)' }}
+                        >
+                          탈퇴하기
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* 클럽 소개 */}
