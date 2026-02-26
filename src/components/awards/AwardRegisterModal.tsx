@@ -282,19 +282,18 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
                   className="p-0 w-[var(--radix-popover-trigger-width)]"
                   align="start"
                   style={{
-                    backgroundColor: 'var(--bg-card)',
+                    backgroundColor: 'white',
                     border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
                   }}
                 >
-                  <Command
-                    style={{ backgroundColor: 'var(--bg-card)' }}
-                  >
+                  <Command style={{ backgroundColor: 'white' }}>
                     <CommandInput
                       placeholder="클럽 검색..."
                       style={{ color: 'var(--text-primary)' }}
                     />
                     <CommandList>
-                      <CommandEmpty style={{ color: 'var(--text-muted)' }}>
+                      <CommandEmpty className="text-gray-400">
                         검색 결과가 없습니다
                       </CommandEmpty>
                       <CommandGroup>
@@ -306,7 +305,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
                               setSelectedClubId('')
                               setClubOpen(false)
                             }}
-                            style={{ color: 'var(--text-muted)' }}
+                            className="text-gray-400"
                           >
                             <X className="w-3.5 h-3.5 mr-2" />
                             선택 해제
@@ -320,7 +319,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
                               setSelectedClubId(club.id)
                               setClubOpen(false)
                             }}
-                            style={{ color: 'var(--text-primary)' }}
+                            className="text-gray-800"
                           >
                             <Check
                               className="mr-2 w-4 h-4"
