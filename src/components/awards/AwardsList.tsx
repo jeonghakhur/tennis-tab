@@ -1,11 +1,16 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
+import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import type { Database } from '@/lib/supabase/types'
 import { groupAwardsForDisplay, RANK_ORDER, type AwardDisplayGroup } from './awardGrouping'
-import { getAwardPlayersMembership } from '@/lib/awards/actions'
+import {
+  getAwardPlayersMembership,
+  updateAwardPlayerRating,
+  type AwardPlayerInfo,
+} from '@/lib/awards/actions'
 
 type Award = Database['public']['Tables']['tournament_awards']['Row']
 
@@ -21,23 +26,111 @@ interface Props {
   isAdmin?: boolean
 }
 
-interface MembershipMap {
-  [playerName: string]: boolean
+interface PlayerRow {
+  name: string
+  userId: string | null
+  info: AwardPlayerInfo
+  ratingInput: string  // 편집 중인 값
+  saving: boolean
 }
 
 export function AwardsList({ awards, isAdmin = false }: Props) {
   const [selectedGroup, setSelectedGroup] = useState<AwardDisplayGroup | null>(null)
-  const [membership, setMembership] = useState<MembershipMap>({})
+  const [playerRows, setPlayerRows] = useState<PlayerRow[]>([])
   const [loadingMembership, setLoadingMembership] = useState(false)
+  const [toast, setToast] = useState({ isOpen: false, message: '' })
+  const [alert, setAlert] = useState({ isOpen: false, message: '' })
 
-  const handleCardClick = async (group: AwardDisplayGroup) => {
+  const handleCardClick = useCallback(async (group: AwardDisplayGroup) => {
     if (!isAdmin) return
     setSelectedGroup(group)
-    setMembership({})
+    setPlayerRows([])
     setLoadingMembership(true)
-    const result = await getAwardPlayersMembership(group.players, group.club_name)
-    setMembership(result)
+
+    // 그룹에 속한 개별 레코드에서 player → userId 매핑 추출
+    const groupRecords = awards.filter(
+      (a) =>
+        a.year === group.year &&
+        a.competition === group.competition &&
+        a.division === group.division &&
+        a.award_rank === group.award_rank &&
+        (a.club_name ?? '') === (group.club_name ?? '')
+    )
+    const playerUserMap = new Map<string, string | null>()
+    for (const rec of groupRecords) {
+      const name = rec.players[0]
+      const userId = rec.player_user_ids?.[0] ?? null
+      if (name) playerUserMap.set(name, userId)
+    }
+
+    const playersWithId = group.players.map((name) => ({
+      name,
+      userId: playerUserMap.get(name) ?? null,
+    }))
+
+    const membershipResult = await getAwardPlayersMembership(playersWithId, group.club_name)
+
+    setPlayerRows(
+      playersWithId.map(({ name, userId }) => {
+        const info = membershipResult[name] ?? { isMember: false, memberId: null, rating: null, profileRating: null }
+        return {
+          name,
+          userId,
+          info,
+          ratingInput: info.rating != null ? String(info.rating) : '',
+          saving: false,
+        }
+      })
+    )
     setLoadingMembership(false)
+  }, [isAdmin, awards])
+
+  const handleRatingChange = (playerName: string, value: string) => {
+    setPlayerRows((prev) =>
+      prev.map((row) => (row.name === playerName ? { ...row, ratingInput: value } : row))
+    )
+  }
+
+  const handleSaveRating = async (playerName: string) => {
+    const row = playerRows.find((r) => r.name === playerName)
+    if (!row) return
+
+    const newRating = row.ratingInput.trim() ? Number(row.ratingInput.trim()) : null
+    if (row.ratingInput.trim() && isNaN(newRating!)) {
+      setAlert({ isOpen: true, message: '점수는 숫자로 입력해주세요.' })
+      return
+    }
+
+    setPlayerRows((prev) =>
+      prev.map((r) => (r.name === playerName ? { ...r, saving: true } : r))
+    )
+
+    const result = await updateAwardPlayerRating(row.info.memberId, row.userId, newRating)
+
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error })
+      setPlayerRows((prev) =>
+        prev.map((r) => (r.name === playerName ? { ...r, saving: false } : r))
+      )
+      return
+    }
+
+    // 낙관적 업데이트: 저장된 rating 반영
+    setPlayerRows((prev) =>
+      prev.map((r) =>
+        r.name === playerName
+          ? {
+              ...r,
+              saving: false,
+              info: { ...r.info, rating: newRating, profileRating: r.userId ? newRating : r.info.profileRating },
+              ratingInput: newRating != null ? String(newRating) : '',
+            }
+          : r
+      )
+    )
+
+    const syncMsg = row.userId ? ' (프로필 점수도 동기화됨)' : ''
+    setToast({ isOpen: true, message: `${playerName}의 점수가 업데이트되었습니다.${syncMsg}` })
   }
 
   if (awards.length === 0) {
@@ -64,7 +157,6 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
         {Object.entries(byYear)
           .sort(([a], [b]) => Number(b) - Number(a))
           .map(([year, yearAwards]) => {
-            // 연도 내 대회별 그룹핑
             const byComp = yearAwards.reduce<Record<string, Award[]>>((acc, a) => {
               if (!acc[a.competition]) acc[a.competition] = []
               acc[a.competition].push(a)
@@ -99,7 +191,7 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
                             {competition}
                           </h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                            {groups.map((group) => (
+                            {groups.map((group) =>
                               isAdmin ? (
                                 <button
                                   key={group.key}
@@ -125,7 +217,7 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
                                   <AwardCard group={group} />
                                 </div>
                               )
-                            ))}
+                            )}
                           </div>
                         </div>
                       )
@@ -136,7 +228,7 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
           })}
       </div>
 
-      {/* 어드민 전용: 수상 기록 상세 모달 */}
+      {/* 어드민 전용: 수상자 상세 + 점수 수정 모달 */}
       <Modal
         isOpen={selectedGroup !== null}
         onClose={() => setSelectedGroup(null)}
@@ -160,71 +252,139 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
                 {selectedGroup.club_name && (
                   <div className="col-span-2">
                     <p className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>클럽</p>
-                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>{selectedGroup.club_name}</p>
+                    <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {selectedGroup.club_name}
+                    </p>
                   </div>
                 )}
               </div>
 
-              {/* 선수 목록 + 클럽 가입 여부 */}
+              {/* 수상자 목록 */}
               <div className="pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
                 <p className="text-xs mb-3 font-medium" style={{ color: 'var(--text-muted)' }}>
-                  수상자 · 클럽 가입 여부
+                  수상자 점수 관리
                   {!selectedGroup.club_name && (
-                    <span className="ml-1">(클럽 정보 없음)</span>
+                    <span className="ml-1 font-normal">(클럽 정보 없음 — 점수 조회 불가)</span>
                   )}
                 </p>
-                <div className="space-y-2">
-                  {loadingMembership ? (
-                    <div className="space-y-2">
-                      {selectedGroup.players.map((_, i) => (
-                        <div
-                          key={i}
-                          className="h-8 rounded-lg animate-pulse"
-                          style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    selectedGroup.players.map((player) => {
-                      const isMember = membership[player]
-                      return (
-                        <div
-                          key={player}
-                          className="flex items-center justify-between px-3 py-2 rounded-lg"
-                          style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                        >
+
+                {loadingMembership ? (
+                  <div className="space-y-3">
+                    {selectedGroup.players.map((_, i) => (
+                      <div
+                        key={i}
+                        className="h-14 rounded-lg animate-pulse"
+                        style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {playerRows.map((row) => (
+                      <div
+                        key={row.name}
+                        className="rounded-lg p-3"
+                        style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                      >
+                        {/* 이름 + 가입 배지 */}
+                        <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                            {player}
+                            {row.name}
                           </span>
-                          {selectedGroup.club_name ? (
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-medium"
-                              style={
-                                isMember
-                                  ? { backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)' }
-                                  : { backgroundColor: 'var(--color-danger-subtle)', color: 'var(--color-danger)' }
-                              }
-                            >
-                              {isMember ? '가입됨' : '미가입'}
-                            </span>
-                          ) : (
-                            <span className="text-xs" style={{ color: 'var(--text-muted)' }}>—</span>
-                          )}
+                          <div className="flex items-center gap-2">
+                            {row.userId && (
+                              <span
+                                className="text-xs px-1.5 py-0.5 rounded"
+                                style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-muted)' }}
+                              >
+                                프로필 연동
+                              </span>
+                            )}
+                            {selectedGroup.club_name && (
+                              <span
+                                className="text-xs px-2 py-0.5 rounded-full font-medium"
+                                style={
+                                  row.info.isMember
+                                    ? { backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)' }
+                                    : { backgroundColor: 'var(--color-danger-subtle)', color: 'var(--color-danger)' }
+                                }
+                              >
+                                {row.info.isMember ? '가입됨' : '미가입'}
+                              </span>
+                            )}
+                          </div>
                         </div>
-                      )
-                    })
-                  )}
-                </div>
+
+                        {/* 점수 입력 (클럽 회원인 경우만) */}
+                        {row.info.isMember ? (
+                          <div className="flex items-center gap-2">
+                            <label
+                              htmlFor={`rating-${row.name}`}
+                              className="text-xs shrink-0"
+                              style={{ color: 'var(--text-muted)' }}
+                            >
+                              점수
+                            </label>
+                            <input
+                              id={`rating-${row.name}`}
+                              type="number"
+                              value={row.ratingInput}
+                              onChange={(e) => handleRatingChange(row.name, e.target.value)}
+                              placeholder="미등록"
+                              min={0}
+                              className="flex-1 px-2 py-1 rounded text-sm text-right"
+                              style={{
+                                backgroundColor: 'var(--bg-input)',
+                                color: 'var(--text-primary)',
+                                border: '1px solid var(--border-color)',
+                              }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveRating(row.name)}
+                              disabled={row.saving}
+                              className="shrink-0 text-xs px-3 py-1.5 rounded-lg transition-colors"
+                              style={{
+                                backgroundColor: 'var(--accent-color)',
+                                color: 'var(--bg-primary)',
+                                opacity: row.saving ? 0.6 : 1,
+                              }}
+                            >
+                              {row.saving ? '저장 중' : '저장'}
+                            </button>
+                          </div>
+                        ) : (
+                          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {selectedGroup.club_name ? '클럽 미가입 — 점수 수정 불가' : '클럽 정보 없음'}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           </Modal.Body>
         )}
       </Modal>
+
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type="success"
+      />
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        title="오류"
+        message={alert.message}
+        type="error"
+      />
     </>
   )
 }
 
-/** 카드 내부 공통 렌더링 */
 function AwardCard({ group }: { group: AwardDisplayGroup }) {
   return (
     <>

@@ -202,21 +202,63 @@ export async function getClubAwards(clubId: string, clubName?: string): Promise<
   return merged.sort((a, b) => b.year - a.year)
 }
 
-/** 선수-클럽 가입 여부 조회 (어드민 전용) */
+export interface AwardPlayerInfo {
+  isMember: boolean
+  memberId: string | null   // club_members.id
+  rating: number | null     // club_members.rating (클럽 회원 점수)
+  profileRating: number | null // profiles.rating (프로필 점수)
+}
+
+/** 선수-클럽 가입 여부 + 점수 조회 (어드민 전용) */
 export async function getAwardPlayersMembership(
-  playerNames: string[],
+  players: Array<{ name: string; userId: string | null }>,
   clubName: string | null
-): Promise<{ [playerName: string]: boolean }> {
+): Promise<Record<string, AwardPlayerInfo>> {
   const user = await getCurrentUser()
   if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
     return {}
   }
 
-  if (!clubName || playerNames.length === 0) {
-    return Object.fromEntries(playerNames.map((n) => [n, false]))
+  const admin = createAdminClient()
+  const playerNames = players.map((p) => p.name)
+  const defaultResult = (): AwardPlayerInfo => ({ isMember: false, memberId: null, rating: null, profileRating: null })
+
+  // userId 있는 선수의 프로필 점수 조회
+  const userIdMap = new Map<string, string>() // name → userId
+  for (const p of players) {
+    if (p.userId) userIdMap.set(p.name, p.userId)
+  }
+  const userIds = [...userIdMap.values()]
+  const profileRatingMap = new Map<string, number | null>() // userId → rating
+  if (userIds.length > 0) {
+    const { data: profiles } = await admin
+      .from('profiles')
+      .select('id, rating')
+      .in('id', userIds)
+    for (const prof of profiles ?? []) {
+      profileRatingMap.set(prof.id, prof.rating)
+    }
   }
 
-  const admin = createAdminClient()
+  const buildResult = (entries: Map<string, { memberId: string | null; rating: number | null }>): Record<string, AwardPlayerInfo> => {
+    return Object.fromEntries(
+      players.map((p) => {
+        const clubInfo = entries.get(p.name)
+        const userId = userIdMap.get(p.name) ?? null
+        return [p.name, {
+          isMember: !!clubInfo?.memberId,
+          memberId: clubInfo?.memberId ?? null,
+          rating: clubInfo?.rating ?? null,
+          profileRating: userId ? (profileRatingMap.get(userId) ?? null) : null,
+        }]
+      })
+    )
+  }
+
+  if (!clubName || playerNames.length === 0) {
+    const emptyMap = new Map(playerNames.map((n) => [n, { memberId: null, rating: null }]))
+    return buildResult(emptyMap)
+  }
 
   // 클럽명으로 클럽 ID 조회
   const { data: club } = await admin
@@ -226,19 +268,57 @@ export async function getAwardPlayersMembership(
     .single()
 
   if (!club) {
-    return Object.fromEntries(playerNames.map((n) => [n, false]))
+    const emptyMap = new Map(playerNames.map((n) => [n, { memberId: null, rating: null }]))
+    return buildResult(emptyMap)
   }
 
-  // 해당 클럽의 ACTIVE 회원 중 이름 매칭
+  // 해당 클럽의 ACTIVE 회원 중 이름 매칭 + rating 포함
   const { data: members } = await admin
     .from('club_members')
-    .select('name')
+    .select('id, name, rating')
     .eq('club_id', club.id)
     .eq('status', 'ACTIVE')
     .in('name', playerNames)
 
-  const memberNames = new Set((members ?? []).map((m) => m.name))
-  return Object.fromEntries(playerNames.map((n) => [n, memberNames.has(n)]))
+  const memberMap = new Map((members ?? []).map((m) => [m.name, { memberId: m.id, rating: m.rating }]))
+  return buildResult(memberMap)
+}
+
+/** 선수 점수 업데이트 — club_members + profiles 동시 반영 (어드민 전용) */
+export async function updateAwardPlayerRating(
+  memberId: string | null,
+  userId: string | null,
+  rating: number | null
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return { error: '관리자 권한이 필요합니다.' }
+  }
+
+  const admin = createAdminClient()
+  const updatedAt = new Date().toISOString()
+
+  if (!memberId && !userId) return { error: '업데이트할 대상이 없습니다.' }
+
+  // 클럽 회원 점수 업데이트
+  if (memberId) {
+    const { error } = await admin
+      .from('club_members')
+      .update({ rating, updated_at: updatedAt })
+      .eq('id', memberId)
+    if (error) return { error: '점수 업데이트에 실패했습니다.' }
+  }
+
+  // 프로필 점수 동시 업데이트
+  if (userId) {
+    const { error } = await admin
+      .from('profiles')
+      .update({ rating, updated_at: updatedAt })
+      .eq('id', userId)
+    if (error) return { error: '프로필 점수 업데이트에 실패했습니다.' }
+  }
+
+  return {}
 }
 
 /** 입상 기록 수정 (어드민 전용) */
