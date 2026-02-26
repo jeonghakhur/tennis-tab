@@ -5,9 +5,9 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
-import { getClubs, getClubMemberCountsBatch } from '@/lib/clubs/actions'
+import { getClubs } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
-import { Search, MapPin, Users, Building2, Check } from 'lucide-react'
+import { Search, MapPin, Building2, Check } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -44,7 +44,6 @@ export default function ClubsPage() {
   const router = useRouter()
   const { user } = useAuth()
   const [clubs, setClubs] = useState<Club[]>([])
-  const [memberCounts, setMemberCounts] = useState<Record<string, number>>({})
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('')
@@ -59,10 +58,6 @@ export default function ClubsPage() {
     })
     if (!result.error) {
       setClubs(result.data)
-      // 회원 수 단일 쿼리로 일괄 조회
-      const clubIds = result.data.map((club) => club.id)
-      const counts = await getClubMemberCountsBatch(clubIds)
-      setMemberCounts(counts)
     }
     setLoading(false)
   }, [search, cityFilter])
@@ -228,13 +223,7 @@ export default function ClubsPage() {
                     </div>
 
                     {/* 하단 정보 */}
-                    <div className="flex items-center justify-between pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                          {memberCounts[club.id] ?? 0}명
-                        </span>
-                      </div>
+                    <div className="flex items-center justify-end pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
                       <Badge variant={JOIN_TYPE_VARIANT[club.join_type]}>
                         {JOIN_TYPE_LABEL[club.join_type]}
                       </Badge>
