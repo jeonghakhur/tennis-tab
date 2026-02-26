@@ -31,6 +31,7 @@ export type Intent =
   | 'VIEW_BRACKET'
   | 'VIEW_RESULTS'
   | 'VIEW_REQUIREMENTS'
+  | 'VIEW_AWARDS'
   | 'HELP'
 
 /** Gemini가 반환하는 Intent 분류 결과 */
@@ -52,6 +53,9 @@ export interface ChatEntities {
   date_expression?: string   // 원본 표현: "이번 주", "3월"
   player_name?: string
   status?: string            // "모집중", "진행중"
+  year?: number              // 2024
+  award_rank?: string        // "우승", "준우승", "3위", "공동3위"
+  division?: string          // "챌린저부", "오픈부"
 }
 
 /** Intent Handler가 반환하는 결과 */
@@ -129,7 +133,9 @@ export function buildSystemPrompt(): string
    예시: "서울 오픈 결과", "누가 이겼어?"
 4. VIEW_REQUIREMENTS: 참가 조건/상세 조회
    예시: "참가 조건", "참가비 얼마야?"
-5. HELP: 도움말/기능 안내
+5. VIEW_AWARDS: 수상자/입상 이력 조회
+   예시: "서울 오픈 우승자 누구야?", "김철수 수상 이력", "2024년 챌린저부 우승팀"
+6. HELP: 도움말/기능 안내
    예시: "뭘 할 수 있어?", "도움말"
 
 [날짜 변환 규칙]
@@ -142,14 +148,17 @@ export function buildSystemPrompt(): string
 [출력 형식]
 반드시 아래 JSON 형식으로만 응답하세요:
 {
-  "intent": "SEARCH_TOURNAMENT" | "VIEW_BRACKET" | "VIEW_RESULTS" | "VIEW_REQUIREMENTS" | "HELP",
+  "intent": "SEARCH_TOURNAMENT" | "VIEW_BRACKET" | "VIEW_RESULTS" | "VIEW_REQUIREMENTS" | "VIEW_AWARDS" | "HELP",
   "entities": {
     "tournament_name": "대회명 또는 null",
     "location": "지역명 또는 null",
     "date_range": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" } 또는 null,
     "date_expression": "원본 날짜 표현 또는 null",
     "player_name": "선수명 또는 null",
-    "status": "모집중|진행중|완료 또는 null"
+    "status": "모집중|진행중|완료 또는 null",
+    "year": 연도(숫자) 또는 null,
+    "award_rank": "우승|준우승|3위|공동3위 또는 null",
+    "division": "부서명 또는 null"
   },
   "confidence": 0.0~1.0,
   "requires_auth": false
@@ -218,6 +227,7 @@ import { handleSearchTournament } from './searchTournament'
 import { handleViewBracket } from './viewBracket'
 import { handleViewResults } from './viewResults'
 import { handleViewRequirements } from './viewRequirements'
+import { handleViewAwards } from './viewAwards'
 import { handleHelp } from './help'
 
 const handlers: Record<Intent, IntentHandler> = {
@@ -225,6 +235,7 @@ const handlers: Record<Intent, IntentHandler> = {
   VIEW_BRACKET: handleViewBracket,
   VIEW_RESULTS: handleViewResults,
   VIEW_REQUIREMENTS: handleViewRequirements,
+  VIEW_AWARDS: handleViewAwards,
   HELP: handleHelp,
 }
 
@@ -364,7 +375,70 @@ export async function handleViewRequirements(
 - 현재 상태: 모집중
 ```
 
-### 5.5 `handlers/help.ts`
+### 5.5 `handlers/viewAwards.ts`
+
+```typescript
+export async function handleViewAwards(
+  entities: ChatEntities,
+  userId?: string
+): Promise<HandlerResult>
+```
+
+**쿼리 전략:**
+```typescript
+const admin = createAdminClient()
+let query = admin
+  .from('tournament_awards')
+  .select('competition, year, division, game_type, award_rank, players, club_name')
+  .order('year', { ascending: false })
+  .order('display_order', { ascending: true })
+  .limit(10)
+
+// 대회명 필터 (ILIKE)
+if (entities.tournament_name) {
+  query = query.ilike('competition', `%${entities.tournament_name}%`)
+}
+
+// 선수명 필터 (GIN 인덱스 활용: players @> ARRAY[name])
+if (entities.player_name) {
+  query = query.contains('players', [entities.player_name])
+}
+
+// 연도 필터
+if (entities.year) {
+  query = query.eq('year', entities.year)
+}
+
+// 입상 순위 필터
+if (entities.award_rank) {
+  query = query.eq('award_rank', entities.award_rank)
+}
+
+// 부서 필터 (ILIKE — "챌린저부", "오픈" 등 부분 일치)
+if (entities.division) {
+  query = query.ilike('division', `%${entities.division}%`)
+}
+```
+
+**응답 포매팅:**
+```
+"서울 오픈" 수상 결과:
+
+- 2024 챌린저부 (단식) 우승: 김철수 (서울 테니스클럽)
+- 2024 챌린저부 (단식) 준우승: 이영희 (강남 클럽)
+- 2023 오픈부 (복식) 우승: 박민수, 정호진 (한강 클럽)
+
+수상자 전체 목록은 아래 링크에서 확인하세요.
+```
+
+**links**: `{ label: "수상자 목록 보기", href: "/awards" }`
+
+**결과 없음 처리:**
+```
+수상 기록을 찾을 수 없습니다. 대회명이나 선수명을 다시 확인해보세요.
+```
+
+### 5.6 `handlers/help.ts`
 
 ```typescript
 export async function handleHelp(
@@ -382,6 +456,7 @@ Tennis Tab에서 할 수 있는 것들이에요:
 - "서울 오픈 대진표 보여줘" → 대진표 조회
 - "서울 오픈 결과 알려줘" → 경기 결과 확인
 - "서울 오픈 참가 조건이 뭐야?" → 참가 정보 조회
+- "서울 오픈 우승자 누구야?" → 수상자 조회
 
 날짜, 지역, 대회명을 자유롭게 조합해서 질문해보세요!
 ```
@@ -690,6 +765,7 @@ src/
 │           ├── viewBracket.ts        # VIEW_BRACKET
 │           ├── viewResults.ts        # VIEW_RESULTS
 │           ├── viewRequirements.ts   # VIEW_REQUIREMENTS
+│           ├── viewAwards.ts         # VIEW_AWARDS
 │           └── help.ts               # HELP (하드코딩)
 └── components/
     └── chat/
@@ -709,7 +785,7 @@ src/
 | 3 | System Prompt 작성 | `src/lib/chat/prompts.ts` | 없음 |
 | 4 | Intent 분류 엔진 | `src/lib/chat/classify.ts` | 2, 3 |
 | 5 | HELP 핸들러 (하드코딩) | `src/lib/chat/handlers/help.ts` | 2 |
-| 6 | Handler 라우팅 + 나머지 핸들러 4종 | `src/lib/chat/handlers/*.ts` | 2, 5 |
+| 6 | Handler 라우팅 + 나머지 핸들러 5종 | `src/lib/chat/handlers/*.ts` | 2, 5 |
 | 7 | 채팅 로그 저장 | `src/lib/chat/logs.ts` | 2 |
 | 8 | Rate Limiting | `src/lib/chat/rateLimit.ts` | 없음 |
 | 9 | Route Handler | `src/app/api/chat/route.ts` | 4, 6, 7, 8 |
@@ -751,6 +827,9 @@ src/
 - [ ] "서울 오픈 대진표" → VIEW_BRACKET → 대진표 정보 + 링크
 - [ ] "서울 오픈 결과" → VIEW_RESULTS → 경기 결과
 - [ ] "참가 조건" → VIEW_REQUIREMENTS → 대회 상세
+- [ ] "서울 오픈 우승자 누구야?" → VIEW_AWARDS → 수상자 정보 반환
+- [ ] "김철수 수상 이력" → VIEW_AWARDS → players GIN 인덱스 활용, 해당 선수 입상 목록 반환
+- [ ] "2024년 챌린저부 우승팀" → VIEW_AWARDS → year + division + award_rank 복합 필터 반환
 - [ ] "뭘 할 수 있어?" → HELP → 기능 안내 (LLM 미호출)
 - [ ] 의미 없는 입력 → confidence < 0.7 → HELP fallback
 - [ ] chat_logs에 모든 대화 기록 저장

@@ -34,6 +34,9 @@ export interface ChatEntities {
   entry_status?: string
   /** scope: "my" 일 때 — 결제 상태 필터 */
   payment_status?: string
+  /** SEARCH_TOURNAMENT 응답 상세 수준:
+   *  list = 대회명+상태만 (기본), schedule = 날짜+장소 포함, detail = 전체 상세 */
+  query_type?: 'list' | 'schedule' | 'detail'
   /** VIEW_AWARDS: 특정 선수 이름 필터 */
   award_player_name?: string
   /** VIEW_AWARDS: 특정 연도 필터 */

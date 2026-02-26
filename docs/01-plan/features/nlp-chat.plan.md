@@ -49,6 +49,7 @@ Tennis Tab의 핵심 가치는 "자연어 기반 인터페이스"다. 현재 홈
 | `VIEW_BRACKET` | 대진표 조회 | "서울 오픈 대진표 보여줘" |
 | `VIEW_RESULTS` | 경기 결과 조회 | "서울 오픈 결과 알려줘" |
 | `VIEW_REQUIREMENTS` | 참가 기준/상세 조회 | "서울 오픈 참가 조건이 뭐야?" |
+| `VIEW_AWARDS` | 수상자/입상 이력 조회 | "서울 오픈 우승자 누구야?", "김철수 수상 이력", "2024년 챌린저부 우승팀" |
 | `HELP` | 서비스 안내 | "뭘 할 수 있어?", "도움말" |
 
 ### 3.2 Intent 분류 응답 스키마
@@ -66,6 +67,9 @@ interface IntentClassification {
     date_expression?: string   // "이번 주", "다음 토요일" (원본 표현)
     player_name?: string       // "김철수"
     status?: string            // "모집중", "진행중"
+    year?: number              // 2024
+    award_rank?: string        // "우승", "준우승", "3위", "공동3위"
+    division?: string          // "챌린저부", "오픈부"
   }
   confidence: number           // 0.0 ~ 1.0
   requires_auth: boolean       // 로그인 필요 여부
@@ -120,6 +124,7 @@ src/
 │       │   ├── viewBracket.ts        # VIEW_BRACKET 핸들러
 │       │   ├── viewResults.ts        # VIEW_RESULTS 핸들러
 │       │   ├── viewRequirements.ts   # VIEW_REQUIREMENTS 핸들러
+│       │   ├── viewAwards.ts         # VIEW_AWARDS 핸들러
 │       │   └── help.ts               # HELP 핸들러
 │       ├── prompts.ts             # System Prompt 템플릿
 │       ├── response.ts            # 자연어 응답 생성
@@ -218,6 +223,17 @@ type IntentHandler = (
 - 대회명 검색 → `tournaments` + `divisions` 정보 조회
 - 참가비, 최대 인원, 대회 형식, 일정 등 요약
 
+#### VIEW_AWARDS
+- `tournament_awards` 테이블 조회 (레거시 + 서비스 대회 통합)
+- Entity 기반 필터 조합:
+  - `tournament_name` → `competition ILIKE '%name%'`
+  - `player_name` → GIN 인덱스 활용 (`players @> ARRAY[name]`)
+  - `year` → `year = ?`
+  - `award_rank` → `award_rank = ?` (우승/준우승/3위/공동3위)
+  - `division` → `division ILIKE '%name%'`
+- 필터 없이 조회 시 최근 연도 기준 최대 10건 반환
+- 결과: 대회명, 연도, 부서, 순위, 선수명, 클럽명 + `/awards` 페이지 링크
+
 #### HELP
 - 사용 가능한 기능 목록 + 예시 프롬프트 반환
 - 로그인 상태에 따라 추가 기능 안내
@@ -314,7 +330,7 @@ async function saveChatLog(params: {
 | 2 | 타입 정의 (`src/lib/chat/types.ts`) | 낮음 |
 | 3 | System Prompt 작성 (`src/lib/chat/prompts.ts`) | 중간 |
 | 4 | Intent 분류 엔진 (`src/lib/chat/classify.ts`) | 높음 |
-| 5 | Intent Handlers 구현 (5종) | 높음 |
+| 5 | Intent Handlers 구현 (6종) | 높음 |
 | 6 | 자연어 응답 생성 (`src/lib/chat/response.ts`) | 중간 |
 | 7 | 채팅 로그 저장 (`src/lib/chat/logs.ts`) | 낮음 |
 | 8 | Route Handler (`/api/chat/route.ts`) + Rate Limiting | 중간 |
@@ -403,6 +419,9 @@ async function saveChatLog(params: {
 - [ ] "서울 오픈 결과" → `VIEW_RESULTS` → 경기 결과 반환
 - [ ] "참가 조건" → `VIEW_REQUIREMENTS` → 대회 상세 정보 반환
 - [ ] "뭘 할 수 있어?" → `HELP` → 기능 안내 반환
+- [ ] "서울 오픈 우승자 누구야?" → `VIEW_AWARDS` → 수상자 정보 반환
+- [ ] "김철수 수상 이력" → `VIEW_AWARDS` → 해당 선수 입상 목록 반환
+- [ ] "2024년 챌린저부 우승팀" → `VIEW_AWARDS` → 연도+부서+순위 필터 결과 반환
 - [ ] 의미 없는 입력 → confidence 부족 → 재질문 안내
 - [ ] `chat_logs`에 모든 대화 기록 저장
 

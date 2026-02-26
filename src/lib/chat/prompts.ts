@@ -58,7 +58,8 @@ export function buildSystemPrompt(): string {
     "entry_status": "대기|승인|거절|확정|대기자 또는 null",
     "payment_status": "미납|완납 또는 null",
     "award_player_name": "입상자 이름 또는 null",
-    "award_year": 연도 숫자 또는 null
+    "award_year": 연도 숫자 또는 null,
+    "query_type": "list" | "schedule" | "detail" | null
   },
   "confidence": 0.0~1.0,
   "requires_auth": false
@@ -82,5 +83,10 @@ export function buildSystemPrompt(): string {
 - "입상", "우승", "준우승", "역대", "명예의 전당", "전적" 등 과거 수상 기록 관련 질문은 VIEW_AWARDS로 분류
 - award_player_name은 VIEW_AWARDS에서 특정 선수 이름이 언급될 때만 설정
 - award_year는 VIEW_AWARDS에서 특정 연도가 언급될 때만 설정
+- query_type은 SEARCH_TOURNAMENT에만 적용:
+  - "schedule": "일정", "언제", "날짜", "기간" 등 시간/일정 정보를 원할 때 (예: "협회장기 대회 일정은?", "3월 대회 언제야?")
+  - "detail": "상세", "자세히", "요강", "어떤 대회야", "정보 알려줘" 등 깊은 정보를 원할 때
+  - "list": 그 외 일반 대회 목록 조회 (기본값, 예: "마포구 대회", "모집중인 대회")
+  - SEARCH_TOURNAMENT가 아닌 intent일 때는 null
 - 절대 JSON 외의 텍스트를 출력하지 마세요`
 }

@@ -113,22 +113,21 @@ function AssistantBubble({ content, links }: { content: string; links?: ChatSucc
       </p>
 
       {links && links.length > 0 && (
-        <div className="flex flex-wrap gap-2 pt-1">
+        <div className="flex flex-wrap gap-2 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
           {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg transition-all duration-200 hover:scale-105"
+              className="inline-flex items-center gap-2 px-4 py-2 text-xs font-medium rounded-lg transition-opacity duration-200 hover:opacity-80"
               style={{
-                backgroundColor: 'var(--bg-card-hover)',
-                border: '1px solid var(--border-color)',
-                color: 'var(--accent-color)',
+                backgroundColor: 'var(--accent-color)',
+                color: 'var(--bg-primary)',
               }}
             >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-              </svg>
               {link.label}
+              <svg className="w-3 h-3 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
             </Link>
           ))}
         </div>

@@ -201,6 +201,111 @@ function summarizeDescription(html: string, maxLen: number): string {
   return text.slice(0, maxLen) + '...'
 }
 
+/** Supabase 대회 쿼리 결과 로컬 타입 */
+type TournamentRow = {
+  id: string
+  title: string
+  location: string | null
+  address: string | null
+  start_date: string
+  end_date: string | null
+  status: string
+  entry_fee: number | null
+  max_participants: number | null
+  host: string | null
+  organizer_name: string | null
+  match_type: string | null
+  format: string | null
+  ball_type: string | null
+  eligibility: string | null
+  description: string | null
+  entry_start_date: string | null
+  entry_end_date: string | null
+  opening_ceremony: string | null
+  tournament_divisions: Array<{
+    name: string
+    match_date: string | null
+    match_location: string | null
+    prize_winner: string | null
+    prize_runner_up: string | null
+    notes: string | null
+  }>
+}
+
+/** 간략 목록: 대회명 + 상태만 */
+function formatBrief(t: TournamentRow, i: number): string {
+  const status = STATUS_LABEL[t.status] ?? t.status
+  return `${i + 1}. ${t.title} (${status})`
+}
+
+/** 일정: 대회명 + 날짜 + 장소 */
+function formatSchedule(t: TournamentRow, i: number): string {
+  const status = STATUS_LABEL[t.status] ?? t.status
+  const dateStr = t.end_date && t.end_date !== t.start_date
+    ? `${formatDate(t.start_date)} ~ ${formatDate(t.end_date)}`
+    : formatDate(t.start_date)
+  const location = [t.location, t.address].filter(Boolean).join(' ')
+  const parts = [`${i + 1}. ${t.title} (${status})`, `   일정: ${dateStr}`]
+  if (location) parts.push(`   장소: ${location}`)
+  return parts.join('\n')
+}
+
+/** 전체 상세: 참가비·종별·부서·요강 포함 */
+function formatDetail(t: TournamentRow, i: number): string {
+  const parts: string[] = []
+  const status = STATUS_LABEL[t.status] ?? t.status
+  const location = [t.location, t.address].filter(Boolean).join(' ')
+  const dateStr = t.end_date && t.end_date !== t.start_date
+    ? `${formatDate(t.start_date)} ~ ${formatDate(t.end_date)}`
+    : formatDate(t.start_date)
+
+  parts.push(`${i + 1}. ${t.title} (${status})`)
+  parts.push(`   일시: ${dateStr}`)
+  parts.push(`   장소: ${location || '미정'}`)
+
+  const typeInfo: string[] = []
+  if (t.match_type) typeInfo.push(MATCH_TYPE_LABEL[t.match_type] ?? t.match_type)
+  if (t.format) typeInfo.push(FORMAT_LABEL[t.format] ?? t.format)
+  if (typeInfo.length > 0) parts.push(`   종별: ${typeInfo.join(' / ')}`)
+
+  const fee = t.entry_fee ? `${Number(t.entry_fee).toLocaleString()}원` : '무료'
+  parts.push(`   참가비: ${fee} | 최대 ${t.max_participants ?? '제한 없음'}명`)
+
+  if (t.entry_start_date || t.entry_end_date) {
+    const start = t.entry_start_date ? formatDate(t.entry_start_date) : ''
+    const end = t.entry_end_date ? formatDate(t.entry_end_date) : ''
+    if (start && end) parts.push(`   접수 기간: ${start} ~ ${end}`)
+    else if (end) parts.push(`   접수 마감: ${end}`)
+  }
+
+  if (t.host) parts.push(`   주최: ${t.host}`)
+  if (t.ball_type) parts.push(`   사용구: ${t.ball_type}`)
+  if (t.eligibility) parts.push(`   참가 자격: ${t.eligibility}`)
+  if (t.opening_ceremony) parts.push(`   개회식: ${formatDate(t.opening_ceremony)}`)
+
+  if (t.tournament_divisions && t.tournament_divisions.length > 0) {
+    const divLines = t.tournament_divisions.map((d) => {
+      let line = `     - ${d.name}`
+      if (d.match_date) line += ` (${formatDate(d.match_date)})`
+      if (d.match_location) line += ` @ ${d.match_location}`
+      const prizes: string[] = []
+      if (d.prize_winner) prizes.push(`우승: ${d.prize_winner}`)
+      if (d.prize_runner_up) prizes.push(`준우승: ${d.prize_runner_up}`)
+      if (prizes.length > 0) line += ` [${prizes.join(', ')}]`
+      return line
+    })
+    parts.push(`   참가 부서:`)
+    parts.push(...divLines)
+  }
+
+  if (t.description) {
+    const summary = summarizeDescription(t.description, 200)
+    if (summary) parts.push(`   요강: ${summary}`)
+  }
+
+  return parts.join('\n')
+}
+
 async function handleSearchAll(entities: ChatEntities): Promise<HandlerResult> {
   const admin = createAdminClient()
   let query = admin
@@ -258,86 +363,26 @@ async function handleSearchAll(entities: ChatEntities): Promise<HandlerResult> {
     }
   }
 
-  const lines = tournaments.map((t, i) => {
-    const parts: string[] = []
-    const status = STATUS_LABEL[t.status] ?? t.status
-    const location = [t.location, t.address].filter(Boolean).join(' ')
-    const dateStr = t.end_date && t.end_date !== t.start_date
-      ? `${formatDate(t.start_date)} ~ ${formatDate(t.end_date)}`
-      : formatDate(t.start_date)
+  // query_type에 따라 포맷 분기
+  const queryType = entities.query_type ?? 'list'
+  const rows = tournaments as unknown as TournamentRow[]
 
-    // 기본 정보
-    parts.push(`${i + 1}. ${t.title} (${status})`)
-    parts.push(`   일시: ${dateStr}`)
-    parts.push(`   장소: ${location || '미정'}`)
+  const formatFn =
+    queryType === 'schedule' ? formatSchedule
+    : queryType === 'detail' ? formatDetail
+    : formatBrief
 
-    // 경기 유형·형식
-    const typeInfo: string[] = []
-    if (t.match_type) typeInfo.push(MATCH_TYPE_LABEL[t.match_type] ?? t.match_type)
-    if (t.format) typeInfo.push(FORMAT_LABEL[t.format] ?? t.format)
-    if (typeInfo.length > 0) parts.push(`   종별: ${typeInfo.join(' / ')}`)
+  const lines = rows.map((t, i) => formatFn(t, i))
 
-    // 참가비·인원
-    const fee = t.entry_fee ? `${Number(t.entry_fee).toLocaleString()}원` : '무료'
-    parts.push(`   참가비: ${fee} | 최대 ${t.max_participants ?? '제한 없음'}명`)
+  const headerMap: Record<string, string> = {
+    list: `대회 ${tournaments.length}개를 찾았습니다:`,
+    schedule: `대회 일정 ${tournaments.length}건:`,
+    detail: `대회 ${tournaments.length}개의 상세 정보:`,
+  }
 
-    // 접수 기간
-    if (t.entry_start_date || t.entry_end_date) {
-      const start = t.entry_start_date ? formatDate(t.entry_start_date) : ''
-      const end = t.entry_end_date ? formatDate(t.entry_end_date) : ''
-      if (start && end) {
-        parts.push(`   접수 기간: ${start} ~ ${end}`)
-      } else if (end) {
-        parts.push(`   접수 마감: ${end}`)
-      }
-    }
+  const message = `${headerMap[queryType]}\n\n${lines.join('\n\n')}`
 
-    // 주최·사용구·자격
-    if (t.host) parts.push(`   주최: ${t.host}`)
-    if (t.ball_type) parts.push(`   사용구: ${t.ball_type}`)
-    if (t.eligibility) parts.push(`   참가 자격: ${t.eligibility}`)
-
-    // 개회식
-    if (t.opening_ceremony) {
-      parts.push(`   개회식: ${formatDate(t.opening_ceremony)}`)
-    }
-
-    // 부서 정보
-    const divisions = t.tournament_divisions as unknown as Array<{
-      name: string
-      match_date: string | null
-      match_location: string | null
-      prize_winner: string | null
-      prize_runner_up: string | null
-      notes: string | null
-    }>
-    if (divisions && divisions.length > 0) {
-      const divLines = divisions.map((d) => {
-        let line = `     - ${d.name}`
-        if (d.match_date) line += ` (${formatDate(d.match_date)})`
-        if (d.match_location) line += ` @ ${d.match_location}`
-        const prizes: string[] = []
-        if (d.prize_winner) prizes.push(`우승: ${d.prize_winner}`)
-        if (d.prize_runner_up) prizes.push(`준우승: ${d.prize_runner_up}`)
-        if (prizes.length > 0) line += ` [${prizes.join(', ')}]`
-        return line
-      })
-      parts.push(`   참가 부서:`)
-      parts.push(...divLines)
-    }
-
-    // 대회 설명 요약 (200자)
-    if (t.description) {
-      const summary = summarizeDescription(t.description, 200)
-      if (summary) parts.push(`   요강: ${summary}`)
-    }
-
-    return parts.join('\n')
-  })
-
-  const message = `검색 결과 ${tournaments.length}개의 대회를 찾았습니다:\n\n${lines.join('\n\n')}`
-
-  const links = tournaments.map((t) => ({
+  const links = rows.map((t) => ({
     label: `${t.title} 상세`,
     href: `/tournaments/${t.id}`,
   }))
