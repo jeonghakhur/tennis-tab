@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub, updateMemberInfo } from '@/lib/clubs/actions'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
@@ -44,7 +44,6 @@ type PublicMember = {
   name: string
   role: ClubMemberRole
   is_registered: boolean
-  rating: number | null
 }
 
 export default function ClubDetailPage() {
@@ -65,49 +64,6 @@ export default function ClubDetailPage() {
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
   const [activeTab, setActiveTab] = useState<'info' | 'awards' | 'manage'>('info')
   const [clubAwards, setClubAwards] = useState<import('@/lib/supabase/types').Database['public']['Tables']['tournament_awards']['Row'][]>([])
-
-  // 시스템 관리자(ADMIN/SUPER_ADMIN) 여부
-  const isSystemAdmin = profile?.role === 'ADMIN' || profile?.role === 'SUPER_ADMIN'
-
-  // 어드민 전용: 회원 점수 수정 모달
-  const [ratingModal, setRatingModal] = useState<{
-    isOpen: boolean
-    memberId: string
-    memberName: string
-    currentRating: string
-  }>({ isOpen: false, memberId: '', memberName: '', currentRating: '' })
-  const [ratingInput, setRatingInput] = useState('')
-  const [ratingSaving, setRatingSaving] = useState(false)
-
-  const openRatingModal = (member: PublicMember) => {
-    const ratingStr = member.rating != null ? String(member.rating) : ''
-    setRatingInput(ratingStr)
-    setRatingModal({
-      isOpen: true,
-      memberId: member.id,
-      memberName: member.name,
-      currentRating: ratingStr,
-    })
-  }
-
-  const handleSaveRating = async () => {
-    const numericRating = ratingInput.trim() ? Number(ratingInput.trim()) : undefined
-    setRatingSaving(true)
-    const result = await updateMemberInfo(ratingModal.memberId, { rating: numericRating })
-    setRatingSaving(false)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
-    // 낙관적 업데이트: 목록의 해당 회원 rating 갱신
-    setMembers((prev) =>
-      prev.map((m) =>
-        m.id === ratingModal.memberId ? { ...m, rating: numericRating ?? null } : m
-      )
-    )
-    setRatingModal((prev) => ({ ...prev, isOpen: false }))
-    setToast({ isOpen: true, message: '점수가 업데이트되었습니다.', type: 'success' })
-  }
 
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [introduction, setIntroduction] = useState('')
@@ -152,7 +108,6 @@ export default function ClubDetailPage() {
         name: found.membership.name,
         role: found.membership.role,
         is_registered: found.membership.is_registered,
-        rating: found.membership.rating,
       })
     } else {
       setIsMember(false)
@@ -292,8 +247,8 @@ export default function ClubDetailPage() {
             클럽 목록
           </Link>
 
-          {/* 비회원(시스템 어드민 제외): 기본 정보 + 가입 안내만 표시 */}
-          {!isMember && !isSystemAdmin ? (
+          {/* 비회원: 기본 정보 + 가입 안내만 표시 */}
+          {!isMember ? (
             <div className="glass-card rounded-xl p-6">
               <h1
                 className="text-2xl font-display mb-3"
@@ -422,26 +377,24 @@ export default function ClubDetailPage() {
                     </div>
                   </div>
 
-                  {/* 역할 + 탈퇴 (회원인 경우만) */}
-                  {isMember && myMembership && (
-                    <div className="shrink-0 text-center">
-                      <span
-                        className="block text-xs mb-2 px-3 py-1 rounded-full font-medium"
-                        style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+                  {/* 역할 + 탈퇴 */}
+                  <div className="shrink-0 text-center">
+                    <span
+                      className="block text-xs mb-2 px-3 py-1 rounded-full font-medium"
+                      style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+                    >
+                      {ROLE_LABEL[myMembership?.role || 'MEMBER']}
+                    </span>
+                    {myMembership?.role !== 'OWNER' && (
+                      <button
+                        onClick={() => setConfirmLeave(true)}
+                        className="text-xs hover:underline"
+                        style={{ color: 'var(--text-muted)' }}
                       >
-                        {ROLE_LABEL[myMembership.role]}
-                      </span>
-                      {myMembership.role !== 'OWNER' && (
-                        <button
-                          onClick={() => setConfirmLeave(true)}
-                          className="text-xs hover:underline"
-                          style={{ color: 'var(--text-muted)' }}
-                        >
-                          탈퇴하기
-                        </button>
-                      )}
-                    </div>
-                  )}
+                        탈퇴하기
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* 클럽 소개 */}
@@ -538,90 +491,43 @@ export default function ClubDetailPage() {
                   ) : (
                     <div className="space-y-2">
                       {members.map((member) => (
-                        isSystemAdmin ? (
-                          <button
-                            key={member.id}
-                            type="button"
-                            onClick={() => openRatingModal(member)}
-                            className="w-full flex items-center justify-between py-2.5 px-3 rounded-lg text-left transition-opacity hover:opacity-80"
-                            style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
-                                style={{
-                                  backgroundColor: ROLE_COLOR[member.role],
-                                  color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
-                                }}
-                              >
-                                {member.name.charAt(0)}
-                              </div>
-                              <div className="min-w-0">
-                                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                  {member.name}
-                                </span>
-                                {!member.is_registered && (
-                                  <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    (비가입)
-                                  </span>
-                                )}
-                                {member.rating && (
-                                  <span className="ml-1.5 text-xs" style={{ color: 'var(--court-info)' }}>
-                                    {member.rating}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-medium shrink-0"
+                        <div
+                          key={member.id}
+                          className="flex items-center justify-between py-2.5 px-3 rounded-lg"
+                          style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div
+                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
                               style={{
-                                backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
-                                color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
-                                border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
+                                backgroundColor: ROLE_COLOR[member.role],
+                                color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
                               }}
                             >
-                              {ROLE_LABEL[member.role]}
-                            </span>
-                          </button>
-                        ) : (
-                          <div
-                            key={member.id}
-                            className="flex items-center justify-between py-2.5 px-3 rounded-lg"
-                            style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                          >
-                            <div className="flex items-center gap-3">
-                              <div
-                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                                style={{
-                                  backgroundColor: ROLE_COLOR[member.role],
-                                  color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
-                                }}
-                              >
-                                {member.name.charAt(0)}
-                              </div>
-                              <div>
-                                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                  {member.name}
-                                </span>
-                                {!member.is_registered && (
-                                  <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    (비가입)
-                                  </span>
-                                )}
-                              </div>
+                              {member.name.charAt(0)}
                             </div>
-                            <span
-                              className="text-xs px-2 py-0.5 rounded-full font-medium"
-                              style={{
-                                backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
-                                color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
-                                border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
-                              }}
-                            >
-                              {ROLE_LABEL[member.role]}
-                            </span>
+                            <div>
+                              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                {member.name}
+                              </span>
+                              {!member.is_registered && (
+                                <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  (비가입)
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        )
+                          <span
+                            className="text-xs px-2 py-0.5 rounded-full font-medium"
+                            style={{
+                              backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
+                              color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
+                              border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
+                            }}
+                          >
+                            {ROLE_LABEL[member.role]}
+                          </span>
+                        </div>
                       ))}
                     </div>
                   )}
@@ -653,57 +559,6 @@ export default function ClubDetailPage() {
         message={`${club.name}에서 탈퇴하시겠습니까?`}
         type="warning"
       />
-
-      {/* 어드민 전용: 회원 점수 수정 모달 */}
-      <Modal
-        isOpen={ratingModal.isOpen}
-        onClose={() => setRatingModal((prev) => ({ ...prev, isOpen: false }))}
-        title="회원 점수 수정"
-        description={ratingModal.memberName}
-        size="sm"
-      >
-        <Modal.Body>
-          <div>
-            <label
-              htmlFor="rating-input"
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              점수 / 등급
-            </label>
-            <input
-              id="rating-input"
-              type="number"
-              value={ratingInput}
-              onChange={(e) => setRatingInput(e.target.value)}
-              placeholder="예: 1000, 850"
-              min={0}
-              className="w-full px-3 py-2.5 rounded-lg text-sm"
-              style={{
-                backgroundColor: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-              }}
-            />
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            onClick={() => setRatingModal((prev) => ({ ...prev, isOpen: false }))}
-            className="flex-1 px-4 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSaveRating}
-            disabled={ratingSaving}
-            className="flex-1 btn-primary btn-sm"
-          >
-            {ratingSaving ? '저장 중...' : '저장'}
-          </button>
-        </Modal.Footer>
-      </Modal>
 
       {/* 가입 신청 모달 (APPROVAL 클럽) */}
       <Modal

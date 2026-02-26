@@ -1158,17 +1158,17 @@ export async function searchUsersForInvite(
   return { data: data || [] }
 }
 
-/** 클럽 공개 회원 목록 (이름, 역할, 점수 — 상세 페이지용) */
+/** 클럽 공개 회원 목록 (이름, 역할만 — 상세 페이지용) */
 export async function getClubPublicMembers(
   clubId: string
-): Promise<{ data: Array<{ id: string; name: string; role: ClubMemberRole; is_registered: boolean; rating: number | null }>; error?: string }> {
+): Promise<{ data: Array<{ id: string; name: string; role: ClubMemberRole; is_registered: boolean }>; error?: string }> {
   const idError = validateId(clubId, '클럽 ID')
   if (idError) return { data: [], error: idError }
 
   const admin = createAdminClient()
   const { data, error } = await admin
     .from('club_members')
-    .select('id, name, role, is_registered, rating')
+    .select('id, name, role, is_registered')
     .eq('club_id', clubId)
     .eq('status', 'ACTIVE')
     .order('role', { ascending: true })
