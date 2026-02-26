@@ -1,9 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Plus, X } from 'lucide-react'
+import { Plus, X, ChevronsUpDown, Check } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command'
 import { createAwards, type TournamentOption } from '@/lib/awards/actions'
 
 type AwardRank = '우승' | '준우승' | '공동3위' | '3위'
@@ -17,21 +19,29 @@ function toGameType(matchType: string | null): GameType {
   return '개인전'
 }
 
+interface ClubOption {
+  id: string
+  name: string
+}
+
 interface Props {
   isOpen: boolean
   onClose: () => void
   onCreated: () => void
   tournaments: TournamentOption[]
+  clubs: ClubOption[]
 }
 
-export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments }: Props) {
+export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, clubs }: Props) {
   // 선택된 대회
   const [selectedTournamentId, setSelectedTournamentId] = useState('')
   // 선택된 부문 id
   const [selectedDivisionId, setSelectedDivisionId] = useState('')
   // 나머지 필드
   const [awardRank, setAwardRank] = useState<AwardRank>('우승')
-  const [clubName, setClubName] = useState('')
+  // 클럽 컴보박스
+  const [clubOpen, setClubOpen] = useState(false)
+  const [selectedClubId, setSelectedClubId] = useState<string>('')
   const [players, setPlayers] = useState<string[]>([''])
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
@@ -50,11 +60,13 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments }: 
     setSelectedDivisionId('')
   }, [selectedTournamentId])
 
+  const selectedClub = clubs.find((c) => c.id === selectedClubId) ?? null
+
   const resetForm = () => {
     setSelectedTournamentId('')
     setSelectedDivisionId('')
     setAwardRank('우승')
-    setClubName('')
+    setSelectedClubId('')
     setPlayers([''])
   }
 
@@ -101,7 +113,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments }: 
       division: division.name,
       game_type: gameType,
       award_rank: awardRank,
-      club_name: clubName.trim() || null,
+      club_name: selectedClub?.name ?? null,
       players: trimmedPlayers,
       tournament_id: tournament.id,
       division_id: division.id,
@@ -242,28 +254,86 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments }: 
               </div>
             </div>
 
-            {/* 클럽명 */}
+            {/* 클럽 선택 (컴보박스) */}
             <div>
-              <label
-                htmlFor="award-club"
-                className="block text-xs font-medium mb-1.5"
-                style={{ color: 'var(--text-muted)' }}
-              >
-                클럽명 <span className="font-normal">(선택)</span>
-              </label>
-              <input
-                id="award-club"
-                type="text"
-                value={clubName}
-                onChange={(e) => setClubName(e.target.value)}
-                placeholder="예: 마포테니스클럽"
-                className="w-full px-3 py-2 rounded-lg text-sm"
-                style={{
-                  backgroundColor: 'var(--bg-input)',
-                  color: 'var(--text-primary)',
-                  border: '1px solid var(--border-color)',
-                }}
-              />
+              <p className="text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+                클럽 <span className="font-normal">(선택)</span>
+              </p>
+              <Popover open={clubOpen} onOpenChange={setClubOpen}>
+                <PopoverTrigger asChild>
+                  <button
+                    type="button"
+                    role="combobox"
+                    aria-expanded={clubOpen}
+                    className="w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm text-left"
+                    style={{
+                      backgroundColor: 'var(--bg-input)',
+                      color: selectedClub ? 'var(--text-primary)' : 'var(--text-muted)',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  >
+                    <span className="truncate">
+                      {selectedClub ? selectedClub.name : '클럽을 선택하세요'}
+                    </span>
+                    <ChevronsUpDown className="w-4 h-4 shrink-0 ml-2 opacity-50" />
+                  </button>
+                </PopoverTrigger>
+                <PopoverContent
+                  className="p-0 w-[var(--radix-popover-trigger-width)]"
+                  align="start"
+                  style={{
+                    backgroundColor: 'var(--bg-card)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                >
+                  <Command
+                    style={{ backgroundColor: 'var(--bg-card)' }}
+                  >
+                    <CommandInput
+                      placeholder="클럽 검색..."
+                      style={{ color: 'var(--text-primary)' }}
+                    />
+                    <CommandList>
+                      <CommandEmpty style={{ color: 'var(--text-muted)' }}>
+                        검색 결과가 없습니다
+                      </CommandEmpty>
+                      <CommandGroup>
+                        {/* 선택 해제 항목 */}
+                        {selectedClubId && (
+                          <CommandItem
+                            value="__clear__"
+                            onSelect={() => {
+                              setSelectedClubId('')
+                              setClubOpen(false)
+                            }}
+                            style={{ color: 'var(--text-muted)' }}
+                          >
+                            <X className="w-3.5 h-3.5 mr-2" />
+                            선택 해제
+                          </CommandItem>
+                        )}
+                        {clubs.map((club) => (
+                          <CommandItem
+                            key={club.id}
+                            value={club.name}
+                            onSelect={() => {
+                              setSelectedClubId(club.id)
+                              setClubOpen(false)
+                            }}
+                            style={{ color: 'var(--text-primary)' }}
+                          >
+                            <Check
+                              className="mr-2 w-4 h-4"
+                              style={{ opacity: selectedClubId === club.id ? 1 : 0 }}
+                            />
+                            {club.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             {/* 선수 목록 */}

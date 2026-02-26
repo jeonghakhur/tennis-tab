@@ -3,7 +3,7 @@ import { Navigation } from '@/components/Navigation'
 import { AwardsFilters } from '@/components/awards/AwardsFilters'
 import { AwardsList } from '@/components/awards/AwardsList'
 import { AwardsAdminBar } from '@/components/awards/AwardsAdminBar'
-import { getAwards, getAwardsFilterOptions, getTournamentsForAwards } from '@/lib/awards/actions'
+import { getAwards, getAwardsFilterOptions, getTournamentsForAwards, getClubsForAwards } from '@/lib/awards/actions'
 import { getCurrentUser } from '@/lib/auth/actions'
 
 interface PageProps {
@@ -43,11 +43,14 @@ async function AwardsContent({ searchParams, isAdmin }: { searchParams: Record<s
   )
 }
 
-/** 어드민 전용: 대회 목록 서버에서 불러와 AdminBar에 전달 */
+/** 어드민 전용: 대회·클럽 목록 서버에서 불러와 AdminBar에 전달 */
 async function AwardsAdminBarWithOptions({ isAdmin }: { isAdmin: boolean }) {
   if (!isAdmin) return null
-  const tournaments = await getTournamentsForAwards()
-  return <AwardsAdminBar tournaments={tournaments} />
+  const [tournaments, clubs] = await Promise.all([
+    getTournamentsForAwards(),
+    getClubsForAwards(),
+  ])
+  return <AwardsAdminBar tournaments={tournaments} clubs={clubs} />
 }
 
 export default async function AwardsPage({ searchParams }: PageProps) {

@@ -321,6 +321,17 @@ export async function updateAwardPlayerRating(
   return {}
 }
 
+/** 수상자 등록용 클럽 목록 (id + name만 경량 조회) */
+export async function getClubsForAwards(): Promise<Array<{ id: string; name: string }>> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('clubs')
+    .select('id, name')
+    .eq('is_active', true)
+    .order('name', { ascending: true })
+  return data ?? []
+}
+
 export interface TournamentOption {
   id: string
   title: string

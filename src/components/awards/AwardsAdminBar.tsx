@@ -6,11 +6,14 @@ import { AwardRegisterModal } from './AwardRegisterModal'
 import { useRouter } from 'next/navigation'
 import type { TournamentOption } from '@/lib/awards/actions'
 
+interface ClubOption { id: string; name: string }
+
 interface Props {
   tournaments: TournamentOption[]
+  clubs: ClubOption[]
 }
 
-export function AwardsAdminBar({ tournaments }: Props) {
+export function AwardsAdminBar({ tournaments, clubs }: Props) {
   const [registerOpen, setRegisterOpen] = useState(false)
   const router = useRouter()
 
@@ -39,6 +42,7 @@ export function AwardsAdminBar({ tournaments }: Props) {
         onClose={() => setRegisterOpen(false)}
         onCreated={handleCreated}
         tournaments={tournaments}
+        clubs={clubs}
       />
     </>
   )
