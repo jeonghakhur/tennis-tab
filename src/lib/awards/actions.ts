@@ -321,6 +321,35 @@ export async function updateAwardPlayerRating(
   return {}
 }
 
+export interface TournamentOption {
+  id: string
+  title: string
+  year: number          // start_date에서 추출
+  match_type: string | null
+  divisions: Array<{ id: string; name: string }>
+}
+
+/** 수상자 등록용 대회 목록 조회 (COMPLETED/IN_PROGRESS, 최근순) */
+export async function getTournamentsForAwards(): Promise<TournamentOption[]> {
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
+    .from('tournaments')
+    .select('id, title, start_date, match_type, status, tournament_divisions(id, name)')
+    .in('status', ['COMPLETED', 'IN_PROGRESS', 'CLOSED'])
+    .order('start_date', { ascending: false })
+
+  if (error || !data) return []
+
+  return data.map((t) => ({
+    id: t.id,
+    title: t.title,
+    year: new Date(t.start_date).getFullYear(),
+    match_type: t.match_type,
+    divisions: (t.tournament_divisions ?? []) as Array<{ id: string; name: string }>,
+  }))
+}
+
 /** 수상자 등록 (어드민 전용) — 선수 1명당 레코드 1개 생성 */
 export async function createAwards(input: {
   year: number
@@ -329,7 +358,9 @@ export async function createAwards(input: {
   game_type: '단체전' | '개인전'
   award_rank: '우승' | '준우승' | '공동3위' | '3위'
   club_name: string | null
-  players: string[]   // 각 선수명 → 개별 레코드 생성
+  players: string[]
+  tournament_id?: string | null
+  division_id?: string | null
 }): Promise<{ error?: string }> {
   const user = await getCurrentUser()
   if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
@@ -350,6 +381,8 @@ export async function createAwards(input: {
     award_rank: input.award_rank,
     club_name: input.club_name?.trim() || null,
     players: [name.trim()],
+    tournament_id: input.tournament_id ?? null,
+    division_id: input.division_id ?? null,
   }))
 
   const { error } = await admin.from('tournament_awards').insert(records)

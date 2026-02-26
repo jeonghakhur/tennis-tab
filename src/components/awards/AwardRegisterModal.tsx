@@ -1,53 +1,60 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Plus, X } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
-import { createAwards } from '@/lib/awards/actions'
+import { createAwards, type TournamentOption } from '@/lib/awards/actions'
 
 type AwardRank = '우승' | '준우승' | '공동3위' | '3위'
 type GameType = '단체전' | '개인전'
 
 const AWARD_RANKS: AwardRank[] = ['우승', '준우승', '공동3위', '3위']
-const GAME_TYPES: GameType[] = ['개인전', '단체전']
 
-interface Form {
-  year: string
-  competition: string
-  division: string
-  game_type: GameType
-  award_rank: AwardRank
-  club_name: string
-}
-
-const DEFAULT_FORM: Form = {
-  year: String(new Date().getFullYear()),
-  competition: '',
-  division: '',
-  game_type: '개인전',
-  award_rank: '우승',
-  club_name: '',
+/** match_type → game_type 변환 */
+function toGameType(matchType: string | null): GameType {
+  if (matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES') return '단체전'
+  return '개인전'
 }
 
 interface Props {
   isOpen: boolean
   onClose: () => void
   onCreated: () => void
-  /** 자동완성용 기존 대회명 목록 */
-  competitions: string[]
+  tournaments: TournamentOption[]
 }
 
-export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }: Props) {
-  const [form, setForm] = useState<Form>(DEFAULT_FORM)
+export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments }: Props) {
+  // 선택된 대회
+  const [selectedTournamentId, setSelectedTournamentId] = useState('')
+  // 선택된 부문 id
+  const [selectedDivisionId, setSelectedDivisionId] = useState('')
+  // 나머지 필드
+  const [awardRank, setAwardRank] = useState<AwardRank>('우승')
+  const [clubName, setClubName] = useState('')
   const [players, setPlayers] = useState<string[]>([''])
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
   const playerInputRefs = useRef<(HTMLInputElement | null)[]>([])
 
+  // 선택된 대회 객체
+  const tournament = tournaments.find((t) => t.id === selectedTournamentId) ?? null
+  // 선택된 부문 객체
+  const division = tournament?.divisions.find((d) => d.id === selectedDivisionId) ?? null
+  // game_type 자동 결정
+  const gameType: GameType = toGameType(tournament?.match_type ?? null)
+
+  // 대회 바뀌면 부문 선택 초기화
+  useEffect(() => {
+    setSelectedDivisionId('')
+  }, [selectedTournamentId])
+
   const resetForm = () => {
-    setForm(DEFAULT_FORM)
+    setSelectedTournamentId('')
+    setSelectedDivisionId('')
+    setAwardRank('우승')
+    setClubName('')
     setPlayers([''])
   }
 
@@ -62,7 +69,6 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
 
   const addPlayer = () => {
     setPlayers((prev) => [...prev, ''])
-    // 다음 렌더 사이클에서 새 인풋에 포커스
     setTimeout(() => {
       playerInputRefs.current[players.length]?.focus()
     }, 50)
@@ -74,34 +80,31 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
   }
 
   const handleSubmit = async () => {
+    if (!tournament) {
+      setAlert({ isOpen: true, message: '대회를 선택해주세요.' })
+      return
+    }
+    if (!division) {
+      setAlert({ isOpen: true, message: '부문을 선택해주세요.' })
+      return
+    }
     const trimmedPlayers = players.map((p) => p.trim()).filter(Boolean)
     if (!trimmedPlayers.length) {
       setAlert({ isOpen: true, message: '선수 이름을 1명 이상 입력해주세요.' })
       return
     }
-    if (!form.competition.trim()) {
-      setAlert({ isOpen: true, message: '대회명을 입력해주세요.' })
-      return
-    }
-    if (!form.division.trim()) {
-      setAlert({ isOpen: true, message: '부문을 입력해주세요.' })
-      return
-    }
-    const year = Number(form.year)
-    if (!year || year < 1990 || year > 2100) {
-      setAlert({ isOpen: true, message: '올바른 연도를 입력해주세요.' })
-      return
-    }
 
     setSaving(true)
     const result = await createAwards({
-      year,
-      competition: form.competition.trim(),
-      division: form.division.trim(),
-      game_type: form.game_type,
-      award_rank: form.award_rank,
-      club_name: form.club_name.trim() || null,
+      year: tournament.year,
+      competition: tournament.title,
+      division: division.name,
+      game_type: gameType,
+      award_rank: awardRank,
+      club_name: clubName.trim() || null,
       players: trimmedPlayers,
+      tournament_id: tournament.id,
+      division_id: division.id,
     })
     setSaving(false)
 
@@ -126,134 +129,116 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
       >
         <Modal.Body>
           <div className="space-y-4">
-            {/* 연도 + 순위 */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label
-                  htmlFor="award-year"
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  연도 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                </label>
-                <input
-                  id="award-year"
-                  type="number"
-                  value={form.year}
-                  onChange={(e) => setForm({ ...form, year: e.target.value })}
-                  min={1990}
-                  max={2100}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                />
-              </div>
-              <div>
-                <label
-                  htmlFor="award-rank"
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  순위 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                </label>
-                <select
-                  id="award-rank"
-                  value={form.award_rank}
-                  onChange={(e) => setForm({ ...form, award_rank: e.target.value as AwardRank })}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                >
-                  {AWARD_RANKS.map((r) => (
-                    <option key={r} value={r}>{r}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* 대회명 */}
+            {/* 대회 선택 */}
             <div>
               <label
-                htmlFor="award-competition"
+                htmlFor="award-tournament"
                 className="block text-xs font-medium mb-1.5"
                 style={{ color: 'var(--text-muted)' }}
               >
-                대회명 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                대회 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
-              <input
-                id="award-competition"
-                type="text"
-                list="competition-list"
-                value={form.competition}
-                onChange={(e) => setForm({ ...form, competition: e.target.value })}
-                placeholder="예: 37회 마포구청장기"
+              <select
+                id="award-tournament"
+                value={selectedTournamentId}
+                onChange={(e) => setSelectedTournamentId(e.target.value)}
                 className="w-full px-3 py-2 rounded-lg text-sm"
                 style={{
                   backgroundColor: 'var(--bg-input)',
-                  color: 'var(--text-primary)',
+                  color: selectedTournamentId ? 'var(--text-primary)' : 'var(--text-muted)',
                   border: '1px solid var(--border-color)',
                 }}
-              />
-              <datalist id="competition-list">
-                {competitions.map((c) => (
-                  <option key={c} value={c} />
+              >
+                <option value="">대회를 선택하세요</option>
+                {tournaments.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.year}년 · {t.title}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </div>
 
-            {/* 부문 + 종목 */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label
-                  htmlFor="award-division"
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  부문 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                </label>
-                <input
-                  id="award-division"
-                  type="text"
-                  value={form.division}
-                  onChange={(e) => setForm({ ...form, division: e.target.value })}
-                  placeholder="예: A부, 남자부"
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                />
+            {/* 부문 선택 */}
+            <div>
+              <label
+                htmlFor="award-division"
+                className="block text-xs font-medium mb-1.5"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                부문 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <select
+                id="award-division"
+                value={selectedDivisionId}
+                onChange={(e) => setSelectedDivisionId(e.target.value)}
+                disabled={!tournament}
+                className="w-full px-3 py-2 rounded-lg text-sm disabled:opacity-50"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  color: selectedDivisionId ? 'var(--text-primary)' : 'var(--text-muted)',
+                  border: '1px solid var(--border-color)',
+                }}
+              >
+                <option value="">
+                  {tournament ? '부문을 선택하세요' : '대회 선택 후 표시됩니다'}
+                </option>
+                {tournament?.divisions.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* 대회 정보 요약 (선택 후 표시) */}
+            {tournament && division && (
+              <div
+                className="flex flex-wrap gap-3 px-3 py-2.5 rounded-lg text-xs"
+                style={{ backgroundColor: 'var(--bg-card-hover)' }}
+              >
+                <span style={{ color: 'var(--text-muted)' }}>
+                  {tournament.year}년
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {tournament.title}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--text-secondary)' }}>
+                  {division.name}
+                </span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--court-info)' }}>
+                  {gameType}
+                </span>
               </div>
-              <div>
-                <label
-                  htmlFor="award-game-type"
-                  className="block text-xs font-medium mb-1.5"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  종목
-                </label>
-                <select
-                  id="award-game-type"
-                  value={form.game_type}
-                  onChange={(e) => setForm({ ...form, game_type: e.target.value as GameType })}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                >
-                  {GAME_TYPES.map((g) => (
-                    <option key={g} value={g}>{g}</option>
-                  ))}
-                </select>
+            )}
+
+            {/* 순위 */}
+            <div>
+              <label
+                htmlFor="award-rank"
+                className="block text-xs font-medium mb-1.5"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                순위 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {AWARD_RANKS.map((rank) => (
+                  <button
+                    key={rank}
+                    type="button"
+                    onClick={() => setAwardRank(rank)}
+                    className="py-2 rounded-lg text-sm font-medium transition-colors"
+                    style={
+                      awardRank === rank
+                        ? { backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }
+                        : { backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }
+                    }
+                  >
+                    {rank}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -269,8 +254,8 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
               <input
                 id="award-club"
                 type="text"
-                value={form.club_name}
-                onChange={(e) => setForm({ ...form, club_name: e.target.value })}
+                value={clubName}
+                onChange={(e) => setClubName(e.target.value)}
                 placeholder="예: 마포테니스클럽"
                 className="w-full px-3 py-2 rounded-lg text-sm"
                 style={{
@@ -286,19 +271,16 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
                   선수 이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                  <span className="ml-1 font-normal">(1명당 레코드 1개 생성)</span>
+                  <span className="ml-1 font-normal">(1명당 레코드 1개)</span>
                 </label>
                 <button
                   type="button"
                   onClick={addPlayer}
                   className="flex items-center gap-1 text-xs px-2 py-1 rounded-lg"
-                  style={{
-                    color: 'var(--accent-color)',
-                    border: '1px solid var(--accent-color)',
-                  }}
+                  style={{ color: 'var(--accent-color)', border: '1px solid var(--accent-color)' }}
                 >
                   <Plus className="w-3 h-3" />
-                  선수 추가
+                  추가
                 </button>
               </div>
               <div className="space-y-2">
@@ -327,8 +309,8 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
                       type="button"
                       onClick={() => removePlayer(idx)}
                       disabled={players.length === 1}
-                      aria-label="선수 삭제"
-                      className="p-1.5 rounded-lg transition-colors"
+                      aria-label="삭제"
+                      className="p-1.5 rounded-lg"
                       style={{
                         color: players.length === 1 ? 'var(--text-muted)' : 'var(--color-danger)',
                         opacity: players.length === 1 ? 0.4 : 1,
@@ -340,7 +322,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, competitions }:
                 ))}
               </div>
               <p className="mt-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                Enter 키로 선수 추가 가능
+                Enter 키로 선수 추가
               </p>
             </div>
           </div>

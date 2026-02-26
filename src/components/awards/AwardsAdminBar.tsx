@@ -4,12 +4,13 @@ import { useState } from 'react'
 import { Plus } from 'lucide-react'
 import { AwardRegisterModal } from './AwardRegisterModal'
 import { useRouter } from 'next/navigation'
+import type { TournamentOption } from '@/lib/awards/actions'
 
 interface Props {
-  competitions: string[]
+  tournaments: TournamentOption[]
 }
 
-export function AwardsAdminBar({ competitions }: Props) {
+export function AwardsAdminBar({ tournaments }: Props) {
   const [registerOpen, setRegisterOpen] = useState(false)
   const router = useRouter()
 
@@ -37,7 +38,7 @@ export function AwardsAdminBar({ competitions }: Props) {
         isOpen={registerOpen}
         onClose={() => setRegisterOpen(false)}
         onCreated={handleCreated}
-        competitions={competitions}
+        tournaments={tournaments}
       />
     </>
   )
