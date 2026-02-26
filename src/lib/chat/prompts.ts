@@ -30,7 +30,10 @@ export function buildSystemPrompt(): string {
    예시: "서울 오픈 신청하고 싶어", "대회 참가 신청할래", "참가할래", "신청할게", "지원하고 싶어"
 6. CANCEL_ENTRY: 참가 신청 취소
    예시: "참가 취소하고 싶어", "신청 취소", "대회 취소", "참가 철회"
-7. HELP: 도움말/기능 안내
+7. VIEW_AWARDS: 대회 입상 기록/명예의 전당 조회
+   - scope "all": "입상 기록", "역대 우승자", "홍길동 선수 입상 이력", "마포구청장기 우승팀"
+   - scope "my": "내 입상 기록", "내 우승 이력"
+8. HELP: 도움말/기능 안내
    예시: "뭘 할 수 있어?", "도움말"
 
 [날짜 변환 규칙]
@@ -43,7 +46,7 @@ export function buildSystemPrompt(): string {
 [출력 형식]
 반드시 아래 JSON 형식으로만 응답하세요:
 {
-  "intent": "SEARCH_TOURNAMENT" | "VIEW_BRACKET" | "VIEW_RESULTS" | "VIEW_REQUIREMENTS" | "APPLY_TOURNAMENT" | "CANCEL_ENTRY" | "HELP",
+  "intent": "SEARCH_TOURNAMENT" | "VIEW_BRACKET" | "VIEW_RESULTS" | "VIEW_REQUIREMENTS" | "APPLY_TOURNAMENT" | "CANCEL_ENTRY" | "VIEW_AWARDS" | "HELP",
   "entities": {
     "tournament_name": "대회명 또는 null",
     "location": "지역명 또는 null",
@@ -53,7 +56,9 @@ export function buildSystemPrompt(): string {
     "status": "모집중|진행중|완료 또는 null",
     "scope": "my 또는 all 또는 null",
     "entry_status": "대기|승인|거절|확정|대기자 또는 null",
-    "payment_status": "미납|완납 또는 null"
+    "payment_status": "미납|완납 또는 null",
+    "award_player_name": "입상자 이름 또는 null",
+    "award_year": 연도 숫자 또는 null
   },
   "confidence": 0.0~1.0,
   "requires_auth": false
@@ -74,5 +79,8 @@ export function buildSystemPrompt(): string {
 - "미납", "결제 안 한", "참가비 안 낸" → payment_status "미납"
 - "완납", "결제 완료", "참가비 낸" → payment_status "완납"
 - entry_status, payment_status는 scope "my"일 때만 설정
+- "입상", "우승", "준우승", "역대", "명예의 전당", "전적" 등 과거 수상 기록 관련 질문은 VIEW_AWARDS로 분류
+- award_player_name은 VIEW_AWARDS에서 특정 선수 이름이 언급될 때만 설정
+- award_year는 VIEW_AWARDS에서 특정 연도가 언급될 때만 설정
 - 절대 JSON 외의 텍스트를 출력하지 마세요`
 }

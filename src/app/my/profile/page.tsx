@@ -9,6 +9,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
+import { ProfileAwards } from "@/components/awards/ProfileAwards";
+import { getMyAwards } from "@/lib/awards/actions";
+import type { Database } from "@/lib/supabase/types";
 
 // 전화번호 포맷팅 (010-1234-5678)
 function formatPhoneNumber(value: string): string {
@@ -173,14 +176,17 @@ function MatchListSkeleton() {
 export default function MyProfilePage() {
   const { user, profile, loading } = useAuth();
   const { isLarge, toggleFontSize } = useFontSize();
+  type MyAward = Database['public']['Tables']['tournament_awards']['Row'];
   const [stats, setStats] = useState<UserStats | null>(null);
   const [tournaments, setTournaments] = useState<TournamentEntry[]>([]);
   const [matches, setMatches] = useState<BracketMatch[]>([]);
+  const [awards, setAwards] = useState<MyAward[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [matchesLoading, setMatchesLoading] = useState(true);
+  const [awardsLoading, setAwardsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "profile" | "tournaments" | "matches"
+    "profile" | "tournaments" | "matches" | "awards"
   >("tournaments");
 
   useEffect(() => {
@@ -188,6 +194,7 @@ export default function MyProfilePage() {
       loadStats();
       loadTournaments();
       loadMatches();
+      loadAwards();
     }
   }, [user, profile]);
 
@@ -245,6 +252,18 @@ export default function MyProfilePage() {
       setMatches(result.matches as BracketMatch[]);
     }
     setMatchesLoading(false);
+  };
+
+  const loadAwards = async () => {
+    if (!user || !profile) return;
+    setAwardsLoading(true);
+    try {
+      const data = await getMyAwards(user.id, profile.name);
+      setAwards(data);
+    } catch {
+      // 에러 무시 (탭 접근 시 재시도 없음)
+    }
+    setAwardsLoading(false);
   };
 
   // 인증 로딩 중 → 전체 스켈레톤
@@ -552,6 +571,24 @@ export default function MyProfilePage() {
               경기 결과 {!matchesLoading && `(${matches.length})`}
             </button>
             <button
+              onClick={() => setActiveTab("awards")}
+              className={`px-6 py-3 font-display tracking-wider ${
+                activeTab === "awards" ? "border-b-2" : ""
+              }`}
+              style={{
+                borderColor:
+                  activeTab === "awards"
+                    ? "var(--accent-color)"
+                    : "transparent",
+                color:
+                  activeTab === "awards"
+                    ? "var(--accent-color)"
+                    : "var(--text-muted)",
+              }}
+            >
+              입상 기록 {!awardsLoading && awards.length > 0 && `(${awards.length})`}
+            </button>
+            <button
               onClick={() => setActiveTab("profile")}
               className={`px-6 py-3 font-display tracking-wider ${
                 activeTab === "profile" ? "border-b-2" : ""
@@ -570,6 +607,19 @@ export default function MyProfilePage() {
               프로필
             </button>
           </div>
+
+          {/* 입상 기록 탭 */}
+          {activeTab === "awards" && (
+            awardsLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <div key={i} className="glass-card p-4 h-24 animate-pulse" />
+                ))}
+              </div>
+            ) : (
+              <ProfileAwards awards={awards} userId={user.id} />
+            )
+          )}
 
           {/* 프로필 탭 */}
           {activeTab === "profile" && (

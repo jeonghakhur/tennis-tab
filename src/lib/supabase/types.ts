@@ -655,6 +655,64 @@ export interface Database {
           updated_at?: string
         }
       }
+      tournament_awards: {
+        Row: {
+          id: string
+          competition: string
+          year: number
+          division: string
+          game_type: '단체전' | '개인전'
+          award_rank: '우승' | '준우승' | '공동3위' | '3위'
+          players: string[]
+          club_name: string | null
+          tournament_id: string | null
+          division_id: string | null
+          entry_id: string | null
+          player_user_ids: string[] | null
+          club_id: string | null
+          legacy_id: string | null
+          display_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          competition: string
+          year: number
+          division: string
+          game_type: '단체전' | '개인전'
+          award_rank: '우승' | '준우승' | '공동3위' | '3위'
+          players: string[]
+          club_name?: string | null
+          tournament_id?: string | null
+          division_id?: string | null
+          entry_id?: string | null
+          player_user_ids?: string[] | null
+          club_id?: string | null
+          legacy_id?: string | null
+          display_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          competition?: string
+          year?: number
+          division?: string
+          game_type?: '단체전' | '개인전'
+          award_rank?: '우승' | '준우승' | '공동3위' | '3위'
+          players?: string[]
+          club_name?: string | null
+          tournament_id?: string | null
+          division_id?: string | null
+          entry_id?: string | null
+          player_user_ids?: string[] | null
+          club_id?: string | null
+          legacy_id?: string | null
+          display_order?: number
+          updated_at?: string
+        }
+      }
       bracket_matches: {
         Row: {
           id: string

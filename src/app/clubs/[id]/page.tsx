@@ -8,11 +8,12 @@ import { useAuth } from '@/components/AuthProvider'
 import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
+import { ClubAwards } from '@/components/awards/ClubAwards'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings } from 'lucide-react'
+import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy } from 'lucide-react'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -61,7 +62,8 @@ export default function ClubDetailPage() {
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
   const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
-  const [activeTab, setActiveTab] = useState<'info' | 'manage'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'awards' | 'manage'>('info')
+  const [clubAwards, setClubAwards] = useState<import('@/lib/supabase/types').Database['public']['Tables']['tournament_awards']['Row'][]>([])
 
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [introduction, setIntroduction] = useState('')
@@ -122,6 +124,21 @@ export default function ClubDetailPage() {
     }
     loadFullMembers()
   }, [isOfficer, id])
+
+  // 클럽 입상 기록 로드
+  useEffect(() => {
+    if (!id || !club) return
+    const loadAwards = async () => {
+      const { getClubAwards } = await import('@/lib/awards/actions')
+      try {
+        const data = await getClubAwards(id, club.name)
+        setClubAwards(data)
+      } catch {
+        // 에러 무시
+      }
+    }
+    loadAwards()
+  }, [id, club])
 
   const handleJoin = () => {
     if (!user) {
@@ -399,22 +416,36 @@ export default function ClubDetailPage() {
                 )}
               </div>
 
-              {/* 임원: 탭 헤더 (회원 목록 / 회원 관리) */}
-              {isOfficer && (
-                <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
-                  <button
-                    onClick={() => setActiveTab('info')}
-                    className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                      activeTab === 'info'
-                        ? 'text-(--accent-color)'
-                        : 'text-(--text-muted) hover:text-(--text-primary)'
-                    }`}
-                  >
-                    회원 목록
-                    {activeTab === 'info' && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                    )}
-                  </button>
+              {/* 탭 헤더 — 회원은 회원목록+입상기록, 임원은 회원관리 추가 */}
+              <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                    activeTab === 'info'
+                      ? 'text-(--accent-color)'
+                      : 'text-(--text-muted) hover:text-(--text-primary)'
+                  }`}
+                >
+                  회원 목록
+                  {activeTab === 'info' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('awards')}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                    activeTab === 'awards'
+                      ? 'text-(--accent-color)'
+                      : 'text-(--text-muted) hover:text-(--text-primary)'
+                  }`}
+                >
+                  <Trophy className="w-3.5 h-3.5" />
+                  입상 기록
+                  {activeTab === 'awards' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                  )}
+                </button>
+                {isOfficer && (
                   <button
                     onClick={() => setActiveTab('manage')}
                     className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
@@ -429,8 +460,8 @@ export default function ClubDetailPage() {
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
                     )}
                   </button>
-                </div>
-              )}
+                )}
+              </div>
 
               {/* 회원 관리 탭 (임원 전용) */}
               {isOfficer && activeTab === 'manage' ? (
@@ -439,6 +470,10 @@ export default function ClubDetailPage() {
                   initialMembers={fullMembers}
                   isSystemAdmin={false}
                 />
+              ) : activeTab === 'awards' ? (
+                <div className="mt-4">
+                  <ClubAwards awards={clubAwards} />
+                </div>
               ) : (
                 /* 회원 목록 */
                 <div className="glass-card rounded-xl p-6">

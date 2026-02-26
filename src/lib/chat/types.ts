@@ -6,6 +6,7 @@ export type Intent =
   | 'VIEW_REQUIREMENTS'
   | 'APPLY_TOURNAMENT'
   | 'CANCEL_ENTRY'
+  | 'VIEW_AWARDS'
   | 'HELP'
 
 /** Gemini가 반환하는 Intent 분류 결과 */
@@ -33,6 +34,10 @@ export interface ChatEntities {
   entry_status?: string
   /** scope: "my" 일 때 — 결제 상태 필터 */
   payment_status?: string
+  /** VIEW_AWARDS: 특정 선수 이름 필터 */
+  award_player_name?: string
+  /** VIEW_AWARDS: 특정 연도 필터 */
+  award_year?: number
 }
 
 /** Intent Handler 반환 결과 */

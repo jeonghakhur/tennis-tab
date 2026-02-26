@@ -5,6 +5,7 @@ import { handleViewResults } from './viewResults'
 import { handleViewRequirements } from './viewRequirements'
 import { handleApplyTournament } from './applyTournament'
 import { handleCancelEntry } from '../cancelFlow/handler'
+import { handleViewAwards } from './viewAwards'
 import { handleHelp } from './help'
 
 const handlers: Record<Intent, IntentHandler> = {
@@ -14,6 +15,7 @@ const handlers: Record<Intent, IntentHandler> = {
   VIEW_REQUIREMENTS: handleViewRequirements,
   APPLY_TOURNAMENT: handleApplyTournament,
   CANCEL_ENTRY: handleCancelEntry,
+  VIEW_AWARDS: handleViewAwards,
   HELP: handleHelp,
 }
 

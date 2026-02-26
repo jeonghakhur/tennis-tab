@@ -23,7 +23,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
 
     if (!isAuthenticated) {
       return NextResponse.json(
-        { success: false, error: '로그인이 필요합니다.', code: 'UNAUTHORIZED' } as ChatResponse,
+        { success: false, error: '로그인이 필요합니다.', code: 'AUTH_REQUIRED' } as ChatResponse,
         { status: 401 },
       )
     }
