@@ -1,5 +1,6 @@
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import type { Database } from '@/lib/supabase/types'
+import { groupAwardsForDisplay, RANK_ORDER } from './awardGrouping'
 
 type Award = Database['public']['Tables']['tournament_awards']['Row']
 
@@ -8,13 +9,6 @@ const RANK_BADGE: Record<string, BadgeVariant> = {
   '준우승': 'secondary',
   '공동3위': 'info',
   '3위': 'info',
-}
-
-const RANK_ORDER: Record<string, number> = {
-  '우승': 1,
-  '준우승': 2,
-  '공동3위': 3,
-  '3위': 4,
 }
 
 interface Props { awards: Award[] }
@@ -31,96 +25,100 @@ export function AwardsList({ awards }: Props) {
     )
   }
 
-  // 연도 → 대회명 2단계 그룹핑, 각 그룹 내 순위 정렬
-  type CompGroup = { competition: string; items: Award[] }
-  type YearGroup = { year: number; comps: CompGroup[] }
-
-  const byYear = awards.reduce<Record<number, Record<string, Award[]>>>((acc, a) => {
-    if (!acc[a.year]) acc[a.year] = {}
-    if (!acc[a.year][a.competition]) acc[a.year][a.competition] = []
-    acc[a.year][a.competition].push(a)
+  // 연도별 그룹핑
+  const byYear = awards.reduce<Record<number, Award[]>>((acc, a) => {
+    if (!acc[a.year]) acc[a.year] = []
+    acc[a.year].push(a)
     return acc
   }, {})
 
-  const yearGroups: YearGroup[] = Object.entries(byYear)
-    .sort(([a], [b]) => Number(b) - Number(a))
-    .map(([year, comps]) => ({
-      year: Number(year),
-      comps: Object.entries(comps)
-        .sort(([a], [b]) => a.localeCompare(b, 'ko'))
-        .map(([competition, items]) => ({
-          competition,
-          items: [...items].sort(
-            (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
-          ),
-        })),
-    }))
-
   return (
     <div className="space-y-12">
-      {yearGroups.map(({ year, comps }) => (
-        <section key={year}>
-          <h2
-            className="text-xl font-bold mb-6"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            {year}년
-          </h2>
-          <div className="space-y-6">
-            {comps.map(({ competition, items }) => (
-              <div key={competition}>
-                {/* 대회명 소제목 */}
-                <h3
-                  className="text-sm font-semibold mb-3 pb-1.5 border-b"
-                  style={{
-                    color: 'var(--text-secondary)',
-                    borderColor: 'var(--border-color)',
-                  }}
-                >
-                  {competition}
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {items.map((award) => (
-                    <div
-                      key={award.id}
-                      className="rounded-xl p-4 space-y-2"
-                      style={{
-                        backgroundColor: 'var(--bg-card)',
-                        border: '1px solid var(--border-color)',
-                      }}
-                    >
-                      <div className="flex items-center justify-between">
-                        <Badge variant={RANK_BADGE[award.award_rank] ?? 'secondary'}>
-                          {award.award_rank}
-                        </Badge>
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {award.game_type}
-                        </span>
+      {Object.entries(byYear)
+        .sort(([a], [b]) => Number(b) - Number(a))
+        .map(([year, yearAwards]) => {
+          // 연도 내 대회별 그룹핑
+          const byComp = yearAwards.reduce<Record<string, Award[]>>((acc, a) => {
+            if (!acc[a.competition]) acc[a.competition] = []
+            acc[a.competition].push(a)
+            return acc
+          }, {})
+
+          return (
+            <section key={year}>
+              <h2
+                className="text-xl font-bold mb-6"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                {year}년
+              </h2>
+              <div className="space-y-6">
+                {Object.entries(byComp)
+                  .sort(([a], [b]) => a.localeCompare(b, 'ko'))
+                  .map(([competition, compAwards]) => {
+                    // 대회 내 (division+rank+club) 그룹핑
+                    const groups = groupAwardsForDisplay(compAwards).sort(
+                      (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
+                    )
+
+                    return (
+                      <div key={competition}>
+                        <h3
+                          className="text-sm font-semibold mb-3 pb-1.5 border-b"
+                          style={{
+                            color: 'var(--text-secondary)',
+                            borderColor: 'var(--border-color)',
+                          }}
+                        >
+                          {competition}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          {groups.map((group) => (
+                            <div
+                              key={group.key}
+                              className="rounded-xl p-4 space-y-2"
+                              style={{
+                                backgroundColor: 'var(--bg-card)',
+                                border: '1px solid var(--border-color)',
+                              }}
+                            >
+                              <div className="flex items-center justify-between">
+                                <Badge variant={RANK_BADGE[group.award_rank] ?? 'secondary'}>
+                                  {group.award_rank}
+                                </Badge>
+                                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                  {group.game_type}
+                                </span>
+                              </div>
+                              <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                                {group.division}
+                              </p>
+                              <div
+                                className="pt-2 border-t"
+                                style={{ borderColor: 'var(--border-color)' }}
+                              >
+                                {group.club_name && (
+                                  <p
+                                    className="text-sm font-semibold mb-1"
+                                    style={{ color: 'var(--text-primary)' }}
+                                  >
+                                    {group.club_name}
+                                  </p>
+                                )}
+                                <p className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                                  {group.players.join(', ')}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {award.division}
-                      </p>
-                      <div
-                        className="pt-2 border-t"
-                        style={{ borderColor: 'var(--border-color)' }}
-                      >
-                        <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                          {award.players.join(', ')}
-                        </p>
-                        {award.club_name && (
-                          <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                            {award.club_name}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    )
+                  })}
               </div>
-            ))}
-          </div>
-        </section>
-      ))}
+            </section>
+          )
+        })}
     </div>
   )
 }

@@ -181,6 +181,7 @@ export default function MyProfilePage() {
   const [tournaments, setTournaments] = useState<TournamentEntry[]>([]);
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [awards, setAwards] = useState<MyAward[]>([]);
+  const [myAwardIds, setMyAwardIds] = useState<string[]>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [matchesLoading, setMatchesLoading] = useState(true);
@@ -258,7 +259,8 @@ export default function MyProfilePage() {
     if (!user || !profile) return;
     setAwardsLoading(true);
     try {
-      const data = await getMyAwards(user.id, profile.name);
+      const { myAwardIds: ids, awards: data } = await getMyAwards(user.id, profile.name);
+      setMyAwardIds(ids);
       setAwards(data);
     } catch {
       // 에러 무시 (탭 접근 시 재시도 없음)
@@ -617,7 +619,7 @@ export default function MyProfilePage() {
                 ))}
               </div>
             ) : (
-              <ProfileAwards awards={awards} userId={user.id} />
+              <ProfileAwards awards={awards} myAwardIds={myAwardIds} userId={user.id} />
             )
           )}
 

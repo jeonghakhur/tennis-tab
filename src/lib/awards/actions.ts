@@ -72,11 +72,14 @@ export async function getAwardsFilterOptions(): Promise<{
   }
 }
 
-/** 이름 매칭 입상 기록 조회 (프로필용: 이름 일치 + userId 클레임 포함) */
-export async function getMyAwards(userId: string, userName: string): Promise<Award[]> {
+/** 이름 매칭 입상 기록 조회 — 내 레코드 ID + 팀원 포함 전체 레코드 반환 */
+export async function getMyAwards(
+  userId: string,
+  userName: string
+): Promise<{ myAwardIds: string[]; awards: Award[] }> {
   const supabase = await createClient()
 
-  // userId로 클레임된 기록 + 이름 매칭 기록 병합
+  // 내 개인 레코드: userId 클레임 + 이름 매칭
   const [claimedResult, nameResult] = await Promise.all([
     supabase
       .from('tournament_awards')
@@ -90,20 +93,42 @@ export async function getMyAwards(userId: string, userName: string): Promise<Awa
       .order('year', { ascending: false }),
   ])
 
-  const claimed = claimedResult.data ?? []
-  const byName = nameResult.data ?? []
-
-  // 중복 제거 (id 기준)
   const seen = new Set<string>()
-  const merged: Award[] = []
-  for (const a of [...claimed, ...byName]) {
+  const myAwards: Award[] = []
+  for (const a of [...(claimedResult.data ?? []), ...(nameResult.data ?? [])]) {
     if (!seen.has(a.id)) {
       seen.add(a.id)
-      merged.push(a)
+      myAwards.push(a)
     }
   }
 
-  return merged.sort((a, b) => b.year - a.year)
+  if (myAwards.length === 0) return { myAwardIds: [], awards: [] }
+
+  // 내 레코드가 속한 (year, competition) 쌍의 전체 팀원 레코드 가져오기
+  const pairs = [...new Set(myAwards.map((a) => `${a.year}||${a.competition}`))]
+  const allAwards: Award[] = [...myAwards]
+
+  for (const pair of pairs) {
+    const [yearStr, ...compParts] = pair.split('||')
+    const competition = compParts.join('||')
+    const { data } = await supabase
+      .from('tournament_awards')
+      .select('*')
+      .eq('year', Number(yearStr))
+      .eq('competition', competition)
+
+    for (const a of data ?? []) {
+      if (!seen.has(a.id)) {
+        seen.add(a.id)
+        allAwards.push(a)
+      }
+    }
+  }
+
+  return {
+    myAwardIds: myAwards.map((a) => a.id),
+    awards: allAwards.sort((a, b) => b.year - a.year),
+  }
 }
 
 /** 입상 기록 클레임 (내 기록으로 등록) */
