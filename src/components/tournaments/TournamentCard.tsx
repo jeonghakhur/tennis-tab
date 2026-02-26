@@ -13,15 +13,32 @@ interface TournamentCardProps {
   tournament: Tournament;
 }
 
+const MATCH_TYPE_LABELS: Record<string, string> = {
+  INDIVIDUAL_SINGLES: "개인전 단식",
+  INDIVIDUAL_DOUBLES: "개인전 복식",
+  TEAM_SINGLES: "단체전 단식",
+  TEAM_DOUBLES: "단체전 복식",
+};
+
 export default function TournamentCard({ tournament }: TournamentCardProps) {
   const router = useRouter();
   const [imgError, setImgError] = useState(false);
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString('ko-KR', {
-      month: 'long',
-      day: 'numeric',
-      weekday: 'short',
-    });
+
+  const formatDateRange = (startStr: string, endStr: string) => {
+    const fmt = (d: string) => d.replace(/-/g, '.').slice(0, 10);
+    if (startStr === endStr) return fmt(startStr);
+    return `${fmt(startStr)}~${fmt(endStr)}`;
+  };
+
+  const formatMatchType = () => {
+    const { match_type, team_match_count } = tournament;
+    if (!match_type) return null;
+    const isTeam = match_type === "TEAM_SINGLES" || match_type === "TEAM_DOUBLES";
+    if (isTeam && team_match_count) {
+      const suffix = match_type.includes("SINGLES") ? "단식" : "복식";
+      return `단체전 ${team_match_count}${suffix}`;
+    }
+    return MATCH_TYPE_LABELS[match_type] ?? match_type;
   };
 
   const getStatusBadge = (status: string) => {
@@ -86,7 +103,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
         
         <div className="p-5">
           <div className="text-sm text-(--accent-color) font-medium mb-1">
-            {formatDate(tournament.start_date)}
+            {formatDateRange(tournament.start_date, tournament.end_date)}
           </div>
           <h3 className="text-lg font-bold text-(--text-primary) mb-2 group-hover:text-(--accent-color) transition-colors line-clamp-2">
             {tournament.title}
@@ -96,10 +113,12 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
                <span className="text-xs">📍</span>
                {tournament.location}
              </div>
-             <div className="flex items-center gap-1">
-               <span className="text-xs">👥</span>
-               {tournament.max_participants}명
-             </div>
+             {formatMatchType() && (
+               <div className="flex items-center gap-1">
+                 <span className="text-xs">🎾</span>
+                 {formatMatchType()}
+               </div>
+             )}
           </div>
         </div>
       </div>

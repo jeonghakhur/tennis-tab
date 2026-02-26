@@ -131,7 +131,7 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   const formattedMatchType = tournament.match_type
     ? isTeamMatch && tournament.team_match_count
-      ? `${tournament.team_match_count}${matchSuffix}`
+      ? `단체전 ${tournament.team_match_count}${matchSuffix}`
       : MATCH_TYPE_LABELS[tournament.match_type] || tournament.match_type
     : "";
 
@@ -360,7 +360,61 @@ export default async function TournamentDetailPage({ params }: Props) {
             </div>
           </div>
 
-          {/* Divisions List */}
+          {/* 대회 요강 */}
+          <section>
+            <h2
+              className="text-2xl font-bold mb-6 flex items-center gap-2"
+              style={{ color: "var(--text-primary)" }}
+            >
+              <span
+                className="w-1.5 h-8 rounded-full"
+                style={{ backgroundColor: "var(--accent-color)" }}
+              />
+              대회 요강
+            </h2>
+
+            <div
+              className="rounded-xl overflow-hidden"
+              style={{
+                backgroundColor: "var(--bg-secondary)",
+                border: "1px solid var(--border-color)",
+              }}
+            >
+              <dl>
+                {[
+                  { label: "경기 방식", value: formattedMatchType || "-", alt: false },
+                  { label: "사용구", value: tournament.ball_type || "-", alt: true },
+                  { label: "참가 자격", value: tournament.eligibility || "-", alt: false },
+                  { label: "개회식", value: formatDate(tournament.opening_ceremony), alt: true },
+                  { label: "문의", value: `${tournament.host} / ${organizerName}`, alt: false },
+                ].map((item) => (
+                  <div
+                    key={item.label}
+                    className="grid grid-cols-3 gap-4 px-6 py-4"
+                    style={{
+                      backgroundColor: item.alt ? "var(--bg-card)" : "transparent",
+                      borderBottom: "1px solid var(--border-color)",
+                    }}
+                  >
+                    <dt
+                      className="text-sm font-medium"
+                      style={{ color: "var(--text-muted)" }}
+                    >
+                      {item.label}
+                    </dt>
+                    <dd
+                      className="text-sm col-span-2"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {item.value}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          </section>
+
+          {/* 참가 부서 */}
           <section>
             <h2
               className="text-2xl font-bold mb-6 flex items-center gap-2"
@@ -486,89 +540,24 @@ export default async function TournamentDetailPage({ params }: Props) {
             )}
           </section>
 
-          {/* Detailed Info */}
-          <section>
-            <h2
-              className="text-2xl font-bold mb-6 flex items-center gap-2"
-              style={{ color: "var(--text-primary)" }}
-            >
-              <span
-                className="w-1.5 h-8 rounded-full"
-                style={{ backgroundColor: "var(--accent-color)" }}
-              />
-              대회 요강
-            </h2>
-
-            <div className="space-y-6">
-              {/* Metadata Table */}
+          {/* 상세 내용 */}
+          {tournament.description && (
+            <section>
               <div
-                className="rounded-xl overflow-hidden"
+                className="rounded-xl p-8 editor-content"
                 style={{
                   backgroundColor: "var(--bg-secondary)",
                   border: "1px solid var(--border-color)",
                 }}
               >
-                <dl>
-                  {[
-                    { label: "사용구", value: tournament.ball_type || "-", alt: false },
-                    { label: "참가 자격", value: tournament.eligibility || "-", alt: true },
-                    { label: "최대 참가 인원", value: `${tournament.max_participants}명`, alt: false },
-                    { label: "개회식", value: formatDate(tournament.opening_ceremony), alt: true },
-                    { label: "문의", value: `${tournament.host} / ${organizerName}`, alt: false },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="grid grid-cols-3 gap-4 px-6 py-4"
-                      style={{
-                        backgroundColor: item.alt ? "var(--bg-card)" : "transparent",
-                        borderBottom: "1px solid var(--border-color)",
-                      }}
-                    >
-                      <dt
-                        className="text-sm font-medium"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        {item.label}
-                      </dt>
-                      <dd
-                        className="text-sm col-span-2"
-                        style={{ color: "var(--text-primary)" }}
-                      >
-                        {item.value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
+                <div
+                  className="prose max-w-none prose-headings:font-bold"
+                  style={{ color: "var(--text-primary)" }}
+                  dangerouslySetInnerHTML={{ __html: tournament.description }}
+                />
               </div>
-
-              {/* Description Content */}
-              {tournament.description ? (
-                <div
-                  className="rounded-xl p-8 editor-content"
-                  style={{
-                    backgroundColor: "var(--bg-secondary)",
-                    border: "1px solid var(--border-color)",
-                  }}
-                >
-                  <div
-                    className="prose max-w-none prose-headings:font-bold"
-                    style={{ color: "var(--text-primary)" }}
-                    dangerouslySetInnerHTML={{ __html: tournament.description }}
-                  />
-                </div>
-              ) : (
-                <div
-                  className="text-center py-12 rounded-xl"
-                  style={{
-                    backgroundColor: "var(--bg-card)",
-                    color: "var(--text-muted)",
-                  }}
-                >
-                  등록된 상세 내용이 없습니다.
-                </div>
-              )}
-            </div>
-          </section>
+            </section>
+          )}
         </div>
 
         {/* Sidebar */}

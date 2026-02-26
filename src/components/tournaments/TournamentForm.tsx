@@ -159,6 +159,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
         const formData = new FormData(e.currentTarget);
         formData.set('divisions', JSON.stringify(divisions));
         formData.set('poster_url', posterUrl || '');
+        // shadcn Select는 실제 DOM select가 아니므로 FormData에 수동 추가
+        formData.set('match_type', matchType || '');
 
         const result = isEditMode && initialData
             ? await updateTournament(initialData.id, formData)

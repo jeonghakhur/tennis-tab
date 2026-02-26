@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from 'react'
 import { uploadImage, deleteImage } from '@/lib/storage/actions'
 import Image from 'next/image'
+import { ConfirmDialog } from '@/components/common/AlertDialog'
 
 interface ImageUploadProps {
   value?: string | null
@@ -13,7 +14,7 @@ interface ImageUploadProps {
 }
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const MAX_SIZE = 5 * 1024 * 1024  // 5MB
+const MAX_SIZE = 10 * 1024 * 1024  // 10MB
 
 export default function ImageUpload({
   value,
@@ -26,6 +27,7 @@ export default function ImageUpload({
   const [error, setError] = useState<string | null>(null)
   const [preview, setPreview] = useState<string | null>(value || null)
   const [isDragging, setIsDragging] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounter = useRef(0)  // 자식 요소 진입/이탈 시 flicker 방지
 
@@ -92,7 +94,12 @@ export default function ImageUpload({
     if (file) processFile(file)
   }
 
-  const handleRemove = async () => {
+  const handleRemove = () => {
+    setConfirmDelete(true)
+  }
+
+  const executeRemove = async () => {
+    setConfirmDelete(false)
     if (value) {
       try { await deleteImage(value, bucket) } catch { /* 무시 */ }
     }
@@ -110,6 +117,15 @@ export default function ImageUpload({
 
   return (
     <div className={`space-y-2 ${className}`}>
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={executeRemove}
+        title="이미지 삭제"
+        message="이미지를 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다."
+        confirmText="삭제"
+        type="warning"
+      />
       <input
         ref={fileInputRef}
         type="file"
@@ -204,7 +220,7 @@ export default function ImageUpload({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               <span className="text-sm font-medium">클릭하거나 이미지를 드래그하세요</span>
-              <span className="text-xs">JPG, PNG, WebP, GIF (최대 5MB)</span>
+              <span className="text-xs">JPG, PNG, WebP, GIF (최대 10MB)</span>
             </>
           )}
         </div>

@@ -26,9 +26,9 @@ export async function uploadImage(
     return { url: null, error: 'JPG, PNG, WebP, GIF 형식만 지원됩니다.' }
   }
 
-  const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
   if (file.size > MAX_FILE_SIZE) {
-    return { url: null, error: '파일 크기는 5MB 이하여야 합니다.' }
+    return { url: null, error: '파일 크기는 10MB 이하여야 합니다.' }
   }
 
   try {
