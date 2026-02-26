@@ -321,6 +321,18 @@ export async function updateAwardPlayerRating(
   return {}
 }
 
+/** 클럽 활성 회원 목록 조회 (수상자 선택용) */
+export async function getClubMembersForAwards(clubId: string): Promise<Array<{ id: string; name: string }>> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('club_members')
+    .select('id, name')
+    .eq('club_id', clubId)
+    .eq('status', 'ACTIVE')
+    .order('name', { ascending: true })
+  return data ?? []
+}
+
 /** 수상자 등록용 클럽 목록 (id + name만 경량 조회) */
 export async function getClubsForAwards(): Promise<Array<{ id: string; name: string }>> {
   const admin = createAdminClient()
@@ -398,6 +410,25 @@ export async function createAwards(input: {
 
   const { error } = await admin.from('tournament_awards').insert(records)
   if (error) return { error: '등록에 실패했습니다.' }
+  return {}
+}
+
+/** 입상 기록 삭제 (어드민 전용) — 여러 레코드 일괄 삭제 */
+export async function deleteAwards(awardIds: string[]): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return { error: '관리자 권한이 필요합니다.' }
+  }
+
+  if (!awardIds.length) return { error: '삭제할 항목이 없습니다.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('tournament_awards')
+    .delete()
+    .in('id', awardIds)
+
+  if (error) return { error: '삭제에 실패했습니다.' }
   return {}
 }
 

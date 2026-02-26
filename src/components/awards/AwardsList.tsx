@@ -1,14 +1,17 @@
 'use client'
 
 import { useState, useCallback } from 'react'
+import { useRouter } from 'next/navigation'
+import { Trash2 } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
-import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { Database } from '@/lib/supabase/types'
 import { groupAwardsForDisplay, RANK_ORDER, type AwardDisplayGroup } from './awardGrouping'
 import {
   getAwardPlayersMembership,
   updateAwardPlayerRating,
+  deleteAwards,
   type AwardPlayerInfo,
 } from '@/lib/awards/actions'
 
@@ -35,11 +38,31 @@ interface PlayerRow {
 }
 
 export function AwardsList({ awards, isAdmin = false }: Props) {
+  const router = useRouter()
   const [selectedGroup, setSelectedGroup] = useState<AwardDisplayGroup | null>(null)
+  const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
   const [playerRows, setPlayerRows] = useState<PlayerRow[]>([])
   const [loadingMembership, setLoadingMembership] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true)
+    const result = await deleteAwards(selectedGroupIds)
+    setDeleting(false)
+    setDeleteConfirmOpen(false)
+
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error })
+      return
+    }
+
+    setSelectedGroup(null)
+    setToast({ isOpen: true, message: '수상자 기록이 삭제되었습니다.' })
+    router.refresh()
+  }
 
   const handleCardClick = useCallback(async (group: AwardDisplayGroup) => {
     if (!isAdmin) return
@@ -56,6 +79,9 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
         a.award_rank === group.award_rank &&
         (a.club_name ?? '') === (group.club_name ?? '')
     )
+    // 그룹에 속한 레코드 ID 저장 (삭제용)
+    setSelectedGroupIds(groupRecords.map((r) => r.id))
+
     const playerUserMap = new Map<string, string | null>()
     for (const rec of groupRecords) {
       const name = rec.players[0]
@@ -237,6 +263,7 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
         size="md"
       >
         {selectedGroup && (
+          <>
           <Modal.Body>
             <div className="space-y-4">
               {/* 기본 정보 */}
@@ -365,6 +392,28 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
               </div>
             </div>
           </Modal.Body>
+          <Modal.Footer>
+            <button
+              type="button"
+              onClick={() => setDeleteConfirmOpen(true)}
+              disabled={deleting}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm transition-colors"
+              style={{ color: 'var(--color-danger)', border: '1px solid var(--color-danger)' }}
+              aria-label="수상자 삭제"
+            >
+              <Trash2 className="w-4 h-4" />
+              삭제
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedGroup(null)}
+              className="flex-1 px-4 py-2 rounded-lg text-sm"
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+            >
+              닫기
+            </button>
+          </Modal.Footer>
+          </>
         )}
       </Modal>
 
@@ -380,6 +429,16 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
         title="오류"
         message={alert.message}
         type="error"
+      />
+      <ConfirmDialog
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        onConfirm={handleDeleteConfirm}
+        title="수상자 삭제"
+        message={`${selectedGroup?.award_rank} — ${selectedGroup?.players.join(', ')}의 기록을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
+        type="error"
+        confirmText="삭제"
+        isLoading={deleting}
       />
     </>
   )
