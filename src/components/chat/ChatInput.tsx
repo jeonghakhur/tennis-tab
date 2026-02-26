@@ -142,8 +142,9 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
 
 /** 예시 프롬프트 (빈 상태에서 표시) */
 export const examplePrompts = [
-  { text: '이번 주 서울 대회 뭐 있어?', icon: '🔍' },
+  { text: '이번 주 마포구 대회 뭐 있어?', icon: '🔍' },
   { text: '대회 참가 신청하고 싶어', icon: '✍️' },
-  { text: '서울 오픈 대진표 보여줘', icon: '📊' },
-  { text: '서울 오픈 참가 조건이 뭐야?', icon: '📋' },
+  { text: '마포구청장기 대진표 보여줘', icon: '📊' },
+  { text: '마포구청장기 참가 조건이 뭐야?', icon: '📋' },
+  { text: '마포구청장기 우승자 누구야?', icon: '🏆' },
 ]

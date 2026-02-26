@@ -46,7 +46,7 @@ export function ChatSection({ isLoggedIn }: ChatSectionProps) {
   const isEmpty = messages.length === 0 && !loading
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 pb-20">
+    <div className="flex flex-col flex-1 min-h-0 pt-8 pb-20">
       {isEmpty ? (
         /* 빈 상태: 웰컴 + 예시 프롬프트 */
         <div className="flex-1 flex items-center justify-center">
@@ -80,7 +80,7 @@ export function ChatSection({ isLoggedIn }: ChatSectionProps) {
                 무엇이든 물어보세요
               </h1>
               <p className="text-base" style={{ color: 'var(--text-muted)' }}>
-                대회 검색, 대진표 조회, 경기 결과까지 대화로 해결하세요
+                대회 검색, 대진표 조회, 경기 결과, 수상자 확인까지 대화로 해결하세요
               </p>
             </div>
 
