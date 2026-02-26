@@ -65,9 +65,16 @@ function buildSystemPrompt() {
 - "일정"을 묻는 경우 → 날짜와 장소 위주
 - "상세/자세히/요강" 요청 → 참가비, 부서, 기타 정보 포함
 - 정보는 반드시 도구를 통해 조회 (임의로 데이터를 만들지 말 것)
-- 참가 신청 의사 표현("신청할게", "신청하고 싶어") → initiate_apply_flow 호출
-- 취소 의사 표현("취소하고 싶어") → initiate_cancel_flow 호출
-- 날짜 표현(이번 주, 다음 달 등)은 오늘 날짜 기준으로 변환하여 date_start/date_end 설정`
+- 날짜 표현(이번 주, 다음 달 등)은 오늘 날짜 기준으로 변환하여 date_start/date_end 설정
+
+[도구 호출 규칙 - 반드시 준수]
+- 도구 이름(search_tournaments, initiate_apply_flow 등)을 응답 텍스트에 절대 노출하지 말 것
+- "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow({}) 호출 (되묻지 말 것)
+- "취소하고 싶어", "신청 취소" → 즉시 initiate_cancel_flow({}) 호출
+- "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards({}) 호출 (인자 없어도 됨)
+- "가장 가까운 대회", "다음 대회" → search_tournaments({}) 호출 후 날짜 기준 첫 번째 항목 사용
+- 추가 정보 없이도 호출 가능한 도구는 절대 되묻지 말고 즉시 호출할 것
+- 사용자가 행동 의사를 표현하면 해당 도구를 즉시 호출하여 결과를 반환할 것`
 }
 
 // ─── Tool 선언 ────────────────────────────────────────────────────────────────
@@ -590,14 +597,14 @@ export async function runAgent(
       throw error
     }
 
-    const parts = response.candidates?.[0]?.content?.parts ?? []
-    const fnCallPart = parts.find(
-      (p): p is { functionCall: { name: string; args: Record<string, unknown> } } =>
-        'functionCall' in p && !!p.functionCall,
-    )
+    const candidate = response.candidates?.[0]
+    const parts = candidate?.content?.parts ?? []
+
+    // functionCall part 탐색
+    const fnCallPart = parts.find((p) => p.functionCall?.name)
 
     // function call 없으면 최종 텍스트 응답
-    if (!fnCallPart) {
+    if (!fnCallPart?.functionCall) {
       return {
         message: response.text ?? '잠시 후 다시 시도해주세요.',
         links: collectedLinks.length > 0 ? collectedLinks : undefined,
@@ -605,10 +612,19 @@ export async function runAgent(
       }
     }
 
-    const { name, args } = fnCallPart.functionCall
+    const fnCall = fnCallPart.functionCall
+    const toolName = fnCall.name ?? ''
+    const toolArgs = (fnCall.args ?? {}) as Record<string, unknown>
 
-    // Tool 실행
-    const toolResult = await executeTool(name, args ?? {}, userId)
+    // Tool 실행 (내부 오류는 content 메시지로 반환, agent 전체를 죽이지 않음)
+    let toolResult: ToolResult
+    try {
+      toolResult = await executeTool(toolName, toolArgs, userId)
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err)
+      console.error(`[agent] tool "${toolName}" 실행 오류:`, errMsg)
+      toolResult = { content: `도구 실행 중 오류가 발생했습니다: ${errMsg}` }
+    }
 
     // 링크 수집 (중복 제거)
     for (const link of toolResult.links ?? []) {
@@ -617,19 +633,28 @@ export async function runAgent(
 
     // 플로우 시작된 경우 (apply/cancel): 바로 반환 (이후 메시지는 entryFlow/cancelFlow에서 처리)
     if (toolResult.flow_active !== undefined) {
-      flowActive = toolResult.flow_active
       return {
         message: toolResult.content,
         links: collectedLinks.length > 0 ? collectedLinks : undefined,
-        flow_active: flowActive,
+        flow_active: toolResult.flow_active,
       }
     }
 
     // Gemini에게 tool 결과 전달
+    // - candidate.content.parts를 그대로 사용해 functionCall id 등 원본 필드 보존
     contents = [
       ...contents,
-      { role: 'model' as const, parts: [{ functionCall: { name, args: args ?? {} } }] },
-      { role: 'user' as const, parts: [{ functionResponse: { name, response: { content: toolResult.content } } }] },
+      { role: 'model' as const, parts: candidate?.content?.parts ?? [{ functionCall: fnCall }] },
+      {
+        role: 'user' as const,
+        parts: [{
+          functionResponse: {
+            id: fnCall.id,      // functionCall id 매칭 (Gemini 멀티턴 필수)
+            name: toolName,
+            response: { content: toolResult.content },
+          },
+        }],
+      },
     ]
   }
 
