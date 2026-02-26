@@ -54,15 +54,21 @@ export async function getAwardsFilterOptions(): Promise<{
   if (error) throw new Error(error.message)
 
   const yearsSet = new Set<number>()
-  const competitionsSet = new Set<string>()
+  // competitions: 처음 등장하는 순서 = 최근 연도순 (year DESC로 쿼리했으므로)
+  const competitionsOrdered: string[] = []
+  const competitionsSeen = new Set<string>()
+
   for (const row of data ?? []) {
     yearsSet.add(row.year)
-    competitionsSet.add(row.competition)
+    if (!competitionsSeen.has(row.competition)) {
+      competitionsSeen.add(row.competition)
+      competitionsOrdered.push(row.competition)
+    }
   }
 
   return {
     years: Array.from(yearsSet),
-    competitions: Array.from(competitionsSet).sort(),
+    competitions: competitionsOrdered,
   }
 }
 

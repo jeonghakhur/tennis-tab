@@ -10,6 +10,13 @@ const RANK_BADGE: Record<string, BadgeVariant> = {
   '3위': 'info',
 }
 
+const RANK_ORDER: Record<string, number> = {
+  '우승': 1,
+  '준우승': 2,
+  '공동3위': 3,
+  '3위': 4,
+}
+
 interface Props { awards: Award[] }
 
 export function AwardsList({ awards }: Props) {
@@ -24,12 +31,18 @@ export function AwardsList({ awards }: Props) {
     )
   }
 
-  // 연도별 그룹핑
+  // 연도별 그룹핑 후 각 그룹 내 순위 정렬 (우승→준우승→공동3위→3위)
   const grouped = awards.reduce<Record<number, Award[]>>((acc, a) => {
     if (!acc[a.year]) acc[a.year] = []
     acc[a.year].push(a)
     return acc
   }, {})
+
+  for (const items of Object.values(grouped)) {
+    items.sort(
+      (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
+    )
+  }
 
   return (
     <div className="space-y-10">

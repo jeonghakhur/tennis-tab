@@ -1,8 +1,16 @@
 'use client'
 
 import { useRouter, useSearchParams } from 'next/navigation'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 const RANK_OPTIONS = ['우승', '준우승', '공동3위', '3위']
+const ALL = '__all__'
 
 interface Props {
   years: number[]
@@ -21,60 +29,69 @@ export function AwardsFilters({ years, competitions, currentParams }: Props) {
     router.push(`/awards?${params.toString()}`)
   }
 
+  const handleChange = (key: string) => (value: string) => {
+    update(key, value === ALL ? '' : value)
+  }
+
+  const hasFilter = currentParams.year || currentParams.competition || currentParams.rank
+
   return (
     <div className="flex flex-wrap gap-3 mb-6">
-      <select
-        value={currentParams.year ?? ''}
-        onChange={(e) => update('year', e.target.value)}
-        aria-label="연도 필터"
-        className="px-3 py-2 rounded-lg border text-sm"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          borderColor: 'var(--border-color)',
-          color: 'var(--text-primary)',
-        }}
+      <Select
+        value={currentParams.year ?? ALL}
+        onValueChange={handleChange('year')}
       >
-        <option value="">전체 연도</option>
-        {years.map((y) => (
-          <option key={y} value={y}>{y}년</option>
-        ))}
-      </select>
+        <SelectTrigger
+          aria-label="연도 필터"
+          className="px-3 py-2 rounded-lg bg-(--bg-card) text-(--text-primary) border border-(--border-color)"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>전체 연도</SelectItem>
+          {years.map((y) => (
+            <SelectItem key={y} value={String(y)}>{y}년</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        value={currentParams.competition ?? ''}
-        onChange={(e) => update('competition', e.target.value)}
-        aria-label="대회 필터"
-        className="px-3 py-2 rounded-lg border text-sm"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          borderColor: 'var(--border-color)',
-          color: 'var(--text-primary)',
-        }}
+      <Select
+        value={currentParams.competition ?? ALL}
+        onValueChange={handleChange('competition')}
       >
-        <option value="">전체 대회</option>
-        {competitions.map((c) => (
-          <option key={c} value={c}>{c}</option>
-        ))}
-      </select>
+        <SelectTrigger
+          aria-label="대회 필터"
+          className="px-3 py-2 rounded-lg bg-(--bg-card) text-(--text-primary) border border-(--border-color)"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>전체 대회</SelectItem>
+          {competitions.map((c) => (
+            <SelectItem key={c} value={c}>{c}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      <select
-        value={currentParams.rank ?? ''}
-        onChange={(e) => update('rank', e.target.value)}
-        aria-label="순위 필터"
-        className="px-3 py-2 rounded-lg border text-sm"
-        style={{
-          backgroundColor: 'var(--bg-card)',
-          borderColor: 'var(--border-color)',
-          color: 'var(--text-primary)',
-        }}
+      <Select
+        value={currentParams.rank ?? ALL}
+        onValueChange={handleChange('rank')}
       >
-        <option value="">전체 순위</option>
-        {RANK_OPTIONS.map((r) => (
-          <option key={r} value={r}>{r}</option>
-        ))}
-      </select>
+        <SelectTrigger
+          aria-label="순위 필터"
+          className="px-3 py-2 rounded-lg bg-(--bg-card) text-(--text-primary) border border-(--border-color)"
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={ALL}>전체 순위</SelectItem>
+          {RANK_OPTIONS.map((r) => (
+            <SelectItem key={r} value={r}>{r}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
-      {(currentParams.year || currentParams.competition || currentParams.rank) && (
+      {hasFilter && (
         <button
           onClick={() => router.push('/awards')}
           className="px-3 py-2 rounded-lg border text-sm transition-colors"
