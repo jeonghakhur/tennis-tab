@@ -3,6 +3,7 @@ import { Navigation } from '@/components/Navigation'
 import { AwardsFilters } from '@/components/awards/AwardsFilters'
 import { AwardsList } from '@/components/awards/AwardsList'
 import { getAwards, getAwardsFilterOptions } from '@/lib/awards/actions'
+import { getCurrentUser } from '@/lib/auth/actions'
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -13,7 +14,7 @@ function first(v: string | string[] | undefined): string | undefined {
   return v
 }
 
-async function AwardsContent({ searchParams }: { searchParams: Record<string, string | string[] | undefined> }) {
+async function AwardsContent({ searchParams, isAdmin }: { searchParams: Record<string, string | string[] | undefined>; isAdmin: boolean }) {
   const year = first(searchParams.year)
   const competition = first(searchParams.competition)
   const rank = first(searchParams.rank)
@@ -36,13 +37,18 @@ async function AwardsContent({ searchParams }: { searchParams: Record<string, st
         competitions={filterOptions.competitions}
         currentParams={currentParams}
       />
-      <AwardsList awards={awards} />
+      <AwardsList awards={awards} isAdmin={isAdmin} />
     </>
   )
 }
 
 export default async function AwardsPage({ searchParams }: PageProps) {
-  const params = await searchParams
+  const [params, currentUser] = await Promise.all([
+    searchParams,
+    getCurrentUser(),
+  ])
+
+  const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(currentUser?.role ?? '')
 
   return (
     <>
@@ -74,7 +80,7 @@ export default async function AwardsPage({ searchParams }: PageProps) {
               </div>
             }
           >
-            <AwardsContent searchParams={params} />
+            <AwardsContent searchParams={params} isAdmin={isAdmin} />
           </Suspense>
         </div>
       </main>

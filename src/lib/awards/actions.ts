@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getCurrentUser } from '@/lib/auth/actions'
 import type { Database } from '@/lib/supabase/types'
 
 type Award = Database['public']['Tables']['tournament_awards']['Row']
@@ -199,4 +200,71 @@ export async function getClubAwards(clubId: string, clubName?: string): Promise<
   }
 
   return merged.sort((a, b) => b.year - a.year)
+}
+
+/** 선수-클럽 가입 여부 조회 (어드민 전용) */
+export async function getAwardPlayersMembership(
+  playerNames: string[],
+  clubName: string | null
+): Promise<{ [playerName: string]: boolean }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return {}
+  }
+
+  if (!clubName || playerNames.length === 0) {
+    return Object.fromEntries(playerNames.map((n) => [n, false]))
+  }
+
+  const admin = createAdminClient()
+
+  // 클럽명으로 클럽 ID 조회
+  const { data: club } = await admin
+    .from('clubs')
+    .select('id')
+    .eq('name', clubName)
+    .single()
+
+  if (!club) {
+    return Object.fromEntries(playerNames.map((n) => [n, false]))
+  }
+
+  // 해당 클럽의 ACTIVE 회원 중 이름 매칭
+  const { data: members } = await admin
+    .from('club_members')
+    .select('name')
+    .eq('club_id', club.id)
+    .eq('status', 'ACTIVE')
+    .in('name', playerNames)
+
+  const memberNames = new Set((members ?? []).map((m) => m.name))
+  return Object.fromEntries(playerNames.map((n) => [n, memberNames.has(n)]))
+}
+
+/** 입상 기록 수정 (어드민 전용) */
+export async function updateAward(
+  awardId: string,
+  data: {
+    competition?: string
+    division?: string
+    award_rank?: string
+    game_type?: string
+    club_name?: string | null
+    players?: string[]
+  }
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return { error: '관리자 권한이 필요합니다.' }
+  }
+
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('tournament_awards')
+    .update({ ...data, updated_at: new Date().toISOString() })
+    .eq('id', awardId)
+
+  if (error) return { error: '수정에 실패했습니다.' }
+  return {}
 }
