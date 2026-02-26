@@ -321,6 +321,42 @@ export async function updateAwardPlayerRating(
   return {}
 }
 
+/** 수상자 등록 (어드민 전용) — 선수 1명당 레코드 1개 생성 */
+export async function createAwards(input: {
+  year: number
+  competition: string
+  division: string
+  game_type: '단체전' | '개인전'
+  award_rank: '우승' | '준우승' | '공동3위' | '3위'
+  club_name: string | null
+  players: string[]   // 각 선수명 → 개별 레코드 생성
+}): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return { error: '관리자 권한이 필요합니다.' }
+  }
+
+  if (!input.players.length) return { error: '선수를 1명 이상 입력해주세요.' }
+  if (!input.competition.trim()) return { error: '대회명을 입력해주세요.' }
+  if (!input.division.trim()) return { error: '부문을 입력해주세요.' }
+
+  const admin = createAdminClient()
+
+  const records = input.players.map((name) => ({
+    year: input.year,
+    competition: input.competition.trim(),
+    division: input.division.trim(),
+    game_type: input.game_type,
+    award_rank: input.award_rank,
+    club_name: input.club_name?.trim() || null,
+    players: [name.trim()],
+  }))
+
+  const { error } = await admin.from('tournament_awards').insert(records)
+  if (error) return { error: '등록에 실패했습니다.' }
+  return {}
+}
+
 /** 입상 기록 수정 (어드민 전용) */
 export async function updateAward(
   awardId: string,

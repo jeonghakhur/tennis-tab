@@ -2,6 +2,7 @@ import { Suspense } from 'react'
 import { Navigation } from '@/components/Navigation'
 import { AwardsFilters } from '@/components/awards/AwardsFilters'
 import { AwardsList } from '@/components/awards/AwardsList'
+import { AwardsAdminBar } from '@/components/awards/AwardsAdminBar'
 import { getAwards, getAwardsFilterOptions } from '@/lib/awards/actions'
 import { getCurrentUser } from '@/lib/auth/actions'
 
@@ -42,6 +43,13 @@ async function AwardsContent({ searchParams, isAdmin }: { searchParams: Record<s
   )
 }
 
+/** 어드민 전용: 필터 옵션 서버에서 불러와 AdminBar에 전달 */
+async function AwardsAdminBarWithOptions({ isAdmin }: { isAdmin: boolean }) {
+  if (!isAdmin) return null
+  const { competitions } = await getAwardsFilterOptions()
+  return <AwardsAdminBar competitions={competitions} />
+}
+
 export default async function AwardsPage({ searchParams }: PageProps) {
   const [params, currentUser] = await Promise.all([
     searchParams,
@@ -55,16 +63,23 @@ export default async function AwardsPage({ searchParams }: PageProps) {
       <Navigation />
       <main style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="max-w-content mx-auto px-6 py-12">
-          <div className="mb-8">
-            <h1
-              className="text-3xl font-display tracking-wider mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              명예의 전당
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              마포구 테니스 대회 역대 입상자 기록
-            </p>
+          <div className="mb-8 flex items-start justify-between gap-4">
+            <div>
+              <h1
+                className="text-3xl font-display tracking-wider mb-2"
+                style={{ color: 'var(--text-primary)' }}
+              >
+                명예의 전당
+              </h1>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                마포구 테니스 대회 역대 입상자 기록
+              </p>
+            </div>
+            {isAdmin && (
+              <Suspense fallback={null}>
+                <AwardsAdminBarWithOptions isAdmin={isAdmin} />
+              </Suspense>
+            )}
           </div>
 
           <Suspense
