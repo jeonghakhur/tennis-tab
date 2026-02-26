@@ -31,7 +31,7 @@ export function AwardsList({ awards }: Props) {
     )
   }
 
-  // 연도별 그룹핑 후 각 그룹 내 순위 정렬 (우승→준우승→공동3위→3위)
+  // 연도별 그룹핑 후 각 그룹 내 대회순 → 순위순 정렬
   const grouped = awards.reduce<Record<number, Award[]>>((acc, a) => {
     if (!acc[a.year]) acc[a.year] = []
     acc[a.year].push(a)
@@ -39,9 +39,11 @@ export function AwardsList({ awards }: Props) {
   }, {})
 
   for (const items of Object.values(grouped)) {
-    items.sort(
-      (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
-    )
+    items.sort((a, b) => {
+      const compDiff = a.competition.localeCompare(b.competition, 'ko')
+      if (compDiff !== 0) return compDiff
+      return (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
+    })
   }
 
   return (
