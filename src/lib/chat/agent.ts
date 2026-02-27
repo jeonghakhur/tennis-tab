@@ -86,8 +86,8 @@ const TOOL_DECLARATIONS = [
     parameters: {
       type: Type.OBJECT,
       properties: {
-        tournament_name: { type: Type.STRING, description: '대회명 (부분 일치)' },
-        location: { type: Type.STRING, description: '지역명 (예: 서울, 마포구)' },
+        tournament_name: { type: Type.STRING, description: '대회명 키워드 (부분 일치). "마포대회"처럼 지역+대회 합성어는 location 파라미터에 지역명만 넣을 것' },
+        location: { type: Type.STRING, description: '지역명 (예: 서울, 마포구, 마포). "마포대회"→location:"마포", "강남 대회"→location:"강남"' },
         status: { type: Type.STRING, description: 'OPEN(모집중) | IN_PROGRESS(진행중) | COMPLETED(완료)' },
         date_start: { type: Type.STRING, description: '시작일 YYYY-MM-DD' },
         date_end: { type: Type.STRING, description: '종료일 YYYY-MM-DD' },
@@ -199,7 +199,12 @@ async function toolSearchTournaments(args: Record<string, unknown>): Promise<Too
     const esc = escapeLike(location)
     query = query.or(`location.ilike.%${esc}%,address.ilike.%${esc}%`)
   }
-  if (name) query = query.ilike('title', `%${escapeLike(name)}%`)
+  if (name) {
+    // title 뿐만 아니라 location, address에서도 검색
+    // → "마포대회"를 tournament_name으로 받아도 location/address에서 매칭됨
+    const esc = escapeLike(name)
+    query = query.or(`title.ilike.%${esc}%,location.ilike.%${esc}%,address.ilike.%${esc}%`)
+  }
   if (dateStart) query = query.gte('start_date', dateStart)
   if (dateEnd) query = query.lte('start_date', dateEnd)
 
