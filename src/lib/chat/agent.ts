@@ -278,6 +278,7 @@ async function toolGetTournamentDetail(args: Record<string, unknown>): Promise<T
       tournament_divisions(name, match_date, match_location, prize_winner, prize_runner_up)
     `)
     .ilike('title', `%${escapeLike(name)}%`)
+    .not('status', 'in', '("DRAFT","CANCELLED")')  // DRAFT/취소 대회 노출 차단
     .limit(1)
 
   if (!data || data.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }
@@ -530,13 +531,15 @@ async function toolGetMyResults(userId: string): Promise<ToolResult> {
     const e2 = m.entry2 as unknown as { id: string; player_name: string } | null
     const w = m.winner as unknown as { id: string } | null
     const isWin = !!w && entryIds.includes(w.id)
+    const isLoss = !!w && !entryIds.includes(w.id)
     if (isWin) wins++
-    else losses++
+    else if (isLoss) losses++
+    // winner가 null(무효 경기 등)이면 승패 카운트 제외
     return {
       round: m.round_number,
       opponent: entryIds.includes(e1?.id ?? '') ? (e2?.player_name ?? '?') : (e1?.player_name ?? '?'),
       score: `${m.team1_score ?? 0}:${m.team2_score ?? 0}`,
-      result: isWin ? '승' : '패',
+      result: isWin ? '승' : isLoss ? '패' : '-',
     }
   })
 
@@ -699,7 +702,10 @@ export async function runAgent(
           functionResponse: {
             id: fnCall.id,      // functionCall id 매칭 (Gemini 멀티턴 필수)
             name: toolName,
-            response: { content: toolResult.content },
+            // JSON 문자열이면 객체로 파싱해서 전달 (문자열 래핑 시 Gemini 구조 파악 실패 → hallucination)
+            response: (() => {
+              try { return JSON.parse(toolResult.content) } catch { return { message: toolResult.content } }
+            })(),
           },
         }],
       },

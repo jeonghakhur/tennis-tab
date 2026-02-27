@@ -275,6 +275,9 @@ node scripts/test-chat-agent.mjs
 | 2026-02-27 | `6f3b6d0` | 플로우 세션 중 새 질문 감지 (`isNewQueryDuringFlow`) 추가 | 활성 세션이 새 질문을 "예/아니오" 스텝 입력으로 처리하는 버그 |
 | 2026-02-27 | - | `UPCOMING` 상태 추가: STATUS_LABEL, 시스템 프롬프트 룰, tool description 업데이트 | DB에 UPCOMING 상태 추가 (접수 예정, 날짜 기반 자동 전환) |
 | 2026-02-27 | - | 학습 데이터 사용 금지 룰 추가, temperature 0.4→0.1 하향 | 대회 상세 조회 시 인터넷/학습 데이터로 hallucination 발생 |
+| 2026-02-27 | - | functionResponse를 JSON 객체로 전달 (JSON 문자열 래핑 제거) | Gemini가 문자열 응답 구조 파악 실패 → hallucination 근본 원인 |
+| 2026-02-27 | - | toolGetTournamentDetail DRAFT/CANCELLED 노출 차단 | status 필터 없어 미공개 대회 정보 노출 가능 |
+| 2026-02-27 | - | toolGetMyResults 전적 계산 버그 수정 (winner null → 패배 오카운트) | winner null인 경기도 패배로 카운트 |
 
 ---
 
