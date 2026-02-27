@@ -17,7 +17,15 @@ export async function handleApplyTournament(
 ): Promise<HandlerResult> {
   // 1. 신청 가능한 대회 검색 (공개 데이터 — 로그인 불필요)
   const tournamentName = entities.tournament_name
-  const tournaments = await searchTournamentForEntry(tournamentName ?? undefined)
+  let tournaments = await searchTournamentForEntry(tournamentName ?? undefined)
+
+  // Gemini가 "대회", "경기" 등 일반 명사를 대회명에 포함했을 경우 폴백 재시도
+  if (tournaments.length === 0 && tournamentName) {
+    const stripped = tournamentName.replace(/\s*(대회|경기|선수권대회|선수권)$/, '').trim()
+    if (stripped && stripped !== tournamentName) {
+      tournaments = await searchTournamentForEntry(stripped)
+    }
+  }
 
   if (tournaments.length === 0) {
     // 대회명을 지정했을 때: 대회가 존재하지만 OPEN이 아닌 경우 상태 안내
