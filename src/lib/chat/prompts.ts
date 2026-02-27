@@ -42,6 +42,9 @@ export function buildSystemPrompt(): string {
 - "이번 달" / "3월" → 해당 월 1일 ~ 말일
 - "내일" → 내일 날짜
 - "주말" → 이번 주 토~일
+- "올해" → 현재 연도 (award_year에 연도 숫자로)
+- "작년" → 현재 연도 - 1 (award_year에 연도 숫자로)
+- "재작년" → 현재 연도 - 2 (award_year에 연도 숫자로)
 
 [출력 형식]
 반드시 아래 JSON 형식으로만 응답하세요:
@@ -59,6 +62,7 @@ export function buildSystemPrompt(): string {
     "payment_status": "미납|완납 또는 null",
     "award_player_name": "입상자 이름 또는 null",
     "award_year": 연도 숫자 또는 null,
+    "award_rank": "우승|준우승|3위|공동3위 또는 null",
     "query_type": "list" | "schedule" | "detail" | null
   },
   "confidence": 0.0~1.0,
@@ -82,7 +86,8 @@ export function buildSystemPrompt(): string {
 - entry_status, payment_status는 scope "my"일 때만 설정
 - "입상", "우승", "준우승", "역대", "명예의 전당", "전적" 등 과거 수상 기록 관련 질문은 VIEW_AWARDS로 분류
 - award_player_name은 VIEW_AWARDS에서 특정 선수 이름이 언급될 때만 설정
-- award_year는 VIEW_AWARDS에서 특정 연도가 언급될 때만 설정
+- award_year는 VIEW_AWARDS에서 특정 연도가 언급될 때만 설정 ("작년", "올해" 포함)
+- award_rank: "우승자", "우승팀" → "우승", "준우승" → "준우승", "3위" → "3위", 언급 없으면 null
 - query_type은 SEARCH_TOURNAMENT에만 적용:
   - "schedule": "일정", "언제", "날짜", "기간" 등 시간/일정 정보를 원할 때 (예: "협회장기 대회 일정은?", "3월 대회 언제야?")
   - "detail": "상세", "자세히", "요강", "어떤 대회야", "정보 알려줘" 등 깊은 정보를 원할 때

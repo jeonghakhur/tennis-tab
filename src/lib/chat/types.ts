@@ -41,6 +41,8 @@ export interface ChatEntities {
   award_player_name?: string
   /** VIEW_AWARDS: 특정 연도 필터 */
   award_year?: number
+  /** VIEW_AWARDS: 입상 등급 필터 (우승|준우승|3위|공동3위) */
+  award_rank?: string
 }
 
 /** Intent Handler 반환 결과 */

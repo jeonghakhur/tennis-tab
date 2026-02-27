@@ -17,10 +17,12 @@ export async function handleViewAwards(
   try {
     const playerName = entities.award_player_name ?? entities.player_name
     const year = entities.award_year
+    const rank = entities.award_rank
 
     const awards = await getAwards({
       playerName,
       year,
+      rank,
       userId: entities.scope === 'my' ? userId : undefined,
     })
 
