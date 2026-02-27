@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { decryptProfile } from '@/lib/crypto/profileCrypto'
 import type { DivisionInfo, TournamentSearchResult } from './types'
 
 /** LIKE 패턴의 특수문자 이스케이프 */
@@ -89,7 +90,9 @@ export async function getUserProfile(
     .single()
 
   if (error || !data) return null
-  return data
+
+  // phone이 암호화되어 있을 수 있음 → 복호화 후 반환
+  return decryptProfile(data)
 }
 
 /** 대회명으로 대회 현재 상태 조회 (OPEN 여부와 무관하게) */

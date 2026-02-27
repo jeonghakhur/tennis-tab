@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
+import { encryptProfile, decryptProfile } from '@/lib/crypto/profileCrypto'
 
 // Supabase 에러 메시지 → 한국어 변환
 function translateAuthError(message: string): string {
@@ -235,7 +236,10 @@ export async function getCurrentUser() {
     .eq('id', user.id)
     .single()
 
-  return profile
+  if (!profile) return null
+
+  // 민감 필드(phone, birth_year, gender) 복호화 후 반환
+  return decryptProfile(profile)
 }
 
 /**
@@ -256,10 +260,18 @@ export async function updateProfile(data: {
     return { error: '로그인이 필요합니다.' }
   }
 
+  // 민감 필드(phone, birth_year, gender) 암호화 후 저장
+  const encrypted = encryptProfile({
+    phone: data.phone,
+    birth_year: data.birth_year,
+    gender: data.gender,
+  })
+
   const { error } = await supabase
     .from('profiles')
     .update({
       ...data,
+      ...encrypted,
       updated_at: new Date().toISOString(),
     })
     .eq('id', profile.id)

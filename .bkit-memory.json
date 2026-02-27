@@ -4,6 +4,13 @@
   "lastUpdated": "2026-02-27T00:00:00Z",
   "pdcaHistory": [
     {
+      "feature": "member-data-encryption",
+      "phase": "completed",
+      "timestamp": "2026-02-27T00:00:00Z",
+      "status": "completed",
+      "matchRate": 93
+    },
+    {
       "feature": "player-bracket-view",
       "phase": "plan",
       "timestamp": "2026-02-10T00:00:00Z",

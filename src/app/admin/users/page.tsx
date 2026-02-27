@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { UsersTable } from '@/components/admin/UsersTable'
 import { isAdmin } from '@/lib/auth/roles'
+import { decryptProfile } from '@/lib/crypto/profileCrypto'
 
 export default async function AdminUsersPage() {
   const supabase = await createClient()
@@ -23,10 +24,13 @@ export default async function AdminUsersPage() {
     redirect('/admin')
   }
 
-  const { data: users } = await supabase
+  const { data: rawUsers } = await supabase
     .from('profiles')
     .select('*')
     .order('created_at', { ascending: false })
+
+  // 암호화된 phone, birth_year 복호화
+  const users = rawUsers?.map((u) => decryptProfile(u)) ?? []
 
   // 클럽 회장/총무 정보 조회
   const { data: clubRoles } = await supabase
@@ -60,7 +64,7 @@ export default async function AdminUsersPage() {
 
       {/* Users Table */}
       <UsersTable
-        users={users ?? []}
+        users={users}
         currentUserId={user.id}
         currentUserRole={currentProfile?.role ?? 'USER'}
         clubRoleMap={clubRoleMap}
