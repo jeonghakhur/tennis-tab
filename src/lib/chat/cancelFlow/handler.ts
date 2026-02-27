@@ -62,7 +62,11 @@ const STATUS_LABELS: Record<string, string> = {
 
 const PAYMENT_LABELS: Record<string, string> = {
   UNPAID: '미납',
+  PENDING: '미납',
   PAID: '완납',
+  COMPLETED: '완납',
+  FAILED: '실패',
+  CANCELLED: '취소',
 }
 
 // ─── 진입점 (CANCEL_ENTRY 핸들러) ────────────────────
