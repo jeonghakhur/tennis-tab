@@ -48,6 +48,11 @@ function deleteSession(userId: string): void {
   sessionMap.delete(userId)
 }
 
+/** 외부에서 세션 강제 종료 (새 질문 감지 시 route.ts에서 호출) */
+export function clearCancelSession(userId: string): void {
+  sessionMap.delete(userId)
+}
+
 // ─── 상태 레이블 매핑 ────────────────────────────────
 
 const STATUS_LABELS: Record<string, string> = {

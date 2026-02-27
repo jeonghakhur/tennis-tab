@@ -4,13 +4,36 @@ import { sanitizeInput } from '@/lib/utils/validation'
 import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
 import { saveChatLog } from '@/lib/chat/logs'
 import { checkRateLimit } from '@/lib/chat/rateLimit'
-import { getSession } from '@/lib/chat/entryFlow/sessionStore'
+import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
 import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
-import { getCancelSession, handleCancelFlow } from '@/lib/chat/cancelFlow/handler'
+import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
 import type { ChatResponse, ChatMessage } from '@/lib/chat/types'
 
 /** 메시지 길이 제한 */
 const MAX_MESSAGE_LENGTH = 500
+
+/** 취소 키워드 (entryFlow + cancelFlow 공통) */
+const FLOW_CANCEL_KEYWORDS = new Set(['취소', 'cancel', '그만', '중단'])
+
+/** yes/no 키워드 */
+const YES_NO_KEYWORDS = new Set(['예', '네', 'yes', 'y', '응', 'ㅇ', 'ㅇㅇ', '아니오', '아니', 'no', 'n', 'ㄴ', 'ㄴㄴ'])
+
+/**
+ * 현재 플로우 스텝에서 유효하지 않은 입력이면 "새 질문"으로 판단.
+ * true → 세션 종료 후 에이전트로 라우팅
+ * false → 플로우에서 계속 처리
+ */
+function isNewQueryDuringFlow(message: string, step: string): boolean {
+  const m = message.trim().toLowerCase()
+  if (FLOW_CANCEL_KEYWORDS.has(m)) return false          // 취소 키워드 → 플로우에서 처리
+  if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') {
+    return !YES_NO_KEYWORDS.has(m)                        // yes/no 외 모두 새 질문
+  }
+  if (step === 'SELECT_ENTRY' || step === 'SELECT_TOURNAMENT' || step === 'SELECT_DIVISION') {
+    return !/^\d+$/.test(m)                               // 숫자 외 모두 새 질문
+  }
+  return false                                            // 입력형 스텝은 플로우에서 처리
+}
 
 export async function POST(request: NextRequest): Promise<NextResponse<ChatResponse>> {
   try {
@@ -78,52 +101,58 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
       )
     }
 
-    // 5. 참가 신청 플로우 세션 확인 (Gemini 바이패스)
+    // 5. 활성 플로우 세션 확인 (Gemini 바이패스)
+    //    - 현재 스텝에 맞는 입력이면 플로우 계속 진행
+    //    - 새 질문으로 판단되면 세션 종료 후 에이전트로 라우팅
     if (userId) {
       const entrySession = getSession(userId)
       if (entrySession) {
-        const flowResult = await handleEntryFlow(userId, sanitizedMessage)
-
-        // 채팅 로그 저장
-        saveChatLog({
-          userId,
-          sessionId: body.session_id,
-          message: sanitizedMessage,
-          response: flowResult.message,
-          intent: 'APPLY_TOURNAMENT',
-          entities: {} as Record<string, unknown>,
-        })
-
-        return NextResponse.json({
-          success: true,
-          intent: 'APPLY_TOURNAMENT',
-          message: flowResult.message,
-          links: flowResult.links,
-          flow_active: flowResult.flowActive,
-        } as ChatResponse)
+        if (isNewQueryDuringFlow(sanitizedMessage, entrySession.step)) {
+          // 새 질문 감지 → 플로우 종료 후 에이전트에서 처리
+          deleteSession(userId)
+        } else {
+          const flowResult = await handleEntryFlow(userId, sanitizedMessage)
+          saveChatLog({
+            userId,
+            sessionId: body.session_id,
+            message: sanitizedMessage,
+            response: flowResult.message,
+            intent: 'APPLY_TOURNAMENT',
+            entities: {} as Record<string, unknown>,
+          })
+          return NextResponse.json({
+            success: true,
+            intent: 'APPLY_TOURNAMENT',
+            message: flowResult.message,
+            links: flowResult.links,
+            flow_active: flowResult.flowActive,
+          } as ChatResponse)
+        }
       }
 
-      // 참가 취소 플로우 세션 확인 (Gemini 바이패스)
       const cancelSession = getCancelSession(userId)
       if (cancelSession) {
-        const flowResult = await handleCancelFlow(userId, sanitizedMessage)
-
-        saveChatLog({
-          userId,
-          sessionId: body.session_id,
-          message: sanitizedMessage,
-          response: flowResult.message,
-          intent: 'CANCEL_ENTRY',
-          entities: {} as Record<string, unknown>,
-        })
-
-        return NextResponse.json({
-          success: true,
-          intent: 'CANCEL_ENTRY',
-          message: flowResult.message,
-          links: flowResult.links,
-          flow_active: flowResult.flowActive,
-        } as ChatResponse)
+        if (isNewQueryDuringFlow(sanitizedMessage, cancelSession.step)) {
+          // 새 질문 감지 → 플로우 종료 후 에이전트에서 처리
+          clearCancelSession(userId)
+        } else {
+          const flowResult = await handleCancelFlow(userId, sanitizedMessage)
+          saveChatLog({
+            userId,
+            sessionId: body.session_id,
+            message: sanitizedMessage,
+            response: flowResult.message,
+            intent: 'CANCEL_ENTRY',
+            entities: {} as Record<string, unknown>,
+          })
+          return NextResponse.json({
+            success: true,
+            intent: 'CANCEL_ENTRY',
+            message: flowResult.message,
+            links: flowResult.links,
+            flow_active: flowResult.flowActive,
+          } as ChatResponse)
+        }
       }
     }
 
