@@ -152,6 +152,12 @@ src/app/api/chat/
 - **원인**: 파라미터가 선택적인 도구는 Gemini가 사용자에게 확인하려는 경향
 - **해결**: System prompt에 "파라미터 없이 호출 가능한 도구는 즉시 호출" + 도구 description에 "파라미터 없이 전체 조회 가능" 명시
 
+### 4.6 플로우 세션이 새 질문을 가로채는 버그
+- **증상**: 취소/신청 플로우 활성 중 "내가 참가 신청한 대회가 있어?" 입력 시 `"예" 또는 "아니오"로 답변해주세요.` 반환
+- **원인**: route.ts가 세션 존재 여부만 보고 모든 메시지를 플로우로 라우팅
+- **해결**: `isNewQueryDuringFlow(message, step)` 헬퍼로 판별. CONFIRM 스텝 → yes/no 외 새 질문, SELECT 스텝 → 숫자 외 새 질문 → 세션 삭제 후 에이전트로 fallthrough
+- **위치**: `src/app/api/chat/route.ts`, `src/app/api/chat/dev-test/route.ts`
+
 ### 4.5 타 언어 Hallucination
 - **증상**: "уточнить" (러시아어) 등 예상치 못한 언어가 응답에 포함
 - **원인**: Gemini 다국어 학습 데이터에서 언어 혼합 발생
@@ -266,6 +272,7 @@ node scripts/test-chat-agent.mjs
 | 2026-02-27 | `4adf2da` | cancelFlow admin client 직접 삭제 전환, 취소 키워드 확장 | deleteEntry() 세션 쿠키 없어 "로그인 필요" 오류 |
 | 2026-02-27 | `8bcd451` | 상태별 대회 조회 룰 추가 (OPEN/IN_PROGRESS/COMPLETED), 한국어 전용 룰 추가 | "신청 가능한 대회" 미인식 + 러시아어 hallucination |
 | 2026-02-27 | `a86ee6e` | initiate_apply_flow tool desc 강화, 신청 키워드 확장 | Gemini가 "참가 신청을 시작합니다." 텍스트로 대체, tool 미호출 |
+| 2026-02-27 | `6f3b6d0` | 플로우 세션 중 새 질문 감지 (`isNewQueryDuringFlow`) 추가 | 활성 세션이 새 질문을 "예/아니오" 스텝 입력으로 처리하는 버그 |
 
 ---
 
