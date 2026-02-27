@@ -20,6 +20,10 @@ const statusConfig: Record<
     label: '초안',
     className: 'bg-subtle-secondary',
   },
+  UPCOMING: {
+    label: '대기중',
+    className: 'bg-subtle-purple',
+  },
   OPEN: {
     label: '모집중',
     className: 'bg-subtle-success',

@@ -41,6 +41,7 @@ function escapeLike(v: string) {
 }
 
 const STATUS_LABEL: Record<string, string> = {
+  UPCOMING: '접수 예정',
   OPEN: '모집중',
   CLOSED: '마감',
   IN_PROGRESS: '진행중',
@@ -96,6 +97,7 @@ function buildSystemPrompt() {
 - 응답은 반드시 한국어만 사용. 다른 나라 언어(러시아어, 일본어, 중국어 등) 절대 사용 금지
 - "대회 있어?", "대회 있냐", "대회 알려줘" 처럼 조건 없는 문의 → 즉시 search_tournaments 호출 (파라미터 없이 전체 조회, 되묻지 말 것)
 - "신청 가능한 대회", "모집 중인 대회", "지금 신청 가능", "접수 중인", "지금 모집" → 즉시 search_tournaments(status:"OPEN") 호출 (되묻지 말 것)
+- "접수 예정 대회", "곧 열리는 대회", "대기중인 대회", "곧 신청 가능한" → 즉시 search_tournaments(status:"UPCOMING") 호출
 - "진행 중인 대회", "현재 진행 중" → 즉시 search_tournaments(status:"IN_PROGRESS") 호출
 - "끝난 대회", "완료된 대회" → 즉시 search_tournaments(status:"COMPLETED") 호출
 - "신청하고 싶어", "신청할게", "대회 신청", "신청해줘", "신청하려고" 등 신청 의사 표현 → 반드시 즉시 initiate_apply_flow 도구 호출. "신청을 시작합니다" 같은 텍스트 응답 절대 금지
@@ -121,7 +123,7 @@ const TOOL_DECLARATIONS = [
       properties: {
         tournament_name: { type: Type.STRING, description: '대회명 키워드 (부분 일치). "마포대회"처럼 지역+대회 합성어는 location 파라미터에 지역명만 넣을 것' },
         location: { type: Type.STRING, description: '지역명 (예: 서울, 마포구, 마포). "마포대회"→location:"마포", "강남 대회"→location:"강남"' },
-        status: { type: Type.STRING, description: 'OPEN(모집중) | IN_PROGRESS(진행중) | COMPLETED(완료)' },
+        status: { type: Type.STRING, description: 'UPCOMING(접수예정) | OPEN(모집중) | IN_PROGRESS(진행중) | COMPLETED(완료)' },
         date_start: { type: Type.STRING, description: '시작일 YYYY-MM-DD' },
         date_end: { type: Type.STRING, description: '종료일 YYYY-MM-DD' },
         max_fee: { type: Type.NUMBER, description: '최대 참가비 (무료=0, 3만원 이하=30000). 무료/저렴한 대회 검색 시 사용' },

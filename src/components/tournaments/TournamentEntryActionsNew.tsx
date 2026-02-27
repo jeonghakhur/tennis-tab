@@ -513,12 +513,11 @@ export default function TournamentEntryActions({
             <div className="text-center py-4">
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                 {tournamentStatus === "DRAFT" && "대회 준비 중입니다."}
+                {tournamentStatus === "UPCOMING" && "아직 접수가 시작되지 않았습니다."}
                 {tournamentStatus === "CLOSED" && "접수가 마감되었습니다."}
                 {tournamentStatus === "IN_PROGRESS" && "대회가 진행 중입니다."}
                 {tournamentStatus === "COMPLETED" && "종료된 대회입니다."}
                 {tournamentStatus === "CANCELLED" && "취소된 대회입니다."}
-                {tournamentStatus === "OPEN" && !withinPeriod && entryStartDate && new Date(entryStartDate) > new Date() && "접수 시작 전입니다."}
-                {tournamentStatus === "OPEN" && !withinPeriod && entryEndDate && new Date(entryEndDate) < new Date() && "접수 기간이 종료되었습니다."}
               </p>
             </div>
           )}

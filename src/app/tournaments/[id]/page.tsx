@@ -139,6 +139,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   const statusBadgeVariant = (() => {
     const map: Record<string, BadgeVariant> = {
       DRAFT: "secondary",
+      UPCOMING: "purple",
       OPEN: "success",
       CLOSED: "orange",
       IN_PROGRESS: "info",
@@ -150,11 +151,12 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   const statusLabel = (() => {
     switch (tournament.status) {
-      case "OPEN": return "접수중";
-      case "CLOSED": return "마감";
+      case "UPCOMING":    return "접수 예정";
+      case "OPEN":        return "접수중";
+      case "CLOSED":      return "마감";
       case "IN_PROGRESS": return "진행중";
-      case "COMPLETED": return "종료";
-      default: return tournament.status;
+      case "COMPLETED":   return "종료";
+      default:            return tournament.status;
     }
   })();
 

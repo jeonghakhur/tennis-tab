@@ -273,6 +273,7 @@ node scripts/test-chat-agent.mjs
 | 2026-02-27 | `8bcd451` | 상태별 대회 조회 룰 추가 (OPEN/IN_PROGRESS/COMPLETED), 한국어 전용 룰 추가 | "신청 가능한 대회" 미인식 + 러시아어 hallucination |
 | 2026-02-27 | `a86ee6e` | initiate_apply_flow tool desc 강화, 신청 키워드 확장 | Gemini가 "참가 신청을 시작합니다." 텍스트로 대체, tool 미호출 |
 | 2026-02-27 | `6f3b6d0` | 플로우 세션 중 새 질문 감지 (`isNewQueryDuringFlow`) 추가 | 활성 세션이 새 질문을 "예/아니오" 스텝 입력으로 처리하는 버그 |
+| 2026-02-27 | - | `UPCOMING` 상태 추가: STATUS_LABEL, 시스템 프롬프트 룰, tool description 업데이트 | DB에 UPCOMING 상태 추가 (접수 예정, 날짜 기반 자동 전환) |
 
 ---
 

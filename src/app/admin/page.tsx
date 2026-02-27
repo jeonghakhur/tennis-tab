@@ -75,6 +75,7 @@ export default async function AdminDashboard() {
 
   const statusLabels: Record<string, { label: string; className: string }> = {
     DRAFT: { label: '초안', className: 'bg-gray-500/20 text-gray-400' },
+    UPCOMING: { label: '대기중', className: 'bg-purple-500/20 text-purple-400' },
     OPEN: { label: '모집중', className: 'bg-green-500/20 text-green-400' },
     CLOSED: { label: '마감', className: 'bg-red-500/20 text-red-400' },
     IN_PROGRESS: { label: '진행중', className: 'bg-blue-500/20 text-blue-400' },

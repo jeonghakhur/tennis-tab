@@ -43,30 +43,35 @@ const statusConfig: Record<
     variant: 'secondary',
     order: 1
   },
+  UPCOMING: {
+    label: '대기중',
+    variant: 'purple',
+    order: 2
+  },
   OPEN: {
     label: '모집중',
     variant: 'success',
-    order: 2
+    order: 3
   },
   CLOSED: {
     label: '마감',
     variant: 'orange',
-    order: 3
+    order: 4
   },
   IN_PROGRESS: {
     label: '진행중',
     variant: 'info',
-    order: 4
+    order: 5
   },
   COMPLETED: {
     label: '완료',
     variant: 'secondary',
-    order: 5
+    order: 6
   },
   CANCELLED: {
     label: '취소',
     variant: 'danger',
-    order: 6
+    order: 7
   },
 }
 

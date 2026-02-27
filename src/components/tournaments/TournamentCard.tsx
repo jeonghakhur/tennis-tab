@@ -44,6 +44,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   const getStatusBadge = (status: string) => {
     const badgeMap: Record<string, { label: string; variant: BadgeVariant }> = {
       DRAFT: { label: '작성 중', variant: 'secondary' },
+      UPCOMING: { label: '접수 예정', variant: 'purple' },
       OPEN: { label: '모집 중', variant: 'success' },
       CLOSED: { label: '마감', variant: 'orange' },
       IN_PROGRESS: { label: '진행 중', variant: 'info' },
