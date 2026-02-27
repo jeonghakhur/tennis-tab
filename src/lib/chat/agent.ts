@@ -82,10 +82,18 @@ function buildSystemPrompt() {
 - "일정"을 묻는 경우 → 날짜와 장소 위주
 - "상세/자세히/요강" 요청 → 참가비, 부서, 기타 정보 포함
 - 정보는 반드시 도구를 통해 조회 (임의로 데이터를 만들지 말 것)
-- 날짜 표현(이번 주, 다음 달 등)은 오늘 날짜 기준으로 변환하여 date_start/date_end 설정
+- 날짜 표현은 오늘(${date}) 기준으로 변환하여 date_start/date_end 설정:
+  - 이번 주 → 이번 주 월~일
+  - 다음 달 → 다음 달 1일~말일
+  - 봄 → 3~5월 (date_start: YYYY-03-01, date_end: YYYY-05-31)
+  - 여름 → 6~8월 (date_start: YYYY-06-01, date_end: YYYY-08-31)
+  - 가을 → 9~11월, 겨울 → 12~2월
+  - 상반기 → 1~6월, 하반기 → 7~12월
+- 참가비 관련: max_fee 파라미터 사용 (무료=0, 5만원 이하=50000 등)
 
 [도구 호출 규칙 - 반드시 준수]
 - 도구 이름(search_tournaments, initiate_apply_flow 등)을 응답 텍스트에 절대 노출하지 말 것
+- "대회 있어?", "대회 있냐", "대회 알려줘" 처럼 조건 없는 문의 → 즉시 search_tournaments({}) 호출 (되묻지 말 것)
 - "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow({}) 호출 (되묻지 말 것)
 - "취소하고 싶어", "신청 취소" → 즉시 initiate_cancel_flow({}) 호출
 - "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards({}) 호출 (인자 없어도 됨)
@@ -108,6 +116,7 @@ const TOOL_DECLARATIONS = [
         status: { type: Type.STRING, description: 'OPEN(모집중) | IN_PROGRESS(진행중) | COMPLETED(완료)' },
         date_start: { type: Type.STRING, description: '시작일 YYYY-MM-DD' },
         date_end: { type: Type.STRING, description: '종료일 YYYY-MM-DD' },
+        max_fee: { type: Type.NUMBER, description: '최대 참가비 (무료=0, 3만원 이하=30000). 무료/저렴한 대회 검색 시 사용' },
       },
     },
   },
@@ -209,6 +218,7 @@ async function toolSearchTournaments(args: Record<string, unknown>): Promise<Too
   const name = args.tournament_name as string | undefined
   const dateStart = args.date_start as string | undefined
   const dateEnd = args.date_end as string | undefined
+  const maxFee = args.max_fee as number | undefined
 
   if (status) query = query.eq('status', status)
   else query = query.in('status', ['OPEN', 'CLOSED', 'IN_PROGRESS'])
@@ -224,6 +234,7 @@ async function toolSearchTournaments(args: Record<string, unknown>): Promise<Too
   }
   if (dateStart) query = query.gte('start_date', dateStart)
   if (dateEnd) query = query.lte('start_date', dateEnd)
+  if (maxFee !== undefined) query = query.lte('entry_fee', maxFee)
 
   const { data } = await query
   if (!data || data.length === 0) return { content: '조건에 맞는 대회가 없습니다.' }
@@ -627,8 +638,14 @@ export async function runAgent(
 
     // function call 없으면 최종 텍스트 응답
     if (!fnCallPart?.functionCall) {
+      // response.text가 없을 때 parts에서 직접 텍스트 추출 (SDK 버전 차이 대응)
+      const responseText =
+        response.text ||
+        parts.find((p) => p.text)?.text ||
+        null
+
       return {
-        message: response.text ?? '잠시 후 다시 시도해주세요.',
+        message: responseText ?? '죄송합니다, 요청을 처리하지 못했습니다. 다시 말씀해 주세요.',
         links: collectedLinks.length > 0 ? collectedLinks : undefined,
         flow_active: flowActive,
       }
