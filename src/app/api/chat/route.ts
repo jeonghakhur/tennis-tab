@@ -9,6 +9,7 @@ import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
 import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
 import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
 import type { ChatResponse, ChatMessage } from '@/lib/chat/types'
+import type { EntryFlowSession } from '@/lib/chat/entryFlow/types'
 
 /** 메시지 길이 제한 */
 const MAX_MESSAGE_LENGTH = 500
@@ -29,8 +30,32 @@ function isNewQueryDuringFlow(message: string, step: string): boolean {
   if (step === 'SELECT_ENTRY') {
     return !/^\d+$/.test(m)                               // 취소 플로우: 숫자만
   }
-  // SELECT_TOURNAMENT, SELECT_DIVISION: 번호·이름 모두 허용 → 플로우 핸들러에서 처리
-  return false                                            // 입력형 스텝은 플로우에서 처리
+  return false
+}
+
+/**
+ * SELECT_DIVISION / SELECT_TOURNAMENT 단계에서 실제 선택지와 무관한 입력이면 true.
+ * "내가 신청한 대회는" 같은 새 질문이 flow에 삼켜지는 것을 방지.
+ */
+function isUnrelatedToStep(message: string, session: EntryFlowSession): boolean {
+  const m = message.trim().toLowerCase()
+  if (/^\d+$/.test(m)) return false  // 숫자 → 항상 유효
+
+  if (session.step === 'SELECT_DIVISION' && session.data.divisions?.length) {
+    return !session.data.divisions.some((d) => {
+      const lower = d.name.toLowerCase()
+      return lower.includes(m) || m.includes(lower)
+    })
+  }
+
+  if (session.step === 'SELECT_TOURNAMENT' && session.data.searchResults?.length) {
+    return !session.data.searchResults.some((t) => {
+      const lower = t.title.toLowerCase()
+      return lower.includes(m) || m.includes(lower)
+    })
+  }
+
+  return false
 }
 
 export async function POST(request: NextRequest): Promise<NextResponse<ChatResponse>> {
@@ -105,7 +130,7 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
     if (userId) {
       const entrySession = getSession(userId)
       if (entrySession) {
-        if (isNewQueryDuringFlow(sanitizedMessage, entrySession.step)) {
+        if (isNewQueryDuringFlow(sanitizedMessage, entrySession.step) || isUnrelatedToStep(sanitizedMessage, entrySession)) {
           // 새 질문 감지 → 플로우 종료 후 에이전트에서 처리
           deleteSession(userId)
         } else {

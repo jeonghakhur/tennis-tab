@@ -5,6 +5,7 @@ import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
 import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
 import type { ChatMessage } from '@/lib/chat/types'
+import type { EntryFlowSession } from '@/lib/chat/entryFlow/types'
 
 /** DEV 전용 — 인증 없이 agent + flow 세션 테스트. 프로덕션에서는 404 반환 */
 export async function POST(request: NextRequest) {
@@ -27,7 +28,7 @@ export async function POST(request: NextRequest) {
     if (user_id) {
       const entrySession = getSession(user_id)
       if (entrySession) {
-        if (isNewQueryDuringFlow(message, entrySession.step)) {
+        if (isNewQueryDuringFlow(message, entrySession.step) || isUnrelatedToStep(message, entrySession)) {
           deleteSession(user_id)
         } else {
           const r = await handleEntryFlow(user_id, message)
@@ -70,9 +71,28 @@ const FLOW_CANCEL_KEYWORDS = new Set(['취소', 'cancel', '그만', '중단'])
 function isNewQueryDuringFlow(message: string, step: string): boolean {
   const m = message.trim().toLowerCase()
   if (FLOW_CANCEL_KEYWORDS.has(m)) return false
-  // CONFIRM/CONFIRM_CANCEL: 인식 안 된 입력도 플로우에서 재요청 처리
   if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') return false
   if (step === 'SELECT_ENTRY') return !/^\d+$/.test(m)
-  // SELECT_TOURNAMENT, SELECT_DIVISION: 번호·이름 모두 허용 → 플로우 핸들러에서 처리
+  return false
+}
+
+function isUnrelatedToStep(message: string, session: EntryFlowSession): boolean {
+  const m = message.trim().toLowerCase()
+  if (/^\d+$/.test(m)) return false
+
+  if (session.step === 'SELECT_DIVISION' && session.data.divisions?.length) {
+    return !session.data.divisions.some((d) => {
+      const lower = d.name.toLowerCase()
+      return lower.includes(m) || m.includes(lower)
+    })
+  }
+
+  if (session.step === 'SELECT_TOURNAMENT' && session.data.searchResults?.length) {
+    return !session.data.searchResults.some((t) => {
+      const lower = t.title.toLowerCase()
+      return lower.includes(m) || m.includes(lower)
+    })
+  }
+
   return false
 }
