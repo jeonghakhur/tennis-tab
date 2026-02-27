@@ -1,5 +1,4 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { deleteEntry } from '@/lib/entries/actions'
 import type { ChatEntities, HandlerResult } from '../types'
 import type { CancelFlowSession, CancelFlowResult, CancelableEntry } from './types'
 
@@ -260,13 +259,20 @@ async function handleConfirmCancelStep(
   }
 
   const entry = session.selectedEntry!
-  const result = await deleteEntry(entry.id)
   deleteSession(session.userId)
 
-  if (!result.success) {
+  // admin client로 직접 삭제 (fetchCancelableEntries에서 userId 이미 검증됨)
+  const supabase = createAdminClient()
+  const { error: deleteError } = await supabase
+    .from('tournament_entries')
+    .delete()
+    .eq('id', entry.id)
+    .eq('user_id', session.userId)
+
+  if (deleteError) {
     return {
       success: false,
-      message: result.error ?? '참가 취소에 실패했습니다.',
+      message: deleteError.message || '참가 취소에 실패했습니다.',
       flowActive: false,
     }
   }

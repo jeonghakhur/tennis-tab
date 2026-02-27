@@ -95,7 +95,7 @@ function buildSystemPrompt() {
 - 도구 이름(search_tournaments, initiate_apply_flow 등)을 응답 텍스트에 절대 노출하지 말 것
 - "대회 있어?", "대회 있냐", "대회 알려줘" 처럼 조건 없는 문의 → 즉시 search_tournaments 호출 (파라미터 없이 전체 조회, 되묻지 말 것)
 - "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow 호출 (되묻지 말 것)
-- "취소하고 싶어", "신청 취소" → 즉시 initiate_cancel_flow 호출
+- "취소하고 싶어", "신청 취소", "취소할게", "취소", "참가 취소", "등록 취소" → 즉시 initiate_cancel_flow 호출 (되묻지 말 것)
 - "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards 호출 (파라미터 없이 전체 조회)
 - "가장 가까운 대회", "다음 대회" → search_tournaments 호출 후 날짜 기준 첫 번째 항목 사용
 - "내가 신청한 대회", "내 신청 내역", "내가 참가 신청한" → 즉시 get_my_entries 호출 (파라미터 없이, 되묻지 말 것)
