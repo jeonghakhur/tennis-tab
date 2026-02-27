@@ -18,11 +18,15 @@ export function parseSelectDivision(
     return { divisionIndex: num - 1 }
   }
 
-  // 이름 부분 일치 (대소문자 무시)
+  // 이름 부분 일치: 부서명이 입력을 포함하거나, 입력이 부서명을 포함하는 경우 (대소문자 무시)
+  // 예: "퓨처스부 신청해" → keyword.includes("퓨처스부") 로 매칭
   const keyword = trimmed.toLowerCase()
   const matched = divisions
     .map((d, i) => ({ index: i, name: d.name }))
-    .filter(({ name }) => name.toLowerCase().includes(keyword))
+    .filter(({ name }) => {
+      const lower = name.toLowerCase()
+      return lower.includes(keyword) || keyword.includes(lower)
+    })
 
   if (matched.length === 0) {
     return { error: `번호(1~${divisions.length}) 또는 부서명 일부를 입력해주세요.` }
@@ -53,11 +57,14 @@ export function parseSelectTournament(
     return { tournamentIndex: num - 1 }
   }
 
-  // 이름 부분 일치
+  // 이름 부분 일치: 대회명이 입력을 포함하거나, 입력이 대회명을 포함하는 경우
   const keyword = trimmed.toLowerCase()
   const matched = results
     .map((t, i) => ({ index: i, title: t.title }))
-    .filter(({ title }) => title.toLowerCase().includes(keyword))
+    .filter(({ title }) => {
+      const lower = title.toLowerCase()
+      return lower.includes(keyword) || keyword.includes(lower)
+    })
 
   if (matched.length === 0) {
     return { error: `번호(1~${results.length}) 또는 대회명 일부를 입력해주세요.` }
