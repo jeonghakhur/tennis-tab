@@ -15,6 +15,7 @@ interface GetAwardsOptions {
   clubId?: string
   clubName?: string
   userId?: string
+  limit?: number
 }
 
 /** 입상 목록 조회 */
@@ -26,6 +27,7 @@ export async function getAwards(opts: GetAwardsOptions = {}): Promise<Award[]> {
     .select('*')
     .order('year', { ascending: false })
     .order('display_order', { ascending: true })
+    .limit(opts.limit ?? 100)
 
   if (opts.year) query = query.eq('year', opts.year)
   if (opts.competition) query = query.eq('competition', opts.competition)
