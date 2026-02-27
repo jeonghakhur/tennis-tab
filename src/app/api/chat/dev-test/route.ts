@@ -66,12 +66,12 @@ export async function POST(request: NextRequest) {
 
 /** route.ts와 동일한 판별 로직 */
 const FLOW_CANCEL_KEYWORDS = new Set(['취소', 'cancel', '그만', '중단'])
-const YES_NO_KEYWORDS = new Set(['예', '네', 'yes', 'y', '응', 'ㅇ', 'ㅇㅇ', '아니오', '아니', 'no', 'n', 'ㄴ', 'ㄴㄴ'])
 
 function isNewQueryDuringFlow(message: string, step: string): boolean {
   const m = message.trim().toLowerCase()
   if (FLOW_CANCEL_KEYWORDS.has(m)) return false
-  if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') return !YES_NO_KEYWORDS.has(m)
+  // CONFIRM/CONFIRM_CANCEL: 인식 안 된 입력도 플로우에서 재요청 처리
+  if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') return false
   if (step === 'SELECT_ENTRY') return !/^\d+$/.test(m)
   // SELECT_TOURNAMENT, SELECT_DIVISION: 번호·이름 모두 허용 → 플로우 핸들러에서 처리
   return false

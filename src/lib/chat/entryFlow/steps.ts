@@ -74,12 +74,30 @@ export function parseSelectTournament(
 
 export type ConfirmAnswer = 'yes' | 'no' | 'edit' | null
 
-/** 확인 응답 파싱 */
+const CONFIRM_YES = new Set([
+  '예', '네', 'yes', 'y', 'ㅇ', 'ㅇㅇ', '확인',
+  '응', '응응', '좋아', '좋아요', '좋습니다',
+  '신청해', '신청할게', '신청할게요',
+  '진행해', '진행할게', '진행할게요', '진행',
+  '할게', '할게요', '하겠습니다', '하겠어요',
+  '그래', '그래요', '그럼', '맞아', '맞아요', '맞습니다',
+  'ok', 'ㅇㅋ', '넵', '넵요', 'ㄱ', 'ㄱㄱ', '고',
+  '물론', '당연', '당연하죠', '물론이죠',
+])
+
+const CONFIRM_NO = new Set([
+  '아니오', '아니요', '아니', 'no', 'n', 'ㄴ', 'ㄴㄴ',
+  '싫어', '싫어요', '안해', '안할게', '안할게요', '아냐', '됐어', '됐어요',
+])
+
+const CONFIRM_EDIT = new Set(['수정', '변경', 'edit', '고쳐', '바꿔'])
+
+/** 확인 응답 파싱 — 자연어 긍정 표현 포함 */
 export function parseConfirm(input: string): ConfirmAnswer {
-  const normalized = input.trim().toLowerCase()
-  if (['예', '네', 'yes', 'y', 'ㅇ', '확인'].includes(normalized)) return 'yes'
-  if (['아니오', '아니요', '아니', 'no', 'n', 'ㄴ'].includes(normalized)) return 'no'
-  if (['수정', '변경', 'edit'].includes(normalized)) return 'edit'
+  const m = input.trim().toLowerCase()
+  if (CONFIRM_YES.has(m)) return 'yes'
+  if (CONFIRM_NO.has(m)) return 'no'
+  if (CONFIRM_EDIT.has(m)) return 'edit'
   return null
 }
 

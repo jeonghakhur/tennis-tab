@@ -322,11 +322,23 @@ async function fetchCancelableEntries(userId: string): Promise<CancelableEntry[]
   }))
 }
 
-/** "예"/"아니오" 파싱 */
+const CANCEL_YES = new Set([
+  '예', '네', 'yes', 'y', 'ㅇ', 'ㅇㅇ', '확인',
+  '응', '응응', '좋아', '좋아요', '취소해', '취소할게', '취소할게요',
+  '진행해', '진행할게', '할게', '할게요', '하겠습니다',
+  '그래', '그래요', '맞아', 'ok', 'ㅇㅋ', '넵', 'ㄱ', 'ㄱㄱ',
+])
+
+const CANCEL_NO = new Set([
+  '아니오', '아니요', '아니', 'no', 'n', 'ㄴ', 'ㄴㄴ',
+  '싫어', '안해', '안할게', '아냐', '됐어',
+])
+
+/** "예"/"아니오" 파싱 — 자연어 긍정 표현 포함 */
 function parseConfirm(message: string): 'yes' | 'no' | 'unknown' {
   const m = message.trim().toLowerCase()
-  if (['예', '네', 'yes', 'y', '응', 'ㅇ', 'ㅇㅇ'].includes(m)) return 'yes'
-  if (['아니오', '아니', 'no', 'n', 'ㄴ', 'ㄴㄴ'].includes(m)) return 'no'
+  if (CANCEL_YES.has(m)) return 'yes'
+  if (CANCEL_NO.has(m)) return 'no'
   return 'unknown'
 }
 

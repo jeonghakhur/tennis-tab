@@ -16,9 +16,6 @@ const MAX_MESSAGE_LENGTH = 500
 /** 취소 키워드 (entryFlow + cancelFlow 공통) */
 const FLOW_CANCEL_KEYWORDS = new Set(['취소', 'cancel', '그만', '중단'])
 
-/** yes/no 키워드 */
-const YES_NO_KEYWORDS = new Set(['예', '네', 'yes', 'y', '응', 'ㅇ', 'ㅇㅇ', '아니오', '아니', 'no', 'n', 'ㄴ', 'ㄴㄴ'])
-
 /**
  * 현재 플로우 스텝에서 유효하지 않은 입력이면 "새 질문"으로 판단.
  * true → 세션 종료 후 에이전트로 라우팅
@@ -27,9 +24,8 @@ const YES_NO_KEYWORDS = new Set(['예', '네', 'yes', 'y', '응', 'ㅇ', 'ㅇㅇ
 function isNewQueryDuringFlow(message: string, step: string): boolean {
   const m = message.trim().toLowerCase()
   if (FLOW_CANCEL_KEYWORDS.has(m)) return false          // 취소 키워드 → 플로우에서 처리
-  if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') {
-    return !YES_NO_KEYWORDS.has(m)                        // yes/no 외 모두 새 질문
-  }
+  // CONFIRM/CONFIRM_CANCEL: 인식 안 된 입력도 플로우에서 재요청 처리
+  if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') return false
   if (step === 'SELECT_ENTRY') {
     return !/^\d+$/.test(m)                               // 취소 플로우: 숫자만
   }
