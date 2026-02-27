@@ -83,6 +83,8 @@ function buildSystemPrompt() {
 - "일정"을 묻는 경우 → 날짜와 장소 위주
 - "상세/자세히/요강" 요청 → 참가비, 부서, 기타 정보 포함
 - 정보는 반드시 도구를 통해 조회 (임의로 데이터를 만들지 말 것)
+- 도구 결과에 없는 정보는 절대 추가하지 말 것. 학습 데이터, 인터넷 정보, 일반 지식 사용 완전 금지
+- 도구가 반환하지 않은 필드는 "등록된 정보가 없습니다"라고 답할 것. 절대 추측하거나 채워 넣지 말 것
 - 날짜 표현은 오늘(${date}) 기준으로 변환하여 date_start/date_end 설정:
   - 이번 주 → 이번 주 월~일
   - 다음 달 → 다음 달 1일~말일
@@ -132,7 +134,7 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'get_tournament_detail',
-    description: '특정 대회의 전체 상세 정보 (참가비, 부서, 요강 포함)',
+    description: '특정 대회의 전체 상세 정보 (참가비, 부서, 요강 포함). 이 도구 결과만 응답에 사용할 것. 도구가 반환하지 않은 내용 절대 추가 금지.',
     parameters: {
       type: Type.OBJECT,
       required: ['tournament_name'],
@@ -626,7 +628,7 @@ export async function runAgent(
         config: {
           systemInstruction: buildSystemPrompt(),
           tools: [{ functionDeclarations: TOOL_DECLARATIONS }],
-          temperature: 0.4,
+          temperature: 0.1,
         },
       })
     } catch (error: unknown) {
