@@ -47,6 +47,23 @@ const STATUS_LABEL: Record<string, string> = {
   COMPLETED: '완료',
 }
 
+const ENTRY_STATUS_LABEL: Record<string, string> = {
+  PENDING: '대기',
+  APPROVED: '승인',
+  REJECTED: '거절',
+  CONFIRMED: '확정',
+  WAITLISTED: '대기자',
+  CANCELLED: '취소',
+}
+
+const PAYMENT_LABEL: Record<string, string> = {
+  UNPAID: '미납',
+  PENDING: '미납',
+  COMPLETED: '완납',
+  FAILED: '실패',
+  CANCELLED: '취소',
+}
+
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'] as const
 
 function buildSystemPrompt() {
@@ -280,8 +297,8 @@ async function toolGetMyEntries(args: Record<string, unknown>, userId: string): 
       start_date: t.start_date,
       tournament_status: STATUS_LABEL[t.status] ?? t.status,
       division: div?.name ?? null,
-      entry_status: e.status,
-      payment_status: e.payment_status,
+      entry_status: ENTRY_STATUS_LABEL[e.status] ?? e.status,
+      payment_status: PAYMENT_LABEL[e.payment_status] ?? e.payment_status,
       club: e.club_name ?? null,
     }
   })
@@ -499,7 +516,7 @@ async function toolGetMyResults(userId: string): Promise<ToolResult> {
       round: m.round_number,
       opponent: entryIds.includes(e1?.id ?? '') ? (e2?.player_name ?? '?') : (e1?.player_name ?? '?'),
       score: `${m.team1_score ?? 0}:${m.team2_score ?? 0}`,
-      result: isWin ? 'win' : 'loss',
+      result: isWin ? '승' : '패',
     }
   })
 
