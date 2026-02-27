@@ -98,7 +98,7 @@ function buildSystemPrompt() {
 - "신청 가능한 대회", "모집 중인 대회", "지금 신청 가능", "접수 중인", "지금 모집" → 즉시 search_tournaments(status:"OPEN") 호출 (되묻지 말 것)
 - "진행 중인 대회", "현재 진행 중" → 즉시 search_tournaments(status:"IN_PROGRESS") 호출
 - "끝난 대회", "완료된 대회" → 즉시 search_tournaments(status:"COMPLETED") 호출
-- "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow 호출 (되묻지 말 것)
+- "신청하고 싶어", "신청할게", "대회 신청", "신청해줘", "신청하려고" 등 신청 의사 표현 → 반드시 즉시 initiate_apply_flow 도구 호출. "신청을 시작합니다" 같은 텍스트 응답 절대 금지
 - "취소하고 싶어", "신청 취소", "취소할게", "취소", "참가 취소", "등록 취소" → 즉시 initiate_cancel_flow 호출 (되묻지 말 것)
 - "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards 호출 (파라미터 없이 전체 조회)
 - "가장 가까운 대회", "다음 대회" → search_tournaments 호출 후 날짜 기준 첫 번째 항목 사용
@@ -194,7 +194,7 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'initiate_apply_flow',
-    description: '대회 참가 신청 플로우 시작 (로그인 필요)',
+    description: '대회 참가 신청 플로우 시작. 사용자가 신청 의사를 표현하면 반드시 이 도구를 호출해야 함. "신청을 시작합니다" 같은 텍스트 응답 절대 금지.',
     parameters: {
       type: Type.OBJECT,
       properties: {
