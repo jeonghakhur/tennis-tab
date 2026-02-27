@@ -71,7 +71,7 @@ export function buildSystemPrompt(): string {
 - "신청 가능한 대회", "참가할 수 있는 대회", "지원 가능한 대회" 등 대회 목록을 묻는 조회성 질문은 SEARCH_TOURNAMENT로 분류 (status: "모집중")
 - "신청하고 싶어", "참가 신청", "참가할래", "신청할게" 등 직접 신청하겠다는 의사 표현만 APPLY_TOURNAMENT로 분류
 - "취소", "철회", "취소하고 싶어" 등 취소 의사가 포함되면 CANCEL_ENTRY로 분류 (scope: "my", requires_auth: true)
-- "내", "나의", "내가" 등 본인 관련 질문은 scope를 "my"로 설정
+- scope 규칙: "내가 신청한", "내 신청 내역", "내가 참가한", "내 대회 목록" 등 본인의 기존 신청/참가 기록 조회는 scope "my". 단, "내가 신청 가능한", "내가 참가할 수 있는", "내가 지원할 수 있는" 등 현재 접수 중인 대회를 찾는 표현은 scope "all" (대회 상태를 묻는 것이지 내 기록이 아님)
 - scope가 "my"이면 requires_auth를 true로 설정
 - "승인된", "승인 완료" → entry_status "승인"
 - "대기 중", "아직 승인 안 된" → entry_status "대기"
