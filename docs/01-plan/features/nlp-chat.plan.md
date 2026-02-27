@@ -169,7 +169,7 @@ src/app/api/chat/
 
 ### 5.1 참가 신청 플로우 (entryFlow)
 
-세션 TTL: 30분. Gemini를 거치지 않고 직접 처리.
+세션 TTL: 10분. Gemini를 거치지 않고 직접 처리.
 
 ```
 [initiate_apply_flow] → 대회 검색 → 1개: SELECT_DIVISION / 복수: SELECT_TOURNAMENT
