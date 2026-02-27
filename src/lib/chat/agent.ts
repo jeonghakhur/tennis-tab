@@ -98,6 +98,10 @@ function buildSystemPrompt() {
 - "취소하고 싶어", "신청 취소" → 즉시 initiate_cancel_flow 호출
 - "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards 호출 (파라미터 없이 전체 조회)
 - "가장 가까운 대회", "다음 대회" → search_tournaments 호출 후 날짜 기준 첫 번째 항목 사용
+- "내가 신청한 대회", "내 신청 내역", "내가 참가 신청한" → 즉시 get_my_entries 호출 (파라미터 없이, 되묻지 말 것)
+- "내 경기 일정", "다음 경기" → 즉시 get_my_schedule 호출
+- "내 전적", "몇 승 몇 패" → 즉시 get_my_results 호출
+- 응답에 PENDING, APPROVED, REJECTED, CONFIRMED, WAITLISTED, UNPAID, COMPLETED 등 영어 상태값 절대 노출 금지
 - 추가 정보 없이도 호출 가능한 도구는 절대 되묻지 말고 즉시 호출할 것
 - 사용자가 행동 의사를 표현하면 해당 도구를 즉시 호출하여 결과를 반환할 것`
 }
@@ -133,12 +137,12 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'get_my_entries',
-    description: '로그인 사용자의 참가 신청 내역',
+    description: '로그인 사용자의 참가 신청 내역. 파라미터 없이 호출 시 전체 내역 조회',
     parameters: {
       type: Type.OBJECT,
       properties: {
-        entry_status: { type: Type.STRING, description: 'PENDING|APPROVED|REJECTED|CONFIRMED|WAITLISTED' },
-        payment_status: { type: Type.STRING, description: 'UNPAID|COMPLETED' },
+        entry_status: { type: Type.STRING, description: '신청 상태 필터: PENDING(대기)/APPROVED(승인)/REJECTED(거절)/CONFIRMED(확정)/WAITLISTED(대기자). 사용자가 한글로 요청해도 변환해서 사용. 응답에 영어값 노출 금지' },
+        payment_status: { type: Type.STRING, description: '결제 상태 필터: UNPAID(미납)/COMPLETED(완납). 응답에 영어값 노출 금지' },
       },
     },
   },
