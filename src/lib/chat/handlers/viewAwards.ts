@@ -1,5 +1,49 @@
 import type { ChatEntities, HandlerResult } from '../types'
 import { getAwards } from '@/lib/awards/actions'
+import type { Database } from '@/lib/supabase/types'
+
+type Award = Database['public']['Tables']['tournament_awards']['Row']
+
+/**
+ * 대회 > 부서 > 등급 순으로 그루핑하여 메시지 생성
+ * 예) 📌 제36회마포구협회장배
+ *      • 퓨처스부 우승: 유기현, 안기원 (일레븐)
+ */
+function buildAwardsMessage(awards: Award[]): string {
+  // year+competition 단위로 그루핑
+  const byComp = new Map<string, Award[]>()
+  for (const a of awards) {
+    const key = `${a.year}||${a.competition}`
+    if (!byComp.has(key)) byComp.set(key, [])
+    byComp.get(key)!.push(a)
+  }
+
+  const sections: string[] = []
+  for (const [key, items] of byComp) {
+    const [yearStr, competition] = key.split('||')
+    const header = `📌 ${yearStr}년 ${competition}`
+
+    // division+rank 단위로 재그루핑
+    const byDiv = new Map<string, Award[]>()
+    for (const a of items) {
+      const divKey = `${a.division}||${a.award_rank}`
+      if (!byDiv.has(divKey)) byDiv.set(divKey, [])
+      byDiv.get(divKey)!.push(a)
+    }
+
+    const divLines: string[] = []
+    for (const [divKey, divItems] of byDiv) {
+      const [division, awardRank] = divKey.split('||')
+      const players = divItems.flatMap((a) => a.players as string[]).join(', ')
+      const club = divItems[0].club_name ? ` (${divItems[0].club_name})` : ''
+      divLines.push(`  • ${division} **${awardRank}**: ${players}${club}`)
+    }
+
+    sections.push(`${header}\n${divLines.join('\n')}`)
+  }
+
+  return sections.join('\n\n')
+}
 
 export async function handleViewAwards(
   entities: ChatEntities,
@@ -35,21 +79,12 @@ export async function handleViewAwards(
       }
     }
 
-    // 최대 10건만 표시
-    const displayed = awards.slice(0, 10)
-    const lines = displayed.map((a) => {
-      const playersStr = a.players.join(', ')
-      const club = a.club_name ? ` (${a.club_name})` : ''
-      return `• ${a.year}년 ${a.competition} ${a.division} **${a.award_rank}** — ${playersStr}${club}`
-    })
-
     const headerName = playerName ? `${playerName} 선수의 ` : ''
-    const message =
-      `**${headerName}입상 기록** (${awards.length}건)\n\n` + lines.join('\n')
+    const message = `**${headerName}입상 기록** (${awards.length}건)\n\n` + buildAwardsMessage(awards)
 
     return {
       success: true,
-      data: displayed,
+      data: awards,
       message,
       links: [{ label: '전체 기록 보기', href: '/awards' }],
     }
