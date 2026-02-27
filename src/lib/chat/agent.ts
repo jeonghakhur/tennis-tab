@@ -93,11 +93,11 @@ function buildSystemPrompt() {
 
 [도구 호출 규칙 - 반드시 준수]
 - 도구 이름(search_tournaments, initiate_apply_flow 등)을 응답 텍스트에 절대 노출하지 말 것
-- "대회 있어?", "대회 있냐", "대회 알려줘" 처럼 조건 없는 문의 → 즉시 search_tournaments({}) 호출 (되묻지 말 것)
-- "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow({}) 호출 (되묻지 말 것)
-- "취소하고 싶어", "신청 취소" → 즉시 initiate_cancel_flow({}) 호출
-- "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards({}) 호출 (인자 없어도 됨)
-- "가장 가까운 대회", "다음 대회" → search_tournaments({}) 호출 후 날짜 기준 첫 번째 항목 사용
+- "대회 있어?", "대회 있냐", "대회 알려줘" 처럼 조건 없는 문의 → 즉시 search_tournaments 호출 (파라미터 없이 전체 조회, 되묻지 말 것)
+- "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow 호출 (되묻지 말 것)
+- "취소하고 싶어", "신청 취소" → 즉시 initiate_cancel_flow 호출
+- "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards 호출 (파라미터 없이 전체 조회)
+- "가장 가까운 대회", "다음 대회" → search_tournaments 호출 후 날짜 기준 첫 번째 항목 사용
 - 추가 정보 없이도 호출 가능한 도구는 절대 되묻지 말고 즉시 호출할 것
 - 사용자가 행동 의사를 표현하면 해당 도구를 즉시 호출하여 결과를 반환할 것`
 }
@@ -107,7 +107,7 @@ function buildSystemPrompt() {
 const TOOL_DECLARATIONS = [
   {
     name: 'search_tournaments',
-    description: '대회 목록 검색. 지역, 날짜, 상태, 대회명으로 필터링 가능',
+    description: '대회 목록 검색. 파라미터 없이 호출 가능(전체 조회). 지역, 날짜, 상태, 대회명으로 필터링 가능',
     parameters: {
       type: Type.OBJECT,
       properties: {
@@ -166,13 +166,11 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'get_my_schedule',
-    description: '내 예정 경기 일정 조회 (로그인 필요)',
-    parameters: { type: Type.OBJECT, properties: {} },
+    description: '내 예정 경기 일정 조회 (로그인 필요, 파라미터 없음)',
   },
   {
     name: 'get_my_results',
-    description: '내 경기 전적 및 결과 조회 (로그인 필요)',
-    parameters: { type: Type.OBJECT, properties: {} },
+    description: '내 경기 전적 및 결과 조회 (로그인 필요, 파라미터 없음)',
   },
   {
     name: 'get_awards',
@@ -198,8 +196,7 @@ const TOOL_DECLARATIONS = [
   },
   {
     name: 'initiate_cancel_flow',
-    description: '참가 신청 취소 플로우 시작 (로그인 필요)',
-    parameters: { type: Type.OBJECT, properties: {} },
+    description: '참가 신청 취소 플로우 시작 (로그인 필요, 파라미터 없음)',
   },
 ] as unknown as FunctionDeclaration[]
 
