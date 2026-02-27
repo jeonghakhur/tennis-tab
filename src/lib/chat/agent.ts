@@ -93,7 +93,11 @@ function buildSystemPrompt() {
 
 [도구 호출 규칙 - 반드시 준수]
 - 도구 이름(search_tournaments, initiate_apply_flow 등)을 응답 텍스트에 절대 노출하지 말 것
+- 응답은 반드시 한국어만 사용. 다른 나라 언어(러시아어, 일본어, 중국어 등) 절대 사용 금지
 - "대회 있어?", "대회 있냐", "대회 알려줘" 처럼 조건 없는 문의 → 즉시 search_tournaments 호출 (파라미터 없이 전체 조회, 되묻지 말 것)
+- "신청 가능한 대회", "모집 중인 대회", "지금 신청 가능", "접수 중인", "지금 모집" → 즉시 search_tournaments(status:"OPEN") 호출 (되묻지 말 것)
+- "진행 중인 대회", "현재 진행 중" → 즉시 search_tournaments(status:"IN_PROGRESS") 호출
+- "끝난 대회", "완료된 대회" → 즉시 search_tournaments(status:"COMPLETED") 호출
 - "신청하고 싶어", "신청할게", "대회 신청" 등 신청 의사 표현 → 대회명 몰라도 즉시 initiate_apply_flow 호출 (되묻지 말 것)
 - "취소하고 싶어", "신청 취소", "취소할게", "취소", "참가 취소", "등록 취소" → 즉시 initiate_cancel_flow 호출 (되묻지 말 것)
 - "입상자", "입상 기록", "명예의 전당", "최근 우승자" → 즉시 get_awards 호출 (파라미터 없이 전체 조회)
