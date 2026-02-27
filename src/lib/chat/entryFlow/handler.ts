@@ -316,43 +316,97 @@ function handleInputTeamMembersStep(
   session: EntryFlowSession,
   message: string,
 ): EntryFlowResult {
-  const parsed = parseTeamMemberInput(message)
+  const trimmed = message.trim()
+
+  // 쉼표 포함 → 다중 입력 처리
+  if (trimmed.includes(',')) {
+    return handleMultipleTeamMembers(session, trimmed)
+  }
+
+  // 단일 입력
+  const parsed = parseTeamMemberInput(trimmed)
 
   if ('error' in parsed) {
     return { success: true, message: parsed.error, flowActive: true }
   }
 
   if (parsed.type === 'done') {
-    const members = session.data.teamMembers ?? []
-    const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
-    if (members.length < minAdditional) {
-      const minTotal = minAdditional + 1 // 신청자 포함
-      return {
-        success: true,
-        message: `신청자 포함 최소 ${minTotal}명이 필요합니다. 현재 ${members.length + 1}명 등록됨.\n팀원을 더 입력해주세요.`,
-        flowActive: true,
-      }
-    }
-
-    // 팀원 입력 완료 → 확인 단계
-    session.step = 'CONFIRM'
-    setSession(session.userId, session)
-    return {
-      success: true,
-      message: buildConfirmMessage(session, ''),
-      flowActive: true,
-    }
+    return finishTeamMembersInput(session)
   }
 
-  // 팀원 추가
   if (!session.data.teamMembers) session.data.teamMembers = []
   session.data.teamMembers.push({ name: parsed.name, rating: parsed.rating })
   setSession(session.userId, session)
 
   const count = session.data.teamMembers.length
+  const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
+  const minTotal = minAdditional + 1
   return {
     success: true,
-    message: `팀원 ${count}: ${parsed.name}(${parsed.rating}점) 등록. 계속 입력하거나 "완료"`,
+    message: `팀원 ${count}: ${parsed.name}(${parsed.rating}점) 등록. (신청자 포함 ${count + 1}/${minTotal}명)\n계속 입력하거나 "완료"`,
+    flowActive: true,
+  }
+}
+
+/** 쉼표 구분 다중 팀원 입력 처리 */
+function handleMultipleTeamMembers(
+  session: EntryFlowSession,
+  input: string,
+): EntryFlowResult {
+  const parts = input.split(',').map((s) => s.trim()).filter(Boolean)
+
+  const added: { name: string; rating: number }[] = []
+  const failed: string[] = []
+
+  for (const part of parts) {
+    const parsed = parseTeamMemberInput(part)
+    if ('error' in parsed || parsed.type === 'done') {
+      failed.push(part)
+    } else {
+      added.push({ name: parsed.name, rating: parsed.rating })
+    }
+  }
+
+  if (!session.data.teamMembers) session.data.teamMembers = []
+  session.data.teamMembers.push(...added)
+  setSession(session.userId, session)
+
+  const total = session.data.teamMembers.length + 1 // +1: 신청자 본인
+  const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
+  const minTotal = minAdditional + 1
+
+  const lines: string[] = []
+  if (added.length > 0) {
+    lines.push(`${added.length}명 등록: ${added.map((m) => `${m.name}(${m.rating}점)`).join(', ')}`)
+    lines.push(`신청자 포함 총 ${total}/${minTotal}명`)
+  }
+  if (failed.length > 0) {
+    lines.push(`⚠️ 형식 오류 (재입력 필요): ${failed.join(', ')}`)
+    lines.push(`형식: 이름 점수 (예: 김철수 900)`)
+  }
+  lines.push(`계속 입력하거나 "완료"`)
+
+  return { success: true, message: lines.join('\n'), flowActive: true }
+}
+
+/** 팀원 입력 완료 처리 */
+function finishTeamMembersInput(session: EntryFlowSession): EntryFlowResult {
+  const members = session.data.teamMembers ?? []
+  const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
+  if (members.length < minAdditional) {
+    const minTotal = minAdditional + 1
+    return {
+      success: true,
+      message: `신청자 포함 최소 ${minTotal}명이 필요합니다. 현재 ${members.length + 1}명 등록됨.\n팀원을 더 입력해주세요.`,
+      flowActive: true,
+    }
+  }
+
+  session.step = 'CONFIRM'
+  setSession(session.userId, session)
+  return {
+    success: true,
+    message: buildConfirmMessage(session, ''),
     flowActive: true,
   }
 }
