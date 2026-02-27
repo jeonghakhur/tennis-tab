@@ -69,7 +69,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
     // 비로그인: 로그인 유도 배너
     if (!isLoggedIn) {
       return (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+        <div className="shrink-0 border-t" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
           <div className="max-w-[1920px] mx-auto px-4 py-3">
             <div
               className="flex items-center justify-between gap-4 rounded-2xl px-5 py-3"
@@ -92,7 +92,7 @@ export const ChatInput = forwardRef<ChatInputHandle, ChatInputProps>(
     }
 
     return (
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
+      <div className="shrink-0 border-t" style={{ borderColor: 'var(--border-color)', backgroundColor: 'var(--bg-primary)' }}>
         <div className="max-w-[1920px] mx-auto px-4 py-3">
           <form onSubmit={handleSubmit} noValidate>
             <div

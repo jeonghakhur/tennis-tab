@@ -5,6 +5,15 @@ export async function handleViewAwards(
   entities: ChatEntities,
   userId?: string
 ): Promise<HandlerResult> {
+  // scope "my" 인데 비로그인 → 로그인 안내
+  if (entities.scope === 'my' && !userId) {
+    return {
+      success: false,
+      message: '내 입상 기록을 보려면 로그인이 필요합니다.',
+      links: [{ label: '로그인', href: '/auth/login' }],
+    }
+  }
+
   try {
     const playerName = entities.award_player_name ?? entities.player_name
     const year = entities.award_year

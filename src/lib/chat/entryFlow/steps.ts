@@ -101,19 +101,21 @@ export function parsePhone(input: string): { phone: string } | { error: string }
 
 // ─── 복식 파트너 ─────────────────────────────────────
 
-/** 파트너 정보 파싱: "김철수, 강남클럽, 900" */
+/** 파트너 정보 파싱: "김철수, 강남클럽, 900" 또는 "김철수 강남클럽 900점" */
 export function parsePartnerInput(
   input: string,
 ): { name: string; club: string; rating: number } | { error: string } {
-  const parts = input.split(',').map((s) => s.trim())
-  if (parts.length < 3) {
-    return { error: '형식: 이름, 클럽명, 레이팅 (예: 김철수, 강남클럽, 900)' }
-  }
-  const [name, club, ratingStr] = parts
+  const FORMAT_ERR = '형식: 이름, 클럽명, 점수 (예: 김철수, 강남클럽, 900)'
+  // 점 suffix 제거 후 쉼표·공백 기준으로 파싱
+  const cleaned = input.replace(/(\d+)점\b/, '$1')
+  const parts = cleaned.split(/[,\s]+/).map((s) => s.trim()).filter(Boolean)
+  if (parts.length < 3) return { error: FORMAT_ERR }
+  // 마지막이 숫자 = 점수, 나머지는 이름·클럽 (이름 1토큰, 클럽 1토큰 가정)
+  const ratingStr = parts[parts.length - 1]
+  const club = parts[parts.length - 2]
+  const name = parts.slice(0, parts.length - 2).join(' ')
   const rating = parseInt(ratingStr, 10)
-  if (!name || !club || isNaN(rating) || rating < 0) {
-    return { error: '형식: 이름, 클럽명, 레이팅 (예: 김철수, 강남클럽, 900)' }
-  }
+  if (!name || !club || isNaN(rating) || rating < 0) return { error: FORMAT_ERR }
   return { name, club, rating }
 }
 
@@ -137,7 +139,10 @@ export function parseTeamOrder(
 
 // ─── 단체전: 팀원 ──────────────────────────────────
 
-/** 팀원 입력 파싱: "김철수, 900" 또는 "완료" */
+/**
+ * 팀원 입력 파싱: "김철수, 900" / "김철수 900" / "김철수 900점" 또는 "완료"
+ * 이름(공백 포함 가능) + 마지막 숫자(점수) 패턴을 regex로 추출
+ */
 export function parseTeamMemberInput(
   input: string,
 ):
@@ -145,18 +150,20 @@ export function parseTeamMemberInput(
   | { type: 'done' }
   | { error: string } {
   const normalized = input.trim()
+  const FORMAT_ERR = '형식: 이름 점수 (예: 김철수 900 또는 김철수, 900점)\n입력 완료 시 "완료"'
+
   if (['완료', '끝', 'done'].includes(normalized.toLowerCase())) {
     return { type: 'done' }
   }
-  const parts = normalized.split(',').map((s) => s.trim())
-  if (parts.length < 2) {
-    return { error: '형식: 이름, 레이팅 (예: 김철수, 900)\n입력 완료 시 "완료"' }
-  }
-  const [name, ratingStr] = parts
-  const rating = parseInt(ratingStr, 10)
-  if (!name || isNaN(rating) || rating < 0) {
-    return { error: '형식: 이름, 레이팅 (예: 김철수, 900)\n입력 완료 시 "완료"' }
-  }
+
+  // "이름[구분자]+숫자[점]?" 패턴 (구분자: 쉼표·공백 1개 이상)
+  const match = normalized.match(/^(.+?)[\s,]+(\d+)점?$/)
+  if (!match) return { error: FORMAT_ERR }
+
+  const name = match[1].trim()
+  const rating = parseInt(match[2], 10)
+  if (!name || isNaN(rating) || rating < 0) return { error: FORMAT_ERR }
+
   return { type: 'member', name, rating }
 }
 

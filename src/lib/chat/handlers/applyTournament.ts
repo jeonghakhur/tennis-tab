@@ -93,6 +93,7 @@ export async function handleApplyTournament(
       matchType: null,
       entryFee: 0,
       bankAccount: null,
+      teamMatchCount: null,
       playerName: profile.name,
       phone: profile.phone ?? '',
       playerRating: profile.rating,
@@ -114,7 +115,7 @@ export async function handleApplyTournament(
 /** 대회 하나 확정 → 부서 목록 조회 → 세션 생성 */
 async function createSessionAndShowDivisions(
   userId: string,
-  tournament: { id: string; title: string; matchType: import('@/lib/supabase/types').MatchType | null; startDate: string; entryFee: number; bankAccount: string | null },
+  tournament: { id: string; title: string; matchType: import('@/lib/supabase/types').MatchType | null; startDate: string; entryFee: number; bankAccount: string | null; teamMatchCount: number | null },
   profile: { name: string; phone: string | null; rating: number | null },
 ): Promise<HandlerResult> {
   const divisions = await getDivisionsWithCounts(tournament.id)
@@ -135,6 +136,7 @@ async function createSessionAndShowDivisions(
       matchType: tournament.matchType,
       entryFee: tournament.entryFee,
       bankAccount: tournament.bankAccount,
+      teamMatchCount: tournament.teamMatchCount,
       playerName: profile.name,
       phone: profile.phone ?? '',
       playerRating: profile.rating,

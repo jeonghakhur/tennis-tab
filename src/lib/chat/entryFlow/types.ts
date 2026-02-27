@@ -28,6 +28,7 @@ export interface TournamentSearchResult {
   startDate: string
   entryFee: number
   bankAccount: string | null
+  teamMatchCount: number | null
 }
 
 /** 축적된 참가 신청 데이터 */
@@ -38,6 +39,7 @@ export interface EntryFlowData {
   matchType: MatchType | null
   entryFee: number
   bankAccount: string | null
+  teamMatchCount: number | null
 
   // 부서 정보
   divisionId?: string

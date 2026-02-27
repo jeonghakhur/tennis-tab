@@ -18,7 +18,7 @@ export async function searchTournamentForEntry(
 
   let query = admin
     .from('tournaments')
-    .select('id, title, status, match_type, start_date, entry_fee, bank_account')
+    .select('id, title, status, match_type, start_date, entry_fee, bank_account, team_match_count')
     .eq('status', 'OPEN')
     .order('start_date', { ascending: true })
     .limit(5)
@@ -38,6 +38,7 @@ export async function searchTournamentForEntry(
     startDate: t.start_date,
     entryFee: t.entry_fee,
     bankAccount: t.bank_account,
+    teamMatchCount: (t as unknown as { team_match_count: number | null }).team_match_count,
   }))
 }
 
@@ -89,6 +90,21 @@ export async function getUserProfile(
 
   if (error || !data) return null
   return data
+}
+
+/** 대회명으로 대회 현재 상태 조회 (OPEN 여부와 무관하게) */
+export async function getTournamentStatus(
+  tournamentName: string,
+): Promise<{ title: string; status: string } | null> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('tournaments')
+    .select('title, status')
+    .ilike('title', `%${escapeLike(tournamentName)}%`)
+    .not('status', 'in', '("DRAFT","CANCELLED")')
+    .limit(1)
+    .maybeSingle()
+  return data ?? null
 }
 
 /** 특정 대회+부서에 사용자가 이미 신청했는지 확인 */

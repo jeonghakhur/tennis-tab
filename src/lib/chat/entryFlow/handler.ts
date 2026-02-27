@@ -17,6 +17,20 @@ import type { EntryFlowResult, EntryFlowSession } from './types'
 /** 취소 키워드 */
 const CANCEL_KEYWORDS = ['취소', 'cancel', '그만']
 
+/**
+ * 단체전 최소 추가 팀원 수 계산 (신청자 본인 제외)
+ * - TEAM_DOUBLES: 경기 수 × 2명 → 신청자 제외 = (count×2 - 1)
+ * - TEAM_SINGLES: 경기 수 × 1명 → 신청자 제외 = (count - 1)
+ */
+function calcMinAdditionalMembers(
+  matchType: import('@/lib/supabase/types').MatchType | null,
+  teamMatchCount: number | null,
+): number {
+  if (!teamMatchCount) return 1
+  const total = matchType === 'TEAM_DOUBLES' ? teamMatchCount * 2 : teamMatchCount
+  return Math.max(1, total - 1)
+}
+
 /** 활성 세션의 메시지 처리 (Gemini 스킵) */
 export async function handleEntryFlow(
   userId: string,
@@ -103,6 +117,7 @@ async function handleSelectTournamentStep(
   session.data.tournamentTitle = selected.title
   session.data.matchType = selected.matchType
   session.data.entryFee = selected.entryFee
+  session.data.teamMatchCount = selected.teamMatchCount
   session.data.bankAccount = selected.bankAccount
   session.data.divisions = divisions
   session.data.searchResults = undefined
@@ -183,7 +198,7 @@ function routeAfterDivisionSelect(
     setSession(session.userId, session)
     return {
       success: true,
-      message: `${waitlistNotice ? waitlistNotice + '\n\n' : ''}파트너 정보를 입력해주세요.\n형식: 이름, 클럽명, 레이팅 (예: 김철수, 강남클럽, 900)`,
+      message: `${waitlistNotice ? waitlistNotice + '\n\n' : ''}파트너 정보를 입력해주세요.\n형식: 이름, 클럽명, 점수 (예: 김철수, 강남클럽, 900)`,
       flowActive: true,
     }
   }
@@ -286,9 +301,11 @@ function handleInputTeamOrderStep(
   session.step = 'INPUT_TEAM_MEMBERS'
   setSession(session.userId, session)
 
+  const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
+  const minTotal = minAdditional + 1 // 신청자 포함
   return {
     success: true,
-    message: '팀원을 등록합니다 (최소 1명).\n형식: 이름, 레이팅 (예: 김철수, 900)\n입력 완료 시 "완료"',
+    message: `팀원을 등록합니다 (신청자 포함 최소 ${minTotal}명).\n형식: 이름 점수 (예: 김철수 900 또는 김철수, 900점)\n입력 완료 시 "완료"`,
     flowActive: true,
   }
 }
@@ -307,10 +324,12 @@ function handleInputTeamMembersStep(
 
   if (parsed.type === 'done') {
     const members = session.data.teamMembers ?? []
-    if (members.length === 0) {
+    const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
+    if (members.length < minAdditional) {
+      const minTotal = minAdditional + 1 // 신청자 포함
       return {
         success: true,
-        message: '최소 1명의 팀원을 등록해야 합니다.\n형식: 이름, 레이팅 (예: 김철수, 900)',
+        message: `신청자 포함 최소 ${minTotal}명이 필요합니다. 현재 ${members.length + 1}명 등록됨.\n팀원을 더 입력해주세요.`,
         flowActive: true,
       }
     }
@@ -333,7 +352,7 @@ function handleInputTeamMembersStep(
   const count = session.data.teamMembers.length
   return {
     success: true,
-    message: `팀원 ${count}: ${parsed.name}(${parsed.rating}) 등록. 계속 입력하거나 "완료"`,
+    message: `팀원 ${count}: ${parsed.name}(${parsed.rating}점) 등록. 계속 입력하거나 "완료"`,
     flowActive: true,
   }
 }
@@ -424,12 +443,12 @@ function buildConfirmMessage(session: EntryFlowSession, notice: string): string 
   lines.push(`📞 전화: ${data.phone}`)
 
   if (data.playerRating !== null) {
-    lines.push(`⭐ 레이팅: ${data.playerRating}`)
+    lines.push(`⭐ 점수: ${data.playerRating}`)
   }
 
   // 복식 파트너
   if (data.partnerData) {
-    lines.push(`\n👥 파트너: ${data.partnerData.name} (${data.partnerData.club}, ${data.partnerData.rating})`)
+    lines.push(`\n👥 파트너: ${data.partnerData.name} (${data.partnerData.club}, ${data.partnerData.rating}점)`)
   }
 
   // 단체전
@@ -443,7 +462,7 @@ function buildConfirmMessage(session: EntryFlowSession, notice: string): string 
     if (data.teamMembers && data.teamMembers.length > 0) {
       lines.push(`\n👥 팀원:`)
       data.teamMembers.forEach((m, i) => {
-        lines.push(`  ${i + 1}. ${m.name} (${m.rating})`)
+        lines.push(`  ${i + 1}. ${m.name} (${m.rating}점)`)
       })
     }
   }
