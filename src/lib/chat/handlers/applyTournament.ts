@@ -1,5 +1,5 @@
 import type { ChatEntities, HandlerResult } from '../types'
-import { searchTournamentForEntry, getDivisionsWithCounts, getUserProfile } from '../entryFlow/queries'
+import { searchTournamentForEntry, getDivisionsWithCounts, getUserProfile, getTournamentStatus } from '../entryFlow/queries'
 import { setSession } from '../entryFlow/sessionStore'
 import { buildDivisionListMessage, formatDate } from '../entryFlow/steps'
 import type { EntryFlowSession } from '../entryFlow/types'
@@ -20,8 +20,26 @@ export async function handleApplyTournament(
   const tournaments = await searchTournamentForEntry(tournamentName ?? undefined)
 
   if (tournaments.length === 0) {
+    // 대회명을 지정했을 때: 대회가 존재하지만 OPEN이 아닌 경우 상태 안내
+    if (tournamentName) {
+      const STATUS_LABEL: Record<string, string> = {
+        UPCOMING: '접수 예정',
+        CLOSED: '접수 마감',
+        IN_PROGRESS: '대회 진행 중',
+        COMPLETED: '대회 종료',
+      }
+      const found = await getTournamentStatus(tournamentName)
+      if (found) {
+        const statusText = STATUS_LABEL[found.status] ?? found.status
+        return {
+          success: true,
+          message: `"${found.title}"은(는) 현재 신청할 수 없습니다.\n현재 상태: ${statusText}\n\n접수 중인 다른 대회를 찾으시려면 "신청 가능한 대회 알려줘"라고 말씀해 주세요.`,
+          links: [{ label: '대회 목록', href: '/tournaments' }],
+        }
+      }
+    }
     const noResultMsg = tournamentName
-      ? `"${tournamentName}" 대회를 찾지 못했습니다.\n현재 접수 중인 대회만 신청 가능합니다.`
+      ? `"${tournamentName}" 대회를 찾을 수 없습니다.\n현재 접수 중인 대회만 신청 가능합니다.`
       : '현재 참가 신청 가능한 대회가 없습니다.'
     return {
       success: true,
@@ -88,7 +106,7 @@ export async function handleApplyTournament(
 
   return {
     success: true,
-    message: `${header}\n${lines.join('\n')}\n\n몇 번 대회에 참가하시겠어요? (취소: "취소")`,
+    message: `${header}\n${lines.join('\n')}\n\n번호 또는 대회명으로 선택해주세요. (취소: "취소")`,
     flow_active: true,
   }
 }

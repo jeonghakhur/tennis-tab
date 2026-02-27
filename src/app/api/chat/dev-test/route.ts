@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
+import { classifyIntent, GeminiQuotaError } from '@/lib/chat/classify'
+import { getHandler } from '@/lib/chat/handlers'
 import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
 import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
@@ -44,8 +45,16 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const result = await runAgent(message, history, user_id)
-    return NextResponse.json({ success: true, ...result })
+    const classification = await classifyIntent(message, history)
+    const handler = getHandler(classification.intent)
+    const handlerResult = await handler(classification.entities, user_id)
+    return NextResponse.json({
+      success: true,
+      intent: classification.intent,
+      message: handlerResult.message,
+      links: handlerResult.links,
+      ...(handlerResult.flow_active !== undefined && { flow_active: handlerResult.flow_active }),
+    })
   } catch (err) {
     if (err instanceof GeminiQuotaError) {
       return NextResponse.json({ error: 'Gemini quota exceeded' }, { status: 429 })
@@ -63,6 +72,7 @@ function isNewQueryDuringFlow(message: string, step: string): boolean {
   const m = message.trim().toLowerCase()
   if (FLOW_CANCEL_KEYWORDS.has(m)) return false
   if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') return !YES_NO_KEYWORDS.has(m)
-  if (step === 'SELECT_ENTRY' || step === 'SELECT_TOURNAMENT' || step === 'SELECT_DIVISION') return !/^\d+$/.test(m)
+  if (step === 'SELECT_ENTRY') return !/^\d+$/.test(m)
+  // SELECT_TOURNAMENT, SELECT_DIVISION: 번호·이름 모두 허용 → 플로우 핸들러에서 처리
   return false
 }

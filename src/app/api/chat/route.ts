@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeInput } from '@/lib/utils/validation'
-import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
+import { classifyIntent, GeminiQuotaError } from '@/lib/chat/classify'
+import { getHandler } from '@/lib/chat/handlers'
 import { saveChatLog } from '@/lib/chat/logs'
 import { checkRateLimit } from '@/lib/chat/rateLimit'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
@@ -29,9 +30,10 @@ function isNewQueryDuringFlow(message: string, step: string): boolean {
   if (step === 'CONFIRM' || step === 'CONFIRM_CANCEL') {
     return !YES_NO_KEYWORDS.has(m)                        // yes/no 외 모두 새 질문
   }
-  if (step === 'SELECT_ENTRY' || step === 'SELECT_TOURNAMENT' || step === 'SELECT_DIVISION') {
-    return !/^\d+$/.test(m)                               // 숫자 외 모두 새 질문
+  if (step === 'SELECT_ENTRY') {
+    return !/^\d+$/.test(m)                               // 취소 플로우: 숫자만
   }
+  // SELECT_TOURNAMENT, SELECT_DIVISION: 번호·이름 모두 허용 → 플로우 핸들러에서 처리
   return false                                            // 입력형 스텝은 플로우에서 처리
 }
 
@@ -156,27 +158,29 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
       }
     }
 
-    // 6. Agent 실행 (Gemini 2.0 Flash Function Calling)
+    // 6. Intent 분류 (Gemini JSON 분류기) + 핸들러 실행 (코드 응답)
     const history = Array.isArray(body.history) ? body.history : []
-    const result = await runAgent(sanitizedMessage, history, userId)
+    const classification = await classifyIntent(sanitizedMessage, history)
+    const handler = getHandler(classification.intent)
+    const handlerResult = await handler(classification.entities, userId)
 
     // 7. 채팅 로그 저장 (비동기, 실패 무시)
     saveChatLog({
       userId,
       sessionId: body.session_id,
       message: sanitizedMessage,
-      response: result.message,
-      intent: 'SEARCH_TOURNAMENT',
-      entities: {},
+      response: handlerResult.message,
+      intent: classification.intent,
+      entities: classification.entities as Record<string, unknown>,
     })
 
     // 8. 응답 반환
     return NextResponse.json({
       success: true,
-      intent: 'SEARCH_TOURNAMENT',
-      message: result.message,
-      links: result.links,
-      ...(result.flow_active !== undefined && { flow_active: result.flow_active }),
+      intent: classification.intent,
+      message: handlerResult.message,
+      links: handlerResult.links,
+      ...(handlerResult.flow_active !== undefined && { flow_active: handlerResult.flow_active }),
     } as ChatResponse)
   } catch (error) {
     // Gemini API 할당량 초과

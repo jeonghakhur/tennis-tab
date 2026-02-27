@@ -80,7 +80,7 @@ async function handleSelectTournamentStep(
     return { success: false, message: '대회 정보가 없습니다.', flowActive: false }
   }
 
-  const parsed = parseSelectTournament(message, results.length)
+  const parsed = parseSelectTournament(message, results)
   if ('error' in parsed) {
     return { success: true, message: parsed.error, flowActive: true }
   }

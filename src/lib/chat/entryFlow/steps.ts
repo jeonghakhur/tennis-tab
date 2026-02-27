@@ -1,31 +1,73 @@
-import type { DivisionInfo } from './types'
+import type { DivisionInfo, TournamentSearchResult } from './types'
 
 // ─── 부서 선택 ──────────────────────────────────────
 
-/** 부서 번호 파싱 (1-based) */
+/** 부서 번호 또는 이름 파싱 (1-based) */
 export function parseSelectDivision(
   input: string,
   divisions: DivisionInfo[],
 ): { divisionIndex: number } | { error: string } {
-  const num = parseInt(input.trim(), 10)
-  if (isNaN(num) || num < 1 || num > divisions.length) {
-    return { error: `1~${divisions.length} 사이의 번호를 입력해주세요.` }
+  const trimmed = input.trim()
+
+  // 숫자 입력
+  const num = parseInt(trimmed, 10)
+  if (!isNaN(num)) {
+    if (num < 1 || num > divisions.length) {
+      return { error: `1~${divisions.length} 사이의 번호를 입력해주세요.` }
+    }
+    return { divisionIndex: num - 1 }
   }
-  return { divisionIndex: num - 1 }
+
+  // 이름 부분 일치 (대소문자 무시)
+  const keyword = trimmed.toLowerCase()
+  const matched = divisions
+    .map((d, i) => ({ index: i, name: d.name }))
+    .filter(({ name }) => name.toLowerCase().includes(keyword))
+
+  if (matched.length === 0) {
+    return { error: `번호(1~${divisions.length}) 또는 부서명 일부를 입력해주세요.` }
+  }
+  if (matched.length > 1) {
+    const names = matched.map((m) => m.name).join(', ')
+    return { error: `여러 부서가 일치합니다: ${names}\n더 구체적으로 입력해주세요.` }
+  }
+
+  return { divisionIndex: matched[0].index }
 }
 
 // ─── 대회 선택 (복수 검색 결과) ────────────────────────
 
-/** 대회 번호 파싱 (1-based) */
+/** 대회 번호 또는 이름 파싱 (1-based) */
 export function parseSelectTournament(
   input: string,
-  count: number,
+  results: TournamentSearchResult[],
 ): { tournamentIndex: number } | { error: string } {
-  const num = parseInt(input.trim(), 10)
-  if (isNaN(num) || num < 1 || num > count) {
-    return { error: `1~${count} 사이의 번호를 입력해주세요.` }
+  const trimmed = input.trim()
+
+  // 숫자 입력
+  const num = parseInt(trimmed, 10)
+  if (!isNaN(num)) {
+    if (num < 1 || num > results.length) {
+      return { error: `1~${results.length} 사이의 번호를 입력해주세요.` }
+    }
+    return { tournamentIndex: num - 1 }
   }
-  return { tournamentIndex: num - 1 }
+
+  // 이름 부분 일치
+  const keyword = trimmed.toLowerCase()
+  const matched = results
+    .map((t, i) => ({ index: i, title: t.title }))
+    .filter(({ title }) => title.toLowerCase().includes(keyword))
+
+  if (matched.length === 0) {
+    return { error: `번호(1~${results.length}) 또는 대회명 일부를 입력해주세요.` }
+  }
+  if (matched.length > 1) {
+    const titles = matched.map((m) => m.title).join(', ')
+    return { error: `여러 대회가 일치합니다: ${titles}\n더 구체적으로 입력해주세요.` }
+  }
+
+  return { tournamentIndex: matched[0].index }
 }
 
 // ─── 확인 (예/아니오) ────────────────────────────────
@@ -149,5 +191,5 @@ export function buildDivisionListMessage(
     return `${i + 1}. ${d.name} ${capacityStr} - 참가비 ${formatEntryFee(entryFee)}`
   })
 
-  return `${tournamentTitle}\n참가 가능한 부서:\n${lines.join('\n')}\n\n몇 번 부서에 참가하시겠어요? (취소: "취소")`
+  return `${tournamentTitle}\n참가 가능한 부서:\n${lines.join('\n')}\n\n번호 또는 부서명으로 선택해주세요. (취소: "취소")`
 }
