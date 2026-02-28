@@ -82,7 +82,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
       {/* Mobile menu button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="lg:hidden fixed top-4 left-4 z-50 p-2 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary)"
+        className="lg:hidden fixed top-4 left-4 z-[60] p-2 rounded-lg bg-(--bg-card) border border-(--border-color) text-(--text-primary)"
       >
         <Menu className="w-5 h-5" />
       </button>
@@ -90,7 +90,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
       {/* Overlay for mobile */}
       {isOpen && (
         <div
-          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          className="lg:hidden fixed inset-0 bg-black/50 z-[70]"
           onClick={() => setIsOpen(false)}
         />
       )}
@@ -98,7 +98,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-40 h-screen w-64
+          fixed top-0 left-0 z-[80] h-screen w-64
           bg-(--bg-secondary) border-r border-(--border-color)
           transform transition-transform duration-300 ease-in-out
           lg:translate-x-0

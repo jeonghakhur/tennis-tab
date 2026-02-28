@@ -40,7 +40,7 @@ export function AdminHeader({
 
   return (
     <header className="shrink-0 bg-(--bg-secondary) border-b border-(--border-color)">
-      <div className="flex items-center justify-between px-6 py-4">
+      <div className="flex items-center justify-between px-4 lg:px-6 py-4">
         {/* Page Title - Hidden on mobile for space */}
         <div className="hidden lg:block">
           <h1 className="font-display text-lg font-semibold text-(--text-primary)">
@@ -52,7 +52,7 @@ export function AdminHeader({
         <div className="lg:hidden w-10" />
 
         {/* Right side actions */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2 lg:gap-4">
           {/* 메인으로 이동 (모바일 전용) */}
           <Link
             href="/"
