@@ -9,11 +9,14 @@ import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, join
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
+import SessionList from '@/components/clubs/sessions/SessionList'
+import SessionForm from '@/components/clubs/sessions/SessionForm'
+import RankingsTab from '@/components/clubs/sessions/RankingsTab'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy } from 'lucide-react'
+import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy, Calendar, BarChart3 } from 'lucide-react'
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -62,7 +65,8 @@ export default function ClubDetailPage() {
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
   const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
-  const [activeTab, setActiveTab] = useState<'info' | 'awards' | 'manage'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'sessions' | 'rankings' | 'awards' | 'manage'>('info')
+  const [sessionFormOpen, setSessionFormOpen] = useState(false)
   const [clubAwards, setClubAwards] = useState<import('@/lib/supabase/types').Database['public']['Tables']['tournament_awards']['Row'][]>([])
 
   const [joinModalOpen, setJoinModalOpen] = useState(false)
@@ -417,10 +421,10 @@ export default function ClubDetailPage() {
               </div>
 
               {/* 탭 헤더 — 회원은 회원목록+입상기록, 임원은 회원관리 추가 */}
-              <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
+              <div className="flex border-b overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
                 <button
                   onClick={() => setActiveTab('info')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap ${
                     activeTab === 'info'
                       ? 'text-(--accent-color)'
                       : 'text-(--text-muted) hover:text-(--text-primary)'
@@ -432,8 +436,36 @@ export default function ClubDetailPage() {
                   )}
                 </button>
                 <button
+                  onClick={() => setActiveTab('sessions')}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
+                    activeTab === 'sessions'
+                      ? 'text-(--accent-color)'
+                      : 'text-(--text-muted) hover:text-(--text-primary)'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  모임
+                  {activeTab === 'sessions' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('rankings')}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
+                    activeTab === 'rankings'
+                      ? 'text-(--accent-color)'
+                      : 'text-(--text-muted) hover:text-(--text-primary)'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  순위
+                  {activeTab === 'rankings' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                  )}
+                </button>
+                <button
                   onClick={() => setActiveTab('awards')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
                     activeTab === 'awards'
                       ? 'text-(--accent-color)'
                       : 'text-(--text-muted) hover:text-(--text-primary)'
@@ -448,14 +480,14 @@ export default function ClubDetailPage() {
                 {isOfficer && (
                   <button
                     onClick={() => setActiveTab('manage')}
-                    className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 ${
+                    className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
                       activeTab === 'manage'
                         ? 'text-(--accent-color)'
                         : 'text-(--text-muted) hover:text-(--text-primary)'
                     }`}
                   >
                     <Settings className="w-3.5 h-3.5" />
-                    회원 관리
+                    관리
                     {activeTab === 'manage' && (
                       <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
                     )}
@@ -463,13 +495,34 @@ export default function ClubDetailPage() {
                 )}
               </div>
 
-              {/* 회원 관리 탭 (임원 전용) */}
+              {/* 탭 콘텐츠 */}
               {isOfficer && activeTab === 'manage' ? (
                 <ClubMemberList
                   clubId={id}
                   initialMembers={fullMembers}
                   isSystemAdmin={false}
                 />
+              ) : activeTab === 'sessions' ? (
+                <div className="mt-4">
+                  <SessionList
+                    clubId={id}
+                    isOfficer={!!isOfficer}
+                    onCreateSession={() => setSessionFormOpen(true)}
+                  />
+                  <SessionForm
+                    clubId={id}
+                    isOpen={sessionFormOpen}
+                    onClose={() => setSessionFormOpen(false)}
+                    onCreated={loadClubData}
+                  />
+                </div>
+              ) : activeTab === 'rankings' ? (
+                <div className="mt-4">
+                  <RankingsTab
+                    clubId={id}
+                    myMemberId={myMembership?.id}
+                  />
+                </div>
               ) : activeTab === 'awards' ? (
                 <div className="mt-4">
                   <ClubAwards awards={clubAwards} />

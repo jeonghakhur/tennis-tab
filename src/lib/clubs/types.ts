@@ -95,3 +95,134 @@ export interface ClubFilters {
   district?: string
   association_id?: string
 }
+
+// ============================================================
+// Club Session 관련 타입
+// ============================================================
+
+export type ClubSessionStatus = 'OPEN' | 'CLOSED' | 'CANCELLED' | 'COMPLETED'
+export type AttendanceStatus = 'ATTENDING' | 'NOT_ATTENDING' | 'UNDECIDED'
+export type MatchResultStatus = 'SCHEDULED' | 'COMPLETED' | 'DISPUTED' | 'CANCELLED'
+
+export interface ClubSession {
+  id: string
+  club_id: string
+  title: string
+  venue_name: string
+  court_numbers: string[]
+  session_date: string
+  start_time: string
+  end_time: string
+  max_attendees: number | null
+  status: ClubSessionStatus
+  rsvp_deadline: string | null
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  // JOIN 결과
+  _attending_count?: number
+  _not_attending_count?: number
+  _undecided_count?: number
+  _my_attendance?: AttendanceStatus
+}
+
+export interface ClubSessionDetail extends ClubSession {
+  attendances: SessionAttendanceDetail[]
+  matches: ClubMatchResult[]
+}
+
+export interface SessionAttendanceDetail {
+  id: string
+  session_id: string
+  club_member_id: string
+  status: AttendanceStatus
+  available_from: string | null
+  available_until: string | null
+  notes: string | null
+  responded_at: string | null
+  // JOIN
+  member: { id: string; name: string; rating: number | null; is_registered: boolean }
+}
+
+export interface ClubMatchResult {
+  id: string
+  session_id: string
+  player1_member_id: string
+  player2_member_id: string
+  court_number: string | null
+  scheduled_time: string | null
+  player1_score: number | null
+  player2_score: number | null
+  winner_member_id: string | null
+  status: MatchResultStatus
+  player1_reported_score_p1: number | null
+  player1_reported_score_p2: number | null
+  player2_reported_score_p1: number | null
+  player2_reported_score_p2: number | null
+  created_at: string
+  updated_at: string
+  // JOIN
+  player1?: { id: string; name: string }
+  player2?: { id: string; name: string }
+}
+
+export interface ClubMemberStat {
+  id: string
+  club_id: string
+  club_member_id: string
+  season: string
+  total_games: number
+  wins: number
+  losses: number
+  win_rate: number
+  sessions_attended: number
+  last_played_at: string | null
+}
+
+export interface ClubMemberStatWithMember extends ClubMemberStat {
+  member: { id: string; name: string; rating: number | null }
+}
+
+// Session Server Action 입력 타입
+export interface CreateSessionInput {
+  club_id: string
+  title: string
+  venue_name: string
+  court_numbers: string[]
+  session_date: string
+  start_time: string
+  end_time: string
+  max_attendees?: number
+  rsvp_deadline?: string
+  notes?: string
+}
+
+export type UpdateSessionInput = Partial<Omit<CreateSessionInput, 'club_id'>>
+
+export interface RespondSessionInput {
+  session_id: string
+  club_member_id: string
+  status: AttendanceStatus
+  available_from?: string
+  available_until?: string
+  notes?: string
+}
+
+export interface CreateMatchInput {
+  session_id: string
+  player1_member_id: string
+  player2_member_id: string
+  court_number?: string
+  scheduled_time?: string
+}
+
+export interface ReportResultInput {
+  my_score: number
+  opponent_score: number
+}
+
+export interface ResolveDisputeInput {
+  player1_score: number
+  player2_score: number
+}
