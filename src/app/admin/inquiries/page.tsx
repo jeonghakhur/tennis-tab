@@ -69,7 +69,7 @@ export default function AdminInquiriesPage() {
           <button
             key={tab.label}
             onClick={() => setStatusFilter(tab.value)}
-            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-all ${
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all ${
               statusFilter === tab.value
                 ? 'bg-(--accent-color) text-(--bg-primary)'
                 : 'text-(--text-secondary) hover:text-(--text-primary)'
