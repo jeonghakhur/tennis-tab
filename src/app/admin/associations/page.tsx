@@ -73,7 +73,7 @@ export default async function AdminAssociationsPage() {
 
     return (
       <div className="space-y-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center justify-between">
           <div>
             <h1 className="font-display text-2xl font-bold text-(--text-primary)">
               전체 협회 관리
@@ -82,7 +82,7 @@ export default async function AdminAssociationsPage() {
               시스템에 등록된 모든 협회를 관리합니다.
             </p>
           </div>
-          <Link href="/admin/associations/new" className="btn-primary btn-sm whitespace-nowrap self-start sm:self-auto">
+          <Link href="/admin/associations/new" className="btn-primary btn-sm">
             협회 생성
           </Link>
         </div>

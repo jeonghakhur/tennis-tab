@@ -377,7 +377,7 @@ export function TournamentsTable({
                             type="button"
                             onClick={() => setDeleteTarget({ id: tournament.id, title: tournament.title })}
                             aria-label={`${tournament.title} 삭제`}
-                            className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            className="p-2 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                           </button>

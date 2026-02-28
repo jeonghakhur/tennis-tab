@@ -247,15 +247,15 @@ export default function AdminFaqPage() {
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
       {/* 헤더 */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+      <div className="flex items-center justify-between mb-6">
         <h1
-          className="text-2xl font-display whitespace-nowrap"
+          className="text-2xl font-display"
           style={{ color: 'var(--text-primary)' }}
         >
           FAQ 관리
           <span
             className="text-sm font-normal ml-2"
-            style={{ color: 'var(--text-secondary)' }}
+            style={{ color: 'var(--text-muted)' }}
           >
             ({faqs.length}개)
           </span>
@@ -263,64 +263,57 @@ export default function AdminFaqPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={openCatCreateModal}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
             style={{
               backgroundColor: 'var(--bg-card)',
               color: 'var(--text-secondary)',
               border: '1px solid var(--border-color)',
             }}
           >
-            <Settings className="w-4 h-4 shrink-0" />
+            <Settings className="w-4 h-4" />
             카테고리 관리
           </button>
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white whitespace-nowrap hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
             style={{ backgroundColor: 'var(--accent-color)' }}
           >
-            <Plus className="w-4 h-4 shrink-0" />
+            <Plus className="w-4 h-4" />
             FAQ 추가
           </button>
         </div>
       </div>
 
       {/* 카테고리 필터 */}
-      <div className="relative mb-5">
-        <div
-          className="flex gap-1 border-b overflow-x-auto"
-          style={{ borderColor: 'var(--border-color)' }}
+      <div
+        className="flex gap-1 mb-5 border-b overflow-x-auto"
+        style={{ borderColor: 'var(--border-color)' }}
+      >
+        <button
+          onClick={() => setFilter('ALL')}
+          className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors
+            ${filter === 'ALL' ? 'border-b-2' : ''}`}
+          style={{
+            borderColor: filter === 'ALL' ? 'var(--accent-color)' : 'transparent',
+            color: filter === 'ALL' ? 'var(--accent-color)' : 'var(--text-muted)',
+          }}
         >
+          전체
+        </button>
+        {categories.map((cat) => (
           <button
-            onClick={() => setFilter('ALL')}
+            key={cat.slug}
+            onClick={() => setFilter(cat.slug)}
             className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors
-              ${filter === 'ALL' ? 'border-b-2' : ''}`}
+              ${filter === cat.slug ? 'border-b-2' : ''}`}
             style={{
-              borderColor: filter === 'ALL' ? 'var(--accent-color)' : 'transparent',
-              color: filter === 'ALL' ? 'var(--accent-color)' : 'var(--text-secondary)',
+              borderColor: filter === cat.slug ? 'var(--accent-color)' : 'transparent',
+              color: filter === cat.slug ? 'var(--accent-color)' : 'var(--text-muted)',
             }}
           >
-            전체
+            {cat.name}
           </button>
-          {categories.map((cat) => (
-            <button
-              key={cat.slug}
-              onClick={() => setFilter(cat.slug)}
-              className={`px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors
-                ${filter === cat.slug ? 'border-b-2' : ''}`}
-              style={{
-                borderColor: filter === cat.slug ? 'var(--accent-color)' : 'transparent',
-                color: filter === cat.slug ? 'var(--accent-color)' : 'var(--text-secondary)',
-              }}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-        {/* 탭 우측 스크롤 힌트 (모바일) */}
-        <div
-          className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none sm:hidden"
-          style={{ background: 'linear-gradient(to left, var(--bg-primary), transparent)' }}
-        />
+        ))}
       </div>
 
       {/* FAQ 목록 */}
@@ -351,17 +344,17 @@ export default function AdminFaqPage() {
                   </p>
                   <p
                     className="text-xs line-clamp-2"
-                    style={{ color: 'var(--text-secondary)' }}
+                    style={{ color: 'var(--text-muted)' }}
                   >
                     A. {faq.answer}
                   </p>
                 </div>
 
-                <div className="flex items-center shrink-0">
+                <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleToggleActive(faq)}
-                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-(--bg-card-hover) transition-colors"
-                    style={{ color: 'var(--text-secondary)' }}
+                    className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
                     aria-label={faq.is_active ? '비활성화' : '활성화'}
                     title={faq.is_active ? '비활성화' : '활성화'}
                   >
@@ -369,15 +362,15 @@ export default function AdminFaqPage() {
                   </button>
                   <button
                     onClick={() => openEditModal(faq)}
-                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-(--bg-card-hover) transition-colors"
-                    style={{ color: 'var(--text-secondary)' }}
+                    className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                    style={{ color: 'var(--text-muted)' }}
                     aria-label="수정"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setConfirmDelete({ isOpen: true, id: faq.id })}
-                    className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                    className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
                     style={{ color: 'var(--court-danger)' }}
                     aria-label="삭제"
                   >
@@ -572,18 +565,18 @@ export default function AdminFaqPage() {
                           <Badge variant="secondary">비활성</Badge>
                         )}
                       </div>
-                      <div className="flex items-center shrink-0">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button
                           onClick={() => openCatEditModal(cat)}
-                          className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-(--bg-card-hover) transition-colors"
-                          style={{ color: 'var(--text-secondary)' }}
+                          className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                          style={{ color: 'var(--text-muted)' }}
                           aria-label="수정"
                         >
                           <Pencil className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => setConfirmCatDelete({ isOpen: true, slug: cat.slug })}
-                          className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                          className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
                           style={{ color: 'var(--court-danger)' }}
                           aria-label="삭제"
                         >
