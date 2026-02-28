@@ -1,8 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/cron/tournament-status",
-      "schedule": "0 * * * *"
-    }
-  ]
-}
+{}
