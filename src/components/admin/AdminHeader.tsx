@@ -52,17 +52,7 @@ export function AdminHeader({
         <div className="lg:hidden w-10" />
 
         {/* Right side actions */}
-        <div className="flex items-center gap-2 lg:gap-4">
-          {/* 메인으로 이동 (모바일 전용) */}
-          <Link
-            href="/"
-            className="lg:hidden flex items-center gap-1.5 p-2 rounded-lg hover:bg-(--bg-card) transition-colors text-(--text-secondary)"
-            title="메인으로"
-          >
-            <Home className="w-5 h-5" />
-            <span className="hidden sm:inline text-sm">메인으로</span>
-          </Link>
-
+        <div className="flex items-center gap-1.5 sm:gap-2 lg:gap-4">
           {/* 큰글씨 토글 */}
           <button
             type="button"
@@ -97,8 +87,29 @@ export function AdminHeader({
             )}
           </button>
 
+          {/* 메인으로 이동 (모바일 전용) */}
+          <Link
+            href="/"
+            className="lg:hidden p-2 rounded-lg hover:bg-(--bg-card) transition-colors text-(--text-secondary)"
+            title="메인으로"
+          >
+            <Home className="w-5 h-5" />
+          </Link>
+
+          {/* 로그아웃 (모바일 전용) */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={loggingOut}
+            className="lg:hidden p-2 rounded-lg hover:bg-(--bg-card) transition-colors text-(--text-secondary)"
+            title="로그아웃"
+            aria-label="로그아웃"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
+
           {/* User Info */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 lg:gap-3">
             <div className="hidden sm:block text-right">
               <p className="text-sm font-medium text-(--text-primary)">
                 {userName}
@@ -107,7 +118,7 @@ export function AdminHeader({
                 {ROLE_LABELS[userRole]}
               </p>
             </div>
-            <div className="w-10 h-10 rounded-full overflow-hidden bg-(--bg-card) border-2 border-(--border-accent)">
+            <div className="w-9 h-9 lg:w-10 lg:h-10 rounded-full overflow-hidden bg-(--bg-card) border-2 border-(--border-accent)">
               {userAvatar ? (
                 <img
                   src={userAvatar}
@@ -121,18 +132,6 @@ export function AdminHeader({
               )}
             </div>
           </div>
-
-          {/* 로그아웃 (모바일 전용) */}
-          <button
-            type="button"
-            onClick={handleSignOut}
-            disabled={loggingOut}
-            className="lg:hidden p-2 rounded-lg hover:bg-(--bg-card) transition-colors text-(--text-secondary)"
-            title="로그아웃"
-            aria-label="로그아웃"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
         </div>
       </div>
     </header>

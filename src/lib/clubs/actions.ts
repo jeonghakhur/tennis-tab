@@ -11,6 +11,7 @@ import {
   validateMemberInput,
   hasValidationErrors,
 } from '@/lib/utils/validation'
+import { decryptProfile } from '@/lib/crypto/profileCrypto'
 import type {
   Club,
   ClubMember,
@@ -545,7 +546,7 @@ export async function getClubMembers(
 
   const { data, error } = await query
   if (error) return { data: [], error: '회원 목록 조회에 실패했습니다.' }
-  return { data: (data || []) as ClubMember[] }
+  return { data: (data || []).map((m) => decryptProfile(m as ClubMember)) }
 }
 
 /** 비가입 회원 직접 등록 (owner/admin) */
@@ -1228,7 +1229,7 @@ export async function getMyClubMemberships(): Promise<{
       .map((m) => {
         const club = clubMap.get(m.club_id)
         if (!club) return null
-        return { club, membership: m as ClubMember }
+        return { club, membership: decryptProfile(m as ClubMember) }
       })
       .filter((item): item is NonNullable<typeof item> => item !== null),
   }
