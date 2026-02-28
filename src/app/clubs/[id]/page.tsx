@@ -53,7 +53,7 @@ type PublicMember = {
 export default function ClubDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
-  const { user, profile } = useAuth()
+  const { user, profile, loading: authLoading } = useAuth()
 
   const [club, setClub] = useState<Club | null>(null)
   const [members, setMembers] = useState<PublicMember[]>([])
@@ -100,9 +100,9 @@ export default function ClubDetailPage() {
   // (서버 액션은 쿠키 기반 인증을 사용하는데, 클라이언트 SDK의 토큰 갱신이
   //  쿠키에 반영되지 않아 세션 불일치 발생 가능 → RLS public SELECT로 직접 조회)
   useEffect(() => {
-    if (!user?.id || !id) return
+    if (authLoading || !user?.id || !id) return
     checkMembership()
-  }, [user?.id, id])
+  }, [authLoading, user?.id, id])
 
   const checkMembership = async () => {
     if (!user?.id || !id) return
