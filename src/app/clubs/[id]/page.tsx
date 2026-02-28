@@ -211,7 +211,7 @@ export default function ClubDetailPage() {
     loadClubData()
   }
 
-  if (loading) {
+  if (loading || authLoading) {
     return (
       <>
         <Navigation />
