@@ -1,10 +1,14 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useTheme } from '@/components/ThemeProvider'
 import { useFontSize } from '@/components/FontSizeProvider'
-import { Sun, Moon } from 'lucide-react'
+import { Sun, Moon, Home, LogOut } from 'lucide-react'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth/roles'
+import { signOut } from '@/lib/auth/actions'
 
 interface AdminHeaderProps {
   userName: string
@@ -21,6 +25,18 @@ export function AdminHeader({
 }: AdminHeaderProps) {
   const { theme, toggleTheme } = useTheme()
   const { isLarge, toggleFontSize } = useFontSize()
+  const router = useRouter()
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  const handleSignOut = async () => {
+    setLoggingOut(true)
+    try {
+      await signOut()
+      router.push('/')
+    } catch {
+      setLoggingOut(false)
+    }
+  }
 
   return (
     <header className="shrink-0 bg-(--bg-secondary) border-b border-(--border-color)">
@@ -37,6 +53,16 @@ export function AdminHeader({
 
         {/* Right side actions */}
         <div className="flex items-center gap-4">
+          {/* 메인으로 이동 (모바일 전용) */}
+          <Link
+            href="/"
+            className="lg:hidden flex items-center gap-1.5 p-2 rounded-lg hover:bg-(--bg-card) transition-colors text-(--text-secondary)"
+            title="메인으로"
+          >
+            <Home className="w-5 h-5" />
+            <span className="hidden sm:inline text-sm">메인으로</span>
+          </Link>
+
           {/* 큰글씨 토글 */}
           <button
             type="button"
@@ -95,6 +121,18 @@ export function AdminHeader({
               )}
             </div>
           </div>
+
+          {/* 로그아웃 (모바일 전용) */}
+          <button
+            type="button"
+            onClick={handleSignOut}
+            disabled={loggingOut}
+            className="lg:hidden p-2 rounded-lg hover:bg-(--bg-card) transition-colors text-(--text-secondary)"
+            title="로그아웃"
+            aria-label="로그아웃"
+          >
+            <LogOut className="w-5 h-5" />
+          </button>
         </div>
       </div>
     </header>
