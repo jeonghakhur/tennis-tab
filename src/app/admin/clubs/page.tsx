@@ -53,12 +53,12 @@ export default async function AdminClubsPage() {
     // 소속 클럽이 없으면 빈 배열
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <h1 className="font-display text-2xl font-bold text-(--text-primary)">클럽 관리</h1>
             <p className="text-(--text-secondary) mt-1">나의 클럽을 관리할 수 있습니다.</p>
           </div>
-          <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1">
+          <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1 whitespace-nowrap">
             <Plus className="w-4 h-4" />
             클럽 생성
           </Link>
@@ -107,14 +107,14 @@ export default async function AdminClubsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="font-display text-2xl font-bold text-(--text-primary)">클럽 관리</h1>
           <p className="text-(--text-secondary) mt-1">
             {isSystemAdmin ? '모든 클럽을 관리할 수 있습니다.' : '나의 클럽을 관리할 수 있습니다.'}
           </p>
         </div>
-        <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1">
+        <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1 whitespace-nowrap">
           <Plus className="w-4 h-4" />
           클럽 생성
         </Link>

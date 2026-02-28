@@ -247,9 +247,9 @@ export default function AdminFaqPage() {
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
       {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-6">
         <h1
-          className="text-2xl font-display"
+          className="text-2xl font-display whitespace-nowrap"
           style={{ color: 'var(--text-primary)' }}
         >
           FAQ 관리
@@ -263,7 +263,7 @@ export default function AdminFaqPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={openCatCreateModal}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium whitespace-nowrap hover:opacity-90 transition-opacity"
             style={{
               backgroundColor: 'var(--bg-card)',
               color: 'var(--text-secondary)',
@@ -275,7 +275,7 @@ export default function AdminFaqPage() {
           </button>
           <button
             onClick={openCreateModal}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white hover:opacity-90 transition-opacity"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white whitespace-nowrap hover:opacity-90 transition-opacity"
             style={{ backgroundColor: 'var(--accent-color)' }}
           >
             <Plus className="w-4 h-4" />
