@@ -5,7 +5,8 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, getMyClubMemberships, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
+import { createClient } from '@/lib/supabase/client'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
@@ -95,30 +96,40 @@ export default function ClubDetailPage() {
     setLoading(false)
   }
 
-  // 멤버십 확인 — 모든 클럽 멤버십에서 현재 클럽 확인
+  // 멤버십 확인 — 클라이언트 사이드 직접 조회
+  // (서버 액션은 쿠키 기반 인증을 사용하는데, 클라이언트 SDK의 토큰 갱신이
+  //  쿠키에 반영되지 않아 세션 불일치 발생 가능 → RLS public SELECT로 직접 조회)
   useEffect(() => {
-    if (!user || !id) return
+    if (!user?.id || !id) return
     checkMembership()
-  }, [user, id])
+  }, [user?.id, id])
 
   const checkMembership = async () => {
+    if (!user?.id || !id) return
+
     try {
-      const result = await getMyClubMemberships()
-      const found = result.data.find((m) => m.club.id === id)
-      if (found) {
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('club_members')
+        .select('id, name, role, is_registered')
+        .eq('club_id', id)
+        .eq('user_id', user.id)
+        .eq('status', 'ACTIVE')
+        .maybeSingle()
+
+      if (data) {
         setIsMember(true)
         setMyMembership({
-          id: found.membership.id,
-          name: found.membership.name,
-          role: found.membership.role,
-          is_registered: found.membership.is_registered,
+          id: data.id,
+          name: data.name,
+          role: data.role as ClubMemberRole,
+          is_registered: data.is_registered,
         })
       } else {
         setIsMember(false)
         setMyMembership(null)
       }
     } catch {
-      // 서버 액션 호출 실패 시 — 비회원으로 표시하지 않고 재시도 가능하도록 유지
       setIsMember(false)
       setMyMembership(null)
     }
