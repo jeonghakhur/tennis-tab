@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, getMyClubMemberships, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
@@ -102,18 +102,23 @@ export default function ClubDetailPage() {
   }, [user, id])
 
   const checkMembership = async () => {
-    const { getMyClubMemberships } = await import('@/lib/clubs/actions')
-    const result = await getMyClubMemberships()
-    const found = result.data.find((m) => m.club.id === id)
-    if (found) {
-      setIsMember(true)
-      setMyMembership({
-        id: found.membership.id,
-        name: found.membership.name,
-        role: found.membership.role,
-        is_registered: found.membership.is_registered,
-      })
-    } else {
+    try {
+      const result = await getMyClubMemberships()
+      const found = result.data.find((m) => m.club.id === id)
+      if (found) {
+        setIsMember(true)
+        setMyMembership({
+          id: found.membership.id,
+          name: found.membership.name,
+          role: found.membership.role,
+          is_registered: found.membership.is_registered,
+        })
+      } else {
+        setIsMember(false)
+        setMyMembership(null)
+      }
+    } catch {
+      // 서버 액션 호출 실패 시 — 비회원으로 표시하지 않고 재시도 가능하도록 유지
       setIsMember(false)
       setMyMembership(null)
     }
