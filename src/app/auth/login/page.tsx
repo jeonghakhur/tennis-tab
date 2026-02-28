@@ -4,7 +4,6 @@ import { signInWithOAuth, signInWithEmail } from '@/lib/auth/actions'
 import { useState, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { Navigation } from '@/components/Navigation'
 import { AlertDialog } from '@/components/common/AlertDialog'
 
 function LoginContent() {
@@ -73,7 +72,6 @@ function LoginContent() {
 
   return (
     <>
-      <Navigation />
       <main
         className="flex-1 flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}
@@ -283,7 +281,6 @@ function LoginContent() {
 function LoginLoading() {
   return (
     <>
-      <Navigation />
       <main
         className="flex-1 flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}

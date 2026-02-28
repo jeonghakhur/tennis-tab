@@ -1,53 +1,45 @@
+import { createAdminClient } from '@/lib/supabase/admin'
 import type { EntryFlowSession } from './types'
 
-/** 인메모리 세션 저장소 (서버 재시작 시 초기화 — 짧은 세션이므로 허용) */
-const sessionMap = new Map<string, EntryFlowSession>()
-
 /** 세션 TTL: 10분 */
-const SESSION_TTL_MS = 10 * 60 * 1000
+const SESSION_TTL_MINUTES = 10
 
-/** 마지막 정리 시각 */
-let lastCleanup = Date.now()
+/** 세션 조회 (만료 시 null 반환) */
+export async function getSession(userId: string): Promise<EntryFlowSession | null> {
+  const admin = createAdminClient()
+  const expiredAt = new Date(Date.now() - SESSION_TTL_MINUTES * 60 * 1000).toISOString()
 
-/** 정리 주기: 5분 */
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
+  const { data } = await admin
+    .from('entry_flow_sessions')
+    .select('session_data')
+    .eq('user_id', userId)
+    .gt('updated_at', expiredAt)
+    .single()
 
-/** 만료된 세션 일괄 정리 */
-function cleanupExpired(): void {
-  const now = Date.now()
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return
-  lastCleanup = now
-
-  for (const [key, session] of sessionMap) {
-    if (now - session.updatedAt > SESSION_TTL_MS) {
-      sessionMap.delete(key)
-    }
-  }
+  if (!data) return null
+  return data.session_data as unknown as EntryFlowSession
 }
 
-/** 세션 조회 (만료 시 null 반환 + 삭제) */
-export function getSession(userId: string): EntryFlowSession | null {
-  cleanupExpired()
-
-  const session = sessionMap.get(userId)
-  if (!session) return null
-
-  // TTL 초과 → 삭제 (마지막 활동 기준)
-  if (Date.now() - session.updatedAt > SESSION_TTL_MS) {
-    sessionMap.delete(userId)
-    return null
-  }
-
-  return session
-}
-
-/** 세션 저장/업데이트 */
-export function setSession(userId: string, session: EntryFlowSession): void {
+/** 세션 저장/업데이트 (UPSERT) */
+export async function setSession(userId: string, session: EntryFlowSession): Promise<void> {
   session.updatedAt = Date.now()
-  sessionMap.set(userId, session)
+  const admin = createAdminClient()
+
+  await admin
+    .from('entry_flow_sessions')
+    .upsert({
+      user_id: userId,
+      session_data: session as unknown as Record<string, unknown>,
+      updated_at: new Date().toISOString(),
+    })
 }
 
 /** 세션 삭제 */
-export function deleteSession(userId: string): void {
-  sessionMap.delete(userId)
+export async function deleteSession(userId: string): Promise<void> {
+  const admin = createAdminClient()
+
+  await admin
+    .from('entry_flow_sessions')
+    .delete()
+    .eq('user_id', userId)
 }

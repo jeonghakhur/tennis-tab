@@ -1,5 +1,4 @@
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 
 export default async function AuthErrorPage({
   searchParams,
@@ -17,7 +16,6 @@ export default async function AuthErrorPage({
 
   return (
     <>
-      <Navigation />
       <main
         className="flex-1 flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}

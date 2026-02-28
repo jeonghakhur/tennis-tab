@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { sanitizeInput } from '@/lib/utils/validation'
-import { classifyIntent, GeminiQuotaError } from '@/lib/chat/classify'
-import { getHandler } from '@/lib/chat/handlers'
+import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
 import { saveChatLog } from '@/lib/chat/logs'
 import { checkRateLimit } from '@/lib/chat/rateLimit'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
@@ -37,9 +36,16 @@ function isNewQueryDuringFlow(message: string, step: string): boolean {
  * SELECT_DIVISION / SELECT_TOURNAMENT 단계에서 실제 선택지와 무관한 입력이면 true.
  * "내가 신청한 대회는" 같은 새 질문이 flow에 삼켜지는 것을 방지.
  */
+/** 긍정 답변 — 플로우 내에서 유효한 응답으로 취급 */
+const AFFIRMATIVE_RESPONSES = new Set([
+  '응', '네', '어', '그래', 'ㅇㅇ', 'ㅇ', '예', '맞아', '좋아', '알겠어',
+  'yes', 'ok', 'okay', 'yep', 'yup', 'sure', 'right',
+])
+
 function isUnrelatedToStep(message: string, session: EntryFlowSession): boolean {
   const m = message.trim().toLowerCase()
-  if (/^\d+$/.test(m)) return false  // 숫자 → 항상 유효
+  if (/^\d+$/.test(m)) return false          // 숫자 → 항상 유효
+  if (AFFIRMATIVE_RESPONSES.has(m)) return false  // 긍정 답변 → 플로우에서 처리
 
   if (session.step === 'SELECT_DIVISION' && session.data.divisions?.length) {
     return !session.data.divisions.some((d) => {
@@ -128,11 +134,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
     //    - 현재 스텝에 맞는 입력이면 플로우 계속 진행
     //    - 새 질문으로 판단되면 세션 종료 후 에이전트로 라우팅
     if (userId) {
-      const entrySession = getSession(userId)
+      const entrySession = await getSession(userId)
       if (entrySession) {
         if (isNewQueryDuringFlow(sanitizedMessage, entrySession.step) || isUnrelatedToStep(sanitizedMessage, entrySession)) {
           // 새 질문 감지 → 플로우 종료 후 에이전트에서 처리
-          deleteSession(userId)
+          await deleteSession(userId)
         } else {
           const flowResult = await handleEntryFlow(userId, sanitizedMessage)
           saveChatLog({
@@ -179,29 +185,26 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
       }
     }
 
-    // 6. Intent 분류 (Gemini JSON 분류기) + 핸들러 실행 (코드 응답)
+    // 6. 에이전트 실행 (Gemini 도구 호출 루프)
     const history = Array.isArray(body.history) ? body.history : []
-    const classification = await classifyIntent(sanitizedMessage, history)
-    const handler = getHandler(classification.intent)
-    const handlerResult = await handler(classification.entities, userId)
+    const agentResult = await runAgent(sanitizedMessage, history, userId)
 
     // 7. 채팅 로그 저장 (비동기, 실패 무시)
     saveChatLog({
       userId,
       sessionId: body.session_id,
       message: sanitizedMessage,
-      response: handlerResult.message,
-      intent: classification.intent,
-      entities: classification.entities as Record<string, unknown>,
+      response: agentResult.message,
+      intent: 'AGENT',
+      entities: {},
     })
 
     // 8. 응답 반환
     return NextResponse.json({
       success: true,
-      intent: classification.intent,
-      message: handlerResult.message,
-      links: handlerResult.links,
-      ...(handlerResult.flow_active !== undefined && { flow_active: handlerResult.flow_active }),
+      message: agentResult.message,
+      links: agentResult.links,
+      ...(agentResult.flow_active !== undefined && { flow_active: agentResult.flow_active }),
     } as ChatResponse)
   } catch (error) {
     // Gemini API 할당량 초과

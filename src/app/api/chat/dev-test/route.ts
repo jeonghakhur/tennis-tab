@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { classifyIntent, GeminiQuotaError } from '@/lib/chat/classify'
-import { getHandler } from '@/lib/chat/handlers'
+import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
 import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
 import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
@@ -26,10 +25,10 @@ export async function POST(request: NextRequest) {
   try {
     // 활성 플로우 세션 체크 (실제 route.ts와 동일한 흐름)
     if (user_id) {
-      const entrySession = getSession(user_id)
+      const entrySession = await getSession(user_id)
       if (entrySession) {
         if (isNewQueryDuringFlow(message, entrySession.step) || isUnrelatedToStep(message, entrySession)) {
-          deleteSession(user_id)
+          await deleteSession(user_id)
         } else {
           const r = await handleEntryFlow(user_id, message)
           return NextResponse.json({ success: true, intent: 'APPLY_TOURNAMENT', message: r.message, links: r.links, flow_active: r.flowActive })
@@ -46,15 +45,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const classification = await classifyIntent(message, history)
-    const handler = getHandler(classification.intent)
-    const handlerResult = await handler(classification.entities, user_id)
+    const agentResult = await runAgent(message, history, user_id)
     return NextResponse.json({
       success: true,
-      intent: classification.intent,
-      message: handlerResult.message,
-      links: handlerResult.links,
-      ...(handlerResult.flow_active !== undefined && { flow_active: handlerResult.flow_active }),
+      message: agentResult.message,
+      links: agentResult.links,
+      ...(agentResult.flow_active !== undefined && { flow_active: agentResult.flow_active }),
     })
   } catch (err) {
     if (err instanceof GeminiQuotaError) {

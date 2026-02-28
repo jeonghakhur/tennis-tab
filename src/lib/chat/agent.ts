@@ -68,12 +68,19 @@ const PAYMENT_LABEL: Record<string, string> = {
 
 const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'] as const
 
+/** 시스템 프롬프트 캐시 (1분 TTL — 날짜/요일만 포함하므로 분 단위 갱신으로 충분) */
+const PROMPT_CACHE_TTL_MS = 60 * 1000
+let cachedPrompt: { text: string; expiresAt: number } | null = null
+
 function buildSystemPrompt() {
+  const ts = Date.now()
+  if (cachedPrompt && ts < cachedPrompt.expiresAt) return cachedPrompt.text
+
   const now = new Date()
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const weekday = WEEKDAY[now.getDay()]
 
-  return `당신은 테니스 대회 플랫폼 "Tennis Tab"의 AI 어시스턴트입니다.
+  const prompt = `당신은 테니스 대회 플랫폼 "Tennis Tab"의 AI 어시스턴트입니다.
 사용자의 질문을 이해하고 적절한 도구를 호출하여 정보를 조회한 뒤, 자연스럽고 간결한 한국어로 답변합니다.
 
 오늘 날짜: ${date} (${weekday}요일)
@@ -113,6 +120,9 @@ function buildSystemPrompt() {
 - 응답에 PENDING, APPROVED, REJECTED, CONFIRMED, WAITLISTED, UNPAID, COMPLETED 등 영어 상태값 절대 노출 금지
 - 추가 정보 없이도 호출 가능한 도구는 절대 되묻지 말고 즉시 호출할 것
 - 사용자가 행동 의사를 표현하면 해당 도구를 즉시 호출하여 결과를 반환할 것`
+
+  cachedPrompt = { text: prompt, expiresAt: ts + PROMPT_CACHE_TTL_MS }
+  return prompt
 }
 
 // ─── Tool 선언 ────────────────────────────────────────────────────────────────
@@ -463,15 +473,25 @@ async function toolGetMySchedule(userId: string): Promise<ToolResult> {
   if (!entries || entries.length === 0) return { content: '참가 중인 대회가 없습니다.' }
 
   const entryIds = entries.map((e) => e.id)
-  const { data: matches } = await admin
-    .from('bracket_matches')
-    .select('round_number, match_number, status, court_number, entry1:team1_entry_id(id, player_name), entry2:team2_entry_id(id, player_name)')
-    .or(`team1_entry_id.in.(${entryIds.join(',')}),team2_entry_id.in.(${entryIds.join(',')})`)
-    .in('status', ['SCHEDULED', 'IN_PROGRESS'])
-    .order('round_number')
-    .limit(10)
+  const scheduleSelect = 'round_number, match_number, status, court_number, entry1:team1_entry_id(id, player_name), entry2:team2_entry_id(id, player_name)'
+  const [{ data: m1 }, { data: m2 }] = await Promise.all([
+    admin.from('bracket_matches').select(scheduleSelect)
+      .in('team1_entry_id', entryIds).in('status', ['SCHEDULED', 'IN_PROGRESS'])
+      .order('round_number').limit(10),
+    admin.from('bracket_matches').select(scheduleSelect)
+      .in('team2_entry_id', entryIds).in('status', ['SCHEDULED', 'IN_PROGRESS'])
+      .order('round_number').limit(10),
+  ])
+  // 중복 제거 (양쪽 entry가 모두 내 것인 경기)
+  const seen = new Set<string>()
+  const matches = [...(m1 ?? []), ...(m2 ?? [])].filter((m) => {
+    const key = `${m.round_number}:${m.match_number}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  }).sort((a, b) => a.round_number - b.round_number).slice(0, 10)
 
-  if (!matches || matches.length === 0) {
+  if (matches.length === 0) {
     return { content: '예정된 경기가 없습니다.', links: [{ label: '내 신청 확인', href: '/my/entries' }] }
   }
 
@@ -513,15 +533,25 @@ async function toolGetMyResults(userId: string): Promise<ToolResult> {
   if (!entries || entries.length === 0) return { content: '참가한 대회가 없습니다.' }
 
   const entryIds = entries.map((e) => e.id)
-  const { data: matches } = await admin
-    .from('bracket_matches')
-    .select('round_number, team1_score, team2_score, entry1:team1_entry_id(id, player_name), entry2:team2_entry_id(id, player_name), winner:winner_entry_id(id, player_name)')
-    .or(`team1_entry_id.in.(${entryIds.join(',')}),team2_entry_id.in.(${entryIds.join(',')})`)
-    .eq('status', 'COMPLETED')
-    .order('completed_at', { ascending: false })
-    .limit(10)
+  const resultSelect = 'round_number, match_number, team1_score, team2_score, entry1:team1_entry_id(id, player_name), entry2:team2_entry_id(id, player_name), winner:winner_entry_id(id, player_name)'
+  const [{ data: r1 }, { data: r2 }] = await Promise.all([
+    admin.from('bracket_matches').select(resultSelect)
+      .in('team1_entry_id', entryIds).eq('status', 'COMPLETED')
+      .order('completed_at', { ascending: false }).limit(10),
+    admin.from('bracket_matches').select(resultSelect)
+      .in('team2_entry_id', entryIds).eq('status', 'COMPLETED')
+      .order('completed_at', { ascending: false }).limit(10),
+  ])
+  // 중복 제거
+  const resultSeen = new Set<string>()
+  const matches = [...(r1 ?? []), ...(r2 ?? [])].filter((m) => {
+    const key = `${m.round_number}:${m.match_number}`
+    if (resultSeen.has(key)) return false
+    resultSeen.add(key)
+    return true
+  }).slice(0, 10)
 
-  if (!matches || matches.length === 0) {
+  if (matches.length === 0) {
     return { content: '완료된 경기가 없습니다.', links: [{ label: '내 신청 확인', href: '/my/entries' }] }
   }
 
@@ -693,19 +723,26 @@ export async function runAgent(
     }
 
     // Gemini에게 tool 결과 전달
-    // - candidate.content.parts를 그대로 사용해 functionCall id 등 원본 필드 보존
+    // - generateContent API는 functionCall에 name+args만, functionResponse에 name+response만 허용
+    // - SDK가 반환하는 parts를 그대로 쓰면 id 등 미지원 필드가 포함되어 "Unknown name" 에러 발생
     contents = [
       ...contents,
-      { role: 'model' as const, parts: candidate?.content?.parts ?? [{ functionCall: fnCall }] },
+      {
+        role: 'model' as const,
+        parts: [{ functionCall: { name: toolName, args: toolArgs } }],
+      },
       {
         role: 'user' as const,
         parts: [{
           functionResponse: {
-            id: fnCall.id,      // functionCall id 매칭 (Gemini 멀티턴 필수)
             name: toolName,
-            // JSON 문자열이면 객체로 파싱해서 전달 (문자열 래핑 시 Gemini 구조 파악 실패 → hallucination)
             response: (() => {
-              try { return JSON.parse(toolResult.content) } catch { return { message: toolResult.content } }
+              try {
+                const parsed = JSON.parse(toolResult.content)
+                return Array.isArray(parsed) ? { results: parsed } : parsed
+              } catch {
+                return { output: toolResult.content }
+              }
             })(),
           },
         }],
@@ -713,5 +750,6 @@ export async function runAgent(
     ]
   }
 
+  console.error(`[agent] MAX_TOOL_ROUNDS(${MAX_TOOL_ROUNDS}) 초과 — 무한 루프 의심`)
   return { message: '요청 처리 중 문제가 발생했습니다. 다시 시도해주세요.' }
 }

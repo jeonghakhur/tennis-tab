@@ -111,7 +111,7 @@ export async function handleApplyTournament(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
-  setSession(userId, session)
+  await setSession(userId, session)
 
   return {
     success: true,
@@ -153,7 +153,7 @@ async function createSessionAndShowDivisions(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
-  setSession(userId, session)
+  await setSession(userId, session)
 
   return {
     success: true,

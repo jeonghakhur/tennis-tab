@@ -553,7 +553,7 @@ export type UpdateTournamentStatusResult =
 
 export async function updateTournamentStatus(
   tournamentId: string,
-  status: 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  status: 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
 ): Promise<UpdateTournamentStatusResult> {
   const supabase = await createClient()
 

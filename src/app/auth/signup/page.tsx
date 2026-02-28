@@ -4,7 +4,6 @@ import { signUpWithEmail } from '@/lib/auth/actions'
 import { useState, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Navigation } from '@/components/Navigation'
 import { AlertDialog } from '@/components/common/AlertDialog'
 
 const PASSWORD_MIN_LENGTH = 6
@@ -105,7 +104,6 @@ export default function SignupPage() {
 
   return (
     <>
-      <Navigation />
       <main
         className="flex-1 flex items-center justify-center"
         style={{ backgroundColor: 'var(--bg-primary)' }}

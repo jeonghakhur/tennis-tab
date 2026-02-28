@@ -36,7 +36,7 @@ export async function handleEntryFlow(
   userId: string,
   message: string,
 ): Promise<EntryFlowResult> {
-  const session = getSession(userId)
+  const session = await getSession(userId)
   if (!session) {
     return {
       success: false,
@@ -47,7 +47,7 @@ export async function handleEntryFlow(
 
   // 취소 처리
   if (CANCEL_KEYWORDS.includes(message.trim().toLowerCase())) {
-    deleteSession(userId)
+    await deleteSession(userId)
     return {
       success: true,
       message: '참가 신청을 취소했습니다.',
@@ -73,7 +73,7 @@ export async function handleEntryFlow(
     case 'CONFIRM':
       return handleConfirmStep(session, message)
     default:
-      deleteSession(session.userId)
+      await deleteSession(session.userId)
       return {
         success: false,
         message: '알 수 없는 상태입니다. 다시 시작해주세요.',
@@ -90,7 +90,7 @@ async function handleSelectTournamentStep(
 ): Promise<EntryFlowResult> {
   const results = session.data.searchResults
   if (!results || results.length === 0) {
-    deleteSession(session.userId)
+    await deleteSession(session.userId)
     return { success: false, message: '대회 정보가 없습니다.', flowActive: false }
   }
 
@@ -104,7 +104,7 @@ async function handleSelectTournamentStep(
   // 부서 목록 조회
   const divisions = await getDivisionsWithCounts(selected.id)
   if (divisions.length === 0) {
-    deleteSession(session.userId)
+    await deleteSession(session.userId)
     return {
       success: true,
       message: `${selected.title}에 참가 가능한 부서가 없습니다.`,
@@ -122,7 +122,7 @@ async function handleSelectTournamentStep(
   session.data.divisions = divisions
   session.data.searchResults = undefined
   session.step = 'SELECT_DIVISION'
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   return {
     success: true,
@@ -152,7 +152,7 @@ async function handleSelectDivisionStep(
     selected.id,
   )
   if (exists) {
-    deleteSession(session.userId)
+    await deleteSession(session.userId)
     return {
       success: true,
       message: `이미 ${selected.name} 부서에 참가 신청하셨습니다.`,
@@ -175,16 +175,16 @@ async function handleSelectDivisionStep(
 }
 
 /** 부서 선택 후 경기 타입별 다음 step 라우팅 */
-function routeAfterDivisionSelect(
+async function routeAfterDivisionSelect(
   session: EntryFlowSession,
   waitlistNotice: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const { matchType, phone } = session.data
 
   // 전화번호 없으면 INPUT_PHONE 삽입
   if (!phone) {
     session.step = 'INPUT_PHONE'
-    setSession(session.userId, session)
+    await setSession(session.userId, session)
     return {
       success: true,
       message: `${waitlistNotice ? waitlistNotice + '\n\n' : ''}전화번호를 입력해주세요. (예: 010-1234-5678)`,
@@ -195,7 +195,7 @@ function routeAfterDivisionSelect(
   // 복식 → 파트너 입력
   if (matchType === 'INDIVIDUAL_DOUBLES') {
     session.step = 'INPUT_PARTNER'
-    setSession(session.userId, session)
+    await setSession(session.userId, session)
     return {
       success: true,
       message: `${waitlistNotice ? waitlistNotice + '\n\n' : ''}파트너 정보를 입력해주세요.\n형식: 이름, 클럽명, 점수 (예: 김철수, 강남클럽, 900)`,
@@ -206,7 +206,7 @@ function routeAfterDivisionSelect(
   // 단체전 → 클럽명 입력
   if (matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES') {
     session.step = 'INPUT_CLUB_NAME'
-    setSession(session.userId, session)
+    await setSession(session.userId, session)
     return {
       success: true,
       message: `${waitlistNotice ? waitlistNotice + '\n\n' : ''}클럽명을 입력해주세요.`,
@@ -216,7 +216,7 @@ function routeAfterDivisionSelect(
 
   // 개인전 단식 → 바로 확인
   session.step = 'CONFIRM'
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
   return {
     success: true,
     message: buildConfirmMessage(session, waitlistNotice),
@@ -226,10 +226,10 @@ function routeAfterDivisionSelect(
 
 // ─── INPUT_PHONE ─────────────────────────────────────
 
-function handleInputPhoneStep(
+async function handleInputPhoneStep(
   session: EntryFlowSession,
   message: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const parsed = parsePhone(message)
   if ('error' in parsed) {
     return { success: true, message: parsed.error, flowActive: true }
@@ -243,10 +243,10 @@ function handleInputPhoneStep(
 
 // ─── INPUT_PARTNER (복식) ────────────────────────────
 
-function handleInputPartnerStep(
+async function handleInputPartnerStep(
   session: EntryFlowSession,
   message: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const parsed = parsePartnerInput(message)
   if ('error' in parsed) {
     return { success: true, message: parsed.error, flowActive: true }
@@ -254,7 +254,7 @@ function handleInputPartnerStep(
 
   session.data.partnerData = parsed
   session.step = 'CONFIRM'
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   return {
     success: true,
@@ -265,10 +265,10 @@ function handleInputPartnerStep(
 
 // ─── INPUT_CLUB_NAME (단체전) ────────────────────────
 
-function handleInputClubNameStep(
+async function handleInputClubNameStep(
   session: EntryFlowSession,
   message: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const clubName = message.trim()
   if (!clubName || clubName.length < 2) {
     return { success: true, message: '클럽명을 2자 이상 입력해주세요.', flowActive: true }
@@ -276,7 +276,7 @@ function handleInputClubNameStep(
 
   session.data.clubName = clubName
   session.step = 'INPUT_TEAM_ORDER'
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   return {
     success: true,
@@ -287,10 +287,10 @@ function handleInputClubNameStep(
 
 // ─── INPUT_TEAM_ORDER (단체전) ───────────────────────
 
-function handleInputTeamOrderStep(
+async function handleInputTeamOrderStep(
   session: EntryFlowSession,
   message: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const parsed = parseTeamOrder(message)
   if ('error' in parsed) {
     return { success: true, message: parsed.error, flowActive: true }
@@ -299,7 +299,7 @@ function handleInputTeamOrderStep(
   session.data.teamOrder = parsed.order
   session.data.teamMembers = []
   session.step = 'INPUT_TEAM_MEMBERS'
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
   const minTotal = minAdditional + 1 // 신청자 포함
@@ -312,10 +312,10 @@ function handleInputTeamOrderStep(
 
 // ─── INPUT_TEAM_MEMBERS (단체전) ─────────────────────
 
-function handleInputTeamMembersStep(
+async function handleInputTeamMembersStep(
   session: EntryFlowSession,
   message: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const trimmed = message.trim()
 
   // 쉼표 포함 → 다중 입력 처리
@@ -336,7 +336,7 @@ function handleInputTeamMembersStep(
 
   if (!session.data.teamMembers) session.data.teamMembers = []
   session.data.teamMembers.push({ name: parsed.name, rating: parsed.rating })
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   const count = session.data.teamMembers.length
   const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
@@ -349,10 +349,10 @@ function handleInputTeamMembersStep(
 }
 
 /** 쉼표 구분 다중 팀원 입력 처리 */
-function handleMultipleTeamMembers(
+async function handleMultipleTeamMembers(
   session: EntryFlowSession,
   input: string,
-): EntryFlowResult {
+): Promise<EntryFlowResult> {
   const parts = input.split(',').map((s) => s.trim()).filter(Boolean)
 
   const added: { name: string; rating: number }[] = []
@@ -369,7 +369,7 @@ function handleMultipleTeamMembers(
 
   if (!session.data.teamMembers) session.data.teamMembers = []
   session.data.teamMembers.push(...added)
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   const total = session.data.teamMembers.length + 1 // +1: 신청자 본인
   const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
@@ -390,7 +390,7 @@ function handleMultipleTeamMembers(
 }
 
 /** 팀원 입력 완료 처리 */
-function finishTeamMembersInput(session: EntryFlowSession): EntryFlowResult {
+async function finishTeamMembersInput(session: EntryFlowSession): Promise<EntryFlowResult> {
   const members = session.data.teamMembers ?? []
   const minAdditional = calcMinAdditionalMembers(session.data.matchType, session.data.teamMatchCount)
   if (members.length < minAdditional) {
@@ -403,7 +403,7 @@ function finishTeamMembersInput(session: EntryFlowSession): EntryFlowResult {
   }
 
   session.step = 'CONFIRM'
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
   return {
     success: true,
     message: buildConfirmMessage(session, ''),
@@ -420,7 +420,7 @@ async function handleConfirmStep(
   const answer = parseConfirm(message)
 
   if (answer === 'no' || answer === 'edit') {
-    deleteSession(session.userId)
+    await deleteSession(session.userId)
     return {
       success: true,
       message: '참가 신청을 취소했습니다. 다시 시작하려면 대회명을 말씀해주세요.',
@@ -439,7 +439,7 @@ async function handleConfirmStep(
   // createEntry 호출
   const { data } = session
   if (!data.divisionId) {
-    deleteSession(session.userId)
+    await deleteSession(session.userId)
     return { success: false, message: '부서 정보가 없습니다. 다시 시작해주세요.', flowActive: false }
   }
   const result = await createEntry(data.tournamentId, {
@@ -453,7 +453,7 @@ async function handleConfirmStep(
     teamMembers: data.teamMembers,
   })
 
-  deleteSession(session.userId)
+  await deleteSession(session.userId)
 
   if (!result.success) {
     return {

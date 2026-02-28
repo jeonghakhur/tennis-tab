@@ -74,7 +74,7 @@ export interface ChatRequest {
 /** POST /api/chat 성공 응답 */
 export interface ChatSuccessResponse {
   success: true
-  intent: Intent
+  intent?: Intent | string
   message: string
   data?: unknown
   links?: Array<{
