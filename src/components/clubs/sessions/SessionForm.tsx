@@ -11,7 +11,6 @@ interface SessionFormProps {
   isOpen: boolean
   onClose: () => void
   onCreated: () => void
-  // 수정 모드: session 전달 시 수정, 없으면 생성
   session?: ClubSession
 }
 
@@ -41,19 +40,21 @@ const INITIAL_FORM: FormState = {
   notes: '',
 }
 
-function sessionToForm(session: ClubSession): FormState {
-  const rsvp = session.rsvp_deadline ? new Date(session.rsvp_deadline) : null
+function sessionToForm(s: ClubSession): FormState {
+  const rsvp = s.rsvp_deadline ? new Date(s.rsvp_deadline) : null
   return {
-    title: session.title,
-    venue_name: session.venue_name,
-    court_numbers_text: session.court_numbers.join(', '),
-    session_date: session.session_date,
-    start_time: session.start_time.slice(0, 5),
-    end_time: session.end_time.slice(0, 5),
-    max_attendees: session.max_attendees?.toString() ?? '',
+    title: s.title,
+    venue_name: s.venue_name,
+    court_numbers_text: s.court_numbers.join(', '),
+    session_date: s.session_date,
+    start_time: s.start_time.slice(0, 5),
+    end_time: s.end_time.slice(0, 5),
+    max_attendees: s.max_attendees?.toString() ?? '',
     rsvp_deadline_date: rsvp ? rsvp.toISOString().slice(0, 10) : '',
-    rsvp_deadline_time: rsvp ? `${String(rsvp.getHours()).padStart(2,'0')}:${String(rsvp.getMinutes()).padStart(2,'0')}` : '',
-    notes: session.notes ?? '',
+    rsvp_deadline_time: rsvp
+      ? `${String(rsvp.getHours()).padStart(2, '0')}:${String(rsvp.getMinutes()).padStart(2, '0')}`
+      : '',
+    notes: s.notes ?? '',
   }
 }
 
@@ -65,17 +66,44 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
   const errorFieldRef = useRef<string | null>(null)
   const fieldRefs = useRef<Record<string, HTMLInputElement | HTMLTextAreaElement | null>>({})
 
-  // 수정 모드일 때 폼 초기화
   useEffect(() => {
-    if (isOpen) {
-      setForm(session ? sessionToForm(session) : INITIAL_FORM)
+    if (!isOpen) return
+
+    if (session) {
+      // 수정 모드: 기존 데이터로 채우기
+      setForm(sessionToForm(session))
+    } else {
+      // 생성 모드: 마지막 모임 데이터로 장소/시간 기본값 채우기
+      const loadLast = async () => {
+        try {
+          const { getClubSessions } = await import('@/lib/clubs/session-actions')
+          const sessions = await getClubSessions(clubId, { limit: 10 })
+          const last = sessions.find(s => s.status === 'COMPLETED' || s.status === 'OPEN')
+          if (last) {
+            setForm({
+              ...INITIAL_FORM,
+              venue_name: last.venue_name,
+              court_numbers_text: last.court_numbers.join(', '),
+              start_time: last.start_time.slice(0, 5),
+              end_time: last.end_time.slice(0, 5),
+              max_attendees: last.max_attendees?.toString() ?? '',
+            })
+          } else {
+            setForm(INITIAL_FORM)
+          }
+        } catch {
+          setForm(INITIAL_FORM)
+        }
+      }
+      loadLast()
     }
-  }, [isOpen, session])
+  }, [isOpen, session, clubId])
 
   const handleChange = useCallback(
-    (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-      setForm((prev) => ({ ...prev, [field]: e.target.value }))
-    },
+    (field: keyof FormState) =>
+      (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        setForm((prev) => ({ ...prev, [field]: e.target.value }))
+      },
     []
   )
 
@@ -142,90 +170,129 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
     }
 
     setSaving(false)
-
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
       return
     }
-
     onCreated()
     onClose()
   }
 
   const inputClass =
-    'w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color)'
+    'w-full px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color) text-sm'
 
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? '모임 수정' : '모임 생성'} size="lg">
         <form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
-            <div className="space-y-4">
+            <div className="space-y-3">
+
+              {/* 제목 */}
               <div>
-                <label htmlFor="session-title" className="block text-sm font-medium text-(--text-secondary) mb-1">제목 *</label>
-                <input id="session-title" ref={(el) => { fieldRefs.current.title = el }}
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">제목 *</label>
+                <input
+                  ref={(el) => { fieldRefs.current.title = el }}
                   value={form.title} onChange={handleChange('title')}
-                  className={inputClass} placeholder="예: 3월 정기 모임" />
+                  className={inputClass} placeholder="예: 3월 정기 모임"
+                />
               </div>
+
+              {/* 날짜 */}
               <div>
-                <label htmlFor="session-venue" className="block text-sm font-medium text-(--text-secondary) mb-1">코트장 *</label>
-                <input id="session-venue" ref={(el) => { fieldRefs.current.venue_name = el }}
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">날짜 *</label>
+                <input
+                  ref={(el) => { fieldRefs.current.session_date = el }}
+                  type="date" value={form.session_date} onChange={handleChange('session_date')}
+                  className={inputClass}
+                />
+              </div>
+
+              {/* 시작/종료 시간 */}
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-(--text-secondary) mb-1">시작 시간 *</label>
+                  <input
+                    ref={(el) => { fieldRefs.current.start_time = el }}
+                    type="time" value={form.start_time} onChange={handleChange('start_time')}
+                    className={inputClass}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-(--text-secondary) mb-1">종료 시간 *</label>
+                  <input
+                    ref={(el) => { fieldRefs.current.end_time = el }}
+                    type="time" value={form.end_time} onChange={handleChange('end_time')}
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              {/* 코트장 */}
+              <div>
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">코트장 *</label>
+                <input
+                  ref={(el) => { fieldRefs.current.venue_name = el }}
                   value={form.venue_name} onChange={handleChange('venue_name')}
-                  className={inputClass} placeholder="예: 잠실 테니스장" />
+                  className={inputClass} placeholder="예: 잠실 테니스장"
+                />
               </div>
+
+              {/* 사용 코트 */}
               <div>
-                <label htmlFor="session-courts" className="block text-sm font-medium text-(--text-secondary) mb-1">사용 코트 (쉼표 구분)</label>
-                <input id="session-courts" value={form.court_numbers_text} onChange={handleChange('court_numbers_text')}
-                  className={inputClass} placeholder="예: 1번, 2번, 3번" />
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">사용 코트 <span className="font-normal opacity-60">(쉼표 구분)</span></label>
+                <input
+                  value={form.court_numbers_text} onChange={handleChange('court_numbers_text')}
+                  className={inputClass} placeholder="예: 1번, 2번"
+                />
               </div>
+
+              {/* 정원 */}
               <div>
-                <label htmlFor="session-date" className="block text-sm font-medium text-(--text-secondary) mb-1">날짜 *</label>
-                <input id="session-date" ref={(el) => { fieldRefs.current.session_date = el }}
-                  type="date" value={form.session_date} onChange={handleChange('session_date')} className={inputClass} />
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">정원 <span className="font-normal opacity-60">(선택)</span></label>
+                <input
+                  type="number" value={form.max_attendees} onChange={handleChange('max_attendees')}
+                  className={inputClass} placeholder="미입력 시 제한 없음" min={2}
+                />
               </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="session-start" className="block text-sm font-medium text-(--text-secondary) mb-1">시작 시간 *</label>
-                  <input id="session-start" ref={(el) => { fieldRefs.current.start_time = el }}
-                    type="time" value={form.start_time} onChange={handleChange('start_time')} className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="session-end" className="block text-sm font-medium text-(--text-secondary) mb-1">종료 시간 *</label>
-                  <input id="session-end" ref={(el) => { fieldRefs.current.end_time = el }}
-                    type="time" value={form.end_time} onChange={handleChange('end_time')} className={inputClass} />
-                </div>
-              </div>
+
+              {/* 응답 마감 */}
               <div>
-                <label htmlFor="session-max" className="block text-sm font-medium text-(--text-secondary) mb-1">정원 (선택)</label>
-                <input id="session-max" type="number" value={form.max_attendees} onChange={handleChange('max_attendees')}
-                  className={inputClass} placeholder="미입력 시 제한 없음" min={2} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="session-rsvp-date" className="block text-sm font-medium text-(--text-secondary) mb-1">응답 마감일 (선택)</label>
-                  <input id="session-rsvp-date" type="date" value={form.rsvp_deadline_date}
-                    onChange={handleChange('rsvp_deadline_date')} className={inputClass} />
-                </div>
-                <div>
-                  <label htmlFor="session-rsvp-time" className="block text-sm font-medium text-(--text-secondary) mb-1">마감 시간</label>
-                  <input id="session-rsvp-time" type="time" value={form.rsvp_deadline_time}
-                    onChange={handleChange('rsvp_deadline_time')} className={inputClass} />
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">응답 마감 <span className="font-normal opacity-60">(선택)</span></label>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="date" value={form.rsvp_deadline_date}
+                    onChange={handleChange('rsvp_deadline_date')}
+                    className={inputClass}
+                  />
+                  <input
+                    type="time" value={form.rsvp_deadline_time}
+                    onChange={handleChange('rsvp_deadline_time')}
+                    className={inputClass}
+                  />
                 </div>
               </div>
+
+              {/* 메모 */}
               <div>
-                <label htmlFor="session-notes" className="block text-sm font-medium text-(--text-secondary) mb-1">메모 (선택)</label>
-                <textarea id="session-notes" value={form.notes} onChange={handleChange('notes')}
-                  className={`${inputClass} resize-none`} rows={3} placeholder="참고 사항을 적어주세요" />
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">메모 <span className="font-normal opacity-60">(선택)</span></label>
+                <textarea
+                  value={form.notes} onChange={handleChange('notes')}
+                  className={`${inputClass} resize-none`} rows={2}
+                  placeholder="참고 사항을 적어주세요"
+                />
               </div>
+
             </div>
           </Modal.Body>
+
           <Modal.Footer>
             <button type="button" onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg bg-(--bg-secondary) text-(--text-primary) border border-(--border-color)">
+              className="flex-1 px-4 py-2.5 rounded-lg bg-(--bg-secondary) text-(--text-primary) border border-(--border-color) text-sm">
               취소
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 px-4 py-2 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold disabled:opacity-50">
+              className="flex-1 px-4 py-2.5 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold text-sm disabled:opacity-50">
               {saving ? (isEditMode ? '수정 중...' : '생성 중...') : (isEditMode ? '수정' : '생성')}
             </button>
           </Modal.Footer>
