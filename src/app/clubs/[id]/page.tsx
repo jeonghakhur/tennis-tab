@@ -90,9 +90,12 @@ export default function ClubDetailPage() {
 
   const loadClubData = async () => {
     setLoading(true)
-    // 클럽 기본 정보만 우선 로드 (모임 탭이 첫 화면)
-    const clubResult = await getClub(id)
+    const [clubResult, count] = await Promise.all([
+      getClub(id),
+      getClubMemberCount(id),
+    ])
     if (clubResult.data) setClub(clubResult.data)
+    setMemberCount(count)
     setLoading(false)
   }
 
@@ -428,79 +431,37 @@ export default function ClubDetailPage() {
               </div>
 
               {/* 탭 헤더 — 회원은 회원목록+입상기록, 임원은 회원관리 추가 */}
-              <div className="flex border-b overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
-                <button
-                  onClick={() => setActiveTab('sessions')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
-                    activeTab === 'sessions'
-                      ? 'text-(--accent-color)'
-                      : 'text-(--text-muted) hover:text-(--text-primary)'
-                  }`}
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  모임
-                  {activeTab === 'sessions' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('info')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                    activeTab === 'info'
-                      ? 'text-(--accent-color)'
-                      : 'text-(--text-muted) hover:text-(--text-primary)'
-                  }`}
-                >
-                  회원 목록
-                  {activeTab === 'info' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('rankings')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
-                    activeTab === 'rankings'
-                      ? 'text-(--accent-color)'
-                      : 'text-(--text-muted) hover:text-(--text-primary)'
-                  }`}
-                >
-                  <BarChart3 className="w-3.5 h-3.5" />
-                  순위
-                  {activeTab === 'rankings' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                  )}
-                </button>
-                <button
-                  onClick={() => setActiveTab('awards')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
-                    activeTab === 'awards'
-                      ? 'text-(--accent-color)'
-                      : 'text-(--text-muted) hover:text-(--text-primary)'
-                  }`}
-                >
-                  <Trophy className="w-3.5 h-3.5" />
-                  입상 기록
-                  {activeTab === 'awards' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                  )}
-                </button>
-                {isOfficer && (
-                  <button
-                    onClick={() => setActiveTab('manage')}
-                    className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
-                      activeTab === 'manage'
-                        ? 'text-(--accent-color)'
-                        : 'text-(--text-muted) hover:text-(--text-primary)'
-                    }`}
-                  >
-                    <Settings className="w-3.5 h-3.5" />
-                    관리
-                    {activeTab === 'manage' && (
-                      <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                    )}
-                  </button>
-                )}
-              </div>
+              {/* 탭 - 아이콘+텍스트, 균등 분할 */}
+              {(() => {
+                const tabs = [
+                  { key: 'sessions', icon: <Calendar className="w-4 h-4" />, label: '모임' },
+                  { key: 'info', icon: <Users className="w-4 h-4" />, label: '회원' },
+                  { key: 'rankings', icon: <BarChart3 className="w-4 h-4" />, label: '순위' },
+                  { key: 'awards', icon: <Trophy className="w-4 h-4" />, label: '입상' },
+                  ...(isOfficer ? [{ key: 'manage', icon: <Settings className="w-4 h-4" />, label: '관리' }] : []),
+                ] as const
+                return (
+                  <div className="flex border-b" style={{ borderColor: 'var(--border-color)' }}>
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.key}
+                        onClick={() => setActiveTab(tab.key as typeof activeTab)}
+                        className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors relative ${
+                          activeTab === tab.key
+                            ? 'text-(--accent-color)'
+                            : 'text-(--text-muted) hover:text-(--text-primary)'
+                        }`}
+                      >
+                        {tab.icon}
+                        {tab.label}
+                        {activeTab === tab.key && (
+                          <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
 
               {/* 탭 콘텐츠 */}
               {isOfficer && activeTab === 'manage' ? (
