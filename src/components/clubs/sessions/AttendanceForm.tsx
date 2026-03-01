@@ -13,6 +13,8 @@ interface AttendanceFormProps {
   currentFrom?: string | null
   currentUntil?: string | null
   currentNotes?: string | null
+  sessionStartTime?: string  // 모임 시작 시간 (기본값)
+  sessionEndTime?: string    // 모임 종료 시간 (기본값)
   onResponded: () => void
 }
 
@@ -29,11 +31,13 @@ export default function AttendanceForm({
   currentFrom,
   currentUntil,
   currentNotes,
+  sessionStartTime,
+  sessionEndTime,
   onResponded,
 }: AttendanceFormProps) {
   const [status, setStatus] = useState<AttendanceStatus>(currentStatus || 'UNDECIDED')
-  const [availableFrom, setAvailableFrom] = useState(currentFrom || '')
-  const [availableUntil, setAvailableUntil] = useState(currentUntil || '')
+  const [availableFrom, setAvailableFrom] = useState(currentFrom || sessionStartTime?.slice(0,5) || '')
+  const [availableUntil, setAvailableUntil] = useState(currentUntil || sessionEndTime?.slice(0,5) || '')
   const [notes, setNotes] = useState(currentNotes || '')
   const [saving, setSaving] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })

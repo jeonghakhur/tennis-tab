@@ -235,6 +235,8 @@ export default function SessionDetailPage() {
               currentFrom={myAttendance?.available_from}
               currentUntil={myAttendance?.available_until}
               currentNotes={myAttendance?.notes}
+              sessionStartTime={session?.start_time}
+              sessionEndTime={session?.end_time}
               onResponded={fetchData}
             />
           )}
