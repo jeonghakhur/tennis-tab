@@ -173,7 +173,7 @@ export default function SessionDetailPage() {
                 <div className="flex items-center gap-2">
                   <span>⏰</span>
                   <span>
-                    마감: {new Date(session.rsvp_deadline).toLocaleDateString('ko-KR').replace(/\. /g, '.').replace(/\.$/, '') + ' ' + new Date(session.rsvp_deadline).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) /* suppressHydrationWarning placeholder */
+                    마감: {new Date(session.rsvp_deadline).toLocaleString('ko-KR', {
                       month: 'long',
                       day: 'numeric',
                       hour: '2-digit',
