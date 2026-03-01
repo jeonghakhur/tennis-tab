@@ -123,7 +123,7 @@ export default function SessionDetailPage() {
               클럽으로 돌아가기
             </Link>
           </div>
-        </main>
+        </div>
       </>
     )
   }
