@@ -110,7 +110,6 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
 
   const validate = useCallback((): boolean => {
     const checks: [string, string, boolean][] = [
-      ['title', '제목을 입력해주세요.', !form.title.trim()],
       ['venue_name', '코트장 이름을 입력해주세요.', !form.venue_name.trim()],
       ['session_date', '날짜를 선택해주세요.', !form.session_date],
       ['start_time', '시작 시간을 입력해주세요.', !form.start_time],
@@ -137,8 +136,15 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
       ? `${form.rsvp_deadline_date}T${form.rsvp_deadline_time}:00`
       : undefined
 
+    // 제목 미입력 시 날짜 기반 자동생성
+    let autoTitle = form.title.trim()
+    if (!autoTitle && form.session_date) {
+      const d = new Date(form.session_date + 'T00:00:00')
+      autoTitle = `${d.getMonth() + 1}월 ${d.getDate()}일 모임`
+    }
+
     const payload = {
-      title: form.title.trim(),
+      title: autoTitle,
       venue_name: form.venue_name.trim(),
       court_numbers: courtNumbers,
       session_date: form.session_date,
@@ -165,17 +171,6 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
         <form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
             <div className="space-y-4">
-
-              {/* 제목 */}
-              <div>
-                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>제목 *</label>
-                <input
-                  ref={el => { fieldRefs.current.title = el }}
-                  value={form.title} onChange={handleChange('title')}
-                  className={inputCls} style={fieldStyle}
-                  placeholder="예: 3월 정기 모임"
-                />
-              </div>
 
               {/* 날짜 */}
               <div>
@@ -229,6 +224,19 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                   value={form.court_numbers_text} onChange={handleChange('court_numbers_text')}
                   className={inputCls} style={fieldStyle}
                   placeholder="예: 1번, 2번"
+                />
+              </div>
+
+              {/* 제목 (선택) */}
+              <div>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
+                  제목 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(선택 · 미입력 시 날짜로 자동 생성)</span>
+                </label>
+                <input
+                  ref={el => { fieldRefs.current.title = el }}
+                  value={form.title} onChange={handleChange('title')}
+                  className={inputCls} style={fieldStyle}
+                  placeholder="예: 3월 정기 모임"
                 />
               </div>
 
