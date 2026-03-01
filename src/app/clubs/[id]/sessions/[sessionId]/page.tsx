@@ -40,6 +40,7 @@ export default function SessionDetailPage() {
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [deleting, setDeleting] = useState(false)
+  const [editAttendance, setEditAttendance] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -87,20 +88,20 @@ export default function SessionDetailPage() {
   )
 
   // 응답 가능 여부
-  const canRespond = session?.status === 'OPEN'
+  const canRespond = session?.status === 'OPEN' && myMemberId
 
   if (loading) {
     return (
       <>
         <Navigation />
-        <main style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="max-w-4xl mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
               <div className="h-64 w-full rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
             </div>
           </div>
-        </main>
+        </div>
       </>
     )
   }
@@ -109,7 +110,7 @@ export default function SessionDetailPage() {
     return (
       <>
         <Navigation />
-        <main className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="text-center">
             <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
               세션을 찾을 수 없습니다
@@ -136,8 +137,8 @@ export default function SessionDetailPage() {
   return (
     <>
       <Navigation />
-      <main style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12 space-y-6">
+      <div style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
           {/* 뒤로가기 */}
           <Link
             href={`/clubs/${clubId}`}
@@ -226,19 +227,54 @@ export default function SessionDetailPage() {
             )}
           </div>
 
-          {/* 참석 응답 (OPEN 상태 + 마감 전) */}
-          {canRespond && myMemberId && (
-            <AttendanceForm
-              sessionId={sessionId}
-              clubMemberId={myMemberId}
-              currentStatus={myAttendance?.status}
-              currentFrom={myAttendance?.available_from}
-              currentUntil={myAttendance?.available_until}
-              currentNotes={myAttendance?.notes}
-              sessionStartTime={session?.start_time}
-              sessionEndTime={session?.end_time}
-              onResponded={fetchData}
-            />
+          {/* 참석 응답 */}
+          {canRespond && (
+            <>
+              {myAttendance && !editAttendance ? (
+                /* 이미 응답한 경우 — 상태 카드 */
+                <div className="glass-card rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>내 참석 응답</h3>
+                    <button
+                      onClick={() => setEditAttendance(true)}
+                      className="text-xs px-3 py-1.5 rounded-lg border font-medium"
+                      style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                    >
+                      수정
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">
+                      {myAttendance.status === 'ATTENDING' ? '⭕' : '❌'}
+                    </span>
+                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                      {myAttendance.status === 'ATTENDING' ? '참석' : '불참'}
+                    </span>
+                    {myAttendance.status === 'ATTENDING' && myAttendance.available_from && myAttendance.available_until && (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {myAttendance.available_from.slice(0,5)} ~ {myAttendance.available_until.slice(0,5)}
+                      </span>
+                    )}
+                  </div>
+                  {myAttendance.notes && (
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{myAttendance.notes}</p>
+                  )}
+                </div>
+              ) : (
+                /* 미응답 또는 수정 모드 */
+                <AttendanceForm
+                  sessionId={sessionId}
+                  clubMemberId={myMemberId!}
+                  currentStatus={myAttendance?.status}
+                  currentFrom={myAttendance?.available_from}
+                  currentUntil={myAttendance?.available_until}
+                  currentNotes={myAttendance?.notes}
+                  sessionStartTime={session?.start_time}
+                  sessionEndTime={session?.end_time}
+                  onResponded={() => { setEditAttendance(false); fetchData() }}
+                />
+              )}
+            </>
           )}
 
           {/* 참석자 현황 */}
@@ -256,7 +292,7 @@ export default function SessionDetailPage() {
             />
           )}
         </div>
-      </main>
+      </div>
       {/* 수정 폼 */}
       {session && (
         <SessionForm

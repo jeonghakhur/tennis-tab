@@ -21,7 +21,6 @@ interface AttendanceFormProps {
 const STATUS_OPTIONS: { value: AttendanceStatus; label: string; emoji: string; activeClass: string }[] = [
   { value: 'ATTENDING', label: '참석', emoji: '⭕', activeClass: 'bg-emerald-500/20 border-emerald-500 text-emerald-400' },
   { value: 'NOT_ATTENDING', label: '불참', emoji: '❌', activeClass: 'bg-gray-500/20 border-gray-500 text-gray-400' },
-  { value: 'UNDECIDED', label: '미정', emoji: '❓', activeClass: 'bg-amber-500/20 border-amber-500 text-amber-400' },
 ]
 
 export default function AttendanceForm({
