@@ -5,6 +5,7 @@ import { Modal } from '@/components/common/Modal'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import { createClubSession, updateClubSession } from '@/lib/clubs/session-actions'
 import type { CreateSessionInput, ClubSession } from '@/lib/clubs/types'
+import SessionDatePicker from './SessionDatePicker'
 
 interface SessionFormProps {
   clubId: string
@@ -178,10 +179,10 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
               {/* 날짜 */}
               <div>
                 <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>날짜 *</label>
-                <input
-                  ref={el => { fieldRefs.current.session_date = el }}
-                  type="date" value={form.session_date} onChange={handleChange('session_date')}
-                  className={inputCls} style={fieldStyle}
+                <SessionDatePicker
+                  value={form.session_date}
+                  onChange={(v) => setForm(prev => ({ ...prev, session_date: v }))}
+                  placeholder="날짜를 선택하세요"
                 />
               </div>
 
@@ -244,10 +245,13 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                   응답 마감 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(선택)</span>
                 </label>
                 <div className="flex items-center gap-2">
-                  <input
-                    type="date" value={form.rsvp_deadline_date} onChange={handleChange('rsvp_deadline_date')}
-                    className={`${inputCls} flex-1`} style={fieldStyle}
-                  />
+                  <div className="flex-1">
+                    <SessionDatePicker
+                      value={form.rsvp_deadline_date}
+                      onChange={(v) => setForm(prev => ({ ...prev, rsvp_deadline_date: v }))}
+                      placeholder="날짜 선택"
+                    />
+                  </div>
                   <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
                   <input
                     type="time" value={form.rsvp_deadline_time} onChange={handleChange('rsvp_deadline_time')}
