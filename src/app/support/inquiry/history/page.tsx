@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { InquiryCard } from '@/components/support/InquiryCard'
 import { getMyInquiries } from '@/lib/support/actions'
@@ -31,8 +30,7 @@ export default function InquiryHistoryPage() {
   if (!authLoading && !user) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className=""
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
@@ -48,15 +46,14 @@ export default function InquiryHistoryPage() {
               로그인
             </Link>
           </div>
-        </main>
+        </div>
       </>
     )
   }
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -119,7 +116,7 @@ export default function InquiryHistoryPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </>
   )
 }

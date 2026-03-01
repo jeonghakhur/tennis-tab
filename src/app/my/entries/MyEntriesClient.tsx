@@ -3,7 +3,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { EntryCard } from '@/components/my/EntryCard'
 import { EntryStatusFilter } from '@/components/my/EntryStatusFilter'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
@@ -82,8 +81,7 @@ export function MyEntriesClient({ entries }: MyEntriesClientProps) {
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -160,7 +158,7 @@ export function MyEntriesClient({ entries }: MyEntriesClientProps) {
             </div>
           )}
         </div>
-      </main>
+      </div>
 
       {/* 취소 확인 다이얼로그 */}
       <ConfirmDialog

@@ -272,8 +272,7 @@ export default function MyProfilePage() {
   if (loading) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className=""
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
@@ -281,7 +280,7 @@ export default function MyProfilePage() {
             <ProfileHeaderSkeleton />
             <StatsCardsSkeleton />
           </div>
-        </main>
+        </div>
       </>
     );
   }
@@ -289,8 +288,7 @@ export default function MyProfilePage() {
   if (!user || !profile) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className="flex-1 flex items-center justify-center"
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
@@ -315,7 +313,7 @@ export default function MyProfilePage() {
               로그인하기
             </Link>
           </div>
-        </main>
+        </div>
       </>
     );
   }
@@ -338,8 +336,7 @@ export default function MyProfilePage() {
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
@@ -1077,7 +1074,7 @@ export default function MyProfilePage() {
             )
           )}
         </div>
-      </main>
+      </div>
     </>
   );
 }

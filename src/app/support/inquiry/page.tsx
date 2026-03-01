@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import { Toast } from '@/components/common/Toast'
@@ -41,8 +40,7 @@ export default function InquiryCreatePage() {
   if (!loading && !user) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className=""
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
@@ -58,15 +56,14 @@ export default function InquiryCreatePage() {
               로그인
             </Link>
           </div>
-        </main>
+        </div>
       </>
     )
   }
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -92,7 +89,7 @@ export default function InquiryCreatePage() {
             <InquiryForm onSubmit={handleSubmit} isSubmitting={submitting} />
           </div>
         </div>
-      </main>
+      </div>
 
       <AlertDialog
         isOpen={alert.isOpen}

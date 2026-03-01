@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { getClubs } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
@@ -105,8 +104,7 @@ export default function ClubsPage() {
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -234,7 +232,7 @@ export default function ClubsPage() {
             </div>
           )}
         </div>
-      </main>
+      </div>
     </>
   )
 }

@@ -1,5 +1,4 @@
 import { Suspense } from 'react'
-import { Navigation } from '@/components/Navigation'
 import { AwardsFilters } from '@/components/awards/AwardsFilters'
 import { AwardsList } from '@/components/awards/AwardsList'
 import { AwardsAdminBar } from '@/components/awards/AwardsAdminBar'
@@ -63,8 +62,7 @@ export default async function AwardsPage({ searchParams }: PageProps) {
 
   return (
     <>
-      <Navigation />
-      <main style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="max-w-content mx-auto px-6 py-12">
           <div className="mb-8 flex items-start justify-between gap-4">
             <div>
@@ -101,7 +99,7 @@ export default async function AwardsPage({ searchParams }: PageProps) {
             <AwardsContent searchParams={params} isAdmin={isAdmin} />
           </Suspense>
         </div>
-      </main>
+      </div>
     </>
   )
 }

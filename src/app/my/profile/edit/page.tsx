@@ -197,8 +197,7 @@ export default function ProfileEditPage() {
   if (loading) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className=""
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
@@ -222,7 +221,7 @@ export default function ProfileEditPage() {
               />
             </div>
           </div>
-        </main>
+        </div>
       </>
     );
   }
@@ -230,8 +229,7 @@ export default function ProfileEditPage() {
   if (!user || !profile) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className="flex-1 flex items-center justify-center"
           style={{ backgroundColor: "var(--bg-primary)" }}
         >
@@ -256,7 +254,7 @@ export default function ProfileEditPage() {
               로그인하기
             </Link>
           </div>
-        </main>
+        </div>
       </>
     );
   }
@@ -276,8 +274,7 @@ export default function ProfileEditPage() {
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: "var(--bg-primary)" }}
       >
@@ -702,7 +699,7 @@ export default function ProfileEditPage() {
             type={deleteAlert.type}
           />
         </div>
-      </main>
+      </div>
     </>
   );
 }

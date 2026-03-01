@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
 import { createClient } from '@/lib/supabase/client'
@@ -216,8 +215,7 @@ export default function ClubDetailPage() {
   if (loading || authLoading || !membershipChecked) {
     return (
       <>
-        <Navigation />
-        <main className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="max-w-4xl mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -225,7 +223,7 @@ export default function ClubDetailPage() {
               <div className="h-64 w-full rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
             </div>
           </div>
-        </main>
+        </div>
       </>
     )
   }
@@ -233,8 +231,7 @@ export default function ClubDetailPage() {
   if (!club) {
     return (
       <>
-        <Navigation />
-        <main className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="text-center">
             <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
               클럽을 찾을 수 없습니다
@@ -247,17 +244,16 @@ export default function ClubDetailPage() {
               클럽 목록으로 돌아가기
             </Link>
           </div>
-        </main>
+        </div>
       </>
     )
   }
 
   return (
     <>
-      <Navigation />
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
-      <main className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="max-w-4xl mx-auto px-6 py-12">
           {/* 뒤로가기 */}
           <Link
@@ -565,7 +561,7 @@ export default function ClubDetailPage() {
             </>
           )}
         </div>
-      </main>
+      </div>
 
       <Toast
         isOpen={toast.isOpen}

@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { getMyInquiry } from '@/lib/support/actions'
@@ -48,8 +47,7 @@ export default function InquiryDetailPage() {
   if (!authLoading && !user) {
     return (
       <>
-        <Navigation />
-        <main
+        <div
           className=""
           style={{ backgroundColor: 'var(--bg-primary)' }}
         >
@@ -65,15 +63,14 @@ export default function InquiryDetailPage() {
               로그인
             </Link>
           </div>
-        </main>
+        </div>
       </>
     )
   }
 
   return (
     <>
-      <Navigation />
-      <main
+      <div
         className=""
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
@@ -187,7 +184,7 @@ export default function InquiryDetailPage() {
             </div>
           ) : null}
         </div>
-      </main>
+      </div>
     </>
   )
 }
