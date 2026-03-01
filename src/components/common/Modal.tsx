@@ -117,7 +117,7 @@ export function Modal({
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90vh] overflow-y-auto rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
+        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90vh] overflow-x-hidden overflow-y-auto rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
