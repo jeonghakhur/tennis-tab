@@ -1377,3 +1377,39 @@ export async function hasOfficerClubs(): Promise<boolean> {
 
   return (count || 0) > 0
 }
+
+/** 클럽 목록 + 내 멤버십 역할 맵을 한 번에 조회 (라운드트립 1회) */
+export async function getClubsWithMyRoles(
+  filters?: ClubFilters
+): Promise<{ clubs: Club[]; myClubRoles: Map<string, ClubMemberRole> }> {
+  const admin = createAdminClient()
+  const user = await getCurrentUser()
+
+  let query = admin
+    .from('clubs')
+    .select('*, associations:association_id (name)')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+
+  if (filters?.search) query = query.ilike('name', `%${filters.search}%`)
+  if (filters?.city) query = query.eq('city', filters.city)
+  if (filters?.district) query = query.eq('district', filters.district)
+  if (filters?.association_id) query = query.eq('association_id', filters.association_id)
+
+  const [{ data: clubs }, { data: members }] = await Promise.all([
+    query,
+    user
+      ? admin
+          .from('club_members')
+          .select('club_id, role')
+          .eq('user_id', user.id)
+          .eq('status', 'ACTIVE')
+      : Promise.resolve({ data: [] }),
+  ])
+
+  const myClubRoles = new Map(
+    ((members || []) as { club_id: string; role: ClubMemberRole }[]).map((m) => [m.club_id, m.role])
+  )
+
+  return { clubs: (clubs || []) as Club[], myClubRoles }
+}

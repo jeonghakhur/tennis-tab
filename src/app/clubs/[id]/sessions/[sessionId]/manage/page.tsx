@@ -3,14 +3,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { useAuth } from '@/components/AuthProvider'
 import { Badge } from '@/components/common/Badge'
 import { AlertDialog, ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import AttendanceList from '@/components/clubs/sessions/AttendanceList'
 import BracketEditor from '@/components/clubs/sessions/BracketEditor'
 import {
-  getClubSessionDetail,
+  getSessionPageData,
   closeSessionRsvp,
   completeSession,
   cancelClubSession,
@@ -21,7 +20,6 @@ import { ChevronLeft } from 'lucide-react'
 export default function SessionManagePage() {
   const { id: clubId, sessionId } = useParams<{ id: string; sessionId: string }>()
   const router = useRouter()
-  const { user } = useAuth()
 
   const [session, setSession] = useState<ClubSessionDetail | null>(null)
   const [loading, setLoading] = useState(true)
@@ -39,25 +37,12 @@ export default function SessionManagePage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const data = await getClubSessionDetail(sessionId)
-    setSession(data)
+    const { session, myMemberId, myRole } = await getSessionPageData(sessionId, clubId)
+    setSession(session)
+    setMyMemberId(myMemberId)
+    setMyRole(myRole)
     setLoading(false)
-  }, [sessionId])
-
-  // 내 멤버십 조회
-  useEffect(() => {
-    if (!user || !clubId) return
-    const checkMembership = async () => {
-      const { getMyClubMemberships } = await import('@/lib/clubs/actions')
-      const result = await getMyClubMemberships()
-      const found = result.data.find((m) => m.club.id === clubId)
-      if (found) {
-        setMyMemberId(found.membership.id)
-        setMyRole(found.membership.role)
-      }
-    }
-    checkMembership()
-  }, [user, clubId])
+  }, [sessionId, clubId])
 
   useEffect(() => {
     if (sessionId) fetchData()

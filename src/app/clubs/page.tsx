@@ -41,7 +41,6 @@ const CITY_OPTIONS = [
 
 export default function ClubsPage() {
   const router = useRouter()
-  const { user } = useAuth()
   const [clubs, setClubs] = useState<Club[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -51,36 +50,19 @@ export default function ClubsPage() {
 
   const loadClubs = useCallback(async () => {
     setLoading(true)
-    const result = await getClubs({
+    const { getClubsWithMyRoles } = await import('@/lib/clubs/actions')
+    const { clubs: data, myClubRoles: roles } = await getClubsWithMyRoles({
       search: search || undefined,
       city: cityFilter || undefined,
     })
-    if (!result.error) {
-      setClubs(result.data)
-    }
+    setClubs(data)
+    setMyClubRoles(roles)
     setLoading(false)
   }, [search, cityFilter])
 
   useEffect(() => {
     loadClubs()
   }, [loadClubs])
-
-  // 로그인 시 내 클럽 멤버십 조회
-  useEffect(() => {
-    if (!user) {
-      setMyClubRoles(new Map())
-      return
-    }
-    const fetchMemberships = async () => {
-      const { getMyClubMemberships } = await import('@/lib/clubs/actions')
-      const result = await getMyClubMemberships()
-      const map = new Map(
-        result.data.map((m) => [m.club.id, m.membership.role as ClubMemberRole])
-      )
-      setMyClubRoles(map)
-    }
-    fetchMemberships()
-  }, [user])
 
   // 내 클럽 우선 + 가나다순 정렬
   const sortedClubs = useMemo(() =>
