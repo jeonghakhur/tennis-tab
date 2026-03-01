@@ -77,10 +77,16 @@ export default function ClubDetailPage() {
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
   const [confirmLeave, setConfirmLeave] = useState(false)
 
+  // 클럽 기본 데이터 + 멤버십 병렬 로드
   useEffect(() => {
     if (!id) return
     loadClubData()
   }, [id])
+
+  useEffect(() => {
+    if (authLoading || !id) return
+    checkMembership()
+  }, [authLoading, user?.id, id])
 
   const loadClubData = async () => {
     setLoading(true)
@@ -89,33 +95,25 @@ export default function ClubDetailPage() {
       getClubPublicMembers(id),
       getClubMemberCount(id),
     ])
-
     if (clubResult.data) setClub(clubResult.data)
     if (!membersResult.error) setMembers(membersResult.data)
     setMemberCount(count)
     setLoading(false)
   }
 
-  // 멤버십 확인 — 클라이언트 사이드 직접 조회
-  // (서버 액션은 쿠키 기반 인증을 사용하는데, 클라이언트 SDK의 토큰 갱신이
-  //  쿠키에 반영되지 않아 세션 불일치 발생 가능 → RLS public SELECT로 직접 조회)
-  useEffect(() => {
-    if (authLoading || !user?.id || !id) return
-    checkMembership()
-  }, [authLoading, user?.id, id])
-
   const checkMembership = async () => {
-    if (!user?.id || !id) return
-
+    if (!id) return
     try {
       const supabase = createClient()
-      const { data } = await supabase
-        .from('club_members')
-        .select('id, name, role, is_registered')
-        .eq('club_id', id)
-        .eq('user_id', user.id)
-        .eq('status', 'ACTIVE')
-        .maybeSingle()
+      const { data } = user?.id
+        ? await supabase
+            .from('club_members')
+            .select('id, name, role, is_registered')
+            .eq('club_id', id)
+            .eq('user_id', user.id)
+            .eq('status', 'ACTIVE')
+            .maybeSingle()
+        : { data: null }
 
       if (data) {
         setIsMember(true)
@@ -135,30 +133,19 @@ export default function ClubDetailPage() {
     }
   }
 
-  // 임원인 경우 전체 회원 데이터 로드 (회원 관리용)
+  // 임원 전체 회원 데이터: 관리 탭 클릭 시 지연 로드
   useEffect(() => {
-    if (!isOfficer || !id) return
-    const loadFullMembers = async () => {
-      const result = await getClubMembers(id)
-      if (!result.error) setFullMembers(result.data)
-    }
-    loadFullMembers()
-  }, [isOfficer, id])
+    if (!isOfficer || !id || fullMembers.length > 0) return
+    getClubMembers(id).then(r => { if (!r.error) setFullMembers(r.data) })
+  }, [isOfficer, activeTab, id])
 
-  // 클럽 입상 기록 로드
+  // 입상 기록: 탭 클릭 시 지연 로드
   useEffect(() => {
-    if (!id || !club) return
-    const loadAwards = async () => {
-      const { getClubAwards } = await import('@/lib/awards/actions')
-      try {
-        const data = await getClubAwards(id, club.name)
-        setClubAwards(data)
-      } catch {
-        // 에러 무시
-      }
-    }
-    loadAwards()
-  }, [id, club])
+    if (activeTab !== 'awards' || !id || !club || clubAwards.length > 0) return
+    import('@/lib/awards/actions').then(({ getClubAwards }) =>
+      getClubAwards(id, club.name).then(setClubAwards).catch(() => {})
+    )
+  }, [activeTab, id, club])
 
   const handleJoin = () => {
     if (!user) {

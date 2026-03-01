@@ -21,23 +21,27 @@ interface SessionListProps {
 
 export default function SessionList({ clubId, isOfficer, onCreateSession }: SessionListProps) {
   const router = useRouter()
-  const [sessions, setSessions] = useState<ClubSession[]>([])
+  // 탭별 캐시: 한 번 로드한 데이터는 재요청 없이 재사용
+  const [cache, setCache] = useState<Partial<Record<FilterTab, ClubSession[]>>>({})
   const [filter, setFilter] = useState<FilterTab>('upcoming')
   const [loading, setLoading] = useState(true)
 
-  const fetchSessions = useCallback(async () => {
+  const sessions = cache[filter] ?? []
+
+  const fetchSessions = useCallback(async (tab: FilterTab, force = false) => {
+    if (!force && cache[tab]) return // 캐시 히트
     setLoading(true)
     const data = await getClubSessions(clubId, {
-      status: FILTER_MAP[filter],
+      status: FILTER_MAP[tab],
       limit: 20,
     })
-    setSessions(data)
+    setCache(prev => ({ ...prev, [tab]: data }))
     setLoading(false)
-  }, [clubId, filter])
+  }, [clubId, cache])
 
   useEffect(() => {
-    fetchSessions()
-  }, [fetchSessions])
+    fetchSessions(filter)
+  }, [filter, clubId])
 
   return (
     <div className="space-y-4">
