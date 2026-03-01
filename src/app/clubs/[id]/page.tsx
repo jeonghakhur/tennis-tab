@@ -90,16 +90,20 @@ export default function ClubDetailPage() {
 
   const loadClubData = async () => {
     setLoading(true)
-    const [clubResult, membersResult, count] = await Promise.all([
-      getClub(id),
-      getClubPublicMembers(id),
-      getClubMemberCount(id),
-    ])
+    // 클럽 기본 정보만 우선 로드 (모임 탭이 첫 화면)
+    const clubResult = await getClub(id)
     if (clubResult.data) setClub(clubResult.data)
-    if (!membersResult.error) setMembers(membersResult.data)
-    setMemberCount(count)
     setLoading(false)
   }
+
+  // 회원 목록: 해당 탭 클릭 시 지연 로드
+  useEffect(() => {
+    if (activeTab !== 'info' || !id || members.length > 0) return
+    Promise.all([getClubPublicMembers(id), getClubMemberCount(id)]).then(([membersResult, count]) => {
+      if (!membersResult.error) setMembers(membersResult.data)
+      setMemberCount(count)
+    })
+  }, [activeTab, id])
 
   const checkMembership = async () => {
     if (!id) return
