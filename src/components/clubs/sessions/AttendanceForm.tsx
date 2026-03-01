@@ -35,8 +35,8 @@ export default function AttendanceForm({
   onResponded,
 }: AttendanceFormProps) {
   const [status, setStatus] = useState<AttendanceStatus>(currentStatus || 'UNDECIDED')
-  const [availableFrom, setAvailableFrom] = useState(currentFrom || sessionStartTime?.slice(0,5) || '')
-  const [availableUntil, setAvailableUntil] = useState(currentUntil || sessionEndTime?.slice(0,5) || '')
+  const [availableFrom, setAvailableFrom] = useState(currentFrom?.slice(0,5) || sessionStartTime?.slice(0,5) || '')
+  const [availableUntil, setAvailableUntil] = useState(currentUntil?.slice(0,5) || sessionEndTime?.slice(0,5) || '')
   const [notes, setNotes] = useState(currentNotes || '')
   const [saving, setSaving] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
