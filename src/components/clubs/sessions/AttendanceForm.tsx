@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import { respondToSession } from '@/lib/clubs/session-actions'
 import type { AttendanceStatus } from '@/lib/clubs/types'
+import SessionTimePicker from './SessionTimePicker'
 
 interface AttendanceFormProps {
   sessionId: string
@@ -85,30 +86,24 @@ export default function AttendanceForm({
 
       {/* 참석 시 시간 선택 */}
       {status === 'ATTENDING' && (
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label htmlFor="att-from" className="block text-xs text-(--text-muted) mb-1">
-              참석 가능 시작
-            </label>
-            <input
-              id="att-from"
-              type="time"
-              value={availableFrom}
-              onChange={(e) => setAvailableFrom(e.target.value)}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="att-until" className="block text-xs text-(--text-muted) mb-1">
-              참석 가능 종료
-            </label>
-            <input
-              id="att-until"
-              type="time"
-              value={availableUntil}
-              onChange={(e) => setAvailableUntil(e.target.value)}
-              className={inputClass}
-            />
+        <div>
+          <label className="block text-xs text-(--text-muted) mb-1.5">참석 가능 시간</label>
+          <div className="flex items-center gap-2">
+            <div className="flex-1">
+              <SessionTimePicker
+                value={availableFrom}
+                onChange={setAvailableFrom}
+                placeholder="시작"
+              />
+            </div>
+            <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
+            <div className="flex-1">
+              <SessionTimePicker
+                value={availableUntil}
+                onChange={setAvailableUntil}
+                placeholder="종료"
+              />
+            </div>
           </div>
         </div>
       )}
