@@ -52,12 +52,15 @@ export default function SessionCard({ session, onClick, onEdit, isOfficer }: Ses
         <div className="flex items-center gap-2 shrink-0">
           <Badge variant={config.variant}>{config.label}</Badge>
           {isOfficer && session.status === 'OPEN' && onEdit && (
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={(e) => { e.stopPropagation(); onEdit() }}
-              className="text-xs px-2 py-0.5 rounded border border-(--border-color) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent-color) transition-colors"
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); onEdit() } }}
+              className="text-xs px-2 py-0.5 rounded border border-(--border-color) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent-color) transition-colors cursor-pointer"
             >
               수정
-            </button>
+            </div>
           )}
         </div>
       </div>

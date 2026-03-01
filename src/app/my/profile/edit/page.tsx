@@ -4,7 +4,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Navigation } from "@/components/Navigation";
 import {
   Select,
   SelectContent,

@@ -3,7 +3,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Navigation } from '@/components/Navigation'
 import { useAuth } from '@/components/AuthProvider'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import AttendanceForm from '@/components/clubs/sessions/AttendanceForm'
@@ -80,7 +79,6 @@ export default function SessionDetailPage() {
   if (loading) {
     return (
       <>
-        <Navigation />
         <div style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="max-w-4xl mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
@@ -96,7 +94,6 @@ export default function SessionDetailPage() {
   if (!session) {
     return (
       <>
-        <Navigation />
         <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="text-center">
             <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
@@ -123,7 +120,6 @@ export default function SessionDetailPage() {
 
   return (
     <>
-      <Navigation />
       <div style={{ backgroundColor: 'var(--bg-primary)' }}>
         <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
           {/* 뒤로가기 */}

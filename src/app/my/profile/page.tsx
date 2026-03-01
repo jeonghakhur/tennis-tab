@@ -5,7 +5,6 @@ import { useAuth } from "@/components/AuthProvider";
 import { useFontSize } from "@/components/FontSizeProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Navigation } from "@/components/Navigation";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
