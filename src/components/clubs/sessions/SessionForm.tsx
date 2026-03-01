@@ -208,22 +208,20 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                 />
               </div>
 
-              {/* 시작/종료 시간 */}
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-(--text-secondary) mb-1">시작 시간 *</label>
+              {/* 시작/종료 시간: 한 라벨 아래 가로 배치 */}
+              <div>
+                <label className="block text-xs font-medium text-(--text-secondary) mb-1">시간 *</label>
+                <div className="flex items-center gap-2">
                   <input
                     ref={(el) => { fieldRefs.current.start_time = el }}
                     type="time" value={form.start_time} onChange={handleChange('start_time')}
-                    className={inputClass}
+                    className={`${inputClass} flex-1`}
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-medium text-(--text-secondary) mb-1">종료 시간 *</label>
+                  <span className="text-(--text-muted) text-sm shrink-0">~</span>
                   <input
                     ref={(el) => { fieldRefs.current.end_time = el }}
                     type="time" value={form.end_time} onChange={handleChange('end_time')}
-                    className={inputClass}
+                    className={`${inputClass} flex-1`}
                   />
                 </div>
               </div>
@@ -259,16 +257,16 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
               {/* 응답 마감 */}
               <div>
                 <label className="block text-xs font-medium text-(--text-secondary) mb-1">응답 마감 <span className="font-normal opacity-60">(선택)</span></label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="flex items-center gap-2">
                   <input
                     type="date" value={form.rsvp_deadline_date}
                     onChange={handleChange('rsvp_deadline_date')}
-                    className={inputClass}
+                    className={`${inputClass} flex-1`}
                   />
                   <input
                     type="time" value={form.rsvp_deadline_time}
                     onChange={handleChange('rsvp_deadline_time')}
-                    className={inputClass}
+                    className={`${inputClass} w-28 shrink-0`}
                   />
                 </div>
               </div>
