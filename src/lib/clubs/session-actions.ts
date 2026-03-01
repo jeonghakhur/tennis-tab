@@ -1016,3 +1016,36 @@ export async function getSessionPageData(
     myRole: (myMember?.role ?? null) as import('./types').ClubMemberRole | null,
   }
 }
+
+/** 참석 응답 취소 (삭제) */
+export async function cancelAttendance(
+  sessionId: string,
+  clubMemberId: string
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const admin = createAdminClient()
+
+  // 본인 멤버십 확인
+  const { data: member } = await admin
+    .from('club_members')
+    .select('id, club_id')
+    .eq('id', clubMemberId)
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+    .single()
+
+  if (!member) return { error: '클럽 멤버 정보가 올바르지 않습니다.' }
+
+  const { error } = await admin
+    .from('club_session_attendances')
+    .delete()
+    .eq('session_id', sessionId)
+    .eq('club_member_id', clubMemberId)
+
+  if (error) return { error: `취소 실패: ${error.message}` }
+
+  revalidatePath(`/clubs/${member.club_id}`)
+  return {}
+}

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { AlertDialog } from '@/components/common/AlertDialog'
-import { respondToSession } from '@/lib/clubs/session-actions'
+import { respondToSession, cancelAttendance } from '@/lib/clubs/session-actions'
 import type { AttendanceStatus } from '@/lib/clubs/types'
 import SessionTimePicker from './SessionTimePicker'
 
@@ -15,6 +15,7 @@ interface AttendanceFormProps {
   currentNotes?: string | null
   sessionStartTime?: string  // 모임 시작 시간 (기본값)
   sessionEndTime?: string    // 모임 종료 시간 (기본값)
+  isEditMode?: boolean
   onResponded: () => void
 }
 
@@ -32,6 +33,7 @@ export default function AttendanceForm({
   currentNotes,
   sessionStartTime,
   sessionEndTime,
+  isEditMode,
   onResponded,
 }: AttendanceFormProps) {
   const [status, setStatus] = useState<AttendanceStatus>(currentStatus || 'UNDECIDED')
@@ -39,6 +41,7 @@ export default function AttendanceForm({
   const [availableUntil, setAvailableUntil] = useState(currentUntil?.slice(0,5) || sessionEndTime?.slice(0,5) || '')
   const [notes, setNotes] = useState(currentNotes || '')
   const [saving, setSaving] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
   const handleSubmit = useCallback(async () => {
@@ -60,6 +63,18 @@ export default function AttendanceForm({
 
     onResponded()
   }, [sessionId, clubMemberId, status, availableFrom, availableUntil, notes, onResponded])
+
+  const handleCancel = async () => {
+    if (!window.confirm('참석 응답을 취소하시겠습니까?')) return
+    setCancelling(true)
+    const result = await cancelAttendance(sessionId, clubMemberId)
+    setCancelling(false)
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+    onResponded()
+  }
 
   const inputClass =
     'w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color)'
@@ -126,14 +141,27 @@ export default function AttendanceForm({
       </div>
 
       {/* 제출 */}
-      <button
-        type="button"
-        onClick={handleSubmit}
-        disabled={saving}
-        className="w-full px-4 py-2 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold text-sm disabled:opacity-50"
-      >
-        {saving ? '저장 중...' : currentStatus ? '응답 수정' : '응답 제출'}
-      </button>
+      <div className="flex gap-2">
+        {isEditMode && (
+          <button
+            type="button"
+            onClick={handleCancel}
+            disabled={cancelling || saving}
+            className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border disabled:opacity-50"
+            style={{ borderColor: 'var(--border-danger, #ef4444)', color: 'var(--color-danger, #ef4444)' }}
+          >
+            {cancelling ? '취소 중...' : '응답 삭제'}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={saving}
+          className="flex-1 px-4 py-2 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold text-sm disabled:opacity-50"
+        >
+          {saving ? '저장 중...' : currentStatus ? '응답 수정' : '응답 제출'}
+        </button>
+      </div>
 
       <AlertDialog
         isOpen={alert.isOpen}

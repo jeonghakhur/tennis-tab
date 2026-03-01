@@ -225,6 +225,7 @@ export default function SessionDetailPage() {
               currentNotes={myAttendance?.notes}
               sessionStartTime={session?.start_time}
               sessionEndTime={session?.end_time}
+              isEditMode={editAttendance}
               onResponded={() => { setEditAttendance(false); fetchData() }}
             />
           )}

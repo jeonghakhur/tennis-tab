@@ -26,39 +26,40 @@ export default function AttendanceList({ attendances, myMemberId, canRespond, on
     const isMe = a.club_member_id === myMemberId
 
     return (
-      <div
-        key={a.id}
-        className={`flex items-center justify-between py-2 px-3 rounded-lg ${
-          isMe ? 'bg-emerald-500/10' : ''
-        }`}
-      >
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="text-sm font-medium text-(--text-primary) truncate">
-            {a.member.name}
-            {isMe && <span className="text-xs text-(--text-muted) ml-1">(나)</span>}
-          </span>
-          {a.member.rating && (
-            <span className="text-xs text-(--text-muted)">{a.member.rating}</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {/* 참석 가능 시간 */}
-          {a.status === 'ATTENDING' && (a.available_from || a.available_until) && (
-            <span className="text-xs text-(--text-muted)">
-              {a.available_from?.slice(0, 5) || '?'} ~ {a.available_until?.slice(0, 5) || '?'}
+      <div key={a.id} className={`rounded-lg ${isMe ? 'bg-emerald-500/10' : ''}`}>
+        <div className="flex items-center justify-between py-2 px-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-sm font-medium text-(--text-primary) truncate">
+              {a.member.name}
+              {isMe && <span className="text-xs text-(--text-muted) ml-1">(나)</span>}
             </span>
-          )}
-          <Badge variant={config.variant}>{config.text}</Badge>
-          {isMe && canRespond && onEdit && (
-            <button
-              onClick={onEdit}
-              className="text-xs px-2 py-1 rounded border font-medium"
-              style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
-            >
-              수정
-            </button>
-          )}
+            {a.member.rating && (
+              <span className="text-xs text-(--text-muted)">{a.member.rating}</span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {a.status === 'ATTENDING' && (a.available_from || a.available_until) && (
+              <span className="text-xs text-(--text-muted)">
+                {a.available_from?.slice(0, 5) || '?'} ~ {a.available_until?.slice(0, 5) || '?'}
+              </span>
+            )}
+            <Badge variant={config.variant}>{config.text}</Badge>
+            {isMe && canRespond && onEdit && (
+              <button
+                onClick={onEdit}
+                className="text-xs px-2 py-1 rounded border font-medium"
+                style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
+              >
+                수정
+              </button>
+            )}
+          </div>
         </div>
+        {a.notes && (
+          <p className="text-xs px-3 pb-2" style={{ color: 'var(--text-muted)' }}>
+            💬 {a.notes}
+          </p>
+        )}
       </div>
     )
   }
