@@ -15,7 +15,10 @@ import type {
   ClubSessionStatus,
   ClubMemberRole,
 } from '@/lib/clubs/types'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
+import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
+import SessionForm from '@/components/clubs/sessions/SessionForm'
+import { cancelClubSession } from '@/lib/clubs/session-actions'
 
 const statusConfig: Record<ClubSessionStatus, { label: string; variant: BadgeVariant }> = {
   OPEN: { label: '모집중', variant: 'success' },
@@ -33,6 +36,10 @@ export default function SessionDetailPage() {
   const [loading, setLoading] = useState(true)
   const [myMemberId, setMyMemberId] = useState<string | null>(null)
   const [myRole, setMyRole] = useState<ClubMemberRole | null>(null)
+  const [editOpen, setEditOpen] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
+  const [deleting, setDeleting] = useState(false)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -61,6 +68,18 @@ export default function SessionDetailPage() {
   }, [sessionId, fetchData])
 
   const isOfficer = myRole && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myRole)
+
+  const handleDelete = async () => {
+    setConfirmDelete(false)
+    setDeleting(true)
+    const result = await cancelClubSession(sessionId)
+    setDeleting(false)
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error || '오류가 발생했습니다.', type: 'success' as const })
+    } else {
+      router.push(`/clubs/${clubId}`)
+    }
+  }
 
   // 내 참석 응답
   const myAttendance = session?.attendances.find(
@@ -185,16 +204,24 @@ export default function SessionDetailPage() {
               </div>
             )}
 
-            {/* 관리 버튼 */}
-            {isOfficer && (
-              <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                <Link
-                  href={`/clubs/${clubId}/sessions/${sessionId}/manage`}
-                  className="inline-block px-4 py-2 rounded-lg text-sm font-semibold"
-                  style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+            {/* 임원 액션 */}
+            {isOfficer && session?.status === 'OPEN' && (
+              <div className="mt-4 pt-4 border-t flex gap-2" style={{ borderColor: 'var(--border-color)' }}>
+                <button
+                  onClick={() => setEditOpen(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border border-(--border-color) text-(--text-primary) hover:bg-(--bg-card-hover) transition-colors"
                 >
-                  세션 관리
-                </Link>
+                  <Pencil className="w-4 h-4" />
+                  수정
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  disabled={deleting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-red-500 border border-red-500/30 hover:bg-red-500/10 transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  삭제
+                </button>
               </div>
             )}
           </div>
@@ -228,6 +255,33 @@ export default function SessionDetailPage() {
           )}
         </div>
       </main>
+      {/* 수정 폼 */}
+      {session && (
+        <SessionForm
+          clubId={clubId}
+          isOpen={editOpen}
+          onClose={() => setEditOpen(false)}
+          onCreated={() => { setEditOpen(false); fetchData() }}
+          session={session as unknown as import('@/lib/clubs/types').ClubSession}
+        />
+      )}
+
+      {/* 삭제 확인 */}
+      <ConfirmDialog
+        isOpen={confirmDelete}
+        onClose={() => setConfirmDelete(false)}
+        onConfirm={handleDelete}
+        title="모임 삭제"
+        message="이 모임을 삭제(취소)하시겠습니까?"
+        type="warning"
+      />
+
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type={toast.type}
+      />
     </>
   )
 }
