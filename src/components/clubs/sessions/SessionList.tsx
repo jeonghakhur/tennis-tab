@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import SessionCard from './SessionCard'
+import SessionForm from './SessionForm'
 import { getClubSessions } from '@/lib/clubs/session-actions'
 import type { ClubSession, ClubSessionStatus } from '@/lib/clubs/types'
 
@@ -25,6 +26,7 @@ export default function SessionList({ clubId, isOfficer, onCreateSession }: Sess
   const [cache, setCache] = useState<Partial<Record<FilterTab, ClubSession[]>>>({})
   const [filter, setFilter] = useState<FilterTab>('upcoming')
   const [loading, setLoading] = useState(true)
+  const [editSession, setEditSession] = useState<ClubSession | null>(null)
 
   const sessions = cache[filter] ?? []
 
@@ -88,6 +90,8 @@ export default function SessionList({ clubId, isOfficer, onCreateSession }: Sess
             <SessionCard
               key={session.id}
               session={session}
+              isOfficer={isOfficer}
+              onEdit={() => setEditSession(session)}
               onClick={() =>
                 router.push(`/clubs/${clubId}/sessions/${session.id}`)
               }

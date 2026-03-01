@@ -21,9 +21,11 @@ const myAttendanceColor: Record<AttendanceStatus, string> = {
 interface SessionCardProps {
   session: ClubSession
   onClick: () => void
+  onEdit?: () => void
+  isOfficer?: boolean
 }
 
-export default function SessionCard({ session, onClick }: SessionCardProps) {
+export default function SessionCard({ session, onClick, onEdit, isOfficer }: SessionCardProps) {
   const config = statusConfig[session.status]
   const borderClass = session._my_attendance
     ? myAttendanceColor[session._my_attendance]
@@ -42,12 +44,22 @@ export default function SessionCard({ session, onClick }: SessionCardProps) {
       onClick={onClick}
       className={`glass-card rounded-xl p-4 w-full text-left transition-all border-l-4 ${borderClass}`}
     >
-      {/* 제목 + 상태 뱃지 */}
+      {/* 제목 + 상태 뱃지 + 수정 */}
       <div className="flex items-center justify-between mb-2">
         <h3 className="font-semibold text-(--text-primary) truncate pr-2">
           {session.title}
         </h3>
-        <Badge variant={config.variant}>{config.label}</Badge>
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant={config.variant}>{config.label}</Badge>
+          {isOfficer && session.status === 'OPEN' && onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit() }}
+              className="text-xs px-2 py-0.5 rounded border border-(--border-color) text-(--text-muted) hover:text-(--text-primary) hover:border-(--accent-color) transition-colors"
+            >
+              수정
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 날짜, 시간, 장소 */}
