@@ -257,17 +257,16 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
               {/* 응답 마감 */}
               <div>
                 <label className="block text-xs font-medium text-(--text-secondary) mb-1">응답 마감 <span className="font-normal opacity-60">(선택)</span></label>
-                <div className="flex gap-2 w-full min-w-0">
+                <div className="space-y-2">
                   <input
                     type="date" value={form.rsvp_deadline_date}
                     onChange={handleChange('rsvp_deadline_date')}
-                    className={`${inputClass} flex-1 min-w-0`}
-                    style={{ maxWidth: 'calc(100% - 88px)' }}
+                    className={inputClass}
                   />
                   <input
                     type="time" value={form.rsvp_deadline_time}
                     onChange={handleChange('rsvp_deadline_time')}
-                    className={`${inputClass} w-20 shrink-0`}
+                    className={inputClass}
                   />
                 </div>
               </div>
