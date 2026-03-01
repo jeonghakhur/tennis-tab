@@ -138,11 +138,11 @@ export async function getClubSessions(
 ): Promise<ClubSession[]> {
   const admin = createAdminClient()
   const user = await getCurrentUser()
-  if (!user) return []
 
+  // sessions + attendances JOIN, myMember 병렬 조회
   let query = admin
     .from('club_sessions')
-    .select('*')
+    .select('*, club_session_attendances(session_id, status, club_member_id)')
     .eq('club_id', clubId)
     .order('session_date', { ascending: false })
 
@@ -153,46 +153,31 @@ export async function getClubSessions(
     query = query.limit(options.limit)
   }
 
-  const { data: sessions, error } = await query
+  const [{ data: sessions, error }, { data: myMember }] = await Promise.all([
+    query,
+    user
+      ? admin
+          .from('club_members')
+          .select('id')
+          .eq('club_id', clubId)
+          .eq('user_id', user.id)
+          .eq('status', 'ACTIVE')
+          .single()
+      : Promise.resolve({ data: null }),
+  ])
+
   if (error || !sessions) return []
 
-  // 참석 현황 집계 + 내 응답 상태
-  const sessionIds = sessions.map((s: ClubSession) => s.id)
-  if (sessionIds.length === 0) return sessions as ClubSession[]
-
-  const { data: attendances } = await admin
-    .from('club_session_attendances')
-    .select('session_id, status, club_member_id')
-    .in('session_id', sessionIds)
-
-  // 현재 사용자의 멤버 ID 조회
-  const { data: myMember } = await admin
-    .from('club_members')
-    .select('id')
-    .eq('club_id', clubId)
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-    .single()
-
-  return (sessions as ClubSession[]).map((session) => {
-    const sessionAttendances = attendances?.filter(
-      (a: { session_id: string }) => a.session_id === session.id
-    ) || []
+  return (sessions as (ClubSession & { club_session_attendances: { session_id: string; status: string; club_member_id: string }[] })[]).map((session) => {
+    const att = session.club_session_attendances ?? []
     return {
       ...session,
-      _attending_count: sessionAttendances.filter(
-        (a: { status: string }) => a.status === 'ATTENDING'
-      ).length,
-      _not_attending_count: sessionAttendances.filter(
-        (a: { status: string }) => a.status === 'NOT_ATTENDING'
-      ).length,
-      _undecided_count: sessionAttendances.filter(
-        (a: { status: string }) => a.status === 'UNDECIDED'
-      ).length,
+      club_session_attendances: undefined,
+      _attending_count: att.filter((a) => a.status === 'ATTENDING').length,
+      _not_attending_count: att.filter((a) => a.status === 'NOT_ATTENDING').length,
+      _undecided_count: att.filter((a) => a.status === 'UNDECIDED').length,
       _my_attendance: myMember
-        ? (sessionAttendances.find(
-            (a: { club_member_id: string }) => a.club_member_id === myMember.id
-          )?.status as ClubSession['_my_attendance'])
+        ? (att.find((a) => a.club_member_id === myMember.id)?.status as ClubSession['_my_attendance'])
         : undefined,
     }
   })
