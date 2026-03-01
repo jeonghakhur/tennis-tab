@@ -68,7 +68,7 @@ export function PostCard({ post }: PostCardProps) {
           {/* 메타 정보: 작성자 + 작성일 + 조회수 + 댓글 수 + 첨부 */}
           <div className="flex items-center gap-3 text-xs" style={{ color: 'var(--text-muted)' }}>
             <span>{post.author?.name ?? '알 수 없음'}</span>
-            <span>{formatRelativeTime(post.created_at)}</span>
+            <span suppressHydrationWarning>{formatRelativeTime(post.created_at)}</span>
             <span className="flex items-center gap-1">
               <Eye className="w-3 h-3" />
               {post.view_count}

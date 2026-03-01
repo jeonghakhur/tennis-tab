@@ -130,7 +130,7 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
               {post.author?.name ?? '알 수 없음'}
             </span>
             <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              {formatRelativeTime(post.created_at)}
+              <span suppressHydrationWarning>{formatRelativeTime(post.created_at)}</span>
             </span>
           </div>
         </div>

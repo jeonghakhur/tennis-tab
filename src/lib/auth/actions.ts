@@ -154,9 +154,7 @@ export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver', re
     return { error: error.message }
   }
 
-  if (data.url) {
-    redirect(data.url)
-  }
+  return { url: data.url ?? null }
 }
 
 /**

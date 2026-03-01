@@ -48,7 +48,9 @@ function LoginContent() {
   const handleGoogleLogin = async () => {
     setLoading('google')
     try {
-      await signInWithOAuth('google', redirectTo, window.location.origin)
+      const result = await signInWithOAuth('google', redirectTo, window.location.origin)
+      if (result?.url) window.location.href = result.url
+      else setLoading(null)
     } catch {
       setLoading(null)
     }
@@ -58,7 +60,9 @@ function LoginContent() {
   const handleKakaoLogin = async () => {
     setLoading('kakao')
     try {
-      await signInWithOAuth('kakao', redirectTo, window.location.origin)
+      const result = await signInWithOAuth('kakao', redirectTo, window.location.origin)
+      if (result?.url) window.location.href = result.url
+      else setLoading(null)
     } catch {
       setLoading(null)
     }
