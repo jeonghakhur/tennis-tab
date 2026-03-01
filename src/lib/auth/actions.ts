@@ -3,7 +3,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
-import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
 import { encryptProfile, decryptProfile } from '@/lib/crypto/profileCrypto'
@@ -137,15 +136,12 @@ export async function updatePassword(newPassword: string) {
 /**
  * 소셜 로그인 (구글, 카카오, 네이버)
  */
-export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver', redirectTo?: string) {
+export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver', redirectTo?: string, origin?: string) {
   const supabase = await createClient()
-  const headersList = await headers()
-  const host = headersList.get('host') || 'localhost:3000'
-  const proto = headersList.get('x-forwarded-proto') || 'http'
-  const origin = `${proto}://${host}`
+  const resolvedOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
   const callbackUrl = redirectTo
-    ? `${origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
-    : `${origin}/auth/callback`
+    ? `${resolvedOrigin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
+    : `${resolvedOrigin}/auth/callback`
 
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: provider as any,

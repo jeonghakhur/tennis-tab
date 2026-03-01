@@ -48,7 +48,7 @@ function LoginContent() {
   const handleGoogleLogin = async () => {
     setLoading('google')
     try {
-      await signInWithOAuth('google', redirectTo)
+      await signInWithOAuth('google', redirectTo, window.location.origin)
     } catch {
       setLoading(null)
     }
@@ -58,7 +58,7 @@ function LoginContent() {
   const handleKakaoLogin = async () => {
     setLoading('kakao')
     try {
-      await signInWithOAuth('kakao', redirectTo)
+      await signInWithOAuth('kakao', redirectTo, window.location.origin)
     } catch {
       setLoading(null)
     }
