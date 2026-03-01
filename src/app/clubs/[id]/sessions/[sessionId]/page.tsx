@@ -9,7 +9,7 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import AttendanceForm from '@/components/clubs/sessions/AttendanceForm'
 import AttendanceList from '@/components/clubs/sessions/AttendanceList'
 import MatchBoard from '@/components/clubs/sessions/MatchBoard'
-import { getClubSessionDetail } from '@/lib/clubs/session-actions'
+import { getSessionPageData } from '@/lib/clubs/session-actions'
 import type {
   ClubSessionDetail,
   ClubSessionStatus,
@@ -44,21 +44,12 @@ export default function SessionDetailPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const { getMyClubMemberships } = await import('@/lib/clubs/actions')
-    const [data, memberResult] = await Promise.all([
-      getClubSessionDetail(sessionId),
-      user ? getMyClubMemberships() : Promise.resolve({ data: [] }),
-    ])
-    setSession(data)
-    if (user) {
-      const found = memberResult.data.find((m: { club: { id: string }; membership: { id: string; role: import('@/lib/clubs/types').ClubMemberRole } }) => m.club.id === clubId)
-      if (found) {
-        setMyMemberId(found.membership.id)
-        setMyRole(found.membership.role)
-      }
-    }
+    const { session, myMemberId, myRole } = await getSessionPageData(sessionId, clubId)
+    setSession(session)
+    setMyMemberId(myMemberId)
+    setMyRole(myRole)
     setLoading(false)
-  }, [sessionId, user, clubId])
+  }, [sessionId, clubId])
 
   useEffect(() => {
     if (sessionId) fetchData()

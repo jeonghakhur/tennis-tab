@@ -945,3 +945,74 @@ async function updateStatsAfterMatch(
     }
   }
 }
+
+/** 세션 상세 + 내 멤버십 한 번에 조회 (라운드트립 1회) */
+export async function getSessionPageData(
+  sessionId: string,
+  clubId: string
+): Promise<{
+  session: ClubSessionDetail | null
+  myMemberId: string | null
+  myRole: import('./types').ClubMemberRole | null
+}> {
+  const admin = createAdminClient()
+  const user = await getCurrentUser()
+
+  const [
+    { data: session },
+    { data: attendances },
+    { data: matches },
+    { data: myMember },
+  ] = await Promise.all([
+    admin.from('club_sessions').select('*').eq('id', sessionId).single(),
+    admin
+      .from('club_session_attendances')
+      .select('*, club_members!inner(id, name, rating, is_registered)')
+      .eq('session_id', sessionId)
+      .order('responded_at', { ascending: true }),
+    admin
+      .from('club_match_results')
+      .select(`
+        *,
+        player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+        player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+      `)
+      .eq('session_id', sessionId)
+      .order('scheduled_time', { ascending: true }),
+    user
+      ? admin
+          .from('club_members')
+          .select('id, role')
+          .eq('club_id', clubId)
+          .eq('user_id', user.id)
+          .eq('status', 'ACTIVE')
+          .single()
+      : Promise.resolve({ data: null }),
+  ])
+
+  if (!session) return { session: null, myMemberId: null, myRole: null }
+
+  const formattedAttendances = (attendances || []).map(
+    (a: Record<string, unknown>) => ({
+      id: a.id as string,
+      session_id: a.session_id as string,
+      club_member_id: a.club_member_id as string,
+      status: a.status as SessionAttendanceDetail['status'],
+      available_from: a.available_from as string | null,
+      available_until: a.available_until as string | null,
+      notes: a.notes as string | null,
+      responded_at: a.responded_at as string | null,
+      member: a.club_members as SessionAttendanceDetail['member'],
+    })
+  ) satisfies SessionAttendanceDetail[]
+
+  return {
+    session: {
+      ...(session as ClubSession),
+      attendances: formattedAttendances,
+      matches: (matches || []) as ClubMatchResult[],
+    },
+    myMemberId: myMember?.id ?? null,
+    myRole: (myMember?.role ?? null) as import('./types').ClubMemberRole | null,
+  }
+}
