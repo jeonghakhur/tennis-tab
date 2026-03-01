@@ -1,6 +1,7 @@
 'use client'
 
-import { signInWithOAuth, signInWithEmail } from '@/lib/auth/actions'
+import { signInWithEmail } from '@/lib/auth/actions'
+import { createClient } from '@/lib/supabase/client'
 import { useState, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
@@ -48,9 +49,15 @@ function LoginContent() {
   const handleGoogleLogin = async () => {
     setLoading('google')
     try {
-      const result = await signInWithOAuth('google', redirectTo, window.location.origin)
-      if (result?.url) window.location.href = result.url
-      else setLoading(null)
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback${redirectTo !== '/' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`,
+        },
+      })
+      if (error || !data.url) setLoading(null)
+      else window.location.href = data.url
     } catch {
       setLoading(null)
     }
@@ -60,9 +67,15 @@ function LoginContent() {
   const handleKakaoLogin = async () => {
     setLoading('kakao')
     try {
-      const result = await signInWithOAuth('kakao', redirectTo, window.location.origin)
-      if (result?.url) window.location.href = result.url
-      else setLoading(null)
+      const supabase = createClient()
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'kakao',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback${redirectTo !== '/' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`,
+        },
+      })
+      if (error || !data.url) setLoading(null)
+      else window.location.href = data.url
     } catch {
       setLoading(null)
     }
