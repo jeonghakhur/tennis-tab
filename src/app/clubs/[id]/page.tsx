@@ -66,7 +66,7 @@ export default function ClubDetailPage() {
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
   const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
-  const [activeTab, setActiveTab] = useState<'info' | 'sessions' | 'rankings' | 'awards' | 'manage'>('info')
+  const [activeTab, setActiveTab] = useState<'info' | 'sessions' | 'rankings' | 'awards' | 'manage'>('sessions')
   const [sessionFormOpen, setSessionFormOpen] = useState(false)
   const [clubAwards, setClubAwards] = useState<import('@/lib/supabase/types').Database['public']['Tables']['tournament_awards']['Row'][]>([])
 
@@ -426,19 +426,6 @@ export default function ClubDetailPage() {
               {/* 탭 헤더 — 회원은 회원목록+입상기록, 임원은 회원관리 추가 */}
               <div className="flex border-b overflow-x-auto" style={{ borderColor: 'var(--border-color)' }}>
                 <button
-                  onClick={() => setActiveTab('info')}
-                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap ${
-                    activeTab === 'info'
-                      ? 'text-(--accent-color)'
-                      : 'text-(--text-muted) hover:text-(--text-primary)'
-                  }`}
-                >
-                  회원 목록
-                  {activeTab === 'info' && (
-                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
-                  )}
-                </button>
-                <button
                   onClick={() => setActiveTab('sessions')}
                   className={`px-4 py-2.5 text-sm font-medium transition-colors relative flex items-center gap-1.5 whitespace-nowrap ${
                     activeTab === 'sessions'
@@ -449,6 +436,19 @@ export default function ClubDetailPage() {
                   <Calendar className="w-3.5 h-3.5" />
                   모임
                   {activeTab === 'sessions' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setActiveTab('info')}
+                  className={`px-4 py-2.5 text-sm font-medium transition-colors relative whitespace-nowrap ${
+                    activeTab === 'info'
+                      ? 'text-(--accent-color)'
+                      : 'text-(--text-muted) hover:text-(--text-primary)'
+                  }`}
+                >
+                  회원 목록
+                  {activeTab === 'info' && (
                     <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-(--accent-color)" />
                   )}
                 </button>
