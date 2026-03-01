@@ -11,11 +11,12 @@ const statusLabel: Record<AttendanceStatus, { text: string; variant: 'success' |
 
 interface AttendanceListProps {
   attendances: SessionAttendanceDetail[]
-  /** 현재 사용자의 멤버 ID (내 행 하이라이트) */
   myMemberId?: string
+  canRespond?: boolean
+  onEdit?: () => void
 }
 
-export default function AttendanceList({ attendances, myMemberId }: AttendanceListProps) {
+export default function AttendanceList({ attendances, myMemberId, canRespond, onEdit }: AttendanceListProps) {
   const attending = attendances.filter((a) => a.status === 'ATTENDING')
   const notAttending = attendances.filter((a) => a.status === 'NOT_ATTENDING')
   const undecided = attendances.filter((a) => a.status === 'UNDECIDED')
@@ -48,6 +49,15 @@ export default function AttendanceList({ attendances, myMemberId }: AttendanceLi
             </span>
           )}
           <Badge variant={config.variant}>{config.text}</Badge>
+          {isMe && canRespond && onEdit && (
+            <button
+              onClick={onEdit}
+              className="text-xs px-2 py-1 rounded border font-medium"
+              style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
+            >
+              수정
+            </button>
+          )}
         </div>
       </div>
     )
@@ -60,7 +70,7 @@ export default function AttendanceList({ attendances, myMemberId }: AttendanceLi
         <div className="flex gap-2 text-xs">
           <span className="text-emerald-400">참석 {attending.length}</span>
           <span className="text-gray-400">불참 {notAttending.length}</span>
-          <span className="text-amber-400">미정 {undecided.length}</span>
+          {undecided.length > 0 && <span className="text-amber-400">미정 {undecided.length}</span>}
         </div>
       </div>
 

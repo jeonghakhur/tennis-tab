@@ -44,25 +44,21 @@ export default function SessionDetailPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true)
-    const data = await getClubSessionDetail(sessionId)
+    const { getMyClubMemberships } = await import('@/lib/clubs/actions')
+    const [data, memberResult] = await Promise.all([
+      getClubSessionDetail(sessionId),
+      user ? getMyClubMemberships() : Promise.resolve({ data: [] }),
+    ])
     setSession(data)
-    setLoading(false)
-  }, [sessionId])
-
-  // 내 멤버십 조회
-  useEffect(() => {
-    if (!user || !clubId) return
-    const checkMembership = async () => {
-      const { getMyClubMemberships } = await import('@/lib/clubs/actions')
-      const result = await getMyClubMemberships()
-      const found = result.data.find((m) => m.club.id === clubId)
+    if (user) {
+      const found = memberResult.data.find((m: { club: { id: string }; membership: { id: string; role: import('@/lib/clubs/types').ClubMemberRole } }) => m.club.id === clubId)
       if (found) {
         setMyMemberId(found.membership.id)
         setMyRole(found.membership.role)
       }
     }
-    checkMembership()
-  }, [user, clubId])
+    setLoading(false)
+  }, [sessionId, user, clubId])
 
   useEffect(() => {
     if (sessionId) fetchData()
@@ -227,60 +223,27 @@ export default function SessionDetailPage() {
             )}
           </div>
 
-          {/* 참석 응답 */}
-          {canRespond && (
-            <>
-              {myAttendance && !editAttendance ? (
-                /* 이미 응답한 경우 — 상태 카드 */
-                <div className="glass-card rounded-xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>내 참석 응답</h3>
-                    <button
-                      onClick={() => setEditAttendance(true)}
-                      className="text-xs px-3 py-1.5 rounded-lg border font-medium"
-                      style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
-                    >
-                      수정
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-lg">
-                      {myAttendance.status === 'ATTENDING' ? '⭕' : '❌'}
-                    </span>
-                    <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                      {myAttendance.status === 'ATTENDING' ? '참석' : '불참'}
-                    </span>
-                    {myAttendance.status === 'ATTENDING' && myAttendance.available_from && myAttendance.available_until && (
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                        {myAttendance.available_from.slice(0,5)} ~ {myAttendance.available_until.slice(0,5)}
-                      </span>
-                    )}
-                  </div>
-                  {myAttendance.notes && (
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>{myAttendance.notes}</p>
-                  )}
-                </div>
-              ) : (
-                /* 미응답 또는 수정 모드 */
-                <AttendanceForm
-                  sessionId={sessionId}
-                  clubMemberId={myMemberId!}
-                  currentStatus={myAttendance?.status}
-                  currentFrom={myAttendance?.available_from}
-                  currentUntil={myAttendance?.available_until}
-                  currentNotes={myAttendance?.notes}
-                  sessionStartTime={session?.start_time}
-                  sessionEndTime={session?.end_time}
-                  onResponded={() => { setEditAttendance(false); fetchData() }}
-                />
-              )}
-            </>
+          {/* 참석 응답 — 미응답이거나 수정 모드일 때만 표시 */}
+          {canRespond && (!myAttendance || editAttendance) && (
+            <AttendanceForm
+              sessionId={sessionId}
+              clubMemberId={myMemberId!}
+              currentStatus={myAttendance?.status}
+              currentFrom={myAttendance?.available_from}
+              currentUntil={myAttendance?.available_until}
+              currentNotes={myAttendance?.notes}
+              sessionStartTime={session?.start_time}
+              sessionEndTime={session?.end_time}
+              onResponded={() => { setEditAttendance(false); fetchData() }}
+            />
           )}
 
           {/* 참석자 현황 */}
           <AttendanceList
             attendances={session.attendances}
             myMemberId={myMemberId || undefined}
+            canRespond={!!canRespond && !editAttendance}
+            onEdit={() => setEditAttendance(true)}
           />
 
           {/* 대진표 */}
