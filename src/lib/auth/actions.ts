@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
+import { headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
 import { encryptProfile, decryptProfile } from '@/lib/crypto/profileCrypto'
@@ -138,7 +139,10 @@ export async function updatePassword(newPassword: string) {
  */
 export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver', redirectTo?: string) {
   const supabase = await createClient()
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const headersList = await headers()
+  const host = headersList.get('host') || 'localhost:3000'
+  const proto = headersList.get('x-forwarded-proto') || 'http'
+  const origin = `${proto}://${host}`
   const callbackUrl = redirectTo
     ? `${origin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
     : `${origin}/auth/callback`
