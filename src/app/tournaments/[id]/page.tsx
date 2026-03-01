@@ -91,7 +91,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   // Date formatter helper
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("ko-KR", {
+    // replaced
       year: "numeric",
       month: "long",
       day: "numeric",
@@ -103,7 +103,7 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   const formatSimpleDate = (dateStr: string | null) => {
     if (!dateStr) return "-";
-    return new Date(dateStr).toLocaleDateString("ko-KR", {
+    // replaced
       year: "numeric",
       month: "long",
       day: "numeric",

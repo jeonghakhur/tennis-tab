@@ -1,3 +1,4 @@
+import { formatKoreanDate } from '@/lib/utils/formatDate'
 import { createClient } from '@/lib/supabase/server'
 import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
@@ -107,9 +108,9 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
               <div className="flex items-center gap-1.5">
                 <Calendar className="w-4 h-4" />
                 <span>
-                  {new Date(tournament.start_date).toLocaleDateString('ko-KR')}
+                  {formatKoreanDate(tournament.start_date)}
                   {tournament.start_date !== tournament.end_date &&
-                    ` ~ ${new Date(tournament.end_date).toLocaleDateString('ko-KR')}`}
+                    ` ~ ${formatKoreanDate(tournament.end_date)}`}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">

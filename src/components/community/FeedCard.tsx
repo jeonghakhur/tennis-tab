@@ -39,7 +39,7 @@ function formatRelativeTime(dateStr: string): string {
   if (minutes < 60) return `${minutes}분 전`
   if (hours < 24) return `${hours}시간 전`
   if (days < 30) return `${days}일 전`
-  return new Date(dateStr).toLocaleDateString('ko-KR')
+  const d = new Date(dateStr); return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`
 }
 
 interface FeedCardProps {

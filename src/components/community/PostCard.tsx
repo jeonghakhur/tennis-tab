@@ -28,7 +28,7 @@ function formatRelativeTime(dateStr: string): string {
   if (hours < 24) return `${hours}시간 전`
   if (days < 30) return `${days}일 전`
   // 30일 이상이면 날짜 표시
-  return new Date(dateStr).toLocaleDateString('ko-KR')
+  const d = new Date(dateStr); return `${d.getFullYear()}. ${d.getMonth()+1}. ${d.getDate()}.`
 }
 
 interface PostCardProps {

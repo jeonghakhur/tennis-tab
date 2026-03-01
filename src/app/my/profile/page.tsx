@@ -878,7 +878,7 @@ export default function MyProfilePage() {
                         style={{ color: "var(--text-muted)" }}
                       >
                         신청일:{" "}
-                        {new Date(entry.created_at).toLocaleDateString(
+                        {/* suppressHydrationWarning */ new Date(entry.created_at).toLocaleDateString(
                           "ko-KR",
                         )}
                       </span>
