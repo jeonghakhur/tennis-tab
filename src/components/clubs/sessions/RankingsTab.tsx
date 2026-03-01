@@ -10,10 +10,10 @@ interface RankingsTabProps {
 }
 
 export default function RankingsTab({ clubId, myMemberId }: RankingsTabProps) {
-  const currentYear = new Date().getFullYear()
-  const [season, setSeason] = useState(String(currentYear))
+  const [season, setSeason] = useState(() => String(new Date().getFullYear()))
   const [rankings, setRankings] = useState<ClubMemberStatWithMember[]>([])
   const [loading, setLoading] = useState(true)
+  const currentYear = parseInt(season)
 
   // 시즌 옵션 (현재 연도 ~ 2년 전)
   const seasonOptions = Array.from({ length: 3 }, (_, i) => String(currentYear - i))

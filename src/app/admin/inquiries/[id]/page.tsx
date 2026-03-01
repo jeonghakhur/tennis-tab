@@ -1,5 +1,6 @@
 'use client'
 
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -177,13 +178,7 @@ export default function AdminInquiryDetailPage() {
                 <span>{inquiry.author.name} ({inquiry.author.email})</span>
               )}
               <span>
-                {new Date(inquiry.created_at).toLocaleDateString('ko-KR', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
+                {formatKoreanDate(inquiry.created_at)}
               </span>
             </div>
 
@@ -219,11 +214,7 @@ export default function AdminInquiryDetailPage() {
                 <span>답변자: {inquiry.replier.name}</span>
                 {inquiry.replied_at && (
                   <span>
-                    {new Date(inquiry.replied_at).toLocaleDateString('ko-KR', {
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                    })}
+                    {formatKoreanDate(inquiry.replied_at)}
                   </span>
                 )}
               </div>

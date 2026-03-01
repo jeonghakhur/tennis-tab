@@ -1,5 +1,6 @@
 'use client'
 
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -336,9 +337,9 @@ export function TournamentsTable({
                         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                           <Calendar className="w-4 h-4" />
                           <span>
-                            {new Date(tournament.start_date).toLocaleDateString('ko-KR')}
+                            {formatKoreanDate(tournament.start_date)}
                             {tournament.start_date !== tournament.end_date && (
-                              <> ~ {new Date(tournament.end_date).toLocaleDateString('ko-KR')}</>
+                              <> ~ {formatKoreanDate(tournament.end_date)}</>
                             )}
                           </span>
                         </div>

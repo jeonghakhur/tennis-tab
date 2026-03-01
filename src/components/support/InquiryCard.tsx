@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import Link from 'next/link'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import {
@@ -26,11 +27,7 @@ export function InquiryCard({
   linkPrefix = '/support/inquiry',
   showAuthor = false,
 }: InquiryCardProps) {
-  const formattedDate = new Date(inquiry.created_at).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  })
+  const formattedDate = formatKoreanDate(inquiry.created_at)
 
   return (
     <Link

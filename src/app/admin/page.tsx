@@ -1,3 +1,4 @@
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { createClient } from '@/lib/supabase/server'
 import { Users, Trophy, UserCheck, Calendar } from 'lucide-react'
 import Link from 'next/link'
@@ -209,7 +210,7 @@ export default async function AdminDashboard() {
                     </div>
                   </div>
                   <p className="text-xs text-(--text-muted)">
-                    {new Date(user.created_at).toLocaleDateString('ko-KR')}
+                    {formatKoreanDate(user.created_at)}
                   </p>
                 </div>
               ))

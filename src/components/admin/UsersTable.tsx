@@ -1,5 +1,6 @@
 'use client'
 
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useEffect, useMemo } from 'react'
 import { Search, ChevronDown, ChevronUp, User } from 'lucide-react'
 import type { Database } from '@/lib/supabase/types'
@@ -395,7 +396,7 @@ export function UsersTable({
                       </td>
                       <td className="p-4 hidden sm:table-cell">
                         <p className="text-(--text-secondary) text-sm">
-                          {new Date(user.created_at).toLocaleDateString('ko-KR')}
+                          {formatKoreanDate(user.created_at)}
                         </p>
                       </td>
                     </tr>

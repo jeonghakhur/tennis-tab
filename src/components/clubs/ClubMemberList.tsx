@@ -832,7 +832,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
             {editMember && (
               <div className="pt-3 border-t border-(--border-color) space-y-1 text-xs text-(--text-muted)">
                 <p>역할: {ROLE_BADGE[editMember.role].label} · 상태: {editMember.status === 'ACTIVE' ? '활성' : editMember.status}</p>
-                <p>{editMember.is_registered ? '가입회원' : '비가입회원'}{editMember.joined_at ? ` · 가입일: ${new Date(editMember.joined_at).toLocaleDateString('ko-KR')}` : ''}</p>
+                <p suppressHydrationWarning>{editMember.is_registered ? '가입회원' : '비가입회원'}{editMember.joined_at ? ` · 가입일: ${new Date(editMember.joined_at).toLocaleDateString('ko-KR')}` : ''}</p>
               </div>
             )}
           </div>

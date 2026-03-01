@@ -1,5 +1,6 @@
 'use client'
 
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useCallback } from 'react'
 import { assignManager, removeManager, searchUsersForManager } from '@/lib/associations/actions'
 import type { AssociationManager } from '@/lib/associations/types'
@@ -158,7 +159,7 @@ export function ManagerList({ associationId, initialManagers }: ManagerListProps
                     {manager.profiles?.phone && ` · ${manager.profiles.phone}`}
                   </p>
                   <p className="text-xs text-(--text-muted) mt-0.5">
-                    {new Date(manager.assigned_at).toLocaleDateString('ko-KR')} 지정
+                    {formatKoreanDate(manager.assigned_at)} 지정
                   </p>
                 </div>
                 <button

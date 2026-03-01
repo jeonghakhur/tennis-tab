@@ -1,5 +1,6 @@
 'use client'
 
+import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Users, Phone, Trash2 } from 'lucide-react'
@@ -787,7 +788,7 @@ export function EntriesManager({
                       </td>
                       <td className="p-4 hidden sm:table-cell">
                         <p className="text-base text-(--text-primary)">
-                          {new Date(entry.created_at).toLocaleDateString('ko-KR')}
+                          {formatKoreanDate(entry.created_at)}
                         </p>
                         <p className="text-sm text-(--text-secondary)">
                           {new Date(entry.created_at).toLocaleTimeString('ko-KR', {
