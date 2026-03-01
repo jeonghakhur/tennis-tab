@@ -179,7 +179,7 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
   }
 
   const inputClass =
-    'w-full px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color) text-sm'
+    'w-full max-w-full box-border px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color) text-sm'
 
   return (
     <>

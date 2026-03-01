@@ -166,7 +166,7 @@ export function Modal({
 
 // 서브 컴포넌트
 Modal.Body = function ModalBody({ children }: { children: React.ReactNode }) {
-  return <div className="p-5">{children}</div>;
+  return <div className="p-5 overflow-x-hidden">{children}</div>;
 };
 
 Modal.Footer = function ModalFooter({
