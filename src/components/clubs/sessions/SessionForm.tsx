@@ -58,6 +58,16 @@ function sessionToForm(s: ClubSession): FormState {
   }
 }
 
+// 공통 input 스타일 (모든 필드 동일 높이/패딩)
+const fieldStyle = {
+  backgroundColor: 'var(--bg-input)',
+  color: 'var(--text-primary)',
+  border: '1px solid var(--border-color)',
+}
+
+const inputCls = 'w-full h-11 px-3 rounded-lg text-sm outline-none focus:ring-1 focus:ring-[var(--accent-color)] box-border'
+const labelCls = 'block text-xs font-medium mb-1.5'
+
 export default function SessionForm({ clubId, isOpen, onClose, onCreated, session }: SessionFormProps) {
   const isEditMode = !!session
   const [form, setForm] = useState<FormState>(INITIAL_FORM)
@@ -68,42 +78,31 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
 
   useEffect(() => {
     if (!isOpen) return
-
     if (session) {
-      // 수정 모드: 기존 데이터로 채우기
       setForm(sessionToForm(session))
     } else {
-      // 생성 모드: 마지막 모임 데이터로 장소/시간 기본값 채우기
       const loadLast = async () => {
         try {
           const { getClubSessions } = await import('@/lib/clubs/session-actions')
           const sessions = await getClubSessions(clubId, { limit: 10 })
           const last = sessions.find(s => s.status === 'COMPLETED' || s.status === 'OPEN')
-          if (last) {
-            setForm({
-              ...INITIAL_FORM,
-              venue_name: last.venue_name,
-              court_numbers_text: last.court_numbers.join(', '),
-              start_time: last.start_time.slice(0, 5),
-              end_time: last.end_time.slice(0, 5),
-              max_attendees: last.max_attendees?.toString() ?? '',
-            })
-          } else {
-            setForm(INITIAL_FORM)
-          }
-        } catch {
-          setForm(INITIAL_FORM)
-        }
+          setForm(last ? {
+            ...INITIAL_FORM,
+            venue_name: last.venue_name,
+            court_numbers_text: last.court_numbers.join(', '),
+            start_time: last.start_time.slice(0, 5),
+            end_time: last.end_time.slice(0, 5),
+            max_attendees: last.max_attendees?.toString() ?? '',
+          } : INITIAL_FORM)
+        } catch { setForm(INITIAL_FORM) }
       }
       loadLast()
     }
   }, [isOpen, session, clubId])
 
   const handleChange = useCallback(
-    (field: keyof FormState) =>
-      (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-        setForm((prev) => ({ ...prev, [field]: e.target.value }))
-      },
+    (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+      setForm(prev => ({ ...prev, [field]: e.target.value })),
     []
   )
 
@@ -131,154 +130,142 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
     if (!validate()) return
     setSaving(true)
 
-    const courtNumbers = form.court_numbers_text
-      .split(',').map((s) => s.trim()).filter(Boolean)
+    const courtNumbers = form.court_numbers_text.split(',').map(s => s.trim()).filter(Boolean)
+    const rsvpDeadline = form.rsvp_deadline_date && form.rsvp_deadline_time
+      ? `${form.rsvp_deadline_date}T${form.rsvp_deadline_time}:00`
+      : undefined
 
-    let rsvpDeadline: string | undefined
-    if (form.rsvp_deadline_date && form.rsvp_deadline_time) {
-      rsvpDeadline = `${form.rsvp_deadline_date}T${form.rsvp_deadline_time}:00`
+    const payload = {
+      title: form.title.trim(),
+      venue_name: form.venue_name.trim(),
+      court_numbers: courtNumbers,
+      session_date: form.session_date,
+      start_time: form.start_time,
+      end_time: form.end_time,
+      max_attendees: form.max_attendees ? Number(form.max_attendees) : undefined,
+      rsvp_deadline: rsvpDeadline,
+      notes: form.notes.trim() || undefined,
     }
 
-    let result: { error?: string }
-
-    if (isEditMode && session) {
-      result = await updateClubSession(session.id, {
-        title: form.title.trim(),
-        venue_name: form.venue_name.trim(),
-        court_numbers: courtNumbers,
-        session_date: form.session_date,
-        start_time: form.start_time,
-        end_time: form.end_time,
-        max_attendees: form.max_attendees ? Number(form.max_attendees) : undefined,
-        rsvp_deadline: rsvpDeadline,
-        notes: form.notes.trim() || undefined,
-      })
-    } else {
-      const input: CreateSessionInput = {
-        club_id: clubId,
-        title: form.title.trim(),
-        venue_name: form.venue_name.trim(),
-        court_numbers: courtNumbers,
-        session_date: form.session_date,
-        start_time: form.start_time,
-        end_time: form.end_time,
-        max_attendees: form.max_attendees ? Number(form.max_attendees) : undefined,
-        rsvp_deadline: rsvpDeadline,
-        notes: form.notes.trim() || undefined,
-      }
-      result = await createClubSession(input)
-    }
+    const result = isEditMode && session
+      ? await updateClubSession(session.id, payload)
+      : await createClubSession({ club_id: clubId, ...payload } as CreateSessionInput)
 
     setSaving(false)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
+    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
     onCreated()
     onClose()
   }
-
-  const inputClass =
-    'w-full max-w-full box-border px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color) text-sm'
 
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? '모임 수정' : '모임 생성'} size="lg">
         <form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
-            <div className="space-y-3">
+            <div className="space-y-4">
 
               {/* 제목 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">제목 *</label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>제목 *</label>
                 <input
-                  ref={(el) => { fieldRefs.current.title = el }}
+                  ref={el => { fieldRefs.current.title = el }}
                   value={form.title} onChange={handleChange('title')}
-                  className={inputClass} placeholder="예: 3월 정기 모임"
+                  className={inputCls} style={fieldStyle}
+                  placeholder="예: 3월 정기 모임"
                 />
               </div>
 
               {/* 날짜 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">날짜 *</label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>날짜 *</label>
                 <input
-                  ref={(el) => { fieldRefs.current.session_date = el }}
+                  ref={el => { fieldRefs.current.session_date = el }}
                   type="date" value={form.session_date} onChange={handleChange('session_date')}
-                  className={inputClass}
+                  className={inputCls} style={fieldStyle}
                 />
               </div>
 
-              {/* 시작/종료 시간: 한 라벨 아래 가로 배치 */}
+              {/* 시간 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">시간 *</label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>시간 *</label>
                 <div className="flex items-center gap-2">
                   <input
-                    ref={(el) => { fieldRefs.current.start_time = el }}
+                    ref={el => { fieldRefs.current.start_time = el }}
                     type="time" value={form.start_time} onChange={handleChange('start_time')}
-                    className={`${inputClass} flex-1 min-w-0`}
+                    className={`${inputCls} flex-1`} style={fieldStyle}
                   />
-                  <span className="text-(--text-muted) text-sm shrink-0">~</span>
+                  <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
                   <input
-                    ref={(el) => { fieldRefs.current.end_time = el }}
+                    ref={el => { fieldRefs.current.end_time = el }}
                     type="time" value={form.end_time} onChange={handleChange('end_time')}
-                    className={`${inputClass} flex-1 min-w-0`}
+                    className={`${inputCls} flex-1`} style={fieldStyle}
                   />
                 </div>
               </div>
 
               {/* 코트장 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">코트장 *</label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>코트장 *</label>
                 <input
-                  ref={(el) => { fieldRefs.current.venue_name = el }}
+                  ref={el => { fieldRefs.current.venue_name = el }}
                   value={form.venue_name} onChange={handleChange('venue_name')}
-                  className={inputClass} placeholder="예: 잠실 테니스장"
+                  className={inputCls} style={fieldStyle}
+                  placeholder="예: 잠실 테니스장"
                 />
               </div>
 
               {/* 사용 코트 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">사용 코트 <span className="font-normal opacity-60">(쉼표 구분)</span></label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
+                  사용 코트 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(쉼표 구분)</span>
+                </label>
                 <input
                   value={form.court_numbers_text} onChange={handleChange('court_numbers_text')}
-                  className={inputClass} placeholder="예: 1번, 2번"
+                  className={inputCls} style={fieldStyle}
+                  placeholder="예: 1번, 2번"
                 />
               </div>
 
               {/* 정원 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">정원 <span className="font-normal opacity-60">(선택)</span></label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
+                  정원 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(선택)</span>
+                </label>
                 <input
                   type="number" value={form.max_attendees} onChange={handleChange('max_attendees')}
-                  className={inputClass} placeholder="미입력 시 제한 없음" min={2}
+                  className={inputCls} style={fieldStyle}
+                  placeholder="미입력 시 제한 없음" min={2}
                 />
               </div>
 
               {/* 응답 마감 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">응답 마감 <span className="font-normal opacity-60">(선택)</span></label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
+                  응답 마감 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(선택)</span>
+                </label>
                 <div className="flex items-center gap-2">
                   <input
-                    type="date" value={form.rsvp_deadline_date}
-                    onChange={handleChange('rsvp_deadline_date')}
-                    className={`${inputClass} flex-1 min-w-0`}
+                    type="date" value={form.rsvp_deadline_date} onChange={handleChange('rsvp_deadline_date')}
+                    className={`${inputCls} flex-1`} style={fieldStyle}
                   />
-                  <span className="text-(--text-muted) text-sm shrink-0">~</span>
+                  <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
                   <input
-                    type="time" value={form.rsvp_deadline_time}
-                    onChange={handleChange('rsvp_deadline_time')}
-                    className={`${inputClass} flex-1 min-w-0`}
+                    type="time" value={form.rsvp_deadline_time} onChange={handleChange('rsvp_deadline_time')}
+                    className={`${inputCls} flex-1`} style={fieldStyle}
                   />
                 </div>
               </div>
 
               {/* 메모 */}
               <div>
-                <label className="block text-xs font-medium text-(--text-secondary) mb-1">메모 <span className="font-normal opacity-60">(선택)</span></label>
+                <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>
+                  메모 <span style={{ color: 'var(--text-muted)', fontWeight: 'normal' }}>(선택)</span>
+                </label>
                 <textarea
                   value={form.notes} onChange={handleChange('notes')}
-                  className={`${inputClass} resize-none`} rows={2}
-                  placeholder="참고 사항을 적어주세요"
+                  rows={2} placeholder="참고 사항을 적어주세요"
+                  className="w-full px-3 py-2.5 rounded-lg text-sm outline-none resize-none box-border focus:ring-1 focus:ring-[var(--accent-color)]"
+                  style={fieldStyle}
                 />
               </div>
 
@@ -287,11 +274,13 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
 
           <Modal.Footer>
             <button type="button" onClick={onClose}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-(--bg-secondary) text-(--text-primary) border border-(--border-color) text-sm">
+              className="flex-1 h-11 rounded-lg text-sm border"
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
               취소
             </button>
             <button type="submit" disabled={saving}
-              className="flex-1 px-4 py-2.5 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold text-sm disabled:opacity-50">
+              className="flex-1 h-11 rounded-lg text-sm font-semibold disabled:opacity-50"
+              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}>
               {saving ? (isEditMode ? '수정 중...' : '생성 중...') : (isEditMode ? '수정' : '생성')}
             </button>
           </Modal.Footer>
