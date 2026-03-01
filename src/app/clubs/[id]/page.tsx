@@ -61,6 +61,7 @@ export default function ClubDetailPage() {
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
   const [isMember, setIsMember] = useState(false)
+  const [membershipChecked, setMembershipChecked] = useState(false)
   const [myMembership, setMyMembership] = useState<PublicMember | null>(null)
 
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
@@ -85,6 +86,11 @@ export default function ClubDetailPage() {
 
   useEffect(() => {
     if (authLoading || !id) return
+    if (!user?.id) {
+      setIsMember(false)
+      setMembershipChecked(true)
+      return
+    }
     checkMembership()
   }, [authLoading, user?.id, id])
 
@@ -137,6 +143,8 @@ export default function ClubDetailPage() {
     } catch {
       setIsMember(false)
       setMyMembership(null)
+    } finally {
+      setMembershipChecked(true)
     }
   }
 
@@ -205,7 +213,7 @@ export default function ClubDetailPage() {
     loadClubData()
   }
 
-  if (loading || authLoading) {
+  if (loading || authLoading || !membershipChecked) {
     return (
       <>
         <Navigation />
