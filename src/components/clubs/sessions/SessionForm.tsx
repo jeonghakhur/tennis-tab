@@ -6,6 +6,7 @@ import { AlertDialog } from '@/components/common/AlertDialog'
 import { createClubSession, updateClubSession } from '@/lib/clubs/session-actions'
 import type { CreateSessionInput, ClubSession } from '@/lib/clubs/types'
 import SessionDatePicker from './SessionDatePicker'
+import SessionTimePicker from './SessionTimePicker'
 
 interface SessionFormProps {
   clubId: string
@@ -190,17 +191,21 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
               <div>
                 <label className={labelCls} style={{ color: 'var(--text-secondary)' }}>시간 *</label>
                 <div className="flex items-center gap-2">
-                  <input
-                    ref={el => { fieldRefs.current.start_time = el }}
-                    type="time" value={form.start_time} onChange={handleChange('start_time')}
-                    className={`${inputCls} flex-1`} style={fieldStyle}
-                  />
+                  <div className="flex-1">
+                    <SessionTimePicker
+                      value={form.start_time}
+                      onChange={(v) => setForm(prev => ({ ...prev, start_time: v }))}
+                      placeholder="시작 시간"
+                    />
+                  </div>
                   <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
-                  <input
-                    ref={el => { fieldRefs.current.end_time = el }}
-                    type="time" value={form.end_time} onChange={handleChange('end_time')}
-                    className={`${inputCls} flex-1`} style={fieldStyle}
-                  />
+                  <div className="flex-1">
+                    <SessionTimePicker
+                      value={form.end_time}
+                      onChange={(v) => setForm(prev => ({ ...prev, end_time: v }))}
+                      placeholder="종료 시간"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -253,10 +258,13 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                     />
                   </div>
                   <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
-                  <input
-                    type="time" value={form.rsvp_deadline_time} onChange={handleChange('rsvp_deadline_time')}
-                    className={`${inputCls} flex-1`} style={fieldStyle}
-                  />
+                  <div className="flex-1">
+                    <SessionTimePicker
+                      value={form.rsvp_deadline_time}
+                      onChange={(v) => setForm(prev => ({ ...prev, rsvp_deadline_time: v }))}
+                      placeholder="시간"
+                    />
+                  </div>
                 </div>
               </div>
 
