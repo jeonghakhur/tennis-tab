@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light !important;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎾 Tennis Tab 리포트 목록</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f0f4f8 !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; max-width: 860px; margin: 0 auto; }
+
+  .header { background: linear-gradient(135deg, #1a6b3c, #2d9d5c); color: white !important; border-radius: 16px; padding: 32px 36px; margin-bottom: 28px; }
+  .header h1 { font-size: 26px; font-weight: 800; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 28px; }
+  .stat-card { background: #ffffff !important; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 30px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b !important; margin-top: 4px; }
+  .green { color: #10b981 !important; }
+  .red { color: #ef4444 !important; }
+  .yellow { color: #f59e0b !important; }
+
+  .section-label { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px; color: #64748b !important; margin-bottom: 12px; }
+
+  .report-card { background: #ffffff !important; border-radius: 14px; padding: 22px 24px; margin-bottom: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; gap: 16px; text-decoration: none; color: inherit; transition: box-shadow 0.15s, border-color 0.15s; }
+  .report-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.12); border-color: #2d9d5c; }
+  .report-card.placeholder { opacity: 0.5; cursor: default; }
+  .report-card.placeholder:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-color: #e2e8f0; }
+
+  .report-info { flex: 1; }
+  .report-date { font-size: 12px; color: #64748b !important; font-weight: 600; margin-bottom: 4px; }
+  .report-title { font-size: 16px; font-weight: 700; color: #0f172a !important; margin-bottom: 6px; }
+  .report-desc { font-size: 13px; color: #475569 !important; }
+  .report-tags { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+  .tag { display: inline-flex; align-items: center; gap: 4px; border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 600; }
+  .tag-critical { background: #fef2f2; color: #dc2626 !important; border: 1px solid #fecaca; }
+  .tag-warning { background: #fffbeb; color: #d97706 !important; border: 1px solid #fde68a; }
+  .tag-done { background: #f0fdf4; color: #16a34a !important; border: 1px solid #bbf7d0; }
+  .tag-commits { background: #eff6ff; color: #2563eb !important; border: 1px solid #bfdbfe; }
+
+  .report-action { flex-shrink: 0; }
+  .btn-view { display: inline-flex; align-items: center; gap: 6px; background: #1a6b3c; color: white !important; text-decoration: none; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .btn-view:hover { background: #146c43; }
+  .btn-coming { display: inline-flex; align-items: center; gap: 6px; background: #f1f5f9; color: #94a3b8 !important; padding: 10px 18px; border-radius: 10px; font-size: 13px; font-weight: 600; cursor: default; }
+
+  .divider { border: none; border-top: 1px solid #e2e8f0; margin: 24px 0; }
+
+  .footer { text-align: center; color: #94a3b8 !important; font-size: 12px; margin-top: 32px; padding-bottom: 8px; }
+
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(3, 1fr); }
+    .report-card { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🎾 Tennis Tab 리포트 목록</h1>
+  <p>기능 버그 수정 및 UI 접근성 개선 이력을 기록합니다</p>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-num green">10</div><div class="stat-label">총 수정 건수</div></div>
+  <div class="stat-card"><div class="stat-num red">6</div><div class="stat-label">Critical</div></div>
+  <div class="stat-card"><div class="stat-num yellow">4</div><div class="stat-label">Warning</div></div>
+</div>
+
+<div class="section-label">📋 수정 리포트</div>
+
+<a href="./fix-report-2026-03-02.html" class="report-card">
+  <div class="report-info">
+    <div class="report-date">📅 2026-03-02</div>
+    <div class="report-title">기능 버그 + UI 접근성 개선</div>
+    <div class="report-desc">AI 챗 클럽 조회, 세션 수정 모달 시간 pre-fill, 배지 명도 대비, 버튼 터치 영역 등 10건 수정</div>
+    <div class="report-tags">
+      <span class="tag tag-critical">🔴 Critical 6건</span>
+      <span class="tag tag-warning">🟡 Warning 4건</span>
+      <span class="tag tag-done">✅ 수정 완료</span>
+      <span class="tag tag-commits">💾 커밋 5개</span>
+    </div>
+  </div>
+  <div class="report-action">
+    <span class="btn-view">보기 →</span>
+  </div>
+</a>
+
+<hr class="divider">
+
+<div class="section-label">🕐 예정 리포트</div>
+
+<div class="report-card placeholder">
+  <div class="report-info">
+    <div class="report-date">📅 예정</div>
+    <div class="report-title">다음 수정 리포트</div>
+    <div class="report-desc">새로운 버그 수정 및 UI 개선 사항이 발견되면 여기에 추가됩니다</div>
+    <div class="report-tags">
+      <span class="tag" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;">준비 중...</span>
+    </div>
+  </div>
+  <div class="report-action">
+    <span class="btn-coming">준비 중</span>
+  </div>
+</div>
+
+<div class="report-card placeholder">
+  <div class="report-info">
+    <div class="report-date">📅 예정</div>
+    <div class="report-title">성능 최적화 리포트</div>
+    <div class="report-desc">페이지 로딩 속도, 번들 사이즈 최적화, Core Web Vitals 개선 이력</div>
+    <div class="report-tags">
+      <span class="tag" style="background:#f8fafc;color:#94a3b8;border:1px solid #e2e8f0;">준비 중...</span>
+    </div>
+  </div>
+  <div class="report-action">
+    <span class="btn-coming">준비 중</span>
+  </div>
+</div>
+
+<div class="footer">Tennis Tab Docs &nbsp;·&nbsp; 2026</div>
+
+</body>
+</html>

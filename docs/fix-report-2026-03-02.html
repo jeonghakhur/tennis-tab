@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light !important;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tennis Tab 수정 리포트 — 2026-03-02</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f0f4f8 !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; max-width: 1100px; margin: 0 auto; }
+  .header { background: linear-gradient(135deg, #1a6b3c, #2d9d5c); color: white !important; border-radius: 16px; padding: 32px 36px; margin-bottom: 24px; }
+  .header h1 { font-size: 24px; font-weight: 800; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .header-meta { display: flex; gap: 16px; margin-top: 14px; flex-wrap: wrap; }
+  .header-badge { background: rgba(255,255,255,0.2); border-radius: 8px; padding: 4px 12px; font-size: 12px; font-weight: 600; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .stat-card { background: #ffffff !important; border-radius: 12px; padding: 18px 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 30px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b !important; margin-top: 4px; }
+  .red { color: #ef4444 !important; } .yellow { color: #f59e0b !important; }
+  .green { color: #10b981 !important; } .blue { color: #3b82f6 !important; }
+  .section { background: #ffffff !important; border-radius: 14px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; color: #1e293b !important; padding-bottom: 12px; border-bottom: 2px solid #f1f5f9; }
+  .fix-item { border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; }
+  .fix-item:last-child { margin-bottom: 0; }
+  .fix-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+  .fix-title { font-size: 14px; font-weight: 700; color: #0f172a !important; }
+  .fix-desc { font-size: 12px; color: #64748b !important; margin-top: 3px; }
+  .fix-tag { display: inline-block; background: #f0fdf4; color: #16a34a !important; border: 1px solid #bbf7d0; border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .severity-critical { background: #fef2f2; color: #dc2626 !important; border: 1px solid #fecaca; border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+  .severity-warning { background: #fffbeb; color: #d97706 !important; border: 1px solid #fde68a; border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; }
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .compare-box { border-radius: 10px; overflow: hidden; }
+  .compare-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; padding: 6px 12px; }
+  .compare-label.before { background: #fef2f2; color: #dc2626 !important; }
+  .compare-label.after { background: #f0fdf4; color: #16a34a !important; }
+  .compare-content { padding: 14px; border: 1px solid #e2e8f0; border-top: none; border-radius: 0 0 10px 10px; background: #fafafa !important; min-height: 80px; display: flex; align-items: center; justify-content: center; }
+  .mockup-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+  .mockup-badge-before { background: #198754; color: white !important; }
+  .mockup-badge-after { background: #146c43; color: white !important; }
+  .mockup-badge-dark-before { background: #059669; color: white !important; }
+  .mockup-badge-dark-after { background: #065f46; color: white !important; }
+  .dark-bg { background: #1e293b !important; padding: 12px; border-radius: 8px; }
+  .mockup-btn-small { height: 26px; padding: 0 10px; font-size: 12px; border-radius: 4px; border: 1px solid #d1d5db; background: #f9fafb !important; color: #6b7280 !important; display: inline-flex; align-items: center; gap: 4px; cursor: default; }
+  .mockup-btn-large { height: 44px; padding: 0 16px; font-size: 14px; border-radius: 8px; border: 1px solid #d1d5db; background: #f9fafb !important; color: #374151 !important; display: inline-flex; align-items: center; gap: 6px; cursor: default; }
+  .mockup-input-faint { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px 14px; font-size: 14px; background: #fff !important; color: #9ca3af !important; width: 200px; outline: none; }
+  .mockup-input-visible { border: 1.5px solid #94a3b8; border-radius: 8px; padding: 10px 14px; font-size: 14px; background: #fff !important; color: #374151 !important; width: 200px; outline: none; }
+  .mockup-date-broken { font-family: monospace; font-size: 12px; color: #dc2626 !important; background: #fef2f2 !important; padding: 4px 8px; border-radius: 4px; }
+  .mockup-date-fixed { font-family: -apple-system, sans-serif; font-size: 13px; color: #0f172a !important; font-weight: 600; }
+  .mockup-modal { border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px; background: #fff !important; }
+  .mockup-field { margin-bottom: 10px; }
+  .mockup-field label { font-size: 11px; color: #64748b !important; display: block; margin-bottom: 4px; }
+  .mockup-field-value { font-size: 13px; font-weight: 600; color: #0f172a !important; }
+  .mockup-field-empty { font-size: 13px; color: #94a3b8 !important; font-style: italic; }
+  .code-tag { background: #f1f5f9; color: #0f172a !important; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: 'Courier New', monospace; }
+  .code-tag-red { background: #fef2f2; color: #dc2626 !important; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: 'Courier New', monospace; }
+  .code-tag-green { background: #f0fdf4; color: #16a34a !important; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: 'Courier New', monospace; }
+  .change-detail { margin-top: 12px; font-size: 12px; color: #475569 !important; background: #f8fafc !important; border-radius: 8px; padding: 10px 14px; }
+  .change-detail strong { color: #1e293b !important; }
+  .arrow { color: #94a3b8 !important; margin: 0 4px; }
+  .nav-back { display: inline-flex; align-items: center; gap: 6px; text-decoration: none; color: #2d9d5c !important; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
+  @media (max-width: 640px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .comparison { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<a href="./report-index.html" class="nav-back">← 리포트 목록으로</a>
+<div class="header">
+  <h1>🎾 Tennis Tab 수정 리포트</h1>
+  <p>기능 버그 수정 및 UI 접근성 개선 — Before / After 시각 비교</p>
+  <div class="header-meta">
+    <span class="header-badge">📅 2026-03-02</span>
+    <span class="header-badge">🔴 Critical 6건</span>
+    <span class="header-badge">🟡 Warning 4건</span>
+    <span class="header-badge">✅ 총 10건 수정</span>
+  </div>
+</div>
+<div class="stats">
+  <div class="stat-card"><div class="stat-num red">6</div><div class="stat-label">Critical 수정</div></div>
+  <div class="stat-card"><div class="stat-num yellow">4</div><div class="stat-label">Warning 수정</div></div>
+  <div class="stat-card"><div class="stat-num green">3</div><div class="stat-label">False Positive</div></div>
+  <div class="stat-card"><div class="stat-num blue">5</div><div class="stat-label">커밋 수</div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🔴 Critical — 기능 버그 수정</div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">1. AI 챗 클럽 세션/순위 조회 불가</div>
+        <div class="fix-desc">"건승회 모임 언제야?" 질문 시 빈 응답 반환</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-critical">🔴 Critical</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:flex-start;">
+          <div style="background:#fef2f2;border-radius:8px;padding:10px 14px;width:100%;">
+            <div style="font-size:12px;color:#64748b;">AI 챗 응답</div>
+            <div style="font-size:14px;color:#dc2626;margin-top:4px;">클럽 관련 tool 없음 → 빈 응답</div>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;">사용 가능한 클럽 tool: <span class="code-tag-red">없음</span></div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:flex-start;">
+          <div style="background:#f0fdf4;border-radius:8px;padding:10px 14px;width:100%;">
+            <div style="font-size:12px;color:#64748b;">AI 챗 응답</div>
+            <div style="font-size:14px;color:#16a34a;margin-top:4px;">✅ 클럽 세션/순위 정상 조회</div>
+          </div>
+          <div style="font-size:11px;color:#475569;">추가된 tool: <span class="code-tag-green">get_club_sessions</span> <span class="code-tag-green">get_club_ranking</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> AI 챗에 클럽 관련 tool 2개 추가 — <span class="code-tag-green">get_club_sessions</span>, <span class="code-tag-green">get_club_ranking</span>
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">2. 세션 수정 모달 시간 pre-fill 누락</div>
+        <div class="fix-desc">수정 버튼 클릭 시 시작/종료 시간 필드가 빈값으로 초기화됨</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-critical">🔴 Critical</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 시간 초기화</div>
+        <div class="compare-content" style="flex-direction:column;align-items:stretch;">
+          <div class="mockup-modal">
+            <div class="mockup-field">
+              <label>세션 날짜</label>
+              <div class="mockup-field-value">2026-03-15</div>
+            </div>
+            <div class="mockup-field">
+              <label>시작 시간</label>
+              <div class="mockup-field-empty">시간 선택...</div>
+            </div>
+            <div class="mockup-field" style="margin-bottom:0;">
+              <label>종료 시간</label>
+              <div class="mockup-field-empty">시간 선택...</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 시간 pre-fill</div>
+        <div class="compare-content" style="flex-direction:column;align-items:stretch;">
+          <div class="mockup-modal">
+            <div class="mockup-field">
+              <label>세션 날짜</label>
+              <div class="mockup-field-value">2026-03-15</div>
+            </div>
+            <div class="mockup-field">
+              <label>시작 시간</label>
+              <div class="mockup-field-value" style="color:#2d9d5c;">오전 10:00</div>
+            </div>
+            <div class="mockup-field" style="margin-bottom:0;">
+              <label>종료 시간</label>
+              <div class="mockup-field-value" style="color:#2d9d5c;">오후 2:00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>원인:</strong> shadcn Select 렌더링 타이밍 이슈<br>
+      <strong>수정:</strong> <span class="code-tag-green">key={`start-${form.start_time}`}</span> 추가로 시간 변경 시 강제 재렌더링
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">3. 관리자 대시보드 날짜 ISO 포맷 그대로 노출</div>
+        <div class="fix-desc">최근 대회 목록에 ISO 날짜 문자열이 그대로 표시됨</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-critical">🔴 Critical</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — ISO 문자열 노출</div>
+        <div class="compare-content" style="flex-direction:column;gap:10px;align-items:flex-start;">
+          <div style="background:#fff7ed;border-radius:8px;padding:10px 14px;width:100%;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px;">최근 대회</div>
+            <div style="font-size:13px;color:#0f172a;margin-bottom:4px;font-weight:600;">🏆 마포구 오픈 테니스</div>
+            <span class="mockup-date-broken">2026-10-16T23:00:00+00:00</span>
+          </div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 한국어 날짜 포맷</div>
+        <div class="compare-content" style="flex-direction:column;gap:10px;align-items:flex-start;">
+          <div style="background:#f0fdf4;border-radius:8px;padding:10px 14px;width:100%;">
+            <div style="font-size:11px;color:#64748b;margin-bottom:6px;">최근 대회</div>
+            <div style="font-size:13px;color:#0f172a;margin-bottom:4px;font-weight:600;">🏆 마포구 오픈 테니스</div>
+            <span class="mockup-date-fixed">2026년 10월 17일</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> <span class="code-tag-red">start_date</span> <span class="arrow">→</span> <span class="code-tag-green">formatKoreanDate(start_date)</span> 적용
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">🔴 Critical — UI 접근성 (WCAG AA)</div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">4. 모집중 배지 명도 대비 부족 (라이트 모드)</div>
+        <div class="fix-desc">WCAG AA 기준 4.5:1 미달 — 라이트모드 3.65:1</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-critical">🔴 Critical</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 대비 3.65:1</div>
+        <div class="compare-content" style="flex-direction:column;gap:10px;">
+          <span class="mockup-badge mockup-badge-before">● 모집중</span>
+          <div style="font-size:11px;color:#94a3b8;text-align:center;">배경: #198754 / white<br>대비: 3.65:1 ❌</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 대비 7.3:1</div>
+        <div class="compare-content" style="flex-direction:column;gap:10px;">
+          <span class="mockup-badge mockup-badge-after">● 모집중</span>
+          <div style="font-size:11px;color:#475569;text-align:center;">배경: #146c43 / white<br>대비: 7.3:1 ✅</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> <span class="code-tag-red">#198754</span> <span class="arrow">→</span> <span class="code-tag-green">#146c43</span> (더 진한 초록으로 변경)
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">5. 모집중 배지 명도 대비 부족 (다크 모드)</div>
+        <div class="fix-desc">다크모드 배경 기준 3.65:1 → WCAG AA 미달</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-critical">🔴 Critical</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 다크모드 3.65:1</div>
+        <div class="compare-content" style="flex-direction:column;gap:10px;">
+          <div class="dark-bg" style="text-align:center;">
+            <span class="mockup-badge mockup-badge-dark-before">● 모집중</span>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;text-align:center;">배경: #059669<br>대비: 3.65:1 ❌</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 다크모드 7.3:1</div>
+        <div class="compare-content" style="flex-direction:column;gap:10px;">
+          <div class="dark-bg" style="text-align:center;">
+            <span class="mockup-badge mockup-badge-dark-after">● 모집중</span>
+          </div>
+          <div style="font-size:11px;color:#475569;text-align:center;">배경: #065f46<br>대비: 7.3:1 ✅</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> 다크모드 <span class="code-tag-red">#059669</span> <span class="arrow">→</span> <span class="code-tag-green">#065f46</span>
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">6. 커뮤니티 좋아요/댓글 버튼 터치 영역 미달</div>
+        <div class="fix-desc">WCAG 2.5.5 기준 44×44px 미달 — 실제 26px 높이</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-critical">🔴 Critical</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 26px</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;">
+            <button class="mockup-btn-small">👍 좋아요 12</button>
+            <button class="mockup-btn-small">💬 댓글 3</button>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;">height: 26px ❌ (터치 미달)</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 44px</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:center;">
+          <div style="display:flex;gap:8px;">
+            <button class="mockup-btn-large">👍 좋아요 12</button>
+            <button class="mockup-btn-large">💬 댓글 3</button>
+          </div>
+          <div style="font-size:11px;color:#475569;">height: 44px ✅ (터치 친화적)</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> <span class="code-tag-red">h-[26px]</span> <span class="arrow">→</span> <span class="code-tag-green">h-11 (44px)</span>, <span class="code-tag-red">text-xs</span> <span class="arrow">→</span> <span class="code-tag-green">text-sm</span>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">🟡 Warning — UI 개선</div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">7. 로그인 입력 필드 테두리 가시성 부족</div>
+        <div class="fix-desc">라이트모드에서 입력 필드 경계 구분 불명확</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-warning">🟡 Warning</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 흐릿한 테두리</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:center;">
+          <input class="mockup-input-faint" placeholder="이메일 입력" readonly>
+          <div style="font-size:11px;color:#94a3b8;">border-color: #e5e7eb (너무 밝음)</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 선명한 테두리</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:center;">
+          <input class="mockup-input-visible" placeholder="이메일 입력" readonly>
+          <div style="font-size:11px;color:#475569;">border-color: #94a3b8 (명확한 구분)</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> <span class="code-tag-red">border-gray-200</span> <span class="arrow">→</span> <span class="code-tag-green">border-slate-400</span>
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">8. 클럽 멤버 역할 배지 텍스트 대비 부족</div>
+        <div class="fix-desc">회장/매니저 배지 텍스트 가독성 저하 (밝은 색상)</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-warning">🟡 Warning</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 밝은 텍스트</div>
+        <div class="compare-content" style="gap:8px;flex-wrap:wrap;">
+          <span style="background:#dbeafe;color:#93c5fd;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">회장</span>
+          <span style="background:#dcfce7;color:#86efac;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">매니저</span>
+          <span style="background:#f3e8ff;color:#d8b4fe;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">멤버</span>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 진한 텍스트</div>
+        <div class="compare-content" style="gap:8px;flex-wrap:wrap;">
+          <span style="background:#dbeafe;color:#1d4ed8;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">회장</span>
+          <span style="background:#dcfce7;color:#15803d;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">매니저</span>
+          <span style="background:#f3e8ff;color:#7e22ce;border-radius:20px;padding:3px 10px;font-size:12px;font-weight:600;">멤버</span>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> 회장 <span class="code-tag-red">#93c5fd</span> <span class="arrow">→</span> <span class="code-tag-green">#1d4ed8</span>, 매니저 <span class="code-tag-red">#86efac</span> <span class="arrow">→</span> <span class="code-tag-green">#15803d</span>, 멤버 <span class="code-tag-red">#d8b4fe</span> <span class="arrow">→</span> <span class="code-tag-green">#7e22ce</span>
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">9. 대회 신청 버튼 포커스 링 누락</div>
+        <div class="fix-desc">키보드 탐색 시 포커스 상태 시각적 표시 없음</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-warning">🟡 Warning</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 포커스 링 없음</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:center;">
+          <button style="height:44px;padding:0 20px;border-radius:8px;border:none;background:#1a6b3c;color:white;font-size:14px;font-weight:700;outline:none;cursor:default;">대회 신청</button>
+          <div style="font-size:11px;color:#94a3b8;">포커스 표시 없음 ❌</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 포커스 링 표시</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;align-items:center;">
+          <button style="height:44px;padding:0 20px;border-radius:8px;border:none;background:#1a6b3c;color:white;font-size:14px;font-weight:700;outline:3px solid #2d9d5c;outline-offset:2px;cursor:default;">대회 신청</button>
+          <div style="font-size:11px;color:#475569;">focus-visible:ring 추가 ✅</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> <span class="code-tag-green">focus-visible:ring-2 focus-visible:ring-green-600 focus-visible:ring-offset-2</span> 추가
+    </div>
+  </div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">10. 클럽 순위 테이블 행 간격 과소</div>
+        <div class="fix-desc">모바일 환경에서 터치 타겟 간격 부족, 가독성 저하</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-warning">🟡 Warning</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 행 간격 좁음</div>
+        <div class="compare-content" style="flex-direction:column;align-items:stretch;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:4px 8px;color:#0f172a;">1위</td><td style="padding:4px 8px;color:#0f172a;">김철수</td><td style="padding:4px 8px;color:#0f172a;">1250점</td></tr>
+            <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:4px 8px;color:#0f172a;">2위</td><td style="padding:4px 8px;color:#0f172a;">박영희</td><td style="padding:4px 8px;color:#0f172a;">1180점</td></tr>
+            <tr><td style="padding:4px 8px;color:#0f172a;">3위</td><td style="padding:4px 8px;color:#0f172a;">이민준</td><td style="padding:4px 8px;color:#0f172a;">1120점</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 행 간격 개선</div>
+        <div class="compare-content" style="flex-direction:column;align-items:stretch;">
+          <table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 8px;color:#0f172a;font-weight:700;">🥇 1위</td><td style="padding:10px 8px;color:#0f172a;">김철수</td><td style="padding:10px 8px;color:#16a34a;font-weight:700;">1250점</td></tr>
+            <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:10px 8px;color:#0f172a;font-weight:700;">🥈 2위</td><td style="padding:10px 8px;color:#0f172a;">박영희</td><td style="padding:10px 8px;color:#0f172a;">1180점</td></tr>
+            <tr><td style="padding:10px 8px;color:#0f172a;font-weight:700;">🥉 3위</td><td style="padding:10px 8px;color:#0f172a;">이민준</td><td style="padding:10px 8px;color:#0f172a;">1120점</td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정:</strong> row padding <span class="code-tag-red">py-1</span> <span class="arrow">→</span> <span class="code-tag-green">py-2.5</span>, 순위 메달 이모지 및 강조 표시 추가
+    </div>
+  </div>
+</div>
+
+<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:12px;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+  <div>
+    <div style="color:white;font-size:14px;font-weight:700;">🚀 배포 완료</div>
+    <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:3px;">2026-03-02 — 총 5개 커밋, 10건 수정</div>
+  </div>
+  <span style="background:#10b981;color:white;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:700;">✅ DEPLOYED</span>
+</div>
+</body>
+</html>

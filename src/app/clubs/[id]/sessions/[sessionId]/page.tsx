@@ -14,10 +14,10 @@ import type {
   ClubSessionStatus,
   ClubMemberRole,
 } from '@/lib/clubs/types'
-import { ChevronLeft, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, LockKeyhole } from 'lucide-react'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import SessionForm from '@/components/clubs/sessions/SessionForm'
-import { cancelClubSession } from '@/lib/clubs/session-actions'
+import { cancelClubSession, closeSessionRsvp } from '@/lib/clubs/session-actions'
 
 const statusConfig: Record<ClubSessionStatus, { label: string; variant: BadgeVariant }> = {
   OPEN: { label: '모집중', variant: 'success' },
@@ -65,6 +65,18 @@ export default function SessionDetailPage() {
       setToast({ isOpen: true, message: result.error || '오류가 발생했습니다.', type: 'success' as const })
     } else {
       router.push(`/clubs/${clubId}`)
+    }
+  }
+
+
+  const handleCloseRsvp = async () => {
+    if (!confirm('응답을 마감하시겠습니까? 마감 후 회원들은 응답을 변경할 수 없습니다.')) return
+    const result = await closeSessionRsvp(sessionId)
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error, type: 'success' as const })
+    } else {
+      setToast({ isOpen: true, message: '응답이 마감되었습니다.', type: 'success' as const })
+      fetchData()
     }
   }
 
@@ -189,15 +201,26 @@ export default function SessionDetailPage() {
             )}
 
             {/* 임원 액션 */}
-            {isOfficer && session?.status === 'OPEN' && (
-              <div className="mt-4 pt-4 border-t flex gap-2" style={{ borderColor: 'var(--border-color)' }}>
-                <button
-                  onClick={() => setEditOpen(true)}
-                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border border-(--border-color) text-(--text-primary) hover:bg-(--bg-card-hover) transition-colors"
-                >
-                  <Pencil className="w-4 h-4" />
-                  수정
-                </button>
+            {isOfficer && (session?.status === 'OPEN' || session?.status === 'CLOSED') && (
+              <div className="mt-4 pt-4 border-t flex flex-wrap gap-2" style={{ borderColor: 'var(--border-color)' }}>
+                {session?.status === 'OPEN' && (
+                  <>
+                    <button
+                      onClick={() => setEditOpen(true)}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border border-(--border-color) text-(--text-primary) hover:bg-(--bg-card-hover) transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      수정
+                    </button>
+                    <button
+                      onClick={handleCloseRsvp}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                    >
+                      <LockKeyhole className="w-4 h-4" />
+                      응답 마감
+                    </button>
+                  </>
+                )}
                 <button
                   onClick={() => setConfirmDelete(true)}
                   disabled={deleting}

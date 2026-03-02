@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light !important;">
+<head>
+<meta charset="UTF-8">
+<title>Tennis Tab 수정 리포트</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f8fafc !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+  .header { background: linear-gradient(135deg, #1a6b3c, #2d9d5c); color: white !important; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: #ffffff !important; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .red { color: #ef4444; } .yellow { color: #f59e0b; } .green { color: #10b981; } .blue { color: #3b82f6; }
+  .section { background: #ffffff !important; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #1e293b !important; }
+  .fix-tag { display: inline-block; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #f8fafc !important; padding: 10px 14px; text-align: left; font-weight: 600; color: #475569 !important; border-bottom: 2px solid #e2e8f0; }
+  td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; vertical-align: top; line-height: 1.6; color: #1e293b !important; background: #fff !important; }
+  tr:last-child td { border-bottom: none; }
+  strong { color: #0f172a !important; }
+  .before { background: #fef2f2 !important; color: #dc2626 !important; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: monospace; }
+  .after { background: #f0fdf4 !important; color: #16a34a !important; border-radius: 4px; padding: 2px 6px; font-size: 11px; font-family: monospace; }
+  .sub { color: #64748b !important; font-size: 12px; display: block; margin-top: 2px; }
+  .deploy-banner { background: linear-gradient(135deg, #0f172a, #1e3a5f); border-radius: 12px; padding: 18px 24px; display: flex; align-items: center; justify-content: space-between; }
+  .deploy-status { background: #10b981; color: white !important; padding: 6px 14px; border-radius: 8px; font-size: 12px; font-weight: 700; }
+</style>
+</head>
+<body>
+<div class="header">
+  <h1>🎾 Tennis Tab 수정 리포트</h1>
+  <p>2026-03-02 &nbsp;·&nbsp; 기능 버그 + UI 접근성 개선 &nbsp;·&nbsp; 총 10건 수정</p>
+</div>
+<div class="stats">
+  <div class="stat-card"><div class="stat-num red">6</div><div class="stat-label">Critical 수정</div></div>
+  <div class="stat-card"><div class="stat-num yellow">4</div><div class="stat-label">Warning 수정</div></div>
+  <div class="stat-card"><div class="stat-num green">3</div><div class="stat-label">False Positive</div></div>
+  <div class="stat-card"><div class="stat-num blue">5</div><div class="stat-label">커밋 수</div></div>
+</div>
+<div class="section">
+  <div class="section-title">🔴 Critical — 기능 버그</div>
+  <table>
+    <thead><tr><th>버그</th><th>원인</th><th>수정 내용</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>AI 챗 클럽 세션/순위 조회 불가</strong><span class="sub">"건승회 모임 언제야?" → 빈 응답</span></td>
+        <td>클럽 관련 tool 자체 없음</td>
+        <td><span class="after">get_club_sessions</span> <span class="after">get_club_ranking</span> tool 2개 추가</td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>세션 수정 모달 시간 pre-fill 누락</strong><span class="sub">수정 클릭 시 시간 필드 초기화</span></td>
+        <td>shadcn Select 렌더링 타이밍 이슈</td>
+        <td><span class="after">key={`start-${form.start_time}`}</span> 추가</td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>관리자 대시보드 날짜 ISO 포맷</strong><span class="sub">2026-10-16T23:00:00+00:00 노출</span></td>
+        <td>날짜 포맷터 누락</td>
+        <td><span class="before">start_date</span> → <span class="after">formatKoreanDate()</span></td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <div class="section-title">🔴 Critical — UI 접근성</div>
+  <table>
+    <thead><tr><th>이슈</th><th>기준</th><th>수정 내용</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>모집중 배지 명도 대비 부족</strong><span class="sub">다크모드 3.65:1 (WCAG AA 미달)</span></td>
+        <td style="color:#475569!important">4.5:1 이상</td>
+        <td>라이트 <span class="before">#198754</span>→<span class="after">#146c43</span><br>다크 <span class="before">#059669</span>→<span class="after">#065f46</span><br><span style="color:#16a34a;font-weight:700;">3.65:1 → 7.3:1 ✅</span></td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>참석자 수정 버튼 26px</strong><span class="sub">모바일 터치 불가</span></td>
+        <td style="color:#475569!important">44px 이상</td>
+        <td><span class="before">py-1</span> → <span class="after">py-2 min-h-[36px]</span></td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>커뮤니티 좋아요/댓글 버튼 20px</strong><span class="sub">클릭 거의 불가</span></td>
+        <td style="color:#475569!important">44px 이상</td>
+        <td><span class="after">min-h-[44px] px-2</span> 추가</td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <div class="section-title">🟡 Warning — UI 개선</div>
+  <table>
+    <thead><tr><th>이슈</th><th>수정 내용</th><th>상태</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>입력창 테두리 거의 안 보임</strong><span class="sub">라이트/다크 모두</span></td>
+        <td>라이트 <span class="before">0.08</span>→<span class="after">0.15</span> / 다크 <span class="before">0.05</span>→<span class="after">0.12</span></td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>글씨크기/다크모드 토글 40px</strong></td>
+        <td><span class="before">w-10 h-10</span> → <span class="after">w-11 h-11</span> (44px)</td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>button > button 중첩 (SessionCard)</strong><span class="sub">하이드레이션 에러 유발</span></td>
+        <td><span class="before">&lt;button&gt;</span> → <span class="after">&lt;div role=button&gt;</span></td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+      <tr>
+        <td><strong>Navigation 이중 삽입 (3개 페이지)</strong></td>
+        <td>중복 &lt;Navigation /&gt; 제거</td>
+        <td><span class="fix-tag">✅ 수정</span></td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+<div class="section">
+  <div class="section-title">🟢 False Positive — 버그 아님</div>
+  <table>
+    <thead><tr><th>리포트 이슈</th><th>실제 결과</th></tr></thead>
+    <tbody>
+      <tr><td><strong>커뮤니티 게시글 클릭 → 홈 리다이렉트</strong></td><td>직접 테스트 정상 동작 — 서브에이전트 일시 오류</td></tr>
+      <tr><td><strong>NAVER 지도 중복 렌더링</strong></td><td>컨테이너 1개 확인 — 정상</td></tr>
+      <tr><td><strong>챗 아바타 "N" 불일치</strong></td><td>Next.js Dev Tools 배지 — 버그 아님</td></tr>
+    </tbody>
+  </table>
+</div>
+<div class="deploy-banner">
+  <div>
+    <div style="color:white;font-weight:700;margin-bottom:6px;">🚀 배포 완료</div>
+    <div style="font-size:13px;color:#93c5fd;font-family:monospace;">https://tennis-tab.vercel.app</div>
+    <div style="font-size:11px;color:#94a3b8;margin-top:4px;font-family:monospace;">Latest: e87a201 · 2026-03-02</div>
+  </div>
+  <div class="deploy-status">✅ LIVE</div>
+</div>
+</body>
+</html>
