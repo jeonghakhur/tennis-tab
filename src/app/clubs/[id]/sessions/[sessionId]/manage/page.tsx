@@ -193,7 +193,7 @@ export default function SessionManagePage() {
                   응답 마감
                 </button>
               )}
-              {session.status === 'CLOSED' && (
+              {session.status !== 'COMPLETED' && session.status !== 'CANCELLED' && session.status !== 'OPEN' && (
                 <button
                   onClick={handleComplete}
                   className="px-4 py-2 rounded-lg text-sm font-semibold"
@@ -202,7 +202,7 @@ export default function SessionManagePage() {
                   모임 완료
                 </button>
               )}
-              {session.status !== 'COMPLETED' && session.status !== 'CANCELLED' && (
+              {session.status !== 'CANCELLED' && (
                 <button
                   onClick={handleCancel}
                   className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500 text-white"
@@ -220,7 +220,7 @@ export default function SessionManagePage() {
           />
 
           {/* 대진 편성 (CLOSED 또는 OPEN 상태) */}
-          {(session.status === 'OPEN' || session.status === 'CLOSED') && (
+          {session.status !== 'CANCELLED' && (
             <BracketEditor
               sessionId={sessionId}
               attendingMembers={attendingMembers}
