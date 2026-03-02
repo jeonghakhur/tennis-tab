@@ -201,9 +201,9 @@ export default function SessionDetailPage() {
             )}
 
             {/* 임원 액션 */}
-            {isOfficer && (session?.status === 'OPEN' || session?.status === 'CLOSED') && (
+            {isOfficer && (session?.status === 'OPEN' || session?.status === 'CLOSED' || session?.status === 'COMPLETED') && (
               <div className="mt-4 pt-4 border-t flex flex-wrap gap-2" style={{ borderColor: 'var(--border-color)' }}>
-                {session?.status === 'OPEN' && (
+                {(session?.status === 'OPEN' || session?.status === 'COMPLETED') && (
                   <>
                     <button
                       onClick={() => setEditOpen(true)}
@@ -212,13 +212,13 @@ export default function SessionDetailPage() {
                       <Pencil className="w-4 h-4" />
                       수정
                     </button>
-                    <button
+                    {session?.status === 'OPEN' && <button
                       onClick={handleCloseRsvp}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
                     >
                       <LockKeyhole className="w-4 h-4" />
                       응답 마감
-                    </button>
+                    </button>}
                   </>
                 )}
                 <Link
