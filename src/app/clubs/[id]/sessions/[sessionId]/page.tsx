@@ -14,7 +14,7 @@ import type {
   ClubSessionStatus,
   ClubMemberRole,
 } from '@/lib/clubs/types'
-import { ChevronLeft, Pencil, Trash2, LockKeyhole } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, LockKeyhole, Settings } from 'lucide-react'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import SessionForm from '@/components/clubs/sessions/SessionForm'
 import { cancelClubSession, closeSessionRsvp } from '@/lib/clubs/session-actions'
@@ -221,6 +221,13 @@ export default function SessionDetailPage() {
                     </button>
                   </>
                 )}
+                <Link
+                  href={`/clubs/${clubId}/sessions/${sessionId}/manage`}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border border-(--border-color) text-(--text-primary) hover:bg-(--bg-card-hover) transition-colors"
+                >
+                  <Settings className="w-4 h-4" />
+                  세션 관리
+                </Link>
                 <button
                   onClick={() => setConfirmDelete(true)}
                   disabled={deleting}

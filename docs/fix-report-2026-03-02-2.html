@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light only !important;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tennis Tab 작업 리포트 #2 — 2026-03-02</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f8fafc !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+  .header { background: linear-gradient(135deg, #1a6b3c, #2d9d5c); color: white !important; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { color: #1a6b3c; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: white !important; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .blue { color: #3b82f6; } .green { color: #10b981; } .yellow { color: #f59e0b; } .gray { color: #64748b; }
+  .section { background: white !important; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #1e293b !important; }
+  .fix-item { border: 1px solid #f1f5f9; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .fix-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
+  .fix-title { font-size: 14px; font-weight: 700; color: #0f172a !important; margin-bottom: 4px; }
+  .fix-desc { font-size: 12px; color: #64748b; }
+  .fix-tag { display: inline-block; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .severity-blue { background: #eff6ff; color: #2563eb; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .severity-yellow { background: #fffbeb; color: #d97706; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .compare-box { border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+  .compare-label { padding: 6px 12px; font-size: 11px; font-weight: 700; }
+  .compare-label.before { background: #fef2f2; color: #dc2626; }
+  .compare-label.after { background: #f0fdf4; color: #16a34a; }
+  .compare-content { padding: 14px; background: #fff !important; display: flex; align-items: center; justify-content: center; min-height: 80px; }
+  .change-detail { font-size: 12px; color: #475569 !important; background: #f8fafc; border-radius: 6px; padding: 8px 12px; }
+  .code-tag-green { background: #f0fdf4; color: #16a34a; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 11px; }
+  .code-tag-red { background: #fef2f2; color: #dc2626; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 11px; }
+  .arrow { color: #94a3b8; margin: 0 4px; }
+</style>
+</head>
+<body>
+
+<a href="./index.html" class="back-link">← 리포트 목록으로</a>
+
+<div class="header">
+  <h1>🎾 Tennis Tab 작업 리포트 #2</h1>
+  <p>2026-03-02 오전 · 데이터 입력 + 기능 개선 · 총 2건</p>
+</div>
+
+<div class="stats">
+  <div class="stat-card"><div class="stat-num blue">1</div><div class="stat-label">데이터 입력</div></div>
+  <div class="stat-card"><div class="stat-num yellow">1</div><div class="stat-label">기능 개선</div></div>
+  <div class="stat-card"><div class="stat-num green">1</div><div class="stat-label">커밋</div></div>
+  <div class="stat-card"><div class="stat-num gray">0</div><div class="stat-label">버그</div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">🔵 데이터 입력</div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">1. 3/8 건승회 모임 참석자 10명 등록</div>
+        <div class="fix-desc">세션 참석 응답(ATTENDING) + 참석 시간(10:00~14:00) DB 직접 등록</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-blue">🔵 데이터</span>
+        <span class="fix-tag">✅ 완료</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 참석자 0명</div>
+        <div class="compare-content" style="flex-direction:column;gap:4px;">
+          <div style="font-size:13px;color:#64748b;">3월 8일 모임 (OPEN)</div>
+          <div style="font-size:28px;font-weight:800;color:#dc2626;">0명</div>
+          <div style="font-size:11px;color:#94a3b8;">참석 응답 없음</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 10명 등록</div>
+        <div class="compare-content" style="flex-direction:column;gap:6px;align-items:flex-start;">
+          <div style="font-size:28px;font-weight:800;color:#16a34a;">10명 ✅</div>
+          <div style="font-size:11px;color:#475569;line-height:1.8;">
+            최재원 · 김준석 · 양진용 · 김동현 · 윤슬<br>
+            박선우 · 윤필재 · 김정은 · 김용희 · 박경미
+          </div>
+          <div style="font-size:11px;color:#94a3b8;">⏰ 10:00 ~ 14:00 · 망원한강공원 테니스장</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>작업:</strong> <span class="code-tag-green">club_session_attendances</span> 테이블 10건 INSERT — status=ATTENDING, available_from=10:00:00, available_until=14:00:00
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">🟡 기능 개선</div>
+
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">2. 세션 상세 페이지에 응답 마감 버튼 추가</div>
+        <div class="fix-desc">기존엔 /manage 페이지에만 있던 마감 버튼을 세션 상세에서 바로 실행 가능하도록 개선</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-yellow">🟡 개선</span>
+        <span class="fix-tag">✅ 수정</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 수정/삭제만 존재</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:6px;">
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;background:white;font-size:12px;font-weight:600;color:#1e293b;cursor:default;">✏️ 수정</button>
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:transparent;font-size:12px;font-weight:600;color:#ef4444;cursor:default;">🗑 삭제</button>
+          </div>
+          <div style="font-size:11px;color:#94a3b8;">마감하려면 /manage 페이지로 이동 필요</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 응답 마감 버튼 추가</div>
+        <div class="compare-content" style="flex-direction:column;gap:8px;">
+          <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid #e2e8f0;background:white;font-size:12px;font-weight:600;color:#1e293b;cursor:default;">✏️ 수정</button>
+            <button style="padding:8px 14px;border-radius:8px;border:none;background:#f59e0b;font-size:12px;font-weight:600;color:white;cursor:default;">🔒 응답 마감</button>
+            <button style="padding:8px 14px;border-radius:8px;border:1px solid rgba(239,68,68,0.3);background:transparent;font-size:12px;font-weight:600;color:#ef4444;cursor:default;">🗑 삭제</button>
+          </div>
+          <div style="font-size:11px;color:#475569;">OWNER · ADMIN · MATCH_DIRECTOR 권한시 노출</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      <strong>수정 파일:</strong> <span class="code-tag-green">clubs/[id]/sessions/[sessionId]/page.tsx</span> —
+      <span class="code-tag-green">closeSessionRsvp</span> import +
+      <span class="code-tag-green">handleCloseRsvp</span> 핸들러 추가 ·
+      commit <span class="code-tag-green">8b5b6d7</span>
+    </div>
+  </div>
+</div>
+
+<div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:12px;padding:20px 28px;display:flex;align-items:center;justify-content:space-between;">
+  <div>
+    <div style="color:white;font-size:14px;font-weight:700;">🚀 배포 완료</div>
+    <div style="color:rgba(255,255,255,0.7);font-size:12px;margin-top:3px;">2026-03-02 — 커밋 8b5b6d7 · 2건 작업</div>
+  </div>
+  <span style="background:#10b981;color:white;padding:6px 16px;border-radius:8px;font-size:12px;font-weight:700;">✅ DEPLOYED</span>
+</div>
+
+</body>
+</html>
