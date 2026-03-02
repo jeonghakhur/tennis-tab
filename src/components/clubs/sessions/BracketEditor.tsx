@@ -9,6 +9,7 @@ import {
   createRoundRobinMatches,
   createDoublesRoundRobinMatches,
   deleteMatchResult,
+  deleteAllMatchResults,
   resolveMatchDispute,
 } from '@/lib/clubs/session-actions'
 import type { ClubMatchResult, SessionAttendanceDetail, MatchType } from '@/lib/clubs/types'
@@ -26,6 +27,13 @@ const MATCH_TYPE_LABELS: Record<MatchType, string> = {
   doubles_men: '남복',
   doubles_women: '여복',
   doubles_mixed: '혼복',
+}
+
+const MATCH_TYPE_BADGES: Record<MatchType, string> = {
+  singles: '🏃 단식',
+  doubles_men: '🔵 남복',
+  doubles_women: '🔴 여복',
+  doubles_mixed: '🎾 혼복',
 }
 
 export default function BracketEditor({
@@ -49,8 +57,38 @@ export default function BracketEditor({
   const [deleteTarget, setDeleteTarget] = useState<string | null>(null)
   const [doublesPreview, setDoublesPreview] = useState<{ men: number; women: number; mixed: number; total: number } | null>(null)
 
+  // 전체 삭제
+  const handleDeleteAll = useCallback(async () => {
+    setSaving(true)
+    const result = await deleteAllMatchResults(sessionId)
+    setSaving(false)
+    setDeleteAllConfirm(false)
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+    setAlert({ isOpen: true, message: '전체 경기가 삭제되었습니다.', type: 'success' as 'error' })
+    onRefresh()
+  }, [sessionId, onRefresh])
+
+  // 경기 수정 시작
+  const handleEditMatch = useCallback((m: ClubMatchResult) => {
+    setEditingMatch(m)
+    setMatchType(m.match_type || 'singles')
+    setPlayer1Id(m.player1_member_id || '')
+    setPlayer1bId(m.player1b_member_id || '')
+    setPlayer2Id(m.player2_member_id || '')
+    setPlayer2bId(m.player2b_member_id || '')
+    setCourt(m.court_number || '')
+    setScheduledTime(m.scheduled_time || '')
+    setMode('manual')
+  }, [])
+
   // 분쟁 해결
+
   const [disputeMatch, setDisputeMatch] = useState<ClubMatchResult | null>(null)
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState(false)
+  const [editingMatch, setEditingMatch] = useState<ClubMatchResult | null>(null)
   const [disputeP1Score, setDisputeP1Score] = useState('')
   const [disputeP2Score, setDisputeP2Score] = useState('')
 
@@ -59,8 +97,8 @@ export default function BracketEditor({
   // 복식 미리보기 계산
   useEffect(() => {
     if (autoType !== 'doubles') { setDoublesPreview(null); return }
-    const men = attendingMembers.filter((a) => a.member && (a.member as any).gender === 'MALE').length
-    const women = attendingMembers.filter((a) => a.member && (a.member as any).gender === 'FEMALE').length
+    const men = attendingMembers.filter((a) => a.member && ((a.member as any).gender === 'M' || (a.member as any).gender === 'MALE')).length
+    const women = attendingMembers.filter((a) => a.member && ((a.member as any).gender === 'F' || (a.member as any).gender === 'FEMALE')).length
     const menPairs = Math.floor(men / 2)
     const womenPairs = Math.floor(women / 2)
     const menMatches = men >= 4 ? (menPairs * (menPairs - 1)) / 2 : 0
@@ -197,7 +235,7 @@ export default function BracketEditor({
               className="px-2 py-1 rounded-md bg-(--bg-secondary) text-xs text-(--text-primary)"
             >
               {a.member.name}
-              {(a.member as any).gender === 'MALE' ? ' 🔵' : (a.member as any).gender === 'FEMALE' ? ' 🔴' : ''}
+              {(a.member as any).gender === 'MALE' || (a.member as any).gender === 'M' ? ' 🔵' : (a.member as any).gender === 'FEMALE' || (a.member as any).gender === 'F' ? ' 🔴' : ''}
               {a.member.rating ? ` (${a.member.rating})` : ''}
             </span>
           ))}
@@ -428,19 +466,31 @@ export default function BracketEditor({
       {/* 기존 경기 목록 (삭제 가능) */}
       {matches.length > 0 && (
         <div className="glass-card rounded-xl p-4">
-          <h3 className="text-sm font-semibold text-(--text-primary) mb-3">생성된 경기 ({matches.length}건)</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-(--text-primary)">생성된 경기 ({matches.length}건)</h3>
+            <button
+              onClick={() => setDeleteAllConfirm(true)}
+              className="text-xs text-rose-400 hover:text-rose-300 border border-rose-400/30 px-2 py-0.5 rounded"
+            >
+              전체 삭제
+            </button>
+          </div>
           <div className="space-y-1">
             {matches.map((m) => {
-              const typeLabel = MATCH_TYPE_LABELS[m.match_type || 'singles']
+              const typeBadge = MATCH_TYPE_BADGES[m.match_type || 'singles']
               return (
                 <div key={m.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-(--bg-card-hover)">
                   <span className="text-sm text-(--text-primary)">
-                    <span className="text-xs text-(--text-muted) mr-1">[{typeLabel}]</span>
+                    <span className="text-xs font-semibold mr-2 px-1.5 py-0.5 rounded bg-(--bg-secondary)">{typeBadge}</span>
                     {m.player1?.name}{m.player1b ? ` / ${m.player1b.name}` : ''} vs {m.player2?.name}{m.player2b ? ` / ${m.player2b.name}` : ''}
-                    {m.court_number && <span className="text-xs text-(--text-muted) ml-2">[{m.court_number}]</span>}
+                    {m.court_number && <span className="text-xs text-(--text-muted) ml-2">[{m.court_number}번]</span>}
+                    {m.scheduled_time && <span className="text-xs text-(--text-muted) ml-1">{m.scheduled_time}</span>}
                   </span>
                   {m.status !== 'COMPLETED' && (
-                    <button onClick={() => setDeleteTarget(m.id)} className="text-xs text-rose-400 hover:text-rose-300 ml-2 shrink-0">삭제</button>
+                    <div className="flex gap-1 ml-2 shrink-0">
+                      <button onClick={() => handleEditMatch(m)} className="text-xs text-blue-400 hover:text-blue-300">수정</button>
+                      <button onClick={() => setDeleteTarget(m.id)} className="text-xs text-rose-400 hover:text-rose-300">삭제</button>
+                    </div>
                   )}
                 </div>
               )
@@ -473,6 +523,7 @@ export default function BracketEditor({
       )}
 
       <ConfirmDialog isOpen={!!deleteTarget} onConfirm={handleDelete} onClose={() => setDeleteTarget(null)} message="이 경기를 삭제하시겠습니까?" type="warning" />
+      <ConfirmDialog isOpen={deleteAllConfirm} onConfirm={handleDeleteAll} onClose={() => setDeleteAllConfirm(false)} message={`생성된 경기 ${matches.length}건을 모두 삭제하시겠습니까?`} type="warning" />
       <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} message={alert.message} type={alert.type} />
     </div>
   )

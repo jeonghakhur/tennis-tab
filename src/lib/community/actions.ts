@@ -76,26 +76,16 @@ export async function getPost(id: string): Promise<{ data: Post | null; error?: 
 
   const admin = createAdminClient()
 
-  // 조회수 1 증가 (race condition 가능하지만 MVP에서는 허용)
-  const { data: current } = await admin
-    .from('posts')
-    .select('view_count')
-    .eq('id', id)
-    .single()
+  // 조회수 증가 + 포스트 상세 조회 병렬 처리
+  const [{ data: current }, { data, error }] = await Promise.all([
+    admin.from('posts').select('view_count').eq('id', id).single(),
+    admin.from('posts').select('*, author:profiles!author_id(name, avatar_url)').eq('id', id).single(),
+  ])
 
+  // 조회수 업데이트 (fire-and-forget)
   if (current) {
-    await admin
-      .from('posts')
-      .update({ view_count: current.view_count + 1 })
-      .eq('id', id)
+    admin.from('posts').update({ view_count: current.view_count + 1 }).eq('id', id).then(() => {})
   }
-
-  // 포스트 상세 조회
-  const { data, error } = await admin
-    .from('posts')
-    .select('*, author:profiles!author_id(name, avatar_url)')
-    .eq('id', id)
-    .single()
 
   if (error) return { data: null, error: error.message }
   return { data: data as Post }

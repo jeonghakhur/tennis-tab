@@ -70,21 +70,48 @@
 
 <div class="section-label">📋 수정 리포트</div>
 
-<a href="./fix-report-2026-03-02.html" class="report-card">
+<a href="./fix-report-2026-03-02-5.html" class="report-card">
   <div class="report-info">
-    <div class="report-date">📅 2026-03-02</div>
-    <div class="report-title">기능 버그 + UI 접근성 개선</div>
-    <div class="report-desc">AI 챗 클럽 조회, 세션 수정 모달 시간 pre-fill, 배지 명도 대비, 버튼 터치 영역 등 10건 수정</div>
+    <div class="report-date">📅 2026-03-02 오후</div>
+    <div class="report-title">#5 전체 쿼리 성능 분석 및 최적화</div>
+    <div class="report-desc">10개 주요 쿼리 벤치마크 측정, SELECT * → 필요 컬럼, 순차 → 병렬(Promise.all), fire-and-forget 패턴 적용. getClubSessions -45%, getTournaments -49% 개선.</div>
     <div class="report-tags">
-      <span class="tag tag-critical">🔴 Critical 6건</span>
-      <span class="tag tag-warning">🟡 Warning 4건</span>
-      <span class="tag tag-done">✅ 수정 완료</span>
-      <span class="tag tag-commits">💾 커밋 5개</span>
+      <span class="tag">성능</span>
+      <span class="tag">병렬화</span>
+      <span class="tag">쿼리최적화</span>
+      <span class="tag">벤치마크</span>
     </div>
   </div>
-  <div class="report-action">
-    <span class="btn-view">보기 →</span>
+  <span class="btn-view">보기 →</span>
+</a>
+
+<a href="./fix-report-2026-03-02-4.html" class="report-card">
+  <div class="report-info">
+    <div class="report-date">📅 2026-03-02 오후</div>
+    <div class="report-title">#4 복식 대진 + 개인 성적 + 순위 기간 필터</div>
+    <div class="report-desc">복식 대진 자동/수동 생성 (남복·여복·혼복), 개인 게임 결과 페이지, 순위 기간별 필터 (이번달/작년 등), 멤버 이름 클릭 링크 구현.</div>
+    <div class="report-tags">
+      <span class="tag">복식</span>
+      <span class="tag">개인성적</span>
+      <span class="tag">순위필터</span>
+      <span class="tag">신규페이지</span>
+    </div>
   </div>
+  <span class="btn-view">보기 →</span>
+</a>
+
+<a href="./fix-report-2026-03-02-3.html" class="report-card">
+  <div class="report-info">
+    <div class="report-date">📅 2026-03-02 오후</div>
+    <div class="report-title">#3 대진표 수정/삭제 기능 추가</div>
+    <div class="report-desc">대진 개별 수정(점수·코트·시간), 개별 삭제, 전체 일괄 삭제 기능 구현. 서버 액션 2개 추가 (updateMatchResult, deleteAllMatchResults).</div>
+    <div class="report-tags">
+      <span class="tag">신규기능</span>
+      <span class="tag">MatchBoard</span>
+      <span class="tag">서버액션</span>
+    </div>
+  </div>
+  <span class="btn-view">보기 →</span>
 </a>
 
 <a href="./fix-report-2026-03-02-2.html" class="report-card">
@@ -104,33 +131,21 @@
   </div>
 </a>
 
-<a href="./fix-report-2026-03-02-3.html" class="report-card">
+<a href="./fix-report-2026-03-02.html" class="report-card">
   <div class="report-info">
-    <div class="report-date">📅 2026-03-02 오후</div>
-    <div class="report-title">#3 대진표 수정/삭제 기능 추가</div>
-    <div class="report-desc">대진 개별 수정(점수·코트·시간), 개별 삭제, 전체 일괄 삭제 기능 구현. 서버 액션 2개 추가 (updateMatchResult, deleteAllMatchResults).</div>
+    <div class="report-date">📅 2026-03-02</div>
+    <div class="report-title">기능 버그 + UI 접근성 개선</div>
+    <div class="report-desc">AI 챗 클럽 조회, 세션 수정 모달 시간 pre-fill, 배지 명도 대비, 버튼 터치 영역 등 10건 수정</div>
     <div class="report-tags">
-      <span class="tag">신규기능</span>
-      <span class="tag">MatchBoard</span>
-      <span class="tag">서버액션</span>
+      <span class="tag tag-critical">🔴 Critical 6건</span>
+      <span class="tag tag-warning">🟡 Warning 4건</span>
+      <span class="tag tag-done">✅ 수정 완료</span>
+      <span class="tag tag-commits">💾 커밋 5개</span>
     </div>
   </div>
-  <span class="btn-view">보기 →</span>
-</a>
-
-<a href="./fix-report-2026-03-02-4.html" class="report-card">
-  <div class="report-info">
-    <div class="report-date">📅 2026-03-02 오후</div>
-    <div class="report-title">#4 복식 대진 + 개인 성적 + 순위 기간 필터</div>
-    <div class="report-desc">복식 대진 자동/수동 생성 (남복·여복·혼복), 개인 게임 결과 페이지, 순위 기간별 필터 (이번달/작년 등), 멤버 이름 클릭 링크 구현.</div>
-    <div class="report-tags">
-      <span class="tag">복식</span>
-      <span class="tag">개인성적</span>
-      <span class="tag">순위필터</span>
-      <span class="tag">신규페이지</span>
-    </div>
+  <div class="report-action">
+    <span class="btn-view">보기 →</span>
   </div>
-  <span class="btn-view">보기 →</span>
 </a>
 
 <hr class="divider">

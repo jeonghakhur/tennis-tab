@@ -143,7 +143,7 @@ export async function getClubSessions(
   // sessions + attendances JOIN, myMember 병렬 조회
   let query = admin
     .from('club_sessions')
-    .select('*, club_session_attendances(session_id, status, club_member_id)')
+    .select('id, club_id, title, venue_name, court_numbers, session_date, start_time, end_time, max_attendees, status, rsvp_deadline, notes, created_by, created_at, updated_at, club_session_attendances(status, club_member_id)')
     .eq('club_id', clubId)
     .order('session_date', { ascending: false })
 
@@ -636,8 +636,8 @@ export async function createDoublesRoundRobinMatches(
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
   if (authError) return { error: authError, count: 0, preview: { men: 0, women: 0, mixed: 0 } }
 
-  const men = attendingMembersWithGender.filter((m) => m.gender === 'MALE').map((m) => m.id)
-  const women = attendingMembersWithGender.filter((m) => m.gender === 'FEMALE').map((m) => m.id)
+  const men = attendingMembersWithGender.filter((m) => m.gender === 'MALE' || m.gender === 'M').map((m) => m.id)
+  const women = attendingMembersWithGender.filter((m) => m.gender === 'FEMALE' || m.gender === 'F').map((m) => m.id)
 
   type DoubleMatch = {
     session_id: string
@@ -759,8 +759,8 @@ export async function previewDoublesMatches(
   sessionId: string,
   membersWithGender: { id: string; gender: string | null }[]
 ): Promise<{ men: number; women: number; mixed: number; total: number }> {
-  const men = membersWithGender.filter((m) => m.gender === 'MALE').length
-  const women = membersWithGender.filter((m) => m.gender === 'FEMALE').length
+  const men = membersWithGender.filter((m) => m.gender === 'MALE' || m.gender === 'M').length
+  const women = membersWithGender.filter((m) => m.gender === 'FEMALE' || m.gender === 'F').length
   const menPairs = Math.floor(men / 2)
   const womenPairs = Math.floor(women / 2)
 

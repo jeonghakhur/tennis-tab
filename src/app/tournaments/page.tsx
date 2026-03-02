@@ -3,33 +3,32 @@ import { createClient } from "@/lib/supabase/server";
 import TournamentCard from "@/components/tournaments/TournamentCard";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 import { UserRole } from "@/lib/supabase/types";
+import type { Database } from "@/lib/supabase/types";
 
 const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
 
 export default async function TournamentsPage() {
   const supabase = await createClient();
 
-  // 현재 사용자 및 역할 확인
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  let canCreateTournament = false;
+  // 현재 사용자 확인 + 대회 목록 병렬 조회
+  const [{ data: { user } }, { data: tournaments, error }] = await Promise.all([
+    supabase.auth.getUser(),
+    supabase
+      .from("tournaments")
+      .select("id, title, status, start_date, end_date, location, poster_url")
+      .order("start_date", { ascending: false }),
+  ]);
 
+  let canCreateTournament = false;
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
-
     canCreateTournament =
       !!profile?.role && ALLOWED_ROLES.includes(profile.role);
   }
-
-  const { data: tournaments, error } = await supabase
-    .from("tournaments")
-    .select("*")
-    .order("start_date", { ascending: false });
 
   if (error) {
     console.error("Error fetching tournaments:", error);
@@ -70,7 +69,7 @@ export default async function TournamentsPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {tournaments.map((tournament) => (
-            <TournamentCard key={tournament.id} tournament={tournament} />
+            <TournamentCard key={tournament.id} tournament={tournament as Database["public"]["Tables"]["tournaments"]["Row"]} />
           ))}
         </div>
       )}
