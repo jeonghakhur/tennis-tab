@@ -109,7 +109,7 @@ export default function SessionDetailPage() {
         <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="text-center">
             <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
-              세션을 찾을 수 없습니다
+              모임을 찾을 수 없습니다
             </h1>
             <Link
               href={`/clubs/${clubId}`}
@@ -144,7 +144,7 @@ export default function SessionDetailPage() {
             클럽으로
           </Link>
 
-          {/* 세션 헤더 */}
+          {/* 모임 헤더 */}
           <div className="glass-card rounded-xl p-6">
             <div className="flex items-start justify-between mb-3">
               <h1 className="text-xl font-display" style={{ color: 'var(--text-primary)' }}>
@@ -226,7 +226,7 @@ export default function SessionDetailPage() {
                   className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border border-(--border-color) text-(--text-primary) hover:bg-(--bg-card-hover) transition-colors"
                 >
                   <Settings className="w-4 h-4" />
-                  세션 관리
+                  모임 관리
                 </Link>
                 <button
                   onClick={() => setConfirmDelete(true)}

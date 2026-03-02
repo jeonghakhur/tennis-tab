@@ -89,7 +89,7 @@ async function checkClubMemberAuth(clubId: string) {
 // 세션 CRUD
 // ============================================================================
 
-/** 세션 생성 */
+/** 모임 생성 */
 export async function createClubSession(
   input: CreateSessionInput
 ): Promise<{ data?: ClubSession; error?: string }> {
@@ -125,13 +125,13 @@ export async function createClubSession(
     .select()
     .single()
 
-  if (error) return { error: `세션 생성 실패: ${error.message}` }
+  if (error) return { error: `모임 생성 실패: ${error.message}` }
 
   revalidatePath(`/clubs/${input.club_id}`)
   return { data: data as ClubSession }
 }
 
-/** 세션 목록 조회 */
+/** 모임 목록 조회 */
 export async function getClubSessions(
   clubId: string,
   options?: { status?: ClubSessionStatus[]; limit?: number }
@@ -183,7 +183,7 @@ export async function getClubSessions(
   })
 }
 
-/** 세션 상세 조회 (참석 + 경기) */
+/** 모임 상세 조회 (참석 + 경기) */
 export async function getClubSessionDetail(
   sessionId: string
 ): Promise<ClubSessionDetail | null> {
@@ -239,7 +239,7 @@ export async function getClubSessionDetail(
   }
 }
 
-/** 세션 수정 (OPEN 상태만) */
+/** 모임 수정 (OPEN 상태만) */
 export async function updateClubSession(
   sessionId: string,
   input: UpdateSessionInput
@@ -253,7 +253,7 @@ export async function updateClubSession(
     .eq('id', sessionId)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
   if (session.status !== 'OPEN') return { error: 'OPEN 상태에서만 수정할 수 있습니다.' }
 
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
@@ -276,7 +276,7 @@ export async function updateClubSession(
   return {}
 }
 
-/** 세션 취소 */
+/** 모임 취소 */
 export async function cancelClubSession(
   sessionId: string
 ): Promise<{ error?: string }> {
@@ -288,7 +288,7 @@ export async function cancelClubSession(
     .eq('id', sessionId)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
   if (session.status === 'COMPLETED') return { error: '완료된 세션은 취소할 수 없습니다.' }
 
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
@@ -317,7 +317,7 @@ export async function closeSessionRsvp(
     .eq('id', sessionId)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
   if (session.status !== 'OPEN') return { error: 'OPEN 상태에서만 마감할 수 있습니다.' }
 
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
@@ -334,7 +334,7 @@ export async function closeSessionRsvp(
   return {}
 }
 
-/** 세션 완료 처리 (CLOSED → COMPLETED) */
+/** 모임 완료 처리 (CLOSED → COMPLETED) */
 export async function completeSession(
   sessionId: string
 ): Promise<{ error?: string }> {
@@ -346,7 +346,7 @@ export async function completeSession(
     .eq('id', sessionId)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
   if (session.status !== 'CLOSED') return { error: 'CLOSED 상태에서만 완료할 수 있습니다.' }
 
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
@@ -421,7 +421,7 @@ export async function respondToSession(
     .eq('id', input.session_id)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
   if (session.status !== 'OPEN') return { error: '응답 기간이 아닙니다.' }
 
   // 마감 시간 체크
@@ -512,7 +512,7 @@ export async function createMatchResult(
     .eq('id', input.session_id)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
 
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
   if (authError) return { error: authError }
@@ -554,7 +554,7 @@ export async function createRoundRobinMatches(
     .eq('id', sessionId)
     .single()
 
-  if (!session) return { error: '세션을 찾을 수 없습니다.', count: 0 }
+  if (!session) return { error: '모임을 찾을 수 없습니다.', count: 0 }
 
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
   if (authError) return { error: authError, count: 0 }
@@ -931,7 +931,7 @@ async function updateStatsAfterMatch(
   }
 }
 
-/** 세션 상세 + 내 멤버십 한 번에 조회 (라운드트립 1회) */
+/** 모임 상세 + 내 멤버십 한 번에 조회 (라운드트립 1회) */
 export async function getSessionPageData(
   sessionId: string,
   clubId: string

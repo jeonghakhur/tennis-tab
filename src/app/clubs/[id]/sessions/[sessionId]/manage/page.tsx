@@ -69,11 +69,11 @@ export default function SessionManagePage() {
     })
   }
 
-  // 세션 완료
+  // 모임 완료
   const handleComplete = () => {
     setConfirmAction({
       isOpen: true,
-      message: '세션을 완료 처리하시겠습니까? 참석자 통계가 갱신됩니다.',
+      message: '모임을 완료 처리하시겠습니까? 참석자 통계가 갱신됩니다.',
       action: async () => {
         setActionLoading(true)
         const result = await completeSession(sessionId)
@@ -81,18 +81,18 @@ export default function SessionManagePage() {
         if (result.error) {
           setAlert({ isOpen: true, message: result.error, type: 'error' })
         } else {
-          setToast({ isOpen: true, message: '세션이 완료되었습니다.', type: 'success' })
+          setToast({ isOpen: true, message: '모임이 완료되었습니다.', type: 'success' })
           fetchData()
         }
       },
     })
   }
 
-  // 세션 취소
+  // 모임 취소
   const handleCancel = () => {
     setConfirmAction({
       isOpen: true,
-      message: '세션을 취소하시겠습니까?',
+      message: '모임을 취소하시겠습니까?',
       action: async () => {
         setActionLoading(true)
         const result = await cancelClubSession(sessionId)
@@ -100,7 +100,7 @@ export default function SessionManagePage() {
         if (result.error) {
           setAlert({ isOpen: true, message: result.error, type: 'error' })
         } else {
-          setToast({ isOpen: true, message: '세션이 취소되었습니다.', type: 'success' })
+          setToast({ isOpen: true, message: '모임이 취소되었습니다.', type: 'success' })
           fetchData()
         }
       },
@@ -128,7 +128,7 @@ export default function SessionManagePage() {
         <div className="flex-1 flex items-center justify-center" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <div className="text-center">
             <h1 className="text-2xl font-display mb-4" style={{ color: 'var(--text-primary)' }}>
-              {!session ? '세션을 찾을 수 없습니다' : '관리 권한이 없습니다'}
+              {!session ? '모임을 찾을 수 없습니다' : '관리 권한이 없습니다'}
             </h1>
             <Link
               href={`/clubs/${clubId}`}
@@ -158,10 +158,10 @@ export default function SessionManagePage() {
             style={{ color: 'var(--text-muted)' }}
           >
             <ChevronLeft className="w-4 h-4" />
-            세션 상세로
+            모임 상세로
           </Link>
 
-          {/* 세션 헤더 */}
+          {/* 모임 헤더 */}
           <div className="glass-card rounded-xl p-6">
             <div className="flex items-start justify-between mb-4">
               <div>
@@ -199,7 +199,7 @@ export default function SessionManagePage() {
                   className="px-4 py-2 rounded-lg text-sm font-semibold"
                   style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
                 >
-                  세션 완료
+                  모임 완료
                 </button>
               )}
               {session.status !== 'COMPLETED' && session.status !== 'CANCELLED' && (
@@ -207,7 +207,7 @@ export default function SessionManagePage() {
                   onClick={handleCancel}
                   className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500 text-white"
                 >
-                  세션 취소
+                  모임 취소
                 </button>
               )}
             </div>
