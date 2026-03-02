@@ -69,17 +69,6 @@ export default function SessionDetailPage() {
   }
 
 
-  const handleCloseRsvp = async () => {
-    if (!confirm('응답을 마감하시겠습니까? 마감 후 회원들은 응답을 변경할 수 없습니다.')) return
-    const result = await closeSessionRsvp(sessionId)
-    if (result.error) {
-      setToast({ isOpen: true, message: result.error, type: 'success' as const })
-    } else {
-      setToast({ isOpen: true, message: '응답이 마감되었습니다.', type: 'success' as const })
-      fetchData()
-    }
-  }
-
   // 내 참석 응답
   const myAttendance = session?.attendances.find(
     (a) => a.club_member_id === myMemberId
