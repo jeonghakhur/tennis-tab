@@ -14,10 +14,10 @@ import type {
   ClubSessionStatus,
   ClubMemberRole,
 } from '@/lib/clubs/types'
-import { ChevronLeft, Pencil, Trash2, LockKeyhole, Settings } from 'lucide-react'
+import { ChevronLeft, Pencil, Trash2, Settings } from 'lucide-react'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import SessionForm from '@/components/clubs/sessions/SessionForm'
-import { cancelClubSession, closeSessionRsvp } from '@/lib/clubs/session-actions'
+import { cancelClubSession } from '@/lib/clubs/session-actions'
 
 const statusConfig: Record<ClubSessionStatus, { label: string; variant: BadgeVariant }> = {
   OPEN: { label: '모집중', variant: 'success' },
@@ -212,13 +212,7 @@ export default function SessionDetailPage() {
                       <Pencil className="w-4 h-4" />
                       수정
                     </button>
-                    {session?.status === 'OPEN' && <button
-                      onClick={handleCloseRsvp}
-                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
-                    >
-                      <LockKeyhole className="w-4 h-4" />
-                      응답 마감
-                    </button>}
+
                   </>
                 )}
                 <Link
