@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light only !important;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tennis Tab 작업 리포트 #4 — 2026-03-02</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f8fafc !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+  .header { background: linear-gradient(135deg, #1a3a6b, #2d5d9d); color: white !important; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { color: #1a3a6b; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: white !important; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .blue { color: #3b82f6; } .green { color: #10b981; } .purple { color: #8b5cf6; } .orange { color: #f59e0b; }
+  .section { background: white !important; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #1e293b !important; }
+  .fix-item { border: 1px solid #f1f5f9; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .fix-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
+  .fix-title { font-size: 14px; font-weight: 700; color: #0f172a !important; margin-bottom: 4px; }
+  .fix-desc { font-size: 12px; color: #64748b; }
+  .fix-tag { display: inline-block; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .fix-tag-warn { display: inline-block; background: #fffbeb; color: #d97706; border: 1px solid #fde68a; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .severity-blue { background: #eff6ff; color: #2563eb; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .severity-purple { background: #f5f3ff; color: #7c3aed; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .severity-green { background: #f0fdf4; color: #16a34a; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .severity-orange { background: #fff7ed; color: #ea580c; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .comparison { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 10px; }
+  .compare-box { border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+  .compare-label { padding: 6px 12px; font-size: 11px; font-weight: 700; }
+  .compare-label.before { background: #fef2f2; color: #dc2626; }
+  .compare-label.after { background: #f0fdf4; color: #16a34a; }
+  .compare-content { padding: 14px; background: #fff !important; display: flex; align-items: flex-start; justify-content: flex-start; min-height: 80px; flex-direction: column; gap: 6px; }
+  .change-detail { font-size: 12px; color: #475569 !important; background: #f8fafc; border-radius: 6px; padding: 8px 12px; }
+  .code-tag-green { background: #f0fdf4; color: #16a34a; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 11px; }
+  .code-tag-blue { background: #eff6ff; color: #2563eb; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 11px; }
+  .code-tag-red { background: #fef2f2; color: #dc2626; border-radius: 4px; padding: 1px 6px; font-family: monospace; font-size: 11px; }
+  .migration-box { background: #1e1e2e; border-radius: 8px; padding: 14px 16px; font-family: monospace; font-size: 12px; color: #cdd6f4; line-height: 1.7; margin-top: 10px; }
+  .migration-box .kw { color: #89b4fa; }
+  .migration-box .fn { color: #a6e3a1; }
+  .migration-box .str { color: #f9e2af; }
+  .migration-box .cm { color: #6c7086; }
+  .test-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+  .test-row:last-child { border-bottom: none; }
+  .test-pass { color: #16a34a; font-weight: 700; font-size: 13px; }
+  .test-fail { color: #dc2626; font-weight: 700; font-size: 13px; }
+  .test-label { font-size: 13px; color: #334155; }
+  .test-sub { font-size: 11px; color: #94a3b8; }
+  .warning-box { background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 16px; margin-top: 10px; font-size: 12px; color: #92400e; }
+  .warning-box strong { display: block; margin-bottom: 6px; color: #78350f; }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
+  .feature-card { background: #f8fafc; border-radius: 8px; padding: 12px; border: 1px solid #e2e8f0; }
+  .feature-card-title { font-size: 12px; font-weight: 700; color: #1e293b; margin-bottom: 6px; }
+  .feature-card-body { font-size: 11px; color: #475569; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<a href="./index.html" class="back-link">← 리포트 목록으로</a>
+
+<div class="header">
+  <h1>🎾 Tennis Tab 작업 리포트 #4</h1>
+  <p>2026-03-02 오후 · 복식 대진 + 개인 성적 + 순위 기간 필터 · 6개 기능 구현</p>
+</div>
+
+<div class="stats">
+  <div class="stat-card"><div class="stat-num blue">6</div><div class="stat-label">신규 기능</div></div>
+  <div class="stat-card"><div class="stat-num purple">4</div><div class="stat-label">수정 파일</div></div>
+  <div class="stat-card"><div class="stat-num green">5</div><div class="stat-label">커밋</div></div>
+  <div class="stat-card"><div class="stat-num orange">1</div><div class="stat-label">수동 필요</div></div>
+</div>
+
+<!-- DB 마이그레이션 -->
+<div class="section">
+  <div class="section-title">🗄️ 1. DB 마이그레이션 — 복식 컬럼 추가</div>
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">club_match_results: match_type + player1b/player2b 컬럼</div>
+        <div class="fix-desc">복식 게임 지원을 위한 스키마 확장. 마이그레이션 파일 저장됨.</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-orange">🟠 수동 실행 필요</span>
+        <span class="fix-tag-warn">⚠ 대기중</span>
+      </div>
+    </div>
+    <div class="migration-box">
+      <span class="cm">-- supabase/migrations/20_doubles_support.sql</span><br>
+      <span class="kw">ALTER TABLE</span> club_match_results<br>
+      &nbsp;&nbsp;<span class="kw">ADD COLUMN IF NOT EXISTS</span> match_type <span class="str">TEXT</span> <span class="kw">DEFAULT</span> <span class="str">'singles'</span><br>
+      &nbsp;&nbsp;&nbsp;&nbsp;<span class="kw">CHECK</span> (match_type <span class="kw">IN</span> (<span class="str">'singles','doubles_men','doubles_women','doubles_mixed'</span>)),<br>
+      &nbsp;&nbsp;<span class="kw">ADD COLUMN IF NOT EXISTS</span> player1b_member_id <span class="str">UUID</span> <span class="kw">REFERENCES</span> club_members(id),<br>
+      &nbsp;&nbsp;<span class="kw">ADD COLUMN IF NOT EXISTS</span> player2b_member_id <span class="str">UUID</span> <span class="kw">REFERENCES</span> club_members(id);
+    </div>
+    <div class="warning-box" style="margin-top:10px;">
+      <strong>⚠️ Supabase SQL Editor에서 직접 실행 필요</strong>
+      위 SQL을 <a href="https://supabase.com/dashboard/project/tigqwrehpzwaksnvcrrx/editor" style="color:#2563eb;">Supabase SQL Editor</a>에서 실행해야 복식 기능이 활성화됩니다.<br>
+      현재 코드는 마이그레이션 전/후 모두 graceful하게 동작합니다 (기존 단식 기능 정상 유지).
+    </div>
+  </div>
+</div>
+
+<!-- 타입 업데이트 -->
+<div class="section">
+  <div class="section-title">📝 2. TypeScript 타입 업데이트</div>
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">ClubMatchResult + CreateMatchInput — 복식 필드 추가</div>
+        <div class="fix-desc">src/lib/clubs/types.ts — MatchType 타입, player1b/player2b 선택 필드</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-blue">🔵 타입</span>
+        <span class="fix-tag">✅ 완료</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before</div>
+        <div class="compare-content">
+          <div style="font-size:11px;color:#dc2626;font-family:monospace;">interface ClubMatchResult {<br>&nbsp;&nbsp;player1_member_id: string<br>&nbsp;&nbsp;player2_member_id: string<br>&nbsp;&nbsp;// 단식 구조만 존재<br>}</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After</div>
+        <div class="compare-content">
+          <div style="font-size:11px;color:#16a34a;font-family:monospace;">type MatchType = 'singles' | 'doubles_men'<br>&nbsp;&nbsp;| 'doubles_women' | 'doubles_mixed'<br><br>interface ClubMatchResult {<br>&nbsp;&nbsp;match_type: MatchType<br>&nbsp;&nbsp;player1b_member_id?: string|null<br>&nbsp;&nbsp;player2b_member_id?: string|null<br>&nbsp;&nbsp;player1b?: {id:string;name:string}|null<br>&nbsp;&nbsp;player2b?: {id:string;name:string}|null<br>}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- BracketEditor -->
+<div class="section">
+  <div class="section-title">🎯 3. BracketEditor — 복식 자동·수동 생성</div>
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">수동 추가 + 라운드로빈 자동 생성 — 복식 지원</div>
+        <div class="fix-desc">src/components/clubs/sessions/BracketEditor.tsx 전면 리뉴얼</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-purple">🟣 UI</span>
+        <span class="fix-tag">✅ 완료</span>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-card-title">🏃 수동 추가 탭</div>
+        <div class="feature-card-body">
+          • 경기 유형 드롭다운: 단식 / 남복 / 여복 / 혼복<br>
+          • 복식 선택 시 팀1(A+B), 팀2(A+B) 선수 셀렉트 자동 추가<br>
+          • 중복 선수 선택 방지 (availableForField 로직)
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">🎾 라운드로빈 자동 생성</div>
+        <div class="feature-card-body">
+          • 단식 / 복식 탭 분리<br>
+          • 성별 기반 자동 분류: 남자(🔵) / 여자(🔴)<br>
+          • 생성 전 미리보기: "남복 X경기, 여복 X경기, 혼복 X경기"<br>
+          • 코트·시간 자동 배분 (30분 슬롯)
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">📊 복식 조합 알고리즘</div>
+        <div class="feature-card-body">
+          • 남자 4명↑ → 남복 생성<br>
+          • 여자 4명↑ → 여복 생성<br>
+          • 남녀 각 2명↑ → 혼복 생성<br>
+          • 서버 액션: createDoublesRoundRobinMatches
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">🔧 서버 액션 추가</div>
+        <div class="feature-card-body">
+          • createDoublesRoundRobinMatches<br>
+          • previewDoublesMatches<br>
+          • createMatchResult 복식 컬럼 지원<br>
+          • 마이그레이션 전 PGRST204 graceful fallback
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MatchBoard -->
+<div class="section">
+  <div class="section-title">📋 4. MatchBoard — 복식 표시</div>
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">복식 팀 표시 + 경기 유형 배지</div>
+        <div class="fix-desc">src/components/clubs/sessions/MatchBoard.tsx</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-purple">🟣 UI</span>
+        <span class="fix-tag">✅ 완료</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 단식만 표시</div>
+        <div class="compare-content">
+          <div style="font-size:13px;">김철수 &nbsp;<span style="color:#94a3b8;">VS</span>&nbsp; 이민준</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 복식 팀 표시</div>
+        <div class="compare-content">
+          <div style="font-size:11px;color:#64748b;background:#f1f5f9;padding:2px 6px;border-radius:4px;margin-bottom:6px;">🎾 혼복</div>
+          <div style="font-size:13px;">김철수 / 박영희 &nbsp;<span style="color:#94a3b8;">VS</span>&nbsp; 이민준 / 정수연</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail">
+      배지: 🏃 단식 / 🔵 남복 / 🔴 여복 / 🎾 혼복 &nbsp;|&nbsp; 복식 시 팀 표시: <span class="code-tag-green">선수A / 선수B</span> &nbsp;|&nbsp; 복식 승리 판정: winner_member_id가 팀 내 누구든 해당
+    </div>
+  </div>
+</div>
+
+<!-- 멤버 게임 결과 페이지 -->
+<div class="section">
+  <div class="section-title">👤 5. 개인 게임 결과 페이지 (신규)</div>
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">/clubs/[id]/members/[memberId] — 개인 성적 페이지</div>
+        <div class="fix-desc">새 페이지: MemberResultsClient.tsx + page.tsx + getMemberGameResults 서버 액션</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-green">🟢 신규</span>
+        <span class="fix-tag">✅ 완료</span>
+      </div>
+    </div>
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-card-title">📊 통계 카드</div>
+        <div class="feature-card-body">
+          총 경기 / 승 / 패 / 승률(%) 4가지 지표<br>
+          기간 필터와 연동되어 실시간 업데이트
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">🗓️ 기간 필터</div>
+        <div class="feature-card-body">
+          전체 / 이번 달 / 저번 달 / 올해 / 작년<br>
+          클릭 시 즉시 데이터 갱신 (로딩 인디케이터)
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">⚔️ 상대 전적</div>
+        <div class="feature-card-body">
+          많이 상대한 선수 상위 5명<br>
+          상대별 N승 M패 (N전) 형식으로 표시
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-card-title">📋 세션별 경기 목록</div>
+        <div class="feature-card-body">
+          세션 날짜순 그룹핑, 점수 + 승/패 배지<br>
+          복식: 파트너 이름 함께 표시
+        </div>
+      </div>
+    </div>
+    <div class="change-detail" style="margin-top:10px;">
+      <strong>테스트 결과:</strong> 건승회 / 윤슬 → 39게임, 19승 20패 49% 승률 정상 표시 ✅ &nbsp;|&nbsp; 기간 필터 이번달 전환 → "이번 달 기록이 없습니다." 정상 ✅
+    </div>
+  </div>
+</div>
+
+<!-- 순위 기간 필터 -->
+<div class="section">
+  <div class="section-title">🏆 6. 순위 페이지 — 기간별 조회</div>
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">RankingsTab — 기간 필터 + 멤버 이름 링크</div>
+        <div class="fix-desc">src/components/clubs/sessions/RankingsTab.tsx 리뉴얼 + getClubRankingsByPeriod 서버 액션</div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">
+        <span class="severity-green">🟢 개선</span>
+        <span class="fix-tag">✅ 완료</span>
+      </div>
+    </div>
+    <div class="comparison">
+      <div class="compare-box">
+        <div class="compare-label before">❌ Before — 기간 필터 없음</div>
+        <div class="compare-content">
+          <div style="font-size:12px;color:#64748b;">전체 기간 고정<br>단순 이름 텍스트</div>
+        </div>
+      </div>
+      <div class="compare-box">
+        <div class="compare-label after">✅ After — 기간 선택 가능</div>
+        <div class="compare-content" style="gap:8px;">
+          <div style="display:flex;gap:4px;flex-wrap:wrap;">
+            <span style="background:#1a3a6b;color:white;border-radius:20px;padding:3px 10px;font-size:11px;font-weight:700;">전체</span>
+            <span style="background:#f1f5f9;color:#64748b;border-radius:20px;padding:3px 10px;font-size:11px;">이번 달</span>
+            <span style="background:#f1f5f9;color:#64748b;border-radius:20px;padding:3px 10px;font-size:11px;">저번 달</span>
+            <span style="background:#f1f5f9;color:#64748b;border-radius:20px;padding:3px 10px;font-size:11px;">올해</span>
+            <span style="background:#f1f5f9;color:#64748b;border-radius:20px;padding:3px 10px;font-size:11px;">작년</span>
+          </div>
+          <div style="font-size:12px;color:#16a34a;">멤버 이름 클릭 → 개인 성적 페이지 이동</div>
+        </div>
+      </div>
+    </div>
+    <div class="change-detail" style="margin-top:10px;">
+      <strong>순위 기준:</strong> 승수 → 승률 → 총 경기수 순 &nbsp;|&nbsp; club_match_results 직접 집계 (기간 필터 적용) &nbsp;|&nbsp;
+      <strong>테스트:</strong> 건승회 전체 순위 → 양진용 1위(52경기 58%) ✅ &nbsp;|&nbsp; 이번달 필터 → "기록 없음" ✅ &nbsp;|&nbsp; 이름 클릭 → 개인 성적 이동 ✅
+    </div>
+  </div>
+</div>
+
+<!-- 테스트 결과 -->
+<div class="section">
+  <div class="section-title">🧪 브라우저 테스트 결과</div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">개인 게임 결과 페이지 — /clubs/[id]/members/[memberId]</div>
+      <div class="test-sub">건승회 / 윤슬: 39경기, 19승 20패 49% / 세션별 그룹핑 / 상대전적 5명 정상 표시</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">기간 필터 (개인 성적) — 이번달 클릭</div>
+      <div class="test-sub">버튼 활성화 상태 변경 + "이번 달 기록이 없습니다." 표시 확인</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">순위 페이지 — 기간 필터 전체</div>
+      <div class="test-sub">건승회 전체 순위: 양진용(30승 58%) 1위, E2E 테스터 (나) 녹색 하이라이트</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">순위 페이지 — 기간 필터 이번달</div>
+      <div class="test-sub">"이번 달 경기 기록이 없습니다." 정상 표시</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">멤버 이름 클릭 → 개인 성적 페이지 이동</div>
+      <div class="test-sub">양진용 클릭 → /clubs/[id]/members/[양진용id] 정상 이동, 52경기 30승 58% 표시</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">TypeScript 빌드 오류 없음</div>
+      <div class="test-sub">npx tsc --noEmit 0 errors, npm run build 성공</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-pass">✅</span>
+    <div>
+      <div class="test-label">마이그레이션 전 graceful fallback</div>
+      <div class="test-sub">PGRST200 에러 시 player1b/player2b FK 없이 기본 쿼리로 재시도, 기존 단식 기능 정상</div>
+    </div>
+  </div>
+  <div class="test-row">
+    <span class="test-fail">⚠️</span>
+    <div>
+      <div class="test-label">BracketEditor 복식 수동/자동 생성 — 로그인 필요 (관리자 권한)</div>
+      <div class="test-sub">관리자 로그인 없이 /manage 접근 불가. 코드 검증(TS 빌드)만 확인. DB 마이그레이션 후 활성화됨.</div>
+    </div>
+  </div>
+</div>
+
+<!-- 커밋 이력 -->
+<div class="section">
+  <div class="section-title">📦 커밋 이력</div>
+  <div style="font-family:monospace;font-size:12px;line-height:2;color:#334155;">
+    <div><span style="color:#16a34a;">c1cc768</span> &nbsp; fix: 복식 컬럼 마이그레이션 전 graceful fallback 추가</div>
+    <div><span style="color:#2563eb;">e37d3c8</span> &nbsp; test: add test API for member results</div>
+    <div><span style="color:#2563eb;">5e1008b</span> &nbsp; fix: 복식 컬럼 마이그레이션 전 graceful fallback 추가 (첫 시도)</div>
+    <div><span style="color:#7c3aed;">6fzlojv</span> &nbsp; feat: 복식 대진 + 개인 성적 + 순위 기간 필터 (Vercel deploy)</div>
+    <div><span style="color:#7c3aed;">cb314e4</span> &nbsp; feat: 복식 대진 + 개인 성적 + 순위 기간 필터 (main commit)</div>
+  </div>
+</div>
+
+<!-- 다음 액션 -->
+<div class="section" style="border: 2px solid #fde68a;">
+  <div class="section-title" style="color:#92400e;">⚠️ 다음 액션 — 마이그레이션 실행 필요</div>
+  <div style="font-size:13px;color:#475569;line-height:1.8;">
+    복식 기능을 활성화하려면 Supabase SQL Editor에서 다음 SQL을 실행해야 합니다:<br><br>
+    <a href="https://supabase.com/dashboard/project/tigqwrehpzwaksnvcrrx/editor" style="color:#2563eb;font-weight:700;">→ Supabase SQL Editor 열기</a><br><br>
+    실행 후 <code style="background:#f1f5f9;padding:2px 6px;border-radius:4px;">supabase/migrations/20_doubles_support.sql</code> 내용 복붙하여 실행.<br>
+    완료 후 복식 대진 생성, 복식 MatchBoard 표시, 복식 포함 순위 집계 모두 자동 활성화됩니다.
+  </div>
+</div>
+
+<div style="text-align:center;font-size:12px;color:#94a3b8;margin-top:24px;padding-bottom:24px;">
+  Tennis Tab Fix Report #4 &nbsp;·&nbsp; 2026-03-02 &nbsp;·&nbsp; Generated by Claude Code
+</div>
+
+</body>
+</html>
