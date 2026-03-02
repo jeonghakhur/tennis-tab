@@ -17,7 +17,7 @@ import type {
 import { ChevronLeft, Pencil, Trash2, Settings } from 'lucide-react'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import SessionForm from '@/components/clubs/sessions/SessionForm'
-import { cancelClubSession } from '@/lib/clubs/session-actions'
+import { cancelClubSession, deleteClubSession } from '@/lib/clubs/session-actions'
 
 const statusConfig: Record<ClubSessionStatus, { label: string; variant: BadgeVariant }> = {
   OPEN: { label: '모집중', variant: 'success' },
@@ -59,7 +59,7 @@ export default function SessionDetailPage() {
   const handleDelete = async () => {
     setConfirmDelete(false)
     setDeleting(true)
-    const result = await cancelClubSession(sessionId)
+    const result = await deleteClubSession(sessionId)
     setDeleting(false)
     if (result.error) {
       setToast({ isOpen: true, message: result.error || '오류가 발생했습니다.', type: 'success' as const })
@@ -274,7 +274,7 @@ export default function SessionDetailPage() {
         onClose={() => setConfirmDelete(false)}
         onConfirm={handleDelete}
         title="모임 삭제"
-        message="이 모임을 삭제(취소)하시겠습니까?"
+        message="모임을 삭제하면 참석자 및 대진 데이터가 모두 사라집니다. 정말 삭제하시겠습니까?"
         type="warning"
       />
 

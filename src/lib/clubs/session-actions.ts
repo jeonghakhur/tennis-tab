@@ -1062,3 +1062,30 @@ export async function changeSessionStatus(
   revalidatePath(`/clubs/${session.club_id}`)
   return {}
 }
+
+export async function deleteClubSession(
+  sessionId: string
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: session } = await admin
+    .from('club_sessions')
+    .select('id, club_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
+
+  const { error: authError } = await checkSessionOfficerAuth(session.club_id)
+  if (authError) return { error: authError }
+
+  const { error } = await admin
+    .from('club_sessions')
+    .delete()
+    .eq('id', sessionId)
+
+  if (error) return { error: `삭제 실패: ${error.message}` }
+
+  revalidatePath(`/clubs/${session.club_id}`)
+  return { }
+}
