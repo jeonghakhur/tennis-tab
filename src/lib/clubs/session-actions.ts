@@ -1034,3 +1034,31 @@ export async function cancelAttendance(
   revalidatePath(`/clubs/${member.club_id}`)
   return {}
 }
+
+export async function changeSessionStatus(
+  sessionId: string,
+  newStatus: 'OPEN' | 'CLOSED' | 'COMPLETED' | 'CANCELLED'
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: session } = await admin
+    .from('club_sessions')
+    .select('id, club_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
+
+  const { error: authError } = await checkSessionOfficerAuth(session.club_id)
+  if (authError) return { error: authError }
+
+  const { error } = await admin
+    .from('club_sessions')
+    .update({ status: newStatus, updated_at: new Date().toISOString() })
+    .eq('id', sessionId)
+
+  if (error) return { error: `상태 변경 실패: ${error.message}` }
+
+  revalidatePath(`/clubs/${session.club_id}`)
+  return {}
+}

@@ -13,6 +13,7 @@ import {
   closeSessionRsvp,
   completeSession,
   cancelClubSession,
+  changeSessionStatus,
 } from '@/lib/clubs/session-actions'
 import type { ClubSessionDetail, ClubMemberRole } from '@/lib/clubs/types'
 import { ChevronLeft } from 'lucide-react'
@@ -107,6 +108,30 @@ export default function SessionManagePage() {
     })
   }
 
+  const handleStatusChange = async (newStatus: 'OPEN' | 'CLOSED' | 'COMPLETED' | 'CANCELLED') => {
+    const labels: Record<string, string> = {
+      OPEN: '모집중',
+      CLOSED: '마감',
+      COMPLETED: '완료',
+      CANCELLED: '취소',
+    }
+    setConfirmAction({
+      isOpen: true,
+      message: `상태를 "${labels[newStatus]}"(으)로 변경하시겠습니까?`,
+      action: async () => {
+        setActionLoading(true)
+        const result = await changeSessionStatus(sessionId, newStatus)
+        setActionLoading(false)
+        if (result.error) {
+          setAlert({ isOpen: true, message: result.error, type: 'error' })
+        } else {
+          setToast({ isOpen: true, message: `상태가 "${labels[newStatus]}"(으)로 변경되었습니다.`, type: 'success' })
+          fetchData()
+        }
+      },
+    })
+  }
+
   if (loading) {
     return (
       <>
@@ -185,29 +210,37 @@ export default function SessionManagePage() {
 
             {/* 관리 액션 버튼 */}
             <div className="flex flex-wrap gap-2">
+              {session.status !== 'OPEN' && (
+                <button
+                  onClick={() => handleStatusChange('OPEN')}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                >
+                  ↩ 모집중으로
+                </button>
+              )}
               {session.status === 'OPEN' && (
                 <button
                   onClick={handleCloseRsvp}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white"
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
                 >
-                  응답 마감
+                  🔒 응답 마감
                 </button>
               )}
-              {session.status !== 'COMPLETED' && session.status !== 'CANCELLED' && session.status !== 'OPEN' && (
+              {session.status !== 'COMPLETED' && (
                 <button
-                  onClick={handleComplete}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold"
+                  onClick={() => handleStatusChange('COMPLETED')}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity"
                   style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
                 >
-                  모임 완료
+                  ✅ 모임 완료
                 </button>
               )}
               {session.status !== 'CANCELLED' && (
                 <button
-                  onClick={handleCancel}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500 text-white"
+                  onClick={() => handleStatusChange('CANCELLED')}
+                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors"
                 >
-                  모임 취소
+                  ✖ 모임 취소
                 </button>
               )}
             </div>
