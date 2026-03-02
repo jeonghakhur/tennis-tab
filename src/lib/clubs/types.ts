@@ -145,11 +145,16 @@ export interface SessionAttendanceDetail {
   member: { id: string; name: string; rating: number | null; is_registered: boolean }
 }
 
+export type MatchType = 'singles' | 'doubles_men' | 'doubles_women' | 'doubles_mixed'
+
 export interface ClubMatchResult {
   id: string
   session_id: string
+  match_type: MatchType
   player1_member_id: string
   player2_member_id: string
+  player1b_member_id?: string | null
+  player2b_member_id?: string | null
   court_number: string | null
   scheduled_time: string | null
   player1_score: number | null
@@ -165,6 +170,8 @@ export interface ClubMatchResult {
   // JOIN
   player1?: { id: string; name: string }
   player2?: { id: string; name: string }
+  player1b?: { id: string; name: string } | null
+  player2b?: { id: string; name: string } | null
 }
 
 export interface ClubMemberStat {
@@ -211,8 +218,11 @@ export interface RespondSessionInput {
 
 export interface CreateMatchInput {
   session_id: string
+  match_type?: MatchType
   player1_member_id: string
   player2_member_id: string
+  player1b_member_id?: string
+  player2b_member_id?: string
   court_number?: string
   scheduled_time?: string
 }

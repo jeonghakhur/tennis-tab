@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light only !important;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tennis Tab 작업 리포트 #3 — 2026-03-02</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f8fafc !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; padding: 24px; }
+  .header { background: linear-gradient(135deg, #1a6b3c, #2d9d5c); color: white !important; border-radius: 16px; padding: 28px 32px; margin-bottom: 24px; }
+  .header h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; }
+  .header p { font-size: 13px; opacity: 0.85; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; text-decoration: none; margin-bottom: 16px; }
+  .back-link:hover { color: #1a6b3c; }
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .stat-card { background: white !important; border-radius: 12px; padding: 16px 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 28px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b; margin-top: 4px; }
+  .blue { color: #3b82f6; } .green { color: #10b981; } .yellow { color: #f59e0b; } .gray { color: #64748b; }
+  .section { background: white !important; border-radius: 12px; padding: 20px 24px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .section-title { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #1e293b !important; }
+  .fix-item { border: 1px solid #f1f5f9; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+  .fix-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; gap: 12px; }
+  .fix-title { font-size: 14px; font-weight: 700; color: #0f172a !important; margin-bottom: 4px; }
+  .fix-desc { font-size: 12px; color: #64748b; }
+  .fix-tag { display: inline-block; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .tag-blue { display: inline-block; background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .tag-purple { display: inline-block; background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .tag-orange { display: inline-block; background: #fff7ed; color: #c2410c; border: 1px solid #fed7aa; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .change-detail { font-size: 12px; color: #475569 !important; background: #f8fafc; border-radius: 6px; padding: 10px 14px; margin-top: 10px; line-height: 1.8; }
+  .change-detail li { margin-left: 16px; }
+  .test-result { background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin-top: 10px; }
+  .test-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; font-size: 12px; color: #374151; }
+  .test-row:last-child { margin-bottom: 0; }
+  .badge-pass { background: #10b981; color: white; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; }
+  .badge-fail { background: #ef4444; color: white; border-radius: 4px; padding: 1px 7px; font-size: 10px; font-weight: 700; }
+  .file-list { font-family: monospace; font-size: 11px; background: #f1f5f9; padding: 10px 14px; border-radius: 6px; line-height: 2; margin-top: 8px; }
+  .file-list span { color: #10b981; font-weight: 600; }
+</style>
+</head>
+<body>
+
+<a href="./index.html" class="back-link">← 리포트 목록으로</a>
+
+<div class="header">
+  <h1>🎾 Tennis Tab 작업 리포트 #3</h1>
+  <p>2026-03-02 오후 · 대진표 수정/삭제 기능 추가 · 총 3개 기능 구현 + 배포 완료</p>
+</div>
+
+<!-- 요약 통계 -->
+<div class="stats">
+  <div class="stat-card">
+    <div class="stat-num green">3</div>
+    <div class="stat-label">구현 기능</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num blue">3</div>
+    <div class="stat-label">수정 파일</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num yellow">3</div>
+    <div class="stat-label">테스트 통과</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num gray">✓</div>
+    <div class="stat-label">배포 완료</div>
+  </div>
+</div>
+
+<!-- 구현 내용 -->
+<div class="section">
+  <div class="section-title">🔨 구현 기능</div>
+
+  <!-- 기능 1: 개별 수정 -->
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">✏️ 대진 개별 수정</div>
+        <div class="fix-desc">각 경기 카드에 수정 버튼 추가, 모달에서 선수·코트·시간·점수 수정 가능</div>
+      </div>
+      <span class="fix-tag">신규 기능</span>
+    </div>
+    <div class="change-detail">
+      <ul>
+        <li><code>updateMatchResult(matchId, input)</code> 서버 액션 추가 (session-actions.ts)</li>
+        <li>선수1/선수2 드롭다운 (참석 멤버 목록), 코트 번호, 시간, 점수 입력 필드</li>
+        <li>점수 입력 시 자동으로 승자 계산 + 상태 COMPLETED 전환</li>
+        <li>관리자(isAdmin) 일 때만 ✏️ 버튼 노출</li>
+      </ul>
+    </div>
+    <div class="test-result">
+      <div class="test-row"><span class="badge-pass">PASS</span> ✏️ 클릭 → 수정 모달 오픈, 선수 드롭다운 정상 표시</div>
+      <div class="test-row"><span class="badge-pass">PASS</span> 코트 "1번", 점수 6:4 입력 후 저장 → 완료 상태로 변경 확인</div>
+      <div class="test-row"><span class="badge-pass">PASS</span> 서버에서 winner_member_id 자동 계산 (E2E 테스터 6점 > 최재원 4점)</div>
+    </div>
+  </div>
+
+  <!-- 기능 2: 개별 삭제 -->
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">🗑 대진 개별 삭제</div>
+        <div class="fix-desc">각 경기 카드에 삭제 버튼 추가, 확인 다이얼로그 후 삭제</div>
+      </div>
+      <span class="tag-blue">개선</span>
+    </div>
+    <div class="change-detail">
+      <ul>
+        <li>기존 <code>deleteMatchResult</code>를 MatchBoard에서도 직접 호출</li>
+        <li>기존에는 BracketEditor(관리 페이지)에만 삭제 버튼 있었음 → 세션 상세 페이지에도 추가</li>
+        <li>ConfirmDialog("이 경기를 삭제하시겠습니까?") 후 처리</li>
+        <li>완료(COMPLETED) 경기는 서버에서 삭제 거부</li>
+      </ul>
+    </div>
+    <div class="test-result">
+      <div class="test-row"><span class="badge-pass">PASS</span> 🗑 클릭 → "이 경기를 삭제하시겠습니까?" 다이얼로그 표시</div>
+      <div class="test-row"><span class="badge-pass">PASS</span> 확인 → 경기 즉시 제거, 목록 132경기 → 131경기로 감소 확인</div>
+    </div>
+  </div>
+
+  <!-- 기능 3: 일괄 삭제 -->
+  <div class="fix-item">
+    <div class="fix-header">
+      <div>
+        <div class="fix-title">🗑🗑 전체 대진 일괄 삭제</div>
+        <div class="fix-desc">대진표 상단 "전체 삭제" 버튼, 2단 확인 후 세션 전체 대진 삭제</div>
+      </div>
+      <span class="tag-orange">주요 기능</span>
+    </div>
+    <div class="change-detail">
+      <ul>
+        <li><code>deleteAllMatchResults(sessionId)</code> 서버 액션 추가</li>
+        <li>Supabase에서 session_id 기준 전체 DELETE 1쿼리로 처리</li>
+        <li>ConfirmDialog("모든 대진 데이터를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.") 경고 메시지</li>
+        <li>삭제 후 "모든 대진이 삭제되었습니다." 성공 Alert 표시</li>
+      </ul>
+    </div>
+    <div class="test-result">
+      <div class="test-row"><span class="badge-pass">PASS</span> 전체 삭제 클릭 → 경고 다이얼로그 표시</div>
+      <div class="test-row"><span class="badge-pass">PASS</span> 확인 → 131경기 전부 삭제, 대진표 "아직 대진이 편성되지 않았습니다" 표시</div>
+      <div class="test-row"><span class="badge-pass">PASS</span> 페이지 리프레시 후에도 데이터 없음 확인</div>
+    </div>
+  </div>
+</div>
+
+<!-- 수정 파일 -->
+<div class="section">
+  <div class="section-title">📁 수정된 파일</div>
+  <div class="file-list">
+    <span>M</span> src/lib/clubs/session-actions.ts<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ updateMatchResult(matchId, input) — 개별 경기 수정<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ deleteAllMatchResults(sessionId) — 세션 전체 삭제<br>
+    <span>M</span> src/components/clubs/sessions/MatchBoard.tsx<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ isAdmin, attendingMembers props 추가<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ ✏️/🗑 버튼 (isAdmin일 때만 노출)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ 수정 모달 (인라인 구현)<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ 전체 삭제 버튼 + ConfirmDialog<br>
+    <span>M</span> src/app/clubs/[id]/sessions/[sessionId]/page.tsx<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;+ sessionId, isAdmin, attendingMembers props 전달
+  </div>
+</div>
+
+<!-- 테스트 환경 -->
+<div class="section">
+  <div class="section-title">🧪 테스트 환경</div>
+  <div class="change-detail" style="background: white;">
+    <ul>
+      <li><strong>URL:</strong> https://tennis-tab.vercel.app</li>
+      <li><strong>계정:</strong> e2e.admin@mapo-tennis-test.dev</li>
+      <li><strong>클럽:</strong> 건승회 (club_id: 3084ca9f-c86c-4365-917a-b25cd36e2291)</li>
+      <li><strong>세션:</strong> 3/8 모임 (session_id: be7e0040-e107-42d5-a0f3-105001e4e127)</li>
+      <li><strong>참석자:</strong> 12명으로 라운드로빈 → 66경기 × 2회 = 132경기 생성 후 테스트</li>
+      <li><strong>테스트 순서:</strong> ① 라운드로빈 생성 → ② 개별 수정(6:4, 1번 코트) → ③ 개별 삭제 → ④ 전체 삭제</li>
+    </ul>
+  </div>
+</div>
+
+</body>
+</html>

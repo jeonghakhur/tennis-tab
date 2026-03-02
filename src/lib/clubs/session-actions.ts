@@ -19,6 +19,7 @@ import type {
   ReportResultInput,
   ResolveDisputeInput,
   ClubMemberRole,
+  MatchType,
 } from './types'
 
 // ============================================================================
@@ -213,7 +214,9 @@ export async function getClubSessionDetail(
     .select(`
       *,
       player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
     `)
     .eq('session_id', sessionId)
     .order('scheduled_time', { ascending: true })
@@ -525,8 +528,11 @@ export async function createMatchResult(
     .from('club_match_results')
     .insert({
       session_id: input.session_id,
+      match_type: input.match_type || 'singles',
       player1_member_id: input.player1_member_id,
       player2_member_id: input.player2_member_id,
+      player1b_member_id: input.player1b_member_id || null,
+      player2b_member_id: input.player2b_member_id || null,
       court_number: input.court_number || null,
       scheduled_time: input.scheduled_time || null,
     })
@@ -559,9 +565,10 @@ export async function createRoundRobinMatches(
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
   if (authError) return { error: authError, count: 0 }
 
-  // 라운드로빈 조합 생성
+  // 단식 라운드로빈 조합 생성
   const matches: {
     session_id: string
+    match_type: string
     player1_member_id: string
     player2_member_id: string
   }[] = []
@@ -570,6 +577,7 @@ export async function createRoundRobinMatches(
     for (let j = i + 1; j < memberIds.length; j++) {
       matches.push({
         session_id: sessionId,
+        match_type: 'singles',
         player1_member_id: memberIds[i],
         player2_member_id: memberIds[j],
       })
@@ -582,6 +590,170 @@ export async function createRoundRobinMatches(
 
   revalidatePath(`/clubs/${session.club_id}`)
   return { count: matches.length }
+}
+
+/** 복식 라운드로빈 자동 생성 */
+export async function createDoublesRoundRobinMatches(
+  sessionId: string,
+  attendingMembersWithGender: { id: string; gender: string | null }[]
+): Promise<{ count: number; preview: { men: number; women: number; mixed: number }; error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: session } = await admin
+    .from('club_sessions')
+    .select('id, club_id, court_numbers, start_time')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) return { error: '모임을 찾을 수 없습니다.', count: 0, preview: { men: 0, women: 0, mixed: 0 } }
+
+  const { error: authError } = await checkSessionOfficerAuth(session.club_id)
+  if (authError) return { error: authError, count: 0, preview: { men: 0, women: 0, mixed: 0 } }
+
+  const men = attendingMembersWithGender.filter((m) => m.gender === 'MALE').map((m) => m.id)
+  const women = attendingMembersWithGender.filter((m) => m.gender === 'FEMALE').map((m) => m.id)
+
+  type DoubleMatch = {
+    session_id: string
+    match_type: string
+    player1_member_id: string
+    player1b_member_id: string
+    player2_member_id: string
+    player2b_member_id: string
+    scheduled_time: string | null
+    court_number: string | null
+  }
+
+  const matches: DoubleMatch[] = []
+  const courts: string[] = session.court_numbers || []
+
+  // 코트 배분 + 시간 슬롯 (게임당 30분)
+  let slotIndex = 0
+  const baseTime = session.start_time ? session.start_time.slice(0, 5) : '10:00'
+  const [bh, bm] = baseTime.split(':').map(Number)
+
+  const getSlot = () => {
+    const courtIndex = courts.length > 0 ? slotIndex % courts.length : -1
+    const timeOffset = Math.floor(slotIndex / (courts.length || 1)) * 30
+    const totalMinutes = bh * 60 + bm + timeOffset
+    const h = Math.floor(totalMinutes / 60) % 24
+    const m = totalMinutes % 60
+    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+    slotIndex++
+    return {
+      court_number: courtIndex >= 0 ? courts[courtIndex] : null,
+      scheduled_time: timeStr,
+    }
+  }
+
+  // 남복: 남자 4명 이상 시 생성
+  if (men.length >= 4) {
+    for (let i = 0; i < men.length; i += 2) {
+      for (let j = i + 2; j < men.length; j += 2) {
+        if (i + 1 < men.length && j + 1 < men.length) {
+          const slot = getSlot()
+          matches.push({
+            session_id: sessionId,
+            match_type: 'doubles_men',
+            player1_member_id: men[i],
+            player1b_member_id: men[i + 1],
+            player2_member_id: men[j],
+            player2b_member_id: men[j + 1],
+            ...slot,
+          })
+        }
+      }
+    }
+  }
+
+  // 여복: 여자 4명 이상 시 생성
+  if (women.length >= 4) {
+    for (let i = 0; i < women.length; i += 2) {
+      for (let j = i + 2; j < women.length; j += 2) {
+        if (i + 1 < women.length && j + 1 < women.length) {
+          const slot = getSlot()
+          matches.push({
+            session_id: sessionId,
+            match_type: 'doubles_women',
+            player1_member_id: women[i],
+            player1b_member_id: women[i + 1],
+            player2_member_id: women[j],
+            player2b_member_id: women[j + 1],
+            ...slot,
+          })
+        }
+      }
+    }
+  }
+
+  // 혼복: 남녀 각 2명 이상 시 생성
+  if (men.length >= 2 && women.length >= 2) {
+    // 혼복 팀 조합: (남, 여) 쌍을 만들어서 vs
+    const mixedTeams: [string, string][] = []
+    for (let i = 0; i < Math.min(men.length, 4); i++) {
+      for (let j = 0; j < Math.min(women.length, 4); j++) {
+        mixedTeams.push([men[i % men.length], women[j % women.length]])
+      }
+    }
+    for (let i = 0; i < mixedTeams.length; i++) {
+      for (let j = i + 1; j < mixedTeams.length; j++) {
+        const slot = getSlot()
+        matches.push({
+          session_id: sessionId,
+          match_type: 'doubles_mixed',
+          player1_member_id: mixedTeams[i][0],
+          player1b_member_id: mixedTeams[i][1],
+          player2_member_id: mixedTeams[j][0],
+          player2b_member_id: mixedTeams[j][1],
+          ...slot,
+        })
+      }
+    }
+  }
+
+  if (matches.length === 0) {
+    return { error: '복식 조합을 만들 수 없습니다. 남자 4명 이상, 여자 4명 이상, 또는 각 2명 이상 필요합니다.', count: 0, preview: { men: 0, women: 0, mixed: 0 } }
+  }
+
+  const preview = {
+    men: matches.filter((m) => m.match_type === 'doubles_men').length,
+    women: matches.filter((m) => m.match_type === 'doubles_women').length,
+    mixed: matches.filter((m) => m.match_type === 'doubles_mixed').length,
+  }
+
+  const { error } = await admin.from('club_match_results').insert(matches)
+  if (error) return { error: `대진 생성 실패: ${error.message}`, count: 0, preview }
+
+  revalidatePath(`/clubs/${session.club_id}`)
+  return { count: matches.length, preview }
+}
+
+/** 복식 대진 미리보기 (DB 저장 없음) */
+export async function previewDoublesMatches(
+  sessionId: string,
+  membersWithGender: { id: string; gender: string | null }[]
+): Promise<{ men: number; women: number; mixed: number; total: number }> {
+  const men = membersWithGender.filter((m) => m.gender === 'MALE').length
+  const women = membersWithGender.filter((m) => m.gender === 'FEMALE').length
+  const menPairs = Math.floor(men / 2)
+  const womenPairs = Math.floor(women / 2)
+
+  let menMatches = 0
+  let womenMatches = 0
+  let mixedMatches = 0
+
+  if (men >= 4) {
+    menMatches = (menPairs * (menPairs - 1)) / 2
+  }
+  if (women >= 4) {
+    womenMatches = (womenPairs * (womenPairs - 1)) / 2
+  }
+  if (men >= 2 && women >= 2) {
+    const mixedTeams = Math.min(men, 4) * Math.min(women, 4)
+    mixedMatches = (mixedTeams * (mixedTeams - 1)) / 2
+  }
+
+  return { men: menMatches, women: womenMatches, mixed: mixedMatches, total: menMatches + womenMatches + mixedMatches }
 }
 
 /** 경기 결과 보고 (선수) */
@@ -769,7 +941,9 @@ export async function getSessionMatches(
     .select(`
       *,
       player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
     `)
     .eq('session_id', sessionId)
     .order('scheduled_time', { ascending: true })
@@ -960,7 +1134,9 @@ export async function getSessionPageData(
       .select(`
         *,
         player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-        player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+        player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+        player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+        player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
       `)
       .eq('session_id', sessionId)
       .order('scheduled_time', { ascending: true }),
@@ -1088,4 +1264,334 @@ export async function deleteClubSession(
 
   revalidatePath(`/clubs/${session.club_id}`)
   return { }
+}
+
+/** 경기 수정 (관리자) */
+export async function updateMatchResult(
+  matchId: string,
+  input: {
+    player1_member_id?: string
+    player2_member_id?: string
+    court_number?: string | null
+    scheduled_time?: string | null
+    player1_score?: number | null
+    player2_score?: number | null
+    status?: string
+  }
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: match } = await admin
+    .from('club_match_results')
+    .select(`id, status, player1_member_id, player2_member_id, club_sessions!inner(club_id)`)
+    .eq('id', matchId)
+    .single()
+
+  if (!match) return { error: '경기를 찾을 수 없습니다.' }
+
+  const clubId = extractClubId(match.club_sessions)
+  const { error: authError } = await checkSessionOfficerAuth(clubId)
+  if (authError) return { error: authError }
+
+  if (input.player1_member_id && input.player1_member_id === input.player2_member_id) {
+    return { error: '같은 선수를 배정할 수 없습니다.' }
+  }
+
+  const updateData: Record<string, unknown> = { ...input, updated_at: new Date().toISOString() }
+  if (input.player1_score != null && input.player2_score != null) {
+    const p1 = Number(input.player1_score)
+    const p2 = Number(input.player2_score)
+    const p1id = input.player1_member_id || match.player1_member_id
+    const p2id = input.player2_member_id || match.player2_member_id
+    updateData.winner_member_id = p1 > p2 ? p1id : p2 > p1 ? p2id : null
+    if (!input.status) updateData.status = 'COMPLETED'
+  }
+
+  const { error } = await admin
+    .from('club_match_results')
+    .update(updateData)
+    .eq('id', matchId)
+
+  if (error) return { error: `수정 실패: ${error.message}` }
+
+  revalidatePath(`/clubs/${clubId}`)
+  return {}
+}
+
+/** 세션 전체 대진 삭제 (관리자) */
+export async function deleteAllMatchResults(
+  sessionId: string
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: session } = await admin
+    .from('club_sessions')
+    .select('id, club_id')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
+
+  const { error: authError } = await checkSessionOfficerAuth(session.club_id)
+  if (authError) return { error: authError }
+
+  const { error } = await admin
+    .from('club_match_results')
+    .delete()
+    .eq('session_id', sessionId)
+
+  if (error) return { error: `전체 삭제 실패: ${error.message}` }
+
+  revalidatePath(`/clubs/${session.club_id}`)
+  return {}
+}
+
+// ============================================================================
+// 개인 게임 결과 조회
+// ============================================================================
+
+export type RankingPeriod = 'all' | 'this_month' | 'last_month' | 'this_year' | 'last_year'
+
+function getPeriodRange(period: RankingPeriod): { from: string | null; to: string | null } {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = now.getMonth() + 1
+
+  if (period === 'all') return { from: null, to: null }
+  if (period === 'this_month') {
+    return {
+      from: `${y}-${String(m).padStart(2, '0')}-01`,
+      to: `${y}-${String(m).padStart(2, '0')}-31`,
+    }
+  }
+  if (period === 'last_month') {
+    const lm = m === 1 ? 12 : m - 1
+    const ly = m === 1 ? y - 1 : y
+    return {
+      from: `${ly}-${String(lm).padStart(2, '0')}-01`,
+      to: `${ly}-${String(lm).padStart(2, '0')}-31`,
+    }
+  }
+  if (period === 'this_year') {
+    return { from: `${y}-01-01`, to: `${y}-12-31` }
+  }
+  if (period === 'last_year') {
+    return { from: `${y - 1}-01-01`, to: `${y - 1}-12-31` }
+  }
+  return { from: null, to: null }
+}
+
+export interface MemberGameResult {
+  id: string
+  session_id: string
+  session_title: string
+  session_date: string
+  match_type: MatchType
+  court_number: string | null
+  scheduled_time: string | null
+  my_score: number | null
+  opponent_score: number | null
+  is_win: boolean | null
+  status: string
+  partner?: { id: string; name: string } | null
+  opponent1?: { id: string; name: string } | null
+  opponent2?: { id: string; name: string } | null
+}
+
+/** 특정 멤버의 게임 결과 조회 */
+export async function getMemberGameResults(
+  clubId: string,
+  memberId: string,
+  period: RankingPeriod = 'all'
+): Promise<{ results: MemberGameResult[]; stats: { total: number; wins: number; losses: number; win_rate: number } }> {
+  const admin = createAdminClient()
+  const { from, to } = getPeriodRange(period)
+
+  // 해당 멤버가 포함된 모든 경기 조회 (player1, player2, player1b, player2b)
+  const queries = [
+    admin.from('club_match_results').select(`
+      *,
+      club_sessions!inner(id, title, session_date, club_id),
+      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+    `).eq('club_sessions.club_id', clubId).eq('player1_member_id', memberId).eq('status', 'COMPLETED'),
+    admin.from('club_match_results').select(`
+      *,
+      club_sessions!inner(id, title, session_date, club_id),
+      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+    `).eq('club_sessions.club_id', clubId).eq('player2_member_id', memberId).eq('status', 'COMPLETED'),
+    admin.from('club_match_results').select(`
+      *,
+      club_sessions!inner(id, title, session_date, club_id),
+      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+    `).eq('club_sessions.club_id', clubId).eq('player1b_member_id', memberId).eq('status', 'COMPLETED'),
+    admin.from('club_match_results').select(`
+      *,
+      club_sessions!inner(id, title, session_date, club_id),
+      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+    `).eq('club_sessions.club_id', clubId).eq('player2b_member_id', memberId).eq('status', 'COMPLETED'),
+  ]
+
+  const results = await Promise.all(queries.map(async (q) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let query: any = q
+    if (from) query = query.gte('club_sessions.session_date', from)
+    if (to) query = query.lte('club_sessions.session_date', to)
+    return query
+  }))
+  const allMatches = results.flatMap((r) => r.data || [])
+
+  // Deduplicate by id
+  const seen = new Set<string>()
+  const unique = allMatches.filter((m: Record<string, unknown>) => {
+    if (seen.has(m.id as string)) return false
+    seen.add(m.id as string)
+    return true
+  })
+
+  // Sort by session_date desc
+  unique.sort((a: Record<string, unknown>, b: Record<string, unknown>) => {
+    const sa = (a.club_sessions as Record<string, unknown>)?.session_date as string || ''
+    const sb = (b.club_sessions as Record<string, unknown>)?.session_date as string || ''
+    return sb.localeCompare(sa)
+  })
+
+  const formatted: MemberGameResult[] = unique.map((m: Record<string, unknown>) => {
+    const isPlayer1 = m.player1_member_id === memberId || m.player1b_member_id === memberId
+    const p1Score = m.player1_score as number | null
+    const p2Score = m.player2_score as number | null
+    const myScore = isPlayer1 ? p1Score : p2Score
+    const oppScore = isPlayer1 ? p2Score : p1Score
+    const winnerId = m.winner_member_id as string | null
+    const isWin = winnerId === null ? null : (
+      isPlayer1
+        ? (winnerId === m.player1_member_id || winnerId === m.player1b_member_id)
+        : (winnerId === m.player2_member_id || winnerId === m.player2b_member_id)
+    )
+    const sessions = m.club_sessions as Record<string, unknown>
+
+    // Partner and opponents
+    let partner: { id: string; name: string } | null = null
+    let opponent1: { id: string; name: string } | null = null
+    let opponent2: { id: string; name: string } | null = null
+
+    if (isPlayer1) {
+      if (m.player1_member_id === memberId) partner = (m.player1b as { id: string; name: string } | null) ?? null
+      else partner = (m.player1 as { id: string; name: string } | null) ?? null
+      opponent1 = (m.player2 as { id: string; name: string } | null) ?? null
+      opponent2 = (m.player2b as { id: string; name: string } | null) ?? null
+    } else {
+      if (m.player2_member_id === memberId) partner = (m.player2b as { id: string; name: string } | null) ?? null
+      else partner = (m.player2 as { id: string; name: string } | null) ?? null
+      opponent1 = (m.player1 as { id: string; name: string } | null) ?? null
+      opponent2 = (m.player1b as { id: string; name: string } | null) ?? null
+    }
+
+    return {
+      id: m.id as string,
+      session_id: sessions?.id as string,
+      session_title: sessions?.title as string,
+      session_date: sessions?.session_date as string,
+      match_type: (m.match_type as MatchType) || 'singles',
+      court_number: m.court_number as string | null,
+      scheduled_time: m.scheduled_time as string | null,
+      my_score: myScore,
+      opponent_score: oppScore,
+      is_win: isWin,
+      status: m.status as string,
+      partner: partner || undefined,
+      opponent1: opponent1 || undefined,
+      opponent2: opponent2 || undefined,
+    }
+  })
+
+  const completed = formatted.filter((r) => r.is_win !== null)
+  const wins = completed.filter((r) => r.is_win).length
+  const losses = completed.filter((r) => r.is_win === false).length
+  const winRate = completed.length > 0 ? Math.round((wins / completed.length) * 100) : 0
+
+  return {
+    results: formatted,
+    stats: { total: completed.length, wins, losses, win_rate: winRate },
+  }
+}
+
+/** 기간별 클럽 순위 조회 (club_match_results 직접 집계) */
+export async function getClubRankingsByPeriod(
+  clubId: string,
+  period: RankingPeriod = 'all'
+): Promise<Array<{ member: { id: string; name: string; rating: number | null }; total: number; wins: number; losses: number; win_rate: number }>> {
+  const admin = createAdminClient()
+  const { from, to } = getPeriodRange(period)
+
+  let query = admin
+    .from('club_match_results')
+    .select(`
+      *,
+      club_sessions!inner(club_id, session_date),
+      player1:club_members!club_match_results_player1_member_id_fkey(id, name, rating),
+      player2:club_members!club_match_results_player2_member_id_fkey(id, name, rating),
+      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name, rating),
+      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name, rating)
+    `)
+    .eq('club_sessions.club_id', clubId)
+    .eq('status', 'COMPLETED')
+
+  if (from) query = query.gte('club_sessions.session_date', from)
+  if (to) query = query.lte('club_sessions.session_date', to)
+
+  const { data, error } = await query
+  if (error || !data) return []
+
+  // 멤버별 통계 집계
+  const statsMap = new Map<string, { member: { id: string; name: string; rating: number | null }; total: number; wins: number; losses: number }>()
+
+  const addPlayer = (
+    memberId: string,
+    memberInfo: { id: string; name: string; rating: number | null } | null,
+    isWin: boolean | null,
+    isDraw: boolean
+  ) => {
+    if (!memberId || !memberInfo) return
+    if (!statsMap.has(memberId)) {
+      statsMap.set(memberId, { member: memberInfo, total: 0, wins: 0, losses: 0 })
+    }
+    const s = statsMap.get(memberId)!
+    s.total++
+    if (isWin) s.wins++
+    else if (!isDraw) s.losses++
+  }
+
+  for (const m of data as Record<string, unknown>[]) {
+    const isDraw = m.winner_member_id === null
+    const p1Win = !isDraw && m.winner_member_id === m.player1_member_id
+    const p2Win = !isDraw && m.winner_member_id === m.player2_member_id
+
+    addPlayer(m.player1_member_id as string, m.player1 as { id: string; name: string; rating: number | null }, p1Win, isDraw)
+    addPlayer(m.player2_member_id as string, m.player2 as { id: string; name: string; rating: number | null }, p2Win, isDraw)
+    if (m.player1b_member_id) addPlayer(m.player1b_member_id as string, m.player1b as { id: string; name: string; rating: number | null }, p1Win, isDraw)
+    if (m.player2b_member_id) addPlayer(m.player2b_member_id as string, m.player2b as { id: string; name: string; rating: number | null }, p2Win, isDraw)
+  }
+
+  return Array.from(statsMap.values())
+    .map((s) => ({
+      ...s,
+      win_rate: s.total > 0 ? Math.round((s.wins / s.total) * 100) : 0,
+    }))
+    .sort((a, b) => {
+      if (b.wins !== a.wins) return b.wins - a.wins
+      if (b.win_rate !== a.win_rate) return b.win_rate - a.win_rate
+      return b.total - a.total
+    })
 }
