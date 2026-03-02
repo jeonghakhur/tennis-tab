@@ -47,7 +47,7 @@ export default function AttendanceList({ attendances, myMemberId, canRespond, on
             {isMe && canRespond && onEdit && (
               <button
                 onClick={onEdit}
-                className="text-xs px-2 py-1 rounded border font-medium"
+                className="text-xs px-3 py-2 rounded border font-medium min-h-[36px]"
                 style={{ borderColor: 'var(--border-color)', color: 'var(--text-muted)' }}
               >
                 수정

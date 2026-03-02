@@ -9,7 +9,7 @@ export function FontSizeToggle() {
     <button
       type="button"
       onClick={toggleFontSize}
-      className="relative w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 hover:bg-white/10"
+      className="relative w-11 h-11 flex items-center justify-center rounded-full transition-all duration-300 hover:bg-white/10"
       aria-label={isLarge ? "기본 글씨 크기로 변경" : "큰 글씨 모드로 변경"}
       aria-pressed={isLarge}
       title={isLarge ? "기본 글씨" : "큰 글씨"}

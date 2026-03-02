@@ -198,7 +198,7 @@
   --text-muted: rgba(255, 255, 255, 0.55);
   --accent-color: #ccff00;
   --accent-hover: #e0ff4d;
-  --border-color: rgba(255, 255, 255, 0.05);
+  --border-color: rgba(255, 255, 255, 0.12);
   --border-accent: rgba(204, 255, 0, 0.3);
   --nav-bg: rgba(10, 10, 10, 0.8);
   --shadow-glow: rgba(204, 255, 0, 0.3);
@@ -241,8 +241,8 @@
   /* Badge Colors (Solid) */
   --badge-secondary-bg: #52525b;
   --badge-secondary-text: #d4d4d8;
-  --badge-success-bg: #059669;
-  --badge-success-text: #fff;
+  --badge-success-bg: #065f46;
+  --badge-success-text: #ecfdf5;
   --badge-danger-bg: #dc2626;
   --badge-danger-text: #fff;
   --badge-warning-bg: #d97706;
@@ -279,7 +279,7 @@
   --text-muted: rgba(0, 0, 0, 0.6);
   --accent-color: #2d5a27;
   --accent-hover: #3d7a37;
-  --border-color: rgba(0, 0, 0, 0.08);
+  --border-color: rgba(0, 0, 0, 0.15);
   --border-accent: rgba(45, 90, 39, 0.4);
   --nav-bg: rgba(250, 250, 250, 0.9);
   --shadow-glow: rgba(45, 90, 39, 0.2);
@@ -322,7 +322,7 @@
   /* Badge Colors (Solid — Bootstrap 5.3) */
   --badge-secondary-bg: #6c757d;
   --badge-secondary-text: #fff;
-  --badge-success-bg: #198754;
+  --badge-success-bg: #146c43;
   --badge-success-text: #fff;
   --badge-danger-bg: #dc3545;
   --badge-danger-text: #fff;

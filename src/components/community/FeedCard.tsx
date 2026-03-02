@@ -191,7 +191,7 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
           type="button"
           onClick={handleLike}
           disabled={!isLoggedIn || likeLoading}
-          className="flex items-center gap-1.5 text-sm transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 text-sm transition-colors disabled:opacity-50 min-h-[44px] px-2"
           style={{ color: liked ? '#ef4444' : 'var(--text-muted)' }}
           aria-label={liked ? '좋아요 취소' : '좋아요'}
           aria-pressed={liked}
@@ -212,7 +212,7 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
             e.stopPropagation()
             router.push(`/community/${post.id}#comments`)
           }}
-          className="flex items-center gap-1.5 text-sm transition-colors hover:opacity-80"
+          className="flex items-center gap-1.5 text-sm transition-colors hover:opacity-80 min-h-[44px] px-2"
           style={{ color: 'var(--text-muted)' }}
         >
           <MessageCircle className="w-5 h-5" />

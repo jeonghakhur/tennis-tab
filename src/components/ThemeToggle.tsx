@@ -8,7 +8,7 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="relative w-10 h-10 flex items-center justify-center rounded-full transition-all duration-300 hover:bg-white/10 dark:hover:bg-white/10 light:hover:bg-black/10"
+      className="relative w-11 h-11 flex items-center justify-center rounded-full transition-all duration-300 hover:bg-white/10 dark:hover:bg-white/10 light:hover:bg-black/10"
       aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       {/* Sun Icon */}
