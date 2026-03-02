@@ -188,6 +188,7 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                 <div className="flex items-center gap-2">
                   <div className="flex-1">
                     <SessionTimePicker
+                      key={`start-${form.start_time}`}
                       value={form.start_time}
                       onChange={(v) => setForm(prev => ({ ...prev, start_time: v }))}
                       placeholder="시작 시간"
@@ -196,6 +197,7 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                   <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
                   <div className="flex-1">
                     <SessionTimePicker
+                      key={`end-${form.end_time}`}
                       value={form.end_time}
                       onChange={(v) => setForm(prev => ({ ...prev, end_time: v }))}
                       placeholder="종료 시간"

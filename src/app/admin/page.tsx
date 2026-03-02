@@ -156,7 +156,7 @@ export default async function AdminDashboard() {
                       {tournament.title}
                     </p>
                     <p className="text-xs text-(--text-muted)">
-                      {tournament.location} · {tournament.start_date}
+                      {tournament.location} · {formatKoreanDate(tournament.start_date)}
                     </p>
                   </div>
                   <span

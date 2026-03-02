@@ -221,6 +221,27 @@ const TOOL_DECLARATIONS = [
     name: 'initiate_cancel_flow',
     description: '참가 신청 취소 플로우 시작 (로그인 필요, 파라미터 없음)',
   },
+  {
+    name: 'get_club_sessions',
+    description: '클럽의 예정된 모임(세션) 목록 조회. "건승회 모임 언제야?", "다음 모임은?" 같은 질문에 사용',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        club_name: { type: Type.STRING, description: '클럽 이름 (예: 건승회)' },
+      },
+    },
+  },
+  {
+    name: 'get_club_ranking',
+    description: '클럽 회원 순위 조회. "건승회 순위", "클럽 랭킹" 같은 질문에 사용',
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        club_name: { type: Type.STRING, description: '클럽 이름 (예: 건승회)' },
+        year: { type: Type.NUMBER, description: '조회 연도 (기본: 현재 연도)' },
+      },
+    },
+  },
 ] as unknown as FunctionDeclaration[]
 
 // ─── Tool 구현 ────────────────────────────────────────────────────────────────
@@ -614,6 +635,64 @@ async function toolInitiateCancelFlow(userId?: string): Promise<ToolResult> {
   return { content: result.message, links: result.links, flow_active: result.flow_active }
 }
 
+
+async function toolGetClubSessions(args: Record<string, unknown>): Promise<ToolResult> {
+  const admin = createAdminClient()
+  const clubName = args.club_name as string | undefined
+
+  let clubQuery = admin.from('clubs').select('id, name')
+  if (clubName) clubQuery = clubQuery.ilike('name', `%${clubName}%`)
+  const { data: clubs } = await clubQuery.limit(1)
+  if (!clubs?.length) return { content: clubName ? `"${clubName}" 클럽을 찾을 수 없습니다.` : '클럽명을 알려주세요.' }
+
+  const club = clubs[0]
+  const today = new Date().toISOString().split('T')[0]
+  const { data: sessions } = await admin
+    .from('club_sessions')
+    .select('id, title, session_date, start_time, end_time, venue, status')
+    .eq('club_id', club.id)
+    .gte('session_date', today)
+    .order('session_date', { ascending: true })
+    .limit(5)
+
+  if (!sessions?.length) return { content: `${club.name}의 예정된 모임이 없습니다.` }
+
+  const lines = sessions.map(s => {
+    const date = new Date(s.session_date).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
+    return `• ${s.title} — ${date} ${s.start_time?.slice(0,5)}~${s.end_time?.slice(0,5)} / ${s.venue}`
+  })
+  return { content: `**${club.name} 예정 모임**\n${lines.join('\n')}` }
+}
+
+async function toolGetClubRanking(args: Record<string, unknown>): Promise<ToolResult> {
+  const admin = createAdminClient()
+  const clubName = args.club_name as string | undefined
+  const year = (args.year as number) || new Date().getFullYear()
+
+  let clubQuery = admin.from('clubs').select('id, name')
+  if (clubName) clubQuery = clubQuery.ilike('name', `%${clubName}%`)
+  const { data: clubs } = await clubQuery.limit(1)
+  if (!clubs?.length) return { content: clubName ? `"${clubName}" 클럽을 찾을 수 없습니다.` : '클럽명을 알려주세요.' }
+
+  const club = clubs[0]
+  const { data: stats } = await admin
+    .from('club_member_stats')
+    .select('member_name, wins, losses, total_matches')
+    .eq('club_id', club.id)
+    .eq('year', year)
+    .gt('total_matches', 0)
+    .order('wins', { ascending: false })
+    .limit(10)
+
+  if (!stats?.length) return { content: `${club.name}의 ${year}년 순위 데이터가 없습니다.` }
+
+  const lines = stats.map((s, i) => {
+    const rate = s.total_matches > 0 ? ((s.wins / s.total_matches) * 100).toFixed(1) : '0.0'
+    return `${i + 1}위 ${s.member_name} — ${s.wins}승 ${s.losses}패 (승률 ${rate}%)`
+  })
+  return { content: `**${club.name} ${year}년 순위**\n${lines.join('\n')}` }
+}
+
 // ─── Tool dispatcher ──────────────────────────────────────────────────────────
 
 async function executeTool(name: string, args: Record<string, unknown>, userId?: string): Promise<ToolResult> {
@@ -628,6 +707,8 @@ async function executeTool(name: string, args: Record<string, unknown>, userId?:
     case 'get_awards':          return toolGetAwards(args, userId)
     case 'initiate_apply_flow': return toolInitiateApplyFlow(args, userId)
     case 'initiate_cancel_flow': return toolInitiateCancelFlow(userId)
+    case 'get_club_sessions':    return toolGetClubSessions(args)
+    case 'get_club_ranking':     return toolGetClubRanking(args)
     default:                    return { content: `알 수 없는 도구: ${name}` }
   }
 }
