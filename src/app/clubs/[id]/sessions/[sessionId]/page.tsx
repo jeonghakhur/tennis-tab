@@ -201,9 +201,9 @@ export default function SessionDetailPage() {
             )}
 
             {/* 임원 액션 */}
-            {isOfficer && (session?.status === 'OPEN' || session?.status === 'CLOSED' || session?.status === 'COMPLETED') && (
+            {isOfficer && (
               <div className="mt-4 pt-4 border-t flex flex-wrap gap-2" style={{ borderColor: 'var(--border-color)' }}>
-                {(session?.status === 'OPEN' || session?.status === 'COMPLETED') && (
+                {(
                   <>
                     <button
                       onClick={() => setEditOpen(true)}
