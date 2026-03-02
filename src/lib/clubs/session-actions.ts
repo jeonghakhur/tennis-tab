@@ -208,18 +208,27 @@ export async function getClubSessionDetail(
     .eq('session_id', sessionId)
     .order('responded_at', { ascending: true })
 
-  // 경기 결과
-  const { data: matches } = await admin
-    .from('club_match_results')
-    .select(`
-      *,
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-    `)
-    .eq('session_id', sessionId)
-    .order('scheduled_time', { ascending: true })
+  // 경기 결과 (복식 FK는 마이그레이션 후 사용 가능)
+  const doublesMatchSel = `
+    *,
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+    player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+    player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+  `
+  const baseSel = `
+    *,
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+  `
+  let matchResult = await admin.from('club_match_results').select(doublesMatchSel)
+    .eq('session_id', sessionId).order('scheduled_time', { ascending: true })
+  if (matchResult.error?.code === 'PGRST200') {
+    matchResult = await admin.from('club_match_results').select(baseSel)
+      .eq('session_id', sessionId).order('scheduled_time', { ascending: true })
+  }
+  const { data: matches } = matchResult
+  void matches // linting
 
   const formattedAttendances = (attendances || []).map(
     (a: Record<string, unknown>) => ({
@@ -953,20 +962,29 @@ export async function getSessionMatches(
 ): Promise<ClubMatchResult[]> {
   const admin = createAdminClient()
 
-  const { data, error } = await admin
-    .from('club_match_results')
-    .select(`
-      *,
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-    `)
-    .eq('session_id', sessionId)
-    .order('scheduled_time', { ascending: true })
+  const doublesMatchSelect = `
+    *,
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+    player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+    player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+  `
+  const baseMatchSelect = `
+    *,
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+  `
 
-  if (error || !data) return []
-  return data as ClubMatchResult[]
+  let result = await admin.from('club_match_results').select(doublesMatchSelect)
+    .eq('session_id', sessionId).order('scheduled_time', { ascending: true })
+
+  if (result.error?.code === 'PGRST200') {
+    result = await admin.from('club_match_results').select(baseMatchSelect)
+      .eq('session_id', sessionId).order('scheduled_time', { ascending: true })
+  }
+
+  if (result.error || !result.data) return []
+  return result.data as ClubMatchResult[]
 }
 
 /** 경기 삭제 (관리자) */
@@ -1146,17 +1164,13 @@ export async function getSessionPageData(
       .select('*, club_members!inner(id, name, rating, is_registered)')
       .eq('session_id', sessionId)
       .order('responded_at', { ascending: true }),
-    admin
-      .from('club_match_results')
-      .select(`
-        *,
-        player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-        player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-        player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-        player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-      `)
-      .eq('session_id', sessionId)
-      .order('scheduled_time', { ascending: true }),
+    (async () => {
+      const dSel = `*,player1:club_members!club_match_results_player1_member_id_fkey(id,name),player2:club_members!club_match_results_player2_member_id_fkey(id,name),player1b:club_members!club_match_results_player1b_member_id_fkey(id,name),player2b:club_members!club_match_results_player2b_member_id_fkey(id,name)`
+      const bSel = `*,player1:club_members!club_match_results_player1_member_id_fkey(id,name),player2:club_members!club_match_results_player2_member_id_fkey(id,name)`
+      let r = await admin.from('club_match_results').select(dSel).eq('session_id', sessionId).order('scheduled_time', { ascending: true })
+      if (r.error?.code === 'PGRST200') r = await admin.from('club_match_results').select(bSel).eq('session_id', sessionId).order('scheduled_time', { ascending: true })
+      return r
+    })(),
     user
       ? admin
           .from('club_members')
@@ -1425,49 +1439,56 @@ export async function getMemberGameResults(
   const { from, to } = getPeriodRange(period)
 
   // 해당 멤버가 포함된 모든 경기 조회 (player1, player2, player1b, player2b)
-  const queries = [
-    admin.from('club_match_results').select(`
-      *,
-      club_sessions!inner(id, title, session_date, club_id),
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-    `).eq('club_sessions.club_id', clubId).eq('player1_member_id', memberId).eq('status', 'COMPLETED'),
-    admin.from('club_match_results').select(`
-      *,
-      club_sessions!inner(id, title, session_date, club_id),
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-    `).eq('club_sessions.club_id', clubId).eq('player2_member_id', memberId).eq('status', 'COMPLETED'),
-    admin.from('club_match_results').select(`
-      *,
-      club_sessions!inner(id, title, session_date, club_id),
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-    `).eq('club_sessions.club_id', clubId).eq('player1b_member_id', memberId).eq('status', 'COMPLETED'),
-    admin.from('club_match_results').select(`
-      *,
-      club_sessions!inner(id, title, session_date, club_id),
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
-    `).eq('club_sessions.club_id', clubId).eq('player2b_member_id', memberId).eq('status', 'COMPLETED'),
-  ]
+  // Base select (without doubles FK joins - safe before migration)
+  const baseSelect = `
+    *,
+    club_sessions!inner(id, title, session_date, club_id),
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name)
+  `
+  // Try with doubles FK joins first, fall back to base select
+  const doublesSelect = `
+    *,
+    club_sessions!inner(id, title, session_date, club_id),
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name),
+    player1b:club_members!club_match_results_player1b_member_id_fkey(id, name),
+    player2b:club_members!club_match_results_player2b_member_id_fkey(id, name)
+  `
 
-  const results = await Promise.all(queries.map(async (q) => {
+  const buildQuery = (selectStr: string, field: string, value: string) => {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let query: any = q
-    if (from) query = query.gte('club_sessions.session_date', from)
-    if (to) query = query.lte('club_sessions.session_date', to)
-    return query
-  }))
-  const allMatches = results.flatMap((r) => r.data || [])
+    let q: any = admin.from('club_match_results').select(selectStr)
+      .eq('club_sessions.club_id', clubId)
+      .eq(field, value)
+      .eq('status', 'COMPLETED')
+    if (from) q = q.gte('club_sessions.session_date', from)
+    if (to) q = q.lte('club_sessions.session_date', to)
+    return q
+  }
+
+  // Try with doubles joins, fall back to base if FK not found
+  let allMatches: Record<string, unknown>[] = []
+  {
+    const testQ = await buildQuery(doublesSelect, 'player1_member_id', memberId)
+    if (testQ.error?.code === 'PGRST200') {
+      // Migration not yet run - use base select for all 2 positions
+      const [r1, r2] = await Promise.all([
+        buildQuery(baseSelect, 'player1_member_id', memberId),
+        buildQuery(baseSelect, 'player2_member_id', memberId),
+      ])
+      allMatches = [...(r1.data || []), ...(r2.data || [])]
+    } else {
+      // Migration done - query all 4 positions
+      const [r1, r2, r3, r4] = await Promise.all([
+        testQ, // already fetched
+        buildQuery(doublesSelect, 'player2_member_id', memberId),
+        buildQuery(doublesSelect, 'player1b_member_id', memberId),
+        buildQuery(doublesSelect, 'player2b_member_id', memberId),
+      ])
+      allMatches = [...(r1.data || []), ...(r2.data || []), ...(r3.data || []), ...(r4.data || [])]
+    }
+  }
 
   // Deduplicate by id
   const seen = new Set<string>()
@@ -1552,24 +1573,44 @@ export async function getClubRankingsByPeriod(
   const admin = createAdminClient()
   const { from, to } = getPeriodRange(period)
 
-  let query = admin
-    .from('club_match_results')
-    .select(`
-      *,
-      club_sessions!inner(club_id, session_date),
-      player1:club_members!club_match_results_player1_member_id_fkey(id, name, rating),
-      player2:club_members!club_match_results_player2_member_id_fkey(id, name, rating),
-      player1b:club_members!club_match_results_player1b_member_id_fkey(id, name, rating),
-      player2b:club_members!club_match_results_player2b_member_id_fkey(id, name, rating)
-    `)
-    .eq('club_sessions.club_id', clubId)
-    .eq('status', 'COMPLETED')
+  const doublesSelectR = `
+    *,
+    club_sessions!inner(club_id, session_date),
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name, rating),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name, rating),
+    player1b:club_members!club_match_results_player1b_member_id_fkey(id, name, rating),
+    player2b:club_members!club_match_results_player2b_member_id_fkey(id, name, rating)
+  `
+  const baseSelectR = `
+    *,
+    club_sessions!inner(club_id, session_date),
+    player1:club_members!club_match_results_player1_member_id_fkey(id, name, rating),
+    player2:club_members!club_match_results_player2_member_id_fkey(id, name, rating)
+  `
 
-  if (from) query = query.gte('club_sessions.session_date', from)
-  if (to) query = query.lte('club_sessions.session_date', to)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const buildRankQuery = (selectStr: string): any => {
+    let q = admin.from('club_match_results').select(selectStr)
+      .eq('club_sessions.club_id', clubId)
+      .eq('status', 'COMPLETED')
+    if (from) q = (q as any).gte('club_sessions.session_date', from)
+    if (to) q = (q as any).lte('club_sessions.session_date', to)
+    return q
+  }
 
-  const { data, error } = await query
-  if (error || !data) return []
+  // Try doubles join first
+  let data: Record<string, unknown>[] | null = null
+  const doublesResult = await buildRankQuery(doublesSelectR)
+  if (doublesResult.error?.code === 'PGRST200') {
+    // FK not ready - fall back to base select
+    const baseResult = await buildRankQuery(baseSelectR)
+    if (baseResult.error) return []
+    data = baseResult.data
+  } else {
+    if (doublesResult.error) return []
+    data = doublesResult.data
+  }
+  if (!data) return []
 
   // 멤버별 통계 집계
   const statsMap = new Map<string, { member: { id: string; name: string; rating: number | null }; total: number; wins: number; losses: number }>()
