@@ -524,22 +524,39 @@ export async function createMatchResult(
     return { error: '같은 선수를 배정할 수 없습니다.' }
   }
 
+  const insertData: Record<string, unknown> = {
+    session_id: input.session_id,
+    player1_member_id: input.player1_member_id,
+    player2_member_id: input.player2_member_id,
+    court_number: input.court_number || null,
+    scheduled_time: input.scheduled_time || null,
+  }
+  // 복식 컬럼은 마이그레이션 후 사용 가능
+  if (input.match_type) insertData.match_type = input.match_type
+  if (input.player1b_member_id) insertData.player1b_member_id = input.player1b_member_id
+  if (input.player2b_member_id) insertData.player2b_member_id = input.player2b_member_id
+
   const { data, error } = await admin
     .from('club_match_results')
-    .insert({
-      session_id: input.session_id,
-      match_type: input.match_type || 'singles',
-      player1_member_id: input.player1_member_id,
-      player2_member_id: input.player2_member_id,
-      player1b_member_id: input.player1b_member_id || null,
-      player2b_member_id: input.player2b_member_id || null,
-      court_number: input.court_number || null,
-      scheduled_time: input.scheduled_time || null,
-    })
+    .insert(insertData)
     .select()
     .single()
 
-  if (error) return { error: `대진 생성 실패: ${error.message}` }
+  if (error) {
+    // 새 컬럼 없을 경우 fallback (마이그레이션 전)
+    if (error.code === 'PGRST204' && (input.match_type || input.player1b_member_id)) {
+      const fallback = await admin.from('club_match_results').insert({
+        session_id: input.session_id,
+        player1_member_id: input.player1_member_id,
+        player2_member_id: input.player2_member_id,
+        court_number: input.court_number || null,
+        scheduled_time: input.scheduled_time || null,
+      }).select().single()
+      if (fallback.error) return { error: `대진 생성 실패: ${fallback.error.message}` }
+      return { data: fallback.data as ClubMatchResult }
+    }
+    return { error: `대진 생성 실패: ${error.message}` }
+  }
 
   revalidatePath(`/clubs/${session.club_id}`)
   return { data: data as ClubMatchResult }
