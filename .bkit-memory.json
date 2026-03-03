@@ -1,8 +1,32 @@
 {
-  "currentFeature": "club-session",
+  "currentFeature": "guide-page",
   "phase": "design",
-  "lastUpdated": "2026-02-27T00:00:00Z",
+  "lastUpdated": "2026-03-03T00:00:00Z",
   "pdcaHistory": [
+    {
+      "feature": "guide-page",
+      "phase": "design",
+      "timestamp": "2026-03-03T00:00:00Z",
+      "status": "completed"
+    },
+    {
+      "feature": "guide-page",
+      "phase": "plan",
+      "timestamp": "2026-03-03T00:00:00Z",
+      "status": "completed"
+    },
+    {
+      "feature": "guest-participant",
+      "phase": "plan",
+      "timestamp": "2026-03-03T00:00:00Z",
+      "status": "completed"
+    },
+    {
+      "feature": "guest-participant",
+      "phase": "design",
+      "timestamp": "2026-03-03T00:00:00Z",
+      "status": "completed"
+    },
     {
       "feature": "member-data-encryption",
       "phase": "completed",
