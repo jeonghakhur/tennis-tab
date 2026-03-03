@@ -171,7 +171,12 @@ export default function AttendanceList({
             {!showAddGuest && (
               <button
                 onClick={() => setShowAddGuest(true)}
-                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-medium"
+                className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                style={{
+                  backgroundColor: 'var(--color-success-subtle)',
+                  color: 'var(--color-success)',
+                  border: '1px solid var(--color-success-border)',
+                }}
               >
                 + 게스트 추가
               </button>
@@ -198,7 +203,8 @@ export default function AttendanceList({
               </div>
               <button
                 onClick={() => handleRemoveGuest(g.id)}
-                className="text-xs text-red-400 hover:text-red-300 px-2 py-1"
+                className="text-xs px-2 py-1"
+                style={{ color: 'var(--color-danger)' }}
                 aria-label={`${g.name} 게스트 삭제`}
               >
                 삭제
@@ -288,7 +294,8 @@ export default function AttendanceList({
                 <button
                   onClick={handleAddGuest}
                   disabled={isSubmitting}
-                  className="flex-1 py-2 text-sm rounded-lg bg-emerald-500 text-white font-medium disabled:opacity-50"
+                  className="flex-1 py-2 text-sm rounded-lg font-medium disabled:opacity-50"
+                  style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
                 >
                   {isSubmitting ? '추가 중...' : '추가'}
                 </button>
