@@ -231,7 +231,10 @@ export default function AttendanceList({
                 <label className="block text-sm text-(--text-muted) mb-1">
                   성별
                 </label>
-                <Select value={guestGender} onValueChange={(v) => setGuestGender(v as 'MALE' | 'FEMALE' | '')}>
+                <Select
+                  value={guestGender || 'NONE'}
+                  onValueChange={(v) => setGuestGender(v === 'NONE' ? '' : v as 'MALE' | 'FEMALE')}
+                >
                   <SelectTrigger
                     className="w-full h-10 px-3 text-sm"
                     style={{
@@ -240,10 +243,10 @@ export default function AttendanceList({
                       color: 'var(--text-primary)',
                     }}
                   >
-                    <SelectValue placeholder="미지정" />
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-                    <SelectItem value="" style={{ color: 'var(--text-muted)' }}>미지정</SelectItem>
+                    <SelectItem value="NONE" style={{ color: 'var(--text-muted)' }}>미지정</SelectItem>
                     <SelectItem value="MALE" style={{ color: 'var(--text-primary)' }}>남</SelectItem>
                     <SelectItem value="FEMALE" style={{ color: 'var(--text-primary)' }}>여</SelectItem>
                   </SelectContent>
