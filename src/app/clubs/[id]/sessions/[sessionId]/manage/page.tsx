@@ -246,10 +246,14 @@ export default function SessionManagePage() {
             </div>
           </div>
 
-          {/* 참석자 목록 */}
+          {/* 참석자 목록 (임원: 게스트 섹션 포함) */}
           <AttendanceList
             attendances={session.attendances}
+            guests={session.guests}
+            sessionId={sessionId}
             myMemberId={myMemberId || undefined}
+            isOfficer={!!isOfficer}
+            onGuestsChange={fetchData}
           />
 
           {/* 대진 편성 (CLOSED 또는 OPEN 상태) */}
@@ -257,6 +261,7 @@ export default function SessionManagePage() {
             <BracketEditor
               sessionId={sessionId}
               attendingMembers={attendingMembers}
+              guests={session.guests}
               matches={session.matches}
               courtNumbers={session.court_numbers}
               onRefresh={fetchData}

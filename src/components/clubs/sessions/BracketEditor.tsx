@@ -18,12 +18,13 @@ import {
   deleteAllMatchResults,
   resolveMatchDispute,
 } from '@/lib/clubs/session-actions'
-import type { ClubMatchResult, SessionAttendanceDetail, MatchType } from '@/lib/clubs/types'
+import type { ClubMatchResult, SessionAttendanceDetail, MatchType, ClubSessionGuest } from '@/lib/clubs/types'
 import SessionTimePicker from './SessionTimePicker'
 
 interface BracketEditorProps {
   sessionId: string
   attendingMembers: SessionAttendanceDetail[]
+  guests?: ClubSessionGuest[]
   matches: ClubMatchResult[]
   courtNumbers: string[]
   onRefresh: () => void
@@ -43,9 +44,31 @@ const NONE = 'none'
 const toSelectVal = (v: string) => v || NONE
 const fromSelectVal = (v: string) => (v === NONE ? '' : v)
 
+// 선수 ID 인코딩: "member:UUID" or "guest:UUID"
+const encodeMember = (id: string) => `member:${id}`
+const encodeGuest = (id: string) => `guest:${id}`
+const parsePrefixedId = (val: string): { type: 'member' | 'guest'; id: string } | null => {
+  if (!val || val === NONE) return null
+  const colonIdx = val.indexOf(':')
+  if (colonIdx < 0) return null
+  const type = val.slice(0, colonIdx)
+  const id = val.slice(colonIdx + 1)
+  if (type !== 'member' && type !== 'guest') return null
+  return { type, id }
+}
+
+/** 경기 카드에서 선수 이름 표시 (member 우선, guest 폴백) */
+function matchPlayerName(
+  member: { id: string; name: string } | null | undefined,
+  guest: { id: string; name: string } | null | undefined
+): string {
+  return member?.name ?? guest?.name ?? '?'
+}
+
 export default function BracketEditor({
   sessionId,
   attendingMembers,
+  guests = [],
   matches,
   courtNumbers,
   onRefresh,
@@ -72,11 +95,12 @@ export default function BracketEditor({
   const [disputeP2Score, setDisputeP2Score] = useState('')
 
   const isDoubles = matchType !== 'singles'
+  const totalPlayers = attendingMembers.length + guests.length
 
-  // 자동 대진표 생성 (시간 슬롯 기반)
+  // 자동 대진표 생성 (시간 슬롯 기반 — 회원 + 게스트 혼합)
   const handleAutoSchedule = useCallback(async () => {
-    if (attendingMembers.length < 2) {
-      setAlert({ isOpen: true, message: '참석 확정 회원이 2명 이상 필요합니다.', type: 'error' })
+    if (totalPlayers < 2) {
+      setAlert({ isOpen: true, message: '참석 확정 인원이 2명 이상 필요합니다.', type: 'error' })
       return
     }
     setSaving(true)
@@ -88,7 +112,7 @@ export default function BracketEditor({
     }
     setAlert({ isOpen: true, message: `${result.count}경기가 자동 배정되었습니다.`, type: 'success' })
     onRefresh()
-  }, [sessionId, attendingMembers.length, onRefresh])
+  }, [sessionId, totalPlayers, onRefresh])
 
   // 수동 1건 추가 / 수정
   const handleManualAdd = useCallback(async () => {
@@ -100,19 +124,31 @@ export default function BracketEditor({
       setAlert({ isOpen: true, message: '복식은 각 팀 2명을 모두 선택해주세요.', type: 'error' })
       return
     }
-    if (new Set([player1Id, player1bId, player2Id, player2bId].filter(Boolean)).size !== [player1Id, player1bId, player2Id, player2bId].filter(Boolean).length) {
+
+    const ids = [player1Id, player1bId, player2Id, player2bId].filter(Boolean)
+    if (new Set(ids).size !== ids.length) {
       setAlert({ isOpen: true, message: '같은 선수를 중복 선택할 수 없습니다.', type: 'error' })
       return
     }
+
+    // 인코딩된 ID 파싱 → member/guest 컬럼으로 분기
+    const p1 = parsePrefixedId(player1Id)
+    const p1b = parsePrefixedId(player1bId)
+    const p2 = parsePrefixedId(player2Id)
+    const p2b = parsePrefixedId(player2bId)
 
     setSaving(true)
     const result = await createMatchResult({
       session_id: sessionId,
       match_type: matchType,
-      player1_member_id: player1Id,
-      player2_member_id: player2Id,
-      player1b_member_id: isDoubles ? player1bId : undefined,
-      player2b_member_id: isDoubles ? player2bId : undefined,
+      player1_member_id: p1?.type === 'member' ? p1.id : null,
+      player1_guest_id: p1?.type === 'guest' ? p1.id : null,
+      player2_member_id: p2?.type === 'member' ? p2.id : null,
+      player2_guest_id: p2?.type === 'guest' ? p2.id : null,
+      player1b_member_id: p1b?.type === 'member' ? p1b.id : null,
+      player1b_guest_id: p1b?.type === 'guest' ? p1b.id : null,
+      player2b_member_id: p2b?.type === 'member' ? p2b.id : null,
+      player2b_guest_id: p2b?.type === 'guest' ? p2b.id : null,
       court_number: courtNumber || undefined,
       scheduled_time: scheduledTime || undefined,
     })
@@ -124,27 +160,24 @@ export default function BracketEditor({
     }
 
     setPlayer1Id(''); setPlayer1bId(''); setPlayer2Id(''); setPlayer2bId('')
-    // 코트 1개면 자동선택 유지, 그 외엔 초기화
     setCourt(courtNumbers.length === 1 ? courtNumbers[0] : '')
     setScheduledTime('')
     setEditingMatch(null)
     onRefresh()
-  }, [sessionId, matchType, player1Id, player1bId, player2Id, player2bId, courtNumber, scheduledTime, isDoubles, onRefresh])
+  }, [sessionId, matchType, player1Id, player1bId, player2Id, player2bId, courtNumber, scheduledTime, isDoubles, courtNumbers, onRefresh])
 
   // 경기 수정 시작
   const handleEditMatch = useCallback((m: ClubMatchResult) => {
     setEditingMatch(m)
-    // 기존 doubles_men/women/mixed 레코드는 doubles로 매핑
     const mt = m.match_type?.startsWith('doubles') ? 'doubles' : (m.match_type || 'singles')
     setMatchType(mt as MatchType)
-    setPlayer1Id(m.player1_member_id || '')
-    setPlayer1bId(m.player1b_member_id || '')
-    setPlayer2Id(m.player2_member_id || '')
-    setPlayer2bId(m.player2b_member_id || '')
+    // 기존 경기: member_id or guest_id → 인코딩된 값으로 복원
+    setPlayer1Id(m.player1_member_id ? encodeMember(m.player1_member_id) : m.player1_guest_id ? encodeGuest(m.player1_guest_id) : '')
+    setPlayer1bId(m.player1b_member_id ? encodeMember(m.player1b_member_id) : m.player1b_guest_id ? encodeGuest(m.player1b_guest_id) : '')
+    setPlayer2Id(m.player2_member_id ? encodeMember(m.player2_member_id) : m.player2_guest_id ? encodeGuest(m.player2_guest_id) : '')
+    setPlayer2bId(m.player2b_member_id ? encodeMember(m.player2b_member_id) : m.player2b_guest_id ? encodeGuest(m.player2b_guest_id) : '')
     setCourt(m.court_number || '')
-    // DB는 "HH:MM:SS" 포맷 가능 → SessionTimePicker는 "HH:MM" 필요
     setScheduledTime(m.scheduled_time ? m.scheduled_time.slice(0, 5) : '')
-    // 폼으로 스크롤
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }, [])
 
@@ -197,16 +230,63 @@ export default function BracketEditor({
   const inputClass = 'w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) outline-none focus:border-(--accent-color) text-base'
   const disputedMatches = matches.filter((m) => m.status === 'DISPUTED')
 
-  // 선택된 선수를 제외한 참석자 목록
-  const availableForField = (excludeIds: string[]) =>
-    attendingMembers.filter((a) => !excludeIds.includes(a.club_member_id))
+  // 선택된 인코딩 ID를 제외한 선수 목록 빌더
+  const availableForField = useCallback((excludePrefixed: string[]) => ({
+    members: attendingMembers.filter((a) => !excludePrefixed.includes(encodeMember(a.club_member_id))),
+    guests: guests.filter((g) => !excludePrefixed.includes(encodeGuest(g.id))),
+  }), [attendingMembers, guests])
+
+  // 선수 선택 드롭다운 공통 렌더
+  const renderPlayerSelect = (
+    id: string,
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    excludeIds: string[]
+  ) => {
+    const { members, guests: avGuests } = availableForField(excludeIds)
+    return (
+      <div>
+        <label className="block text-sm font-medium text-(--text-muted) mb-1.5" htmlFor={id}>{label}</label>
+        <Select value={toSelectVal(value)} onValueChange={(v) => onChange(fromSelectVal(v))}>
+          <SelectTrigger id={id} className="w-full">
+            <SelectValue placeholder="선택" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE}>선택</SelectItem>
+            {members.length > 0 && (
+              <>
+                <div className="px-2 py-1 text-xs text-(--text-muted) font-medium">── 회원 ──</div>
+                {members.map((a) => (
+                  <SelectItem key={encodeMember(a.club_member_id)} value={encodeMember(a.club_member_id)}>
+                    {a.member.name}{a.member.rating ? ` (${a.member.rating})` : ''}
+                  </SelectItem>
+                ))}
+              </>
+            )}
+            {avGuests.length > 0 && (
+              <>
+                <div className="px-2 py-1 text-xs text-(--text-muted) font-medium">── 게스트 ──</div>
+                {avGuests.map((g) => (
+                  <SelectItem key={encodeGuest(g.id)} value={encodeGuest(g.id)}>
+                    {g.name}{g.gender ? ` (${g.gender === 'MALE' ? '남' : '여'})` : ''} 게스트
+                  </SelectItem>
+                ))}
+              </>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-4">
       {/* 참석 확정 목록 */}
       <div className="glass-card rounded-xl p-4">
         <h3 className="text-base font-semibold text-(--text-primary) mb-3">
-          참석 확정 ({attendingMembers.length}명)
+          참석 확정 ({attendingMembers.length}명
+          {guests.length > 0 && <span className="text-amber-400"> + 게스트 {guests.length}명</span>})
         </h3>
         <div className="flex flex-wrap gap-2">
           {attendingMembers.map((a) => (
@@ -228,6 +308,20 @@ export default function BracketEditor({
               )}
             </span>
           ))}
+          {guests.map((g) => (
+            <span
+              key={g.id}
+              className="px-3 py-1.5 rounded-md bg-amber-500/10 text-sm text-amber-300"
+            >
+              {g.name}
+              {g.gender === 'MALE'
+                ? <span className="inline-block w-2 h-2 rounded-full bg-blue-400 ml-1 align-middle" aria-label="남성" />
+                : g.gender === 'FEMALE'
+                ? <span className="inline-block w-2 h-2 rounded-full bg-rose-400 ml-1 align-middle" aria-label="여성" />
+                : null}
+              <span className="text-xs ml-1 opacity-70">게스트</span>
+            </span>
+          ))}
         </div>
       </div>
 
@@ -236,13 +330,14 @@ export default function BracketEditor({
         <h3 className="text-base font-semibold text-(--text-primary) mb-1">자동 대진표 생성</h3>
         <p className="text-sm text-(--text-muted) mb-4">
           참석 가능 시간 기반으로 30분 단위 경기를 코트 수에 맞게 자동 배정합니다.
+          {guests.length > 0 && ' 게스트는 세션 전체 시간 참가로 처리됩니다.'}
         </p>
         <button
           onClick={handleAutoSchedule}
-          disabled={saving || attendingMembers.length < 2}
+          disabled={saving || totalPlayers < 2}
           className="w-full px-4 py-3 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold text-base disabled:opacity-50"
         >
-          {saving ? '생성 중...' : `자동 생성 (${attendingMembers.length}명 / 코트 ${courtNumbers.length || '미지정'})`}
+          {saving ? '생성 중...' : `자동 생성 (${totalPlayers}명 / 코트 ${courtNumbers.length || '미지정'})`}
         </button>
       </div>
 
@@ -276,43 +371,19 @@ export default function BracketEditor({
           <div className="p-3 rounded-lg border border-(--border-color) space-y-3">
             <div className="text-sm font-semibold text-(--text-muted)">팀 1</div>
             <div className={`grid gap-3 ${isDoubles ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <div>
-                <label className="block text-sm font-medium text-(--text-muted) mb-1.5" htmlFor="player1-select">
-                  {isDoubles ? '선수 1A' : '선수 1'}
-                </label>
-                <Select
-                  value={toSelectVal(player1Id)}
-                  onValueChange={(v) => setPlayer1Id(fromSelectVal(v))}
-                >
-                  <SelectTrigger id="player1-select" className="w-full">
-                    <SelectValue placeholder="선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>선택</SelectItem>
-                    {availableForField([player1bId, player2Id, player2bId]).map((a) => (
-                      <SelectItem key={a.club_member_id} value={a.club_member_id}>{a.member.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {isDoubles && (
-                <div>
-                  <label className="block text-sm font-medium text-(--text-muted) mb-1.5" htmlFor="player1b-select">선수 1B</label>
-                  <Select
-                    value={toSelectVal(player1bId)}
-                    onValueChange={(v) => setPlayer1bId(fromSelectVal(v))}
-                  >
-                    <SelectTrigger id="player1b-select" className="w-full">
-                      <SelectValue placeholder="선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>선택</SelectItem>
-                      {availableForField([player1Id, player2Id, player2bId]).map((a) => (
-                        <SelectItem key={a.club_member_id} value={a.club_member_id}>{a.member.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {renderPlayerSelect(
+                'player1-select',
+                isDoubles ? '선수 1A' : '선수 1',
+                player1Id,
+                setPlayer1Id,
+                [player1bId, player2Id, player2bId].filter(Boolean)
+              )}
+              {isDoubles && renderPlayerSelect(
+                'player1b-select',
+                '선수 1B',
+                player1bId,
+                setPlayer1bId,
+                [player1Id, player2Id, player2bId].filter(Boolean)
               )}
             </div>
           </div>
@@ -321,43 +392,19 @@ export default function BracketEditor({
           <div className="p-3 rounded-lg border border-(--border-color) space-y-3">
             <div className="text-sm font-semibold text-(--text-muted)">팀 2</div>
             <div className={`grid gap-3 ${isDoubles ? 'grid-cols-2' : 'grid-cols-1'}`}>
-              <div>
-                <label className="block text-sm font-medium text-(--text-muted) mb-1.5" htmlFor="player2-select">
-                  {isDoubles ? '선수 2A' : '선수 2'}
-                </label>
-                <Select
-                  value={toSelectVal(player2Id)}
-                  onValueChange={(v) => setPlayer2Id(fromSelectVal(v))}
-                >
-                  <SelectTrigger id="player2-select" className="w-full">
-                    <SelectValue placeholder="선택" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value={NONE}>선택</SelectItem>
-                    {availableForField([player1Id, player1bId, player2bId]).map((a) => (
-                      <SelectItem key={a.club_member_id} value={a.club_member_id}>{a.member.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {isDoubles && (
-                <div>
-                  <label className="block text-sm font-medium text-(--text-muted) mb-1.5" htmlFor="player2b-select">선수 2B</label>
-                  <Select
-                    value={toSelectVal(player2bId)}
-                    onValueChange={(v) => setPlayer2bId(fromSelectVal(v))}
-                  >
-                    <SelectTrigger id="player2b-select" className="w-full">
-                      <SelectValue placeholder="선택" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={NONE}>선택</SelectItem>
-                      {availableForField([player1Id, player1bId, player2Id]).map((a) => (
-                        <SelectItem key={a.club_member_id} value={a.club_member_id}>{a.member.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              {renderPlayerSelect(
+                'player2-select',
+                isDoubles ? '선수 2A' : '선수 2',
+                player2Id,
+                setPlayer2Id,
+                [player1Id, player1bId, player2bId].filter(Boolean)
+              )}
+              {isDoubles && renderPlayerSelect(
+                'player2b-select',
+                '선수 2B',
+                player2bId,
+                setPlayer2bId,
+                [player1Id, player1bId, player2Id].filter(Boolean)
               )}
             </div>
           </div>
@@ -426,23 +473,29 @@ export default function BracketEditor({
         <div className="glass-card rounded-xl p-4">
           <h3 className="text-base font-semibold text-rose-400 mb-3">분쟁 경기 ({disputedMatches.length}건)</h3>
           <div className="space-y-2">
-            {disputedMatches.map((m) => (
-              <div key={m.id} className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/5">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-base text-(--text-primary)">
-                    {m.player1?.name}{m.player1b ? ` / ${m.player1b.name}` : ''} vs {m.player2?.name}{m.player2b ? ` / ${m.player2b.name}` : ''}
-                  </span>
-                  <Badge variant="danger">분쟁</Badge>
+            {disputedMatches.map((m) => {
+              const p1n = matchPlayerName(m.player1, m.player1_guest)
+              const p1bn = m.player1b?.name ?? m.player1b_guest?.name
+              const p2n = matchPlayerName(m.player2, m.player2_guest)
+              const p2bn = m.player2b?.name ?? m.player2b_guest?.name
+              return (
+                <div key={m.id} className="p-3 rounded-lg border border-rose-500/30 bg-rose-500/5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-base text-(--text-primary)">
+                      {p1n}{p1bn ? ` / ${p1bn}` : ''} vs {p2n}{p2bn ? ` / ${p2bn}` : ''}
+                    </span>
+                    <Badge variant="danger">분쟁</Badge>
+                  </div>
+                  <div className="text-sm text-(--text-muted) mb-3 space-y-1">
+                    <div>{p1n}: {m.player1_reported_score_p1} - {m.player1_reported_score_p2}</div>
+                    <div>{p2n}: {m.player2_reported_score_p1} - {m.player2_reported_score_p2}</div>
+                  </div>
+                  <button onClick={() => setDisputeMatch(m)} className="px-3 py-1.5 text-sm rounded-md bg-rose-500 text-white font-semibold">
+                    분쟁 해결
+                  </button>
                 </div>
-                <div className="text-sm text-(--text-muted) mb-3 space-y-1">
-                  <div>{m.player1?.name}: {m.player1_reported_score_p1} - {m.player1_reported_score_p2}</div>
-                  <div>{m.player2?.name}: {m.player2_reported_score_p1} - {m.player2_reported_score_p2}</div>
-                </div>
-                <button onClick={() => setDisputeMatch(m)} className="px-3 py-1.5 text-sm rounded-md bg-rose-500 text-white font-semibold">
-                  분쟁 해결
-                </button>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}
@@ -462,11 +515,17 @@ export default function BracketEditor({
           <div className="space-y-1">
             {matches.map((m) => {
               const typeBadge = MATCH_TYPE_BADGES[m.match_type || 'singles']
+              const p1n = matchPlayerName(m.player1, m.player1_guest)
+              const p1bn = m.player1b?.name ?? m.player1b_guest?.name
+              const p2n = matchPlayerName(m.player2, m.player2_guest)
+              const p2bn = m.player2b?.name ?? m.player2b_guest?.name
+              const hasGuest = !!m.player1_guest_id || !!m.player2_guest_id || !!m.player1b_guest_id || !!m.player2b_guest_id
               return (
                 <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-(--bg-card-hover)">
                   <span className="text-base text-(--text-primary)">
-                    <span className="text-xs font-semibold mr-2 px-1.5 py-0.5 rounded bg-(--bg-secondary)">{typeBadge}</span>
-                    {m.player1?.name}{m.player1b ? ` / ${m.player1b.name}` : ''} vs {m.player2?.name}{m.player2b ? ` / ${m.player2b.name}` : ''}
+                    <span className="text-xs font-semibold mr-1 px-1.5 py-0.5 rounded bg-(--bg-secondary)">{typeBadge}</span>
+                    {hasGuest && <span className="text-xs mr-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">게스트</span>}
+                    {p1n}{p1bn ? ` / ${p1bn}` : ''} vs {p2n}{p2bn ? ` / ${p2bn}` : ''}
                     {m.court_number && <span className="text-sm text-(--text-muted) ml-2">[{m.court_number}]</span>}
                     {m.scheduled_time && <span className="text-sm text-(--text-muted) ml-1">{m.scheduled_time}</span>}
                   </span>
@@ -487,7 +546,7 @@ export default function BracketEditor({
       {disputeMatch && (
         <div className="glass-card rounded-xl p-4 border border-rose-500/30">
           <h4 className="text-base font-semibold text-(--text-primary) mb-4">
-            분쟁 해결: {disputeMatch.player1?.name}{disputeMatch.player1b ? ` / ${disputeMatch.player1b.name}` : ''} vs {disputeMatch.player2?.name}{disputeMatch.player2b ? ` / ${disputeMatch.player2b.name}` : ''}
+            분쟁 해결: {matchPlayerName(disputeMatch.player1, disputeMatch.player1_guest)}{disputeMatch.player1b ? ` / ${disputeMatch.player1b.name}` : ''} vs {matchPlayerName(disputeMatch.player2, disputeMatch.player2_guest)}{disputeMatch.player2b ? ` / ${disputeMatch.player2b.name}` : ''}
           </h4>
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div>

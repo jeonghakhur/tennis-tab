@@ -134,6 +134,7 @@ export interface ClubSession {
 export interface ClubSessionDetail extends ClubSession {
   attendances: SessionAttendanceDetail[]
   matches: ClubMatchResult[]
+  guests: ClubSessionGuest[]
 }
 
 export interface SessionAttendanceDetail {
@@ -152,14 +153,53 @@ export interface SessionAttendanceDetail {
 // doubles_men/doubles_women/doubles_mixed은 기존 DB 레코드 호환용 (신규 생성은 'doubles' 사용)
 export type MatchType = 'singles' | 'doubles' | 'doubles_men' | 'doubles_women' | 'doubles_mixed'
 
+/** 세션에 등록된 게스트 참석자 */
+export interface ClubSessionGuest {
+  id: string
+  session_id: string
+  name: string
+  gender: 'MALE' | 'FEMALE' | null
+  notes: string | null
+  created_by: string
+  created_at: string
+}
+
+/** 자동 대진 풀에서 멤버 또는 게스트를 나타내는 유니온 타입 */
+export type SchedulePlayer =
+  | {
+      type: 'member'
+      id: string         // gameCount 키용 식별자 (memberId)
+      memberId: string
+      guestId: null
+      name: string
+      gender: 'MALE' | 'FEMALE' | null
+      availableFrom: number  // 분 단위
+      availableUntil: number // 분 단위
+    }
+  | {
+      type: 'guest'
+      id: string         // gameCount 키용 식별자 (guestId)
+      memberId: null
+      guestId: string
+      name: string
+      gender: 'MALE' | 'FEMALE' | null
+      availableFrom: number  // 세션 시작 시간 (분)
+      availableUntil: number // 세션 종료 시간 (분)
+    }
+
 export interface ClubMatchResult {
   id: string
   session_id: string
   match_type: MatchType
-  player1_member_id: string
-  player2_member_id: string
+  // member 또는 guest 중 하나 설정 (nullable로 변경)
+  player1_member_id: string | null
+  player2_member_id: string | null
   player1b_member_id?: string | null
   player2b_member_id?: string | null
+  player1_guest_id?: string | null
+  player2_guest_id?: string | null
+  player1b_guest_id?: string | null
+  player2b_guest_id?: string | null
   court_number: string | null
   scheduled_time: string | null
   player1_score: number | null
@@ -172,11 +212,16 @@ export interface ClubMatchResult {
   player2_reported_score_p2: number | null
   created_at: string
   updated_at: string
-  // JOIN
-  player1?: { id: string; name: string }
-  player2?: { id: string; name: string }
+  // JOIN: member
+  player1?: { id: string; name: string } | null
+  player2?: { id: string; name: string } | null
   player1b?: { id: string; name: string } | null
   player2b?: { id: string; name: string } | null
+  // JOIN: guest
+  player1_guest?: { id: string; name: string } | null
+  player2_guest?: { id: string; name: string } | null
+  player1b_guest?: { id: string; name: string } | null
+  player2b_guest?: { id: string; name: string } | null
 }
 
 export interface ClubMemberStat {
@@ -224,10 +269,15 @@ export interface RespondSessionInput {
 export interface CreateMatchInput {
   session_id: string
   match_type?: MatchType
-  player1_member_id: string
-  player2_member_id: string
-  player1b_member_id?: string
-  player2b_member_id?: string
+  // member 또는 guest 중 하나 설정 (각 슬롯에)
+  player1_member_id?: string | null
+  player2_member_id?: string | null
+  player1b_member_id?: string | null
+  player2b_member_id?: string | null
+  player1_guest_id?: string | null
+  player2_guest_id?: string | null
+  player1b_guest_id?: string | null
+  player2b_guest_id?: string | null
   court_number?: string
   scheduled_time?: string
 }

@@ -60,21 +60,32 @@ export default function MatchBoard({ matches, myMemberId, canInputScore = false,
               myMemberId === match.player1b_member_id ||
               myMemberId === match.player2b_member_id
             const config = statusConfig[match.status]
+
+            // 팀 표시 (member 우선, 없으면 guest 폴백)
+            const p1Name = match.player1?.name ?? match.player1_guest?.name ?? '?'
+            const p2Name = match.player2?.name ?? match.player2_guest?.name ?? '?'
+            const p1bName = match.player1b?.name ?? match.player1b_guest?.name
+            const p2bName = match.player2b?.name ?? match.player2b_guest?.name
+            const team1Name = isDoubles
+              ? `${p1Name} / ${p1bName ?? '?'}`
+              : p1Name
+            const team2Name = isDoubles
+              ? `${p2Name} / ${p2bName ?? '?'}`
+              : p2Name
+
+            // 게스트 포함 여부 (배지 표시용)
+            const hasGuest =
+              !!match.player1_guest_id || !!match.player2_guest_id ||
+              !!match.player1b_guest_id || !!match.player2b_guest_id
+
+            // 게스트 포함 경기는 임원만 점수 입력 가능
             // 임원: 취소 제외 모든 경기, 상태·시간 무관
             // 일반: 마감+시작 후 내 경기(SCHEDULED)만
             const canReport = match.status !== 'CANCELLED' && (
               isOfficer
                 ? true
-                : canInputScore && isMyMatch && match.status === 'SCHEDULED'
+                : !hasGuest && canInputScore && isMyMatch && match.status === 'SCHEDULED'
             )
-
-            // 팀 표시
-            const team1Name = isDoubles
-              ? `${match.player1?.name || '?'} / ${match.player1b?.name || '?'}`
-              : (match.player1?.name || '선수1')
-            const team2Name = isDoubles
-              ? `${match.player2?.name || '?'} / ${match.player2b?.name || '?'}`
-              : (match.player2?.name || '선수2')
 
             // 팀1 승리 여부 (복식: winner_member_id가 팀1 멤버 중 하나인지)
             const team1Won = match.winner_member_id !== null && (
@@ -100,6 +111,11 @@ export default function MatchBoard({ matches, myMemberId, canInputScore = false,
                   <span className="text-xs text-(--text-muted) bg-(--bg-secondary) px-1.5 py-0.5 rounded">
                     {matchTypeBadge[type] ?? '경기'}
                   </span>
+                  {hasGuest && (
+                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">
+                      게스트
+                    </span>
+                  )}
                   {match.court_number && (
                     <span className="text-xs text-(--text-muted)">{match.court_number}</span>
                   )}
@@ -133,7 +149,8 @@ export default function MatchBoard({ matches, myMemberId, canInputScore = false,
                       <button
                         onClick={() => {
                           setSelectedMatch(match)
-                          setOfficerOverride(isOfficer)
+                          // 게스트 포함 경기는 항상 임원 모드로 열림
+                          setOfficerOverride(isOfficer || hasGuest)
                         }}
                         className="px-2 py-1 text-xs rounded-md bg-(--accent-color) text-(--bg-primary) font-semibold"
                       >

@@ -1,7 +1,10 @@
 'use client'
 
+import { useState } from 'react'
 import { Badge } from '@/components/common/Badge'
-import type { SessionAttendanceDetail, AttendanceStatus } from '@/lib/clubs/types'
+import type { SessionAttendanceDetail, AttendanceStatus, ClubSessionGuest } from '@/lib/clubs/types'
+import { addSessionGuest, removeSessionGuest } from '@/lib/clubs/session-actions'
+import { AlertDialog } from '@/components/common/AlertDialog'
 
 const statusLabel: Record<AttendanceStatus, { text: string; variant: 'success' | 'secondary' | 'warning' }> = {
   ATTENDING: { text: '참석', variant: 'success' },
@@ -11,15 +14,65 @@ const statusLabel: Record<AttendanceStatus, { text: string; variant: 'success' |
 
 interface AttendanceListProps {
   attendances: SessionAttendanceDetail[]
+  guests?: ClubSessionGuest[]
+  sessionId: string
   myMemberId?: string
   canRespond?: boolean
+  isOfficer?: boolean
   onEdit?: () => void
+  onGuestsChange?: () => void
 }
 
-export default function AttendanceList({ attendances, myMemberId, canRespond, onEdit }: AttendanceListProps) {
+export default function AttendanceList({
+  attendances,
+  guests = [],
+  sessionId,
+  myMemberId,
+  canRespond,
+  isOfficer,
+  onEdit,
+  onGuestsChange,
+}: AttendanceListProps) {
   const attending = attendances.filter((a) => a.status === 'ATTENDING')
   const notAttending = attendances.filter((a) => a.status === 'NOT_ATTENDING')
   const undecided = attendances.filter((a) => a.status === 'UNDECIDED')
+
+  const [showAddGuest, setShowAddGuest] = useState(false)
+  const [guestName, setGuestName] = useState('')
+  const [guestGender, setGuestGender] = useState<'MALE' | 'FEMALE' | ''>('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+
+  const handleAddGuest = async () => {
+    const name = guestName.trim()
+    if (!name) {
+      setAlert({ isOpen: true, message: '게스트 이름을 입력해주세요.', type: 'error' })
+      return
+    }
+    setIsSubmitting(true)
+    const { error } = await addSessionGuest(sessionId, {
+      name,
+      gender: guestGender || null,
+    })
+    setIsSubmitting(false)
+    if (error) {
+      setAlert({ isOpen: true, message: error, type: 'error' })
+      return
+    }
+    setGuestName('')
+    setGuestGender('')
+    setShowAddGuest(false)
+    onGuestsChange?.()
+  }
+
+  const handleRemoveGuest = async (guestId: string) => {
+    const { error } = await removeSessionGuest(guestId)
+    if (error) {
+      setAlert({ isOpen: true, message: error, type: 'error' })
+      return
+    }
+    onGuestsChange?.()
+  }
 
   const renderRow = (a: SessionAttendanceDetail) => {
     const config = statusLabel[a.status]
@@ -87,6 +140,108 @@ export default function AttendanceList({ attendances, myMemberId, canRespond, on
           {notAttending.map(renderRow)}
         </div>
       )}
+
+      {/* 게스트 섹션 (임원만 표시) */}
+      {isOfficer && (
+        <div className="mt-4 pt-4 border-t border-(--border-color)">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-semibold text-(--text-primary)">
+              게스트
+              {guests.length > 0 && (
+                <span className="ml-1.5 text-xs text-amber-400">({guests.length}명)</span>
+              )}
+            </h4>
+            {!showAddGuest && (
+              <button
+                onClick={() => setShowAddGuest(true)}
+                className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-medium"
+              >
+                + 게스트 추가
+              </button>
+            )}
+          </div>
+
+          {/* 게스트 목록 */}
+          {guests.map((g) => (
+            <div key={g.id} className="flex items-center justify-between py-1.5 px-3 rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">게스트</span>
+                <span className="text-sm font-medium text-(--text-primary)">{g.name}</span>
+                {g.gender && (
+                  <span className="text-xs text-(--text-muted)">
+                    {g.gender === 'MALE' ? '남' : '여'}
+                  </span>
+                )}
+              </div>
+              <button
+                onClick={() => handleRemoveGuest(g.id)}
+                className="text-xs text-red-400 hover:text-red-300 px-2 py-1"
+                aria-label={`${g.name} 게스트 삭제`}
+              >
+                삭제
+              </button>
+            </div>
+          ))}
+
+          {/* 게스트 추가 폼 */}
+          {showAddGuest && (
+            <div className="mt-2 p-3 rounded-lg border border-(--border-color) space-y-2">
+              <div>
+                <label htmlFor="guest-name" className="block text-xs text-(--text-muted) mb-1">
+                  이름 <span className="text-red-400">*</span>
+                </label>
+                <input
+                  id="guest-name"
+                  type="text"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="게스트 이름"
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-(--border-color) bg-(--bg-secondary) text-(--text-primary) focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddGuest()}
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label htmlFor="guest-gender" className="block text-xs text-(--text-muted) mb-1">
+                  성별
+                </label>
+                <select
+                  id="guest-gender"
+                  value={guestGender}
+                  onChange={(e) => setGuestGender(e.target.value as 'MALE' | 'FEMALE' | '')}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-(--border-color) bg-(--bg-secondary) text-(--text-primary) focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                >
+                  <option value="">미지정</option>
+                  <option value="MALE">남</option>
+                  <option value="FEMALE">여</option>
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setShowAddGuest(false); setGuestName(''); setGuestGender('') }}
+                  className="flex-1 py-2 text-sm rounded-lg border border-(--border-color) text-(--text-muted)"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleAddGuest}
+                  disabled={isSubmitting}
+                  className="flex-1 py-2 text-sm rounded-lg bg-emerald-500 text-white font-medium disabled:opacity-50"
+                >
+                  {isSubmitting ? '추가 중...' : '추가'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        message={alert.message}
+        type={alert.type}
+      />
     </div>
   )
 }

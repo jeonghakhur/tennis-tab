@@ -247,12 +247,16 @@ export default function SessionDetailPage() {
             />
           )}
 
-          {/* 참석자 현황 */}
+          {/* 참석자 현황 (일반 뷰: 게스트는 임원에게만 표시) */}
           <AttendanceList
             attendances={session.attendances}
+            guests={session.guests}
+            sessionId={sessionId}
             myMemberId={myMemberId || undefined}
             canRespond={!!canRespond && !editAttendance}
+            isOfficer={!!isOfficer}
             onEdit={() => setEditAttendance(true)}
+            onGuestsChange={fetchData}
           />
 
           {/* 대진표 — 모집중(OPEN)에는 숨김 */}
