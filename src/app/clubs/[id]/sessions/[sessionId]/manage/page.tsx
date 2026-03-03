@@ -136,7 +136,7 @@ export default function SessionManagePage() {
     return (
       <>
         <div style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="max-w-4xl mx-auto px-6 py-12">
+          <div className="max-w-content mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
               <div className="h-64 w-full rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -175,7 +175,7 @@ export default function SessionManagePage() {
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
       <div style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12 space-y-6">
+        <div className="max-w-content mx-auto px-6 py-12 space-y-6">
           {/* 뒤로가기 */}
           <Link
             href={`/clubs/${clubId}/sessions/${sessionId}`}

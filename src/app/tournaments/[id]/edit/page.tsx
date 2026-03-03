@@ -62,7 +62,7 @@ export default async function TournamentEditPage({ params }: Props) {
     };
 
     return (
-        <div className="container mx-auto px-4 py-8">
+        <div className="max-w-content mx-auto px-4 py-8">
             <TournamentForm mode="edit" initialData={formData} />
         </div>
     );

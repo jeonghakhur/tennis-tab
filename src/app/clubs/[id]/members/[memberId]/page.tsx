@@ -6,10 +6,12 @@ import MemberResultsClient from './MemberResultsClient'
 
 interface Props {
   params: Promise<{ id: string; memberId: string }>
+  searchParams: Promise<{ from?: string }>
 }
 
-export default async function MemberResultsPage({ params }: Props) {
+export default async function MemberResultsPage({ params, searchParams }: Props) {
   const { id: clubId, memberId } = await params
+  const { from } = await searchParams
   const admin = createAdminClient()
 
   // 멤버 정보 조회
@@ -31,7 +33,7 @@ export default async function MemberResultsPage({ params }: Props) {
         {/* 헤더 */}
         <div className="flex items-center gap-3 mb-6">
           <Link
-            href={`/clubs/${clubId}`}
+            href={from ? `/clubs/${clubId}?tab=${from}` : `/clubs/${clubId}`}
             className="text-sm text-(--text-muted) hover:text-(--text-primary) transition-colors"
           >
             ← 클럽

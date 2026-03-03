@@ -23,11 +23,16 @@ const matchTypeBadge: Record<string, string> = {
 interface MatchBoardProps {
   matches: ClubMatchResult[]
   myMemberId?: string
+  /** 점수 입력 가능 여부 (마감 + 시작시간 도달 + 미완료) */
+  canInputScore?: boolean
+  /** 임원 여부 — true면 모든 경기 점수 입력 가능 */
+  isOfficer?: boolean
   onRefresh: () => void
 }
 
-export default function MatchBoard({ matches, myMemberId, onRefresh }: MatchBoardProps) {
+export default function MatchBoard({ matches, myMemberId, canInputScore = false, isOfficer = false, onRefresh }: MatchBoardProps) {
   const [selectedMatch, setSelectedMatch] = useState<ClubMatchResult | null>(null)
+  const [officerOverride, setOfficerOverride] = useState(false)
 
   if (matches.length === 0) {
     return (
@@ -55,7 +60,13 @@ export default function MatchBoard({ matches, myMemberId, onRefresh }: MatchBoar
               myMemberId === match.player1b_member_id ||
               myMemberId === match.player2b_member_id
             const config = statusConfig[match.status]
-            const canReport = isMyMatch && match.status === 'SCHEDULED'
+            // 임원: 취소 제외 모든 경기, 상태·시간 무관
+            // 일반: 마감+시작 후 내 경기(SCHEDULED)만
+            const canReport = match.status !== 'CANCELLED' && (
+              isOfficer
+                ? true
+                : canInputScore && isMyMatch && match.status === 'SCHEDULED'
+            )
 
             // 팀 표시
             const team1Name = isDoubles
@@ -120,10 +131,13 @@ export default function MatchBoard({ matches, myMemberId, onRefresh }: MatchBoar
                   <div className="shrink-0">
                     {canReport ? (
                       <button
-                        onClick={() => setSelectedMatch(match)}
+                        onClick={() => {
+                          setSelectedMatch(match)
+                          setOfficerOverride(isOfficer)
+                        }}
                         className="px-2 py-1 text-xs rounded-md bg-(--accent-color) text-(--bg-primary) font-semibold"
                       >
-                        결과 입력
+                        {isOfficer && match.status === 'COMPLETED' ? '점수 수정' : '결과 입력'}
                       </button>
                     ) : (
                       <Badge variant={config.variant}>{config.label}</Badge>
@@ -136,14 +150,16 @@ export default function MatchBoard({ matches, myMemberId, onRefresh }: MatchBoar
         </div>
       </div>
 
-      {selectedMatch && myMemberId && (
+      {selectedMatch && (officerOverride || myMemberId) && (
         <MatchResultForm
           match={selectedMatch}
-          myMemberId={myMemberId}
+          myMemberId={myMemberId || ''}
+          isOfficerOverride={officerOverride}
           isOpen={!!selectedMatch}
-          onClose={() => setSelectedMatch(null)}
+          onClose={() => { setSelectedMatch(null); setOfficerOverride(false) }}
           onReported={() => {
             setSelectedMatch(null)
+            setOfficerOverride(false)
             onRefresh()
           }}
         />

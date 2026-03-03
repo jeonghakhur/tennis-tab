@@ -135,7 +135,7 @@ export async function createClubSession(
 /** 모임 목록 조회 */
 export async function getClubSessions(
   clubId: string,
-  options?: { status?: ClubSessionStatus[]; limit?: number }
+  options?: { status?: ClubSessionStatus[]; limit?: number; offset?: number }
 ): Promise<ClubSession[]> {
   const admin = createAdminClient()
   const user = await getCurrentUser()
@@ -146,12 +146,14 @@ export async function getClubSessions(
     .select('id, club_id, title, venue_name, court_numbers, session_date, start_time, end_time, max_attendees, status, rsvp_deadline, notes, created_by, created_at, updated_at, club_session_attendances(status, club_member_id)')
     .eq('club_id', clubId)
     .order('session_date', { ascending: false })
+    .order('created_at', { ascending: false })
 
   if (options?.status && options.status.length > 0) {
     query = query.in('status', options.status)
   }
-  if (options?.limit) {
-    query = query.limit(options.limit)
+  if (options?.limit !== undefined) {
+    const offset = options.offset ?? 0
+    query = query.range(offset, offset + options.limit - 1)
   }
 
   const [{ data: sessions, error }, { data: myMember }] = await Promise.all([
@@ -884,6 +886,55 @@ export async function resolveMatchDispute(
   return {}
 }
 
+/** 관리자 점수 직접 수정 (상태 무관, 대진 생성 후 언제든 가능) */
+export async function adminOverrideMatchResult(
+  matchId: string,
+  input: { player1_score: number; player2_score: number }
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: match } = await admin
+    .from('club_match_results')
+    .select('*, club_sessions!inner(club_id)')
+    .eq('id', matchId)
+    .single()
+
+  if (!match) return { error: '경기를 찾을 수 없습니다.' }
+  if (match.status === 'CANCELLED') return { error: '취소된 경기는 수정할 수 없습니다.' }
+
+  const clubId = extractClubId(match.club_sessions)
+  const { error: authError } = await checkSessionOfficerAuth(clubId)
+  if (authError) return { error: authError }
+
+  const winnerId =
+    input.player1_score > input.player2_score
+      ? match.player1_member_id
+      : input.player2_score > input.player1_score
+        ? match.player2_member_id
+        : null
+
+  const { error } = await admin
+    .from('club_match_results')
+    .update({
+      player1_score: input.player1_score,
+      player2_score: input.player2_score,
+      winner_member_id: winnerId,
+      status: 'COMPLETED',
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', matchId)
+
+  if (error) return { error: `점수 수정 실패: ${error.message}` }
+
+  await updateStatsAfterMatch(
+    { ...match, player1_score: input.player1_score, player2_score: input.player2_score, winner_member_id: winnerId } as ClubMatchResult,
+    clubId
+  )
+
+  revalidatePath(`/clubs/${clubId}`)
+  return {}
+}
+
 /** 경기 목록 조회 */
 export async function getSessionMatches(
   sessionId: string
@@ -1309,9 +1360,16 @@ export async function deleteAllMatchResults(
 // 개인 게임 결과 조회
 // ============================================================================
 
-export type RankingPeriod = 'all' | 'this_month' | 'last_month' | 'this_year' | 'last_year'
+export type RankingPeriod = 'all' | 'this_month' | 'last_month' | 'this_year' | 'last_year' | 'custom'
 
-function getPeriodRange(period: RankingPeriod): { from: string | null; to: string | null } {
+function getPeriodRange(
+  period: RankingPeriod,
+  customRange?: { from: string; to: string }
+): { from: string | null; to: string | null } {
+  if (period === 'custom') {
+    return customRange ? { from: customRange.from, to: customRange.to } : { from: null, to: null }
+  }
+
   const now = new Date()
   const y = now.getFullYear()
   const m = now.getMonth() + 1
@@ -1361,10 +1419,11 @@ export interface MemberGameResult {
 export async function getMemberGameResults(
   clubId: string,
   memberId: string,
-  period: RankingPeriod = 'all'
+  period: RankingPeriod = 'all',
+  customRange?: { from: string; to: string }
 ): Promise<{ results: MemberGameResult[]; stats: { total: number; wins: number; losses: number; win_rate: number } }> {
   const admin = createAdminClient()
-  const { from, to } = getPeriodRange(period)
+  const { from, to } = getPeriodRange(period, customRange)
 
   // 해당 멤버가 포함된 모든 경기 조회 (player1, player2, player1b, player2b)
   // Base select (without doubles FK joins - safe before migration)
@@ -1496,10 +1555,15 @@ export async function getMemberGameResults(
 /** 기간별 클럽 순위 조회 (club_match_results 직접 집계) */
 export async function getClubRankingsByPeriod(
   clubId: string,
-  period: RankingPeriod = 'all'
-): Promise<Array<{ member: { id: string; name: string; rating: number | null }; total: number; wins: number; losses: number; win_rate: number }>> {
+  period: RankingPeriod = 'all',
+  customRange?: { from: string; to: string }
+): Promise<Array<{
+  member: { id: string; name: string; rating: number | null }
+  total: number; wins: number; losses: number; win_rate: number
+  win_points: number; points_for: number; points_against: number; margin: number
+}>> {
   const admin = createAdminClient()
-  const { from, to } = getPeriodRange(period)
+  const { from, to } = getPeriodRange(period, customRange)
 
   const doublesSelectR = `
     *,
@@ -1541,43 +1605,102 @@ export async function getClubRankingsByPeriod(
   if (!data) return []
 
   // 멤버별 통계 집계
-  const statsMap = new Map<string, { member: { id: string; name: string; rating: number | null }; total: number; wins: number; losses: number }>()
+  const statsMap = new Map<string, {
+    member: { id: string; name: string; rating: number | null }
+    total: number; wins: number; losses: number
+    points_for: number; points_against: number
+  }>()
 
   const addPlayer = (
     memberId: string,
     memberInfo: { id: string; name: string; rating: number | null } | null,
     isWin: boolean | null,
-    isDraw: boolean
+    isDraw: boolean,
+    myScore: number | null,
+    oppScore: number | null
   ) => {
     if (!memberId || !memberInfo) return
     if (!statsMap.has(memberId)) {
-      statsMap.set(memberId, { member: memberInfo, total: 0, wins: 0, losses: 0 })
+      statsMap.set(memberId, { member: memberInfo, total: 0, wins: 0, losses: 0, points_for: 0, points_against: 0 })
     }
     const s = statsMap.get(memberId)!
     s.total++
     if (isWin) s.wins++
     else if (!isDraw) s.losses++
+    if (myScore != null) s.points_for += myScore
+    if (oppScore != null) s.points_against += oppScore
   }
 
   for (const m of data as Record<string, unknown>[]) {
     const isDraw = m.winner_member_id === null
     const p1Win = !isDraw && m.winner_member_id === m.player1_member_id
     const p2Win = !isDraw && m.winner_member_id === m.player2_member_id
+    const p1Score = m.player1_score as number | null
+    const p2Score = m.player2_score as number | null
 
-    addPlayer(m.player1_member_id as string, m.player1 as { id: string; name: string; rating: number | null }, p1Win, isDraw)
-    addPlayer(m.player2_member_id as string, m.player2 as { id: string; name: string; rating: number | null }, p2Win, isDraw)
-    if (m.player1b_member_id) addPlayer(m.player1b_member_id as string, m.player1b as { id: string; name: string; rating: number | null }, p1Win, isDraw)
-    if (m.player2b_member_id) addPlayer(m.player2b_member_id as string, m.player2b as { id: string; name: string; rating: number | null }, p2Win, isDraw)
+    addPlayer(m.player1_member_id as string, m.player1 as { id: string; name: string; rating: number | null }, p1Win, isDraw, p1Score, p2Score)
+    addPlayer(m.player2_member_id as string, m.player2 as { id: string; name: string; rating: number | null }, p2Win, isDraw, p2Score, p1Score)
+    if (m.player1b_member_id) addPlayer(m.player1b_member_id as string, m.player1b as { id: string; name: string; rating: number | null }, p1Win, isDraw, p1Score, p2Score)
+    if (m.player2b_member_id) addPlayer(m.player2b_member_id as string, m.player2b as { id: string; name: string; rating: number | null }, p2Win, isDraw, p2Score, p1Score)
   }
 
   return Array.from(statsMap.values())
     .map((s) => ({
       ...s,
       win_rate: s.total > 0 ? Math.round((s.wins / s.total) * 100) : 0,
+      // 승점: 승 × 2 (무승부는 현재 없으므로 단순 wins × 2)
+      win_points: s.wins * 2,
+      margin: s.points_for - s.points_against,
     }))
     .sort((a, b) => {
-      if (b.wins !== a.wins) return b.wins - a.wins
-      if (b.win_rate !== a.win_rate) return b.win_rate - a.win_rate
-      return b.total - a.total
+      // 승점 → 마진 → 승률 순 정렬
+      if (b.win_points !== a.win_points) return b.win_points - a.win_points
+      if (b.margin !== a.margin) return b.margin - a.margin
+      return b.win_rate - a.win_rate
     })
+}
+
+// ============================================================================
+// 클럽 순위 기본 조회 기간 설정
+// ============================================================================
+
+/** 클럽의 순위 기본 조회 기간 조회 */
+export async function getClubDefaultRankingPeriod(clubId: string): Promise<{
+  period: RankingPeriod
+  customFrom: string | null
+  customTo: string | null
+}> {
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('clubs')
+    .select('default_ranking_period, default_ranking_from, default_ranking_to')
+    .eq('id', clubId)
+    .single()
+  return {
+    period: (data?.default_ranking_period as RankingPeriod) || 'all',
+    customFrom: data?.default_ranking_from ?? null,
+    customTo: data?.default_ranking_to ?? null,
+  }
+}
+
+/** 클럽의 순위 기본 조회 기간 저장 (임원 전용) */
+export async function updateClubDefaultRankingPeriod(
+  clubId: string,
+  period: RankingPeriod,
+  customFrom?: string | null,
+  customTo?: string | null
+): Promise<{ error?: string }> {
+  const { error: authError } = await checkSessionOfficerAuth(clubId)
+  if (authError) return { error: authError }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('clubs')
+    .update({
+      default_ranking_period: period,
+      default_ranking_from: period === 'custom' ? (customFrom ?? null) : null,
+      default_ranking_to: period === 'custom' ? (customTo ?? null) : null,
+    })
+    .eq('id', clubId)
+  return { error: error?.message }
 }

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
 import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
@@ -52,10 +52,15 @@ type PublicMember = {
 export default function ClubDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
 
   const [club, setClub] = useState<Club | null>(null)
   const [members, setMembers] = useState<PublicMember[]>([])
+  const [membersLoading, setMembersLoading] = useState(false)
+  const [awardsLoading, setAwardsLoading] = useState(false)
+  const [fullMembersLoading, setFullMembersLoading] = useState(false)
+  const [fullMembersLoaded, setFullMembersLoaded] = useState(false)
   const [memberCount, setMemberCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
@@ -66,7 +71,12 @@ export default function ClubDetailPage() {
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
   const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
-  const [activeTab, setActiveTab] = useState<'info' | 'sessions' | 'rankings' | 'awards' | 'manage'>('sessions')
+  const validTabs = ['sessions', 'rankings', 'info', 'awards', 'manage'] as const
+  type ActiveTab = typeof validTabs[number]
+  const initialTab = (validTabs.includes(searchParams.get('tab') as ActiveTab)
+    ? searchParams.get('tab')
+    : 'sessions') as ActiveTab
+  const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab)
   const [sessionFormOpen, setSessionFormOpen] = useState(false)
   const [clubAwards, setClubAwards] = useState<import('@/lib/supabase/types').Database['public']['Tables']['tournament_awards']['Row'][]>([])
 
@@ -107,9 +117,11 @@ export default function ClubDetailPage() {
   // 회원 목록: 해당 탭 클릭 시 지연 로드
   useEffect(() => {
     if (activeTab !== 'info' || !id || members.length > 0) return
+    setMembersLoading(true)
     Promise.all([getClubPublicMembers(id), getClubMemberCount(id)]).then(([membersResult, count]) => {
       if (!membersResult.error) setMembers(membersResult.data)
       setMemberCount(count)
+      setMembersLoading(false)
     })
   }, [activeTab, id])
 
@@ -149,15 +161,23 @@ export default function ClubDetailPage() {
 
   // 임원 전체 회원 데이터: 관리 탭 클릭 시 지연 로드
   useEffect(() => {
-    if (!isOfficer || !id || fullMembers.length > 0) return
-    getClubMembers(id).then(r => { if (!r.error) setFullMembers(r.data) })
+    if (!isOfficer || !id || fullMembersLoaded) return
+    setFullMembersLoading(true)
+    getClubMembers(id).then(r => {
+      if (!r.error) setFullMembers(r.data)
+      setFullMembersLoaded(true)
+      setFullMembersLoading(false)
+    })
   }, [isOfficer, activeTab, id])
 
   // 입상 기록: 탭 클릭 시 지연 로드
   useEffect(() => {
     if (activeTab !== 'awards' || !id || !club || clubAwards.length > 0) return
+    setAwardsLoading(true)
     import('@/lib/awards/actions').then(({ getClubAwards }) =>
-      getClubAwards(id, club.name).then(setClubAwards).catch(() => {})
+      getClubAwards(id, club.name)
+        .then(data => { setClubAwards(data); setAwardsLoading(false) })
+        .catch(() => setAwardsLoading(false))
     )
   }, [activeTab, id, club])
 
@@ -216,7 +236,7 @@ export default function ClubDetailPage() {
     return (
       <>
         <div className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="max-w-4xl mx-auto px-6 py-12">
+          <div className="max-w-content mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
               <div className="h-4 w-32 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -254,7 +274,7 @@ export default function ClubDetailPage() {
       {actionLoading && <LoadingOverlay message="처리 중..." />}
 
       <div className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-4xl mx-auto px-6 py-12">
+        <div className="max-w-content mx-auto px-6 py-12">
           {/* 뒤로가기 */}
           <Link
             href="/clubs"
@@ -439,8 +459,8 @@ export default function ClubDetailPage() {
               {(() => {
                 const tabs = [
                   { key: 'sessions', icon: <Calendar className="w-4 h-4" />, label: '모임' },
-                  { key: 'info', icon: <Users className="w-4 h-4" />, label: '회원' },
                   { key: 'rankings', icon: <BarChart3 className="w-4 h-4" />, label: '순위' },
+                  { key: 'info', icon: <Users className="w-4 h-4" />, label: '회원' },
                   { key: 'awards', icon: <Trophy className="w-4 h-4" />, label: '입상' },
                   ...(isOfficer ? [{ key: 'manage', icon: <Settings className="w-4 h-4" />, label: '관리' }] : []),
                 ] as const
@@ -469,11 +489,21 @@ export default function ClubDetailPage() {
 
               {/* 탭 콘텐츠 */}
               {isOfficer && activeTab === 'manage' ? (
-                <ClubMemberList
-                  clubId={id}
-                  initialMembers={fullMembers}
-                  isSystemAdmin={false}
-                />
+                fullMembersLoading ? (
+                  <div className="mt-4 space-y-2 animate-pulse">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <div key={i} className="h-11 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+                    ))}
+                  </div>
+                ) : (
+                  // fullMembersLoaded 후 마운트 → useState(initialMembers)가 정확한 데이터로 초기화됨
+                  <ClubMemberList
+                    key="manage"
+                    clubId={id}
+                    initialMembers={fullMembers}
+                    isSystemAdmin={false}
+                  />
+                )
               ) : activeTab === 'sessions' ? (
                 <div className="mt-4">
                   <SessionList
@@ -493,11 +523,20 @@ export default function ClubDetailPage() {
                   <RankingsTab
                     clubId={id}
                     myMemberId={myMembership?.id}
+                    isOfficer={!!isOfficer}
                   />
                 </div>
               ) : activeTab === 'awards' ? (
                 <div className="mt-4">
-                  <ClubAwards awards={clubAwards} />
+                  {awardsLoading ? (
+                    <div className="space-y-3 animate-pulse">
+                      {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="h-24 rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+                      ))}
+                    </div>
+                  ) : (
+                    <ClubAwards awards={clubAwards} />
+                  )}
                 </div>
               ) : (
                 /* 회원 목록 */
@@ -509,7 +548,13 @@ export default function ClubDetailPage() {
                     회원 목록 ({memberCount}명)
                   </h2>
 
-                  {members.length === 0 ? (
+                  {membersLoading ? (
+                    <div className="space-y-2 animate-pulse">
+                      {Array.from({ length: 4 }).map((_, i) => (
+                        <div key={i} className="h-11 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+                      ))}
+                    </div>
+                  ) : members.length === 0 ? (
                     <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
                       아직 회원이 없습니다.
                     </p>

@@ -22,6 +22,10 @@ export interface Club {
   created_by: string
   created_at: string
   updated_at: string
+  // 순위 기본 조회 기간
+  default_ranking_period: string | null
+  default_ranking_from: string | null
+  default_ranking_to: string | null
   // JOIN 결과
   associations?: { name: string } | null
   _member_count?: number

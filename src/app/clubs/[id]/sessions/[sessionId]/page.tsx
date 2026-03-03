@@ -56,6 +56,14 @@ export default function SessionDetailPage() {
 
   const isOfficer = myRole && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myRole)
 
+  // 세션 시작 시간 도달 여부
+  const isSessionStarted = session
+    ? new Date() >= new Date(`${session.session_date}T${session.start_time}`)
+    : false
+
+  // 점수 입력 가능: 마감(CLOSED) + 시작 시간 도달 + 아직 완료 전
+  const canInputScore = session?.status === 'CLOSED' && isSessionStarted
+
   const handleDelete = async () => {
     setConfirmDelete(false)
     setDeleting(true)
@@ -81,7 +89,7 @@ export default function SessionDetailPage() {
     return (
       <>
         <div style={{ backgroundColor: 'var(--bg-primary)' }}>
-          <div className="max-w-4xl mx-auto px-6 py-12">
+          <div className="max-w-content mx-auto px-6 py-12">
             <div className="animate-pulse space-y-4">
               <div className="h-8 w-48 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
               <div className="h-64 w-full rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -122,7 +130,7 @@ export default function SessionDetailPage() {
   return (
     <>
       <div style={{ backgroundColor: 'var(--bg-primary)' }}>
-        <div className="max-w-4xl mx-auto px-4 py-6 space-y-4">
+        <div className="max-w-content mx-auto px-4 py-6 space-y-4">
           {/* 뒤로가기 */}
           <Link
             href={`/clubs/${clubId}`}
@@ -247,11 +255,13 @@ export default function SessionDetailPage() {
             onEdit={() => setEditAttendance(true)}
           />
 
-          {/* 대진표 */}
-          {session.matches.length > 0 && (
+          {/* 대진표 — 모집중(OPEN)에는 숨김 */}
+          {session.status !== 'OPEN' && session.matches.length > 0 && (
             <MatchBoard
               matches={session.matches}
               myMemberId={myMemberId || undefined}
+              canInputScore={canInputScore}
+              isOfficer={!!isOfficer}
               onRefresh={fetchData}
             />
           )}

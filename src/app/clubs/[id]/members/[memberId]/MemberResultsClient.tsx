@@ -9,6 +9,7 @@ const PERIOD_LABELS: Record<RankingPeriod, string> = {
   last_month: '저번 달',
   this_year: '올해',
   last_year: '작년',
+  custom: '직접 설정',
 }
 
 const MATCH_TYPE_LABELS: Record<string, string> = {

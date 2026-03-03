@@ -62,7 +62,7 @@ export default async function NewTournamentPage({ searchParams }: Props) {
     }
 
     return (
-        <div className="container mx-auto py-8 px-4">
+        <div className="max-w-content mx-auto py-8 px-4">
             {templateId && templateData && (
                 <div className="max-w-4xl mx-auto mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
                     <div className="flex items-start gap-3">

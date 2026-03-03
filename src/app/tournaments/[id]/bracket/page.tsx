@@ -49,7 +49,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
   const { entryIds } = await getPlayerEntryIds(id)
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <div className="max-w-content mx-auto px-4 py-8">
       {/* 대회 상태 변경 실시간 감지 */}
       <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
 

@@ -3,16 +3,10 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import SessionCard from './SessionCard'
-import SessionForm from './SessionForm'
 import { getClubSessions } from '@/lib/clubs/session-actions'
-import type { ClubSession, ClubSessionStatus } from '@/lib/clubs/types'
+import type { ClubSession } from '@/lib/clubs/types'
 
-type FilterTab = 'upcoming' | 'completed'
-
-const FILTER_MAP: Record<FilterTab, ClubSessionStatus[]> = {
-  upcoming: ['OPEN', 'CLOSED'],
-  completed: ['COMPLETED', 'CANCELLED'],
-}
+const PAGE_SIZE = 5
 
 interface SessionListProps {
   clubId: string
@@ -22,49 +16,37 @@ interface SessionListProps {
 
 export default function SessionList({ clubId, isOfficer, onCreateSession }: SessionListProps) {
   const router = useRouter()
-  // 탭별 캐시: 한 번 로드한 데이터는 재요청 없이 재사용
-  const [cache, setCache] = useState<Partial<Record<FilterTab, ClubSession[]>>>({})
-  const [filter, setFilter] = useState<FilterTab>('upcoming')
+  const [sessions, setSessions] = useState<ClubSession[]>([])
   const [loading, setLoading] = useState(true)
-  const [editSession, setEditSession] = useState<ClubSession | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [hasMore, setHasMore] = useState(false)
 
-  const sessions = cache[filter] ?? []
-
-  const fetchSessions = useCallback(async (tab: FilterTab, force = false) => {
-    if (!force && cache[tab]) return // 캐시 히트
-    setLoading(true)
-    const data = await getClubSessions(clubId, {
-      status: FILTER_MAP[tab],
-      limit: 20,
-    })
-    setCache(prev => ({ ...prev, [tab]: data }))
-    setLoading(false)
-  }, [clubId, cache])
-
+  // 초기 로드
   useEffect(() => {
-    fetchSessions(filter)
-  }, [filter, clubId])
+    let cancelled = false
+    setLoading(true)
+    getClubSessions(clubId, { limit: PAGE_SIZE, offset: 0 }).then((data) => {
+      if (cancelled) return
+      setSessions(data)
+      setHasMore(data.length === PAGE_SIZE)
+      setLoading(false)
+    })
+    return () => { cancelled = true }
+  }, [clubId])
+
+  const handleLoadMore = useCallback(async () => {
+    setLoadingMore(true)
+    const data = await getClubSessions(clubId, { limit: PAGE_SIZE, offset: sessions.length })
+    setSessions((prev) => [...prev, ...data])
+    setHasMore(data.length === PAGE_SIZE)
+    setLoadingMore(false)
+  }, [clubId, sessions.length])
 
   return (
     <div className="space-y-4">
-      {/* 헤더: 필터 탭 + 생성 버튼 */}
+      {/* 헤더 */}
       <div className="flex items-center justify-between">
-        <div className="flex gap-1 p-1 rounded-lg bg-(--bg-secondary)">
-          {(['upcoming', 'completed'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setFilter(tab)}
-              className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                filter === tab
-                  ? 'bg-(--accent-color) text-(--bg-primary) font-semibold'
-                  : 'text-(--text-muted) hover:text-(--text-primary)'
-              }`}
-            >
-              {tab === 'upcoming' ? '예정' : '지난 모임'}
-            </button>
-          ))}
-        </div>
-
+        <h2 className="text-base font-semibold text-(--text-primary)">모임</h2>
         {isOfficer && (
           <button
             onClick={onCreateSession}
@@ -77,27 +59,35 @@ export default function SessionList({ clubId, isOfficer, onCreateSession }: Sess
 
       {/* 목록 */}
       {loading ? (
-        <div className="text-center py-12 text-(--text-muted) text-sm">
-          불러오는 중...
-        </div>
+        <div className="text-center py-12 text-(--text-muted) text-sm">불러오는 중...</div>
       ) : sessions.length === 0 ? (
-        <div className="text-center py-12 text-(--text-muted) text-sm">
-          {filter === 'upcoming' ? '예정된 모임이 없습니다.' : '지난 모임이 없습니다.'}
+        <div className="text-center py-12 text-(--text-muted) text-sm glass-card rounded-xl">
+          아직 모임이 없습니다.
         </div>
       ) : (
-        <div className="space-y-3">
-          {sessions.map((session) => (
-            <SessionCard
-              key={session.id}
-              session={session}
-              isOfficer={isOfficer}
-              onEdit={() => setEditSession(session)}
-              onClick={() =>
-                router.push(`/clubs/${clubId}/sessions/${session.id}`)
-              }
-            />
-          ))}
-        </div>
+        <>
+          <div className="space-y-3">
+            {sessions.map((session) => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                isOfficer={isOfficer}
+                onClick={() => router.push(`/clubs/${clubId}/sessions/${session.id}`)}
+              />
+            ))}
+          </div>
+
+          {/* 더 보기 */}
+          {hasMore && (
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="w-full py-3 text-sm font-medium text-(--text-muted) hover:text-(--text-primary) border border-(--border-color) rounded-xl transition-colors disabled:opacity-50"
+            >
+              {loadingMore ? '불러오는 중...' : '더 보기'}
+            </button>
+          )}
+        </>
       )}
     </div>
   )
