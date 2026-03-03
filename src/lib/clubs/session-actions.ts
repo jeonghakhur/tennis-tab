@@ -203,7 +203,7 @@ export async function getClubSessionDetail(
     .from('club_session_attendances')
     .select(`
       *,
-      club_members!inner(id, name, rating, is_registered)
+      club_members!inner(id, name, rating, is_registered, gender)
     `)
     .eq('session_id', sessionId)
     .order('responded_at', { ascending: true })
@@ -571,18 +571,16 @@ export async function createMatchResult(
   return { data: data as ClubMatchResult }
 }
 
-/** 라운드로빈 대진 자동 생성 */
-export async function createRoundRobinMatches(
+/** 참석 시간 기반 자동 대진표 생성 */
+export async function createAutoScheduleMatches(
   sessionId: string,
-  memberIds: string[]
+  matchDurationMinutes = 30
 ): Promise<{ count: number; error?: string }> {
-  if (memberIds.length < 2) return { error: '최소 2명 이상 필요합니다.', count: 0 }
-
   const admin = createAdminClient()
 
   const { data: session } = await admin
     .from('club_sessions')
-    .select('id, club_id, court_numbers')
+    .select('id, club_id, court_numbers, start_time, end_time')
     .eq('id', sessionId)
     .single()
 
@@ -591,195 +589,125 @@ export async function createRoundRobinMatches(
   const { error: authError } = await checkSessionOfficerAuth(session.club_id)
   if (authError) return { error: authError, count: 0 }
 
-  // 단식 라운드로빈 조합 생성
-  const matches: {
-    session_id: string
-    match_type: string
-    player1_member_id: string
-    player2_member_id: string
-  }[] = []
+  const { data: attendances } = await admin
+    .from('club_session_attendances')
+    .select('club_member_id, available_from, available_until')
+    .eq('session_id', sessionId)
+    .eq('status', 'ATTENDING')
 
-  for (let i = 0; i < memberIds.length; i++) {
-    for (let j = i + 1; j < memberIds.length; j++) {
-      matches.push({
-        session_id: sessionId,
-        match_type: 'singles',
-        player1_member_id: memberIds[i],
-        player2_member_id: memberIds[j],
-      })
-    }
+  if (!attendances || attendances.length < 4) {
+    return { error: '복식 자동 대진은 최소 4명 이상 필요합니다.', count: 0 }
   }
 
-  const { error } = await admin.from('club_match_results').insert(matches)
+  const courts: string[] = session.court_numbers || []
 
-  if (error) return { error: `대진 생성 실패: ${error.message}`, count: 0 }
+  // HH:MM[:SS] → 분 단위 정수
+  const toMinutes = (t: string): number => {
+    const [h, m] = t.slice(0, 5).split(':').map(Number)
+    return h * 60 + m
+  }
+  const toTimeStr = (minutes: number): string => {
+    const h = Math.floor(minutes / 60) % 24
+    const m = minutes % 60
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
 
-  revalidatePath(`/clubs/${session.club_id}`)
-  return { count: matches.length }
-}
+  const sessionStart = toMinutes(session.start_time)
+  const sessionEnd = toMinutes(session.end_time)
 
-/** 복식 라운드로빈 자동 생성 */
-export async function createDoublesRoundRobinMatches(
-  sessionId: string,
-  attendingMembersWithGender: { id: string; gender: string | null }[]
-): Promise<{ count: number; preview: { men: number; women: number; mixed: number }; error?: string }> {
-  const admin = createAdminClient()
+  // 멤버별 가용 시간 (없으면 세션 전체로 간주)
+  const memberAvail = attendances.map((a) => ({
+    id: a.club_member_id as string,
+    from: a.available_from ? toMinutes(a.available_from) : sessionStart,
+    until: a.available_until ? toMinutes(a.available_until) : sessionEnd,
+  }))
 
-  const { data: session } = await admin
-    .from('club_sessions')
-    .select('id, club_id, court_numbers, start_time')
-    .eq('id', sessionId)
-    .single()
+  // 멤버별 배정된 게임 수 (공정 배분용)
+  const gameCount: Record<string, number> = Object.fromEntries(memberAvail.map((m) => [m.id, 0]))
 
-  if (!session) return { error: '모임을 찾을 수 없습니다.', count: 0, preview: { men: 0, women: 0, mixed: 0 } }
-
-  const { error: authError } = await checkSessionOfficerAuth(session.club_id)
-  if (authError) return { error: authError, count: 0, preview: { men: 0, women: 0, mixed: 0 } }
-
-  const men = attendingMembersWithGender.filter((m) => m.gender === 'MALE' || m.gender === 'M').map((m) => m.id)
-  const women = attendingMembersWithGender.filter((m) => m.gender === 'FEMALE' || m.gender === 'F').map((m) => m.id)
-
-  type DoubleMatch = {
+  type DoubleMatchRow = {
     session_id: string
     match_type: string
     player1_member_id: string
     player1b_member_id: string
     player2_member_id: string
     player2b_member_id: string
-    scheduled_time: string | null
     court_number: string | null
+    scheduled_time: string
   }
+  const matches: DoubleMatchRow[] = []
 
-  const matches: DoubleMatch[] = []
-  const courts: string[] = session.court_numbers || []
+  // 중복 대전 방지 (같은 4인 조합은 한 번만)
+  const matchedGroups = new Set<string>()
 
-  // 코트 배분 + 시간 슬롯 (게임당 30분)
-  let slotIndex = 0
-  const baseTime = session.start_time ? session.start_time.slice(0, 5) : '10:00'
-  const [bh, bm] = baseTime.split(':').map(Number)
+  for (let slotStart = sessionStart; slotStart + matchDurationMinutes <= sessionEnd; slotStart += matchDurationMinutes) {
+    const slotEnd = slotStart + matchDurationMinutes
 
-  const getSlot = () => {
-    const courtIndex = courts.length > 0 ? slotIndex % courts.length : -1
-    const timeOffset = Math.floor(slotIndex / (courts.length || 1)) * 30
-    const totalMinutes = bh * 60 + bm + timeOffset
-    const h = Math.floor(totalMinutes / 60) % 24
-    const m = totalMinutes % 60
-    const timeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
-    slotIndex++
-    return {
-      court_number: courtIndex >= 0 ? courts[courtIndex] : null,
-      scheduled_time: timeStr,
-    }
-  }
+    // 이 슬롯에 완전히 포함되는 가용 멤버 (게임 수 오름차순 → 덜 뛴 사람 우선)
+    const available = memberAvail
+      .filter((m) => m.from <= slotStart && m.until >= slotEnd)
+      .sort((a, b) => gameCount[a.id] - gameCount[b.id])
 
-  // 남복: 남자 4명 이상 시 생성
-  if (men.length >= 4) {
-    for (let i = 0; i < men.length; i += 2) {
-      for (let j = i + 2; j < men.length; j += 2) {
-        if (i + 1 < men.length && j + 1 < men.length) {
-          const slot = getSlot()
-          matches.push({
-            session_id: sessionId,
-            match_type: 'doubles_men',
-            player1_member_id: men[i],
-            player1b_member_id: men[i + 1],
-            player2_member_id: men[j],
-            player2b_member_id: men[j + 1],
-            ...slot,
-          })
+    const assignedInSlot = new Set<string>()
+    const maxMatches = courts.length > 0 ? courts.length : Math.floor(available.length / 4)
+    let courtIdx = 0
+    let matchesInSlot = 0
+
+    while (matchesInSlot < maxMatches) {
+      // 미배정 + 게임수 오름차순 pool
+      const pool = available.filter((m) => !assignedInSlot.has(m.id))
+      if (pool.length < 4) break
+
+      // 4중 루프로 아직 대전하지 않은 첫 번째 유효 조합 탐색
+      let placed = false
+      outer: for (let a = 0; a < pool.length - 3; a++) {
+        for (let b = a + 1; b < pool.length - 2; b++) {
+          for (let c = b + 1; c < pool.length - 1; c++) {
+            for (let d = c + 1; d < pool.length; d++) {
+              const pa = pool[a], pb = pool[b], pc = pool[c], pd = pool[d]
+              // 균형 팀: (a위, d위) vs (b위, c위) — 강약 교차
+              const t1 = [pa.id, pd.id].sort().join('+')
+              const t2 = [pb.id, pc.id].sort().join('+')
+              const matchKey = [t1, t2].sort().join('|')
+              if (matchedGroups.has(matchKey)) continue
+
+              const court = courts.length > 0 ? courts[courtIdx % courts.length] : null
+              matches.push({
+                session_id: sessionId,
+                match_type: 'doubles',
+                player1_member_id: pa.id,
+                player1b_member_id: pd.id,
+                player2_member_id: pb.id,
+                player2b_member_id: pc.id,
+                court_number: court,
+                scheduled_time: toTimeStr(slotStart),
+              })
+
+              assignedInSlot.add(pa.id); assignedInSlot.add(pb.id)
+              assignedInSlot.add(pc.id); assignedInSlot.add(pd.id)
+              matchedGroups.add(matchKey)
+              gameCount[pa.id]++; gameCount[pb.id]++
+              gameCount[pc.id]++; gameCount[pd.id]++
+              courtIdx++; matchesInSlot++
+              placed = true
+              break outer
+            }
+          }
         }
       }
-    }
-  }
-
-  // 여복: 여자 4명 이상 시 생성
-  if (women.length >= 4) {
-    for (let i = 0; i < women.length; i += 2) {
-      for (let j = i + 2; j < women.length; j += 2) {
-        if (i + 1 < women.length && j + 1 < women.length) {
-          const slot = getSlot()
-          matches.push({
-            session_id: sessionId,
-            match_type: 'doubles_women',
-            player1_member_id: women[i],
-            player1b_member_id: women[i + 1],
-            player2_member_id: women[j],
-            player2b_member_id: women[j + 1],
-            ...slot,
-          })
-        }
-      }
-    }
-  }
-
-  // 혼복: 남녀 각 2명 이상 시 생성
-  if (men.length >= 2 && women.length >= 2) {
-    // 혼복 팀 조합: (남, 여) 쌍을 만들어서 vs
-    const mixedTeams: [string, string][] = []
-    for (let i = 0; i < Math.min(men.length, 4); i++) {
-      for (let j = 0; j < Math.min(women.length, 4); j++) {
-        mixedTeams.push([men[i % men.length], women[j % women.length]])
-      }
-    }
-    for (let i = 0; i < mixedTeams.length; i++) {
-      for (let j = i + 1; j < mixedTeams.length; j++) {
-        const slot = getSlot()
-        matches.push({
-          session_id: sessionId,
-          match_type: 'doubles_mixed',
-          player1_member_id: mixedTeams[i][0],
-          player1b_member_id: mixedTeams[i][1],
-          player2_member_id: mixedTeams[j][0],
-          player2b_member_id: mixedTeams[j][1],
-          ...slot,
-        })
-      }
+      if (!placed) break // 이 슬롯에서 새로운 조합 없음
     }
   }
 
   if (matches.length === 0) {
-    return { error: '복식 조합을 만들 수 없습니다. 남자 4명 이상, 여자 4명 이상, 또는 각 2명 이상 필요합니다.', count: 0, preview: { men: 0, women: 0, mixed: 0 } }
-  }
-
-  const preview = {
-    men: matches.filter((m) => m.match_type === 'doubles_men').length,
-    women: matches.filter((m) => m.match_type === 'doubles_women').length,
-    mixed: matches.filter((m) => m.match_type === 'doubles_mixed').length,
+    return { error: '자동 생성할 경기가 없습니다. 참석 가능 시간 또는 코트 정보를 확인해주세요.', count: 0 }
   }
 
   const { error } = await admin.from('club_match_results').insert(matches)
-  if (error) return { error: `대진 생성 실패: ${error.message}`, count: 0, preview }
+  if (error) return { error: `대진 생성 실패: ${error.message}`, count: 0 }
 
   revalidatePath(`/clubs/${session.club_id}`)
-  return { count: matches.length, preview }
-}
-
-/** 복식 대진 미리보기 (DB 저장 없음) */
-export async function previewDoublesMatches(
-  sessionId: string,
-  membersWithGender: { id: string; gender: string | null }[]
-): Promise<{ men: number; women: number; mixed: number; total: number }> {
-  const men = membersWithGender.filter((m) => m.gender === 'MALE' || m.gender === 'M').length
-  const women = membersWithGender.filter((m) => m.gender === 'FEMALE' || m.gender === 'F').length
-  const menPairs = Math.floor(men / 2)
-  const womenPairs = Math.floor(women / 2)
-
-  let menMatches = 0
-  let womenMatches = 0
-  let mixedMatches = 0
-
-  if (men >= 4) {
-    menMatches = (menPairs * (menPairs - 1)) / 2
-  }
-  if (women >= 4) {
-    womenMatches = (womenPairs * (womenPairs - 1)) / 2
-  }
-  if (men >= 2 && women >= 2) {
-    const mixedTeams = Math.min(men, 4) * Math.min(women, 4)
-    mixedMatches = (mixedTeams * (mixedTeams - 1)) / 2
-  }
-
-  return { men: menMatches, women: womenMatches, mixed: mixedMatches, total: menMatches + womenMatches + mixedMatches }
+  return { count: matches.length }
 }
 
 /** 경기 결과 보고 (선수) */

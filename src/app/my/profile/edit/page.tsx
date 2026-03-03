@@ -521,7 +521,7 @@ export default function ProfileEditPage() {
                 maxLength={3}
               />
               <p
-                className="text-xs mt-1"
+                className="text-sm mt-1"
                 style={{ color: "var(--text-muted)" }}
               >
                 실력을 1부터 100까지 숫자로 입력하세요
@@ -636,7 +636,7 @@ export default function ProfileEditPage() {
                 <div>
                   <label
                     htmlFor="delete-email"
-                    className="block text-xs font-medium mb-1"
+                    className="block text-sm font-medium mb-1"
                     style={{ color: "var(--text-muted)" }}
                   >
                     {profile?.email}

@@ -443,7 +443,7 @@ function TeamScoreInput({
                 <div className="grid grid-cols-[1fr_auto_1fr] gap-3 items-end">
                   {/* 팀1 */}
                   <div className="space-y-2">
-                    <label className="text-xs text-(--text-muted) block">{team1Label}</label>
+                    <label className="text-sm text-(--text-muted) block">{team1Label}</label>
                     {Array.from({ length: playersPerTeam }, (_, pIdx) => (
                       <Select
                         key={`t1-${pIdx}`}
@@ -479,7 +479,7 @@ function TeamScoreInput({
 
                   {/* 팀2 */}
                   <div className="space-y-2">
-                    <label className="text-xs text-(--text-muted) block">{team2Label}</label>
+                    <label className="text-sm text-(--text-muted) block">{team2Label}</label>
                     {Array.from({ length: playersPerTeam }, (_, pIdx) => (
                       <Select
                         key={`t2-${pIdx}`}

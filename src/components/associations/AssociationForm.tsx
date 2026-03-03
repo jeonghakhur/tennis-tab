@@ -255,7 +255,7 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
           <p className="text-sm font-medium text-(--text-primary) mb-3">협회장</p>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-(--text-muted) mb-1">이름</label>
+              <label className="block text-sm text-(--text-muted) mb-1">이름</label>
               <input
                 ref={(el) => { fieldRefs.current.president_name = el }}
                 type="text"
@@ -271,7 +271,7 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-(--text-muted) mb-1">연락처</label>
+                <label className="block text-sm text-(--text-muted) mb-1">연락처</label>
                 <input
                   ref={(el) => { fieldRefs.current.president_phone = el }}
                   type="tel"
@@ -285,7 +285,7 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
                 )}
               </div>
               <div>
-                <label className="block text-xs text-(--text-muted) mb-1">이메일</label>
+                <label className="block text-sm text-(--text-muted) mb-1">이메일</label>
                 <input
                   ref={(el) => { fieldRefs.current.president_email = el }}
                   type="email"
@@ -307,7 +307,7 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
           <p className="text-sm font-medium text-(--text-primary) mb-3">사무장</p>
           <div className="space-y-3">
             <div>
-              <label className="block text-xs text-(--text-muted) mb-1">이름</label>
+              <label className="block text-sm text-(--text-muted) mb-1">이름</label>
               <input
                 ref={(el) => { fieldRefs.current.secretary_name = el }}
                 type="text"
@@ -323,7 +323,7 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-xs text-(--text-muted) mb-1">연락처</label>
+                <label className="block text-sm text-(--text-muted) mb-1">연락처</label>
                 <input
                   ref={(el) => { fieldRefs.current.secretary_phone = el }}
                   type="tel"
@@ -337,7 +337,7 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
                 )}
               </div>
               <div>
-                <label className="block text-xs text-(--text-muted) mb-1">이메일</label>
+                <label className="block text-sm text-(--text-muted) mb-1">이메일</label>
                 <input
                   ref={(el) => { fieldRefs.current.secretary_email = el }}
                   type="email"

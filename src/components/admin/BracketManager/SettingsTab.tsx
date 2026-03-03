@@ -47,7 +47,7 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
               </button>
             ))}
           </div>
-          <p className="text-xs text-(--text-muted)">
+          <p className="text-sm text-(--text-muted)">
             {config.group_size === 2
               ? "각 조 2팀 배치, 조별 대진이 본선 1라운드 매치가 됩니다"
               : "각 조 3팀 풀리그 진행, 상위 2팀 본선 진출"}

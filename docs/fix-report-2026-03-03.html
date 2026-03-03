@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ko" style="color-scheme: light !important;">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UI 아이콘 통일 + 폰트 사이즈 개선 리포트</title>
+<style>
+  :root { color-scheme: light only !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: #f0f4f8 !important; color: #1e293b !important; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; padding: 24px; max-width: 1920px; margin: 0 auto; line-height: 1.6; }
+
+  .header { background: linear-gradient(135deg, #1a6b3c, #2d9d5c); color: white !important; border-radius: 16px; padding: 32px 36px; margin-bottom: 28px; }
+  .header h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .header p { font-size: 14px; opacity: 0.85; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
+  .stat-card { background: #ffffff !important; border-radius: 12px; padding: 16px 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); text-align: center; }
+  .stat-num { font-size: 26px; font-weight: 800; }
+  .stat-label { font-size: 12px; color: #64748b !important; margin-top: 4px; }
+  .green { color: #10b981 !important; }
+  .blue { color: #3b82f6 !important; }
+  .purple { color: #8b5cf6 !important; }
+  .orange { color: #f59e0b !important; }
+
+  .section { background: #ffffff !important; border-radius: 14px; padding: 24px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border: 1px solid #e2e8f0; }
+  .section h2 { font-size: 16px; font-weight: 700; color: #0f172a !important; margin-bottom: 16px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; }
+  .section h3 { font-size: 14px; font-weight: 600; color: #374151 !important; margin: 20px 0 10px; }
+  .section h3:first-of-type { margin-top: 0; }
+
+  /* ── 시각적 비교 그리드 ── */
+  .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+  .compare-box { border-radius: 10px; padding: 16px 20px; }
+  .compare-box.before { background: #fff5f5; border: 1.5px solid #fecaca; }
+  .compare-box.after  { background: #f0fdf4; border: 1.5px solid #bbf7d0; }
+  .compare-label { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 12px; }
+  .compare-box.before .compare-label { color: #ef4444; }
+  .compare-box.after  .compare-label { color: #16a34a; }
+  .compare-title { font-size: 13px; font-weight: 600; color: #64748b; margin-bottom: 8px; }
+
+  /* ── 미니 UI 렌더링 공통 ── */
+  .ui-preview { display: flex; flex-direction: column; gap: 10px; }
+  .ui-row { display: flex; align-items: center; gap: 8px; }
+
+  /* 채팅 입력창 */
+  .chat-wrap { display: flex; align-items: center; background: #fff; border: 1.5px solid #e2e8f0; border-radius: 12px; padding: 8px 12px; gap: 8px; }
+  .chat-input-mock { flex: 1; font-size: 14px; color: #94a3b8; }
+  .send-btn { width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #1a6b3c; color: white; border: none; cursor: pointer; }
+  .send-btn.muted { background: #f1f5f9; color: #94a3b8; }
+
+  /* 토너먼트 카드 위치/타입 */
+  .tournament-meta { display: flex; align-items: center; gap: 4px; color: #64748b; font-size: 14px; }
+
+  /* 참석 버튼 */
+  .attend-btn { display: flex; align-items: center; gap: 6px; flex: 1; padding: 10px 14px; border-radius: 8px; border: 1.5px solid #e2e8f0; font-size: 14px; font-weight: 500; color: #64748b; background: white; cursor: pointer; justify-content: center; }
+  .attend-btn.active-attend { background: rgba(16,185,129,0.12); border-color: #10b981; color: #059669; }
+  .attend-btn.active-absent { background: rgba(107,114,128,0.12); border-color: #6b7280; color: #4b5563; }
+  .attend-row { display: flex; gap: 8px; }
+
+  /* 경기 타입 배지 */
+  .match-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; border-radius: 4px; background: #f1f5f9; color: #475569; font-size: 12px; font-weight: 600; margin: 2px; }
+
+  /* 성별 아바타 */
+  .avatar-row { display: flex; align-items: center; gap: 12px; }
+  .avatar { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 22px; }
+  .avatar.emoji-bg { background: rgba(16,185,129,0.12); }
+  .avatar.male-bg { background: #3b82f6; color: white; font-size: 22px; font-weight: 700; }
+  .avatar.female-bg { background: #f43f5e; color: white; font-size: 22px; font-weight: 700; }
+  .avatar.neutral-bg { background: rgba(16,185,129,0.3); color: white; font-size: 22px; font-weight: 700; }
+  .avatar-info { font-size: 14px; font-weight: 600; color: #1e293b; }
+  .avatar-sub { font-size: 12px; color: #64748b; }
+
+  /* 참석자 칩 */
+  .chip { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; border-radius: 6px; background: #f1f5f9; font-size: 13px; color: #1e293b; margin: 2px; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
+  .dot.blue { background: #60a5fa; }
+  .dot.rose { background: #fb7185; }
+
+  /* 폰트 사이즈 비교 */
+  .font-demo { background: #f8fafc; border-radius: 8px; padding: 14px 16px; }
+  .font-label-row { margin-bottom: 6px; }
+  .font-label-row label { display: block; color: #64748b; margin-bottom: 3px; }
+  .font-label-row input-mock { display: block; background: white; border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 12px; font-size: 14px; color: #94a3b8; }
+
+  /* 코드 변경 블록 */
+  .issue-row { display: flex; align-items: flex-start; gap: 12px; padding: 10px 12px; border-radius: 8px; margin-bottom: 6px; }
+  .issue-row.fixed { background: #f0fdf4; border: 1px solid #bbf7d0; }
+  .issue-row.info { background: #eff6ff; border: 1px solid #bfdbfe; }
+  .badge { display: inline-flex; align-items: center; border-radius: 6px; padding: 2px 8px; font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .badge-fix { background: #dcfce7; color: #16a34a; }
+  .badge-info { background: #dbeafe; color: #2563eb; }
+
+  .file-tag { font-family: 'SF Mono', Consolas, monospace; font-size: 12px; background: #f1f5f9; color: #475569; padding: 2px 8px; border-radius: 4px; border: 1px solid #e2e8f0; }
+
+  .change-block { background: #f8fafc; border-radius: 8px; padding: 12px 16px; margin-top: 8px; border: 1px solid #e2e8f0; }
+  .change-del { color: #dc2626; font-family: monospace; font-size: 13px; }
+  .change-add { color: #16a34a; font-family: monospace; font-size: 13px; }
+  .change-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 4px; }
+
+  .summary-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .summary-table th { background: #f1f5f9; color: #374151; font-weight: 700; padding: 10px 14px; text-align: left; border-bottom: 2px solid #e2e8f0; }
+  .summary-table td { padding: 9px 14px; border-bottom: 1px solid #f1f5f9; color: #475569; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .check { color: #10b981; font-weight: 700; }
+
+  .footer { text-align: center; color: #94a3b8 !important; font-size: 12px; margin-top: 32px; padding-bottom: 8px; }
+  .back-link { display: inline-flex; align-items: center; gap: 6px; color: #2d9d5c !important; font-size: 14px; font-weight: 600; text-decoration: none; margin-bottom: 20px; }
+  .back-link:hover { text-decoration: underline; }
+
+  .divider { border: none; border-top: 1.5px dashed #e2e8f0; margin: 20px 0; }
+
+  svg { flex-shrink: 0; }
+</style>
+</head>
+<body>
+
+<a href="./index.html" class="back-link">← 리포트 목록으로</a>
+
+<div class="header">
+  <h1>UI 아이콘 통일 + 폰트 사이즈 개선</h1>
+  <p>📅 2026-03-03 &nbsp;·&nbsp; 전체 UI 테스트 — 아이콘 일관성 및 가독성 개선</p>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card"><div class="stat-num green">5</div><div class="stat-label">이모지→lucide 교체</div></div>
+  <div class="stat-card"><div class="stat-num blue">17</div><div class="stat-label">수정 파일 수</div></div>
+  <div class="stat-card"><div class="stat-num purple">40+</div><div class="stat-label">text-xs→sm 수정</div></div>
+  <div class="stat-card"><div class="stat-num orange">3</div><div class="stat-label">성별 UI 개선</div></div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     시각적 Before / After 비교
+══════════════════════════════════════════ -->
+<div class="section">
+  <h2>시각적 Before / After 비교</h2>
+
+  <!-- 1. 채팅 전송 버튼 -->
+  <h3>① 채팅 전송 버튼 — 인라인 SVG → lucide Send</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before</div>
+      <div class="compare-title">기존 인라인 &lt;svg&gt; (코드베이스에 하드코딩)</div>
+      <div class="chat-wrap">
+        <div class="chat-input-mock">메시지를 입력하세요...</div>
+        <!-- 기존 path: M12 19l9 2-9-18-9 18 9-2zm0 0v-8 — 삼각형+선 혼합 -->
+        <button class="send-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">⚠ 아이콘 라이브러리와 무관한 임의 SVG 경로</p>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After</div>
+      <div class="compare-title">lucide-react <code>&lt;Send /&gt;</code> 컴포넌트</div>
+      <div class="chat-wrap">
+        <div class="chat-input-mock">메시지를 입력하세요...</div>
+        <!-- lucide Send: line + polygon 조합 -->
+        <button class="send-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+      <p style="font-size:12px;color:#10b981;margin-top:8px;">✓ lucide-react 표준 Send 아이콘 — 라이브러리 일관성 확보</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 2. TournamentCard 위치/복사 -->
+  <h3>② 대회 카드 메타 정보 — 📍이모지 → MapPin, SVG → Copy</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before</div>
+      <div class="compare-title">이모지 + 인라인 SVG 혼재</div>
+      <div class="ui-preview">
+        <div class="tournament-meta">
+          <span style="font-size:12px;">📍</span>
+          <span>서울 마포구 마포테니스장</span>
+        </div>
+        <div class="tournament-meta">
+          <span style="font-size:12px;">🎾</span>
+          <span>개인전 단식</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <button style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;cursor:pointer;">
+            <!-- 기존 인라인 SVG 복사 아이콘 -->
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="#64748b" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+            </svg>
+          </button>
+          <span style="font-size:12px;color:#64748b;">템플릿으로 사용 (인라인 path)</span>
+        </div>
+      </div>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After</div>
+      <div class="compare-title">lucide MapPin + Copy 아이콘</div>
+      <div class="ui-preview">
+        <div class="tournament-meta">
+          <!-- lucide MapPin -->
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>서울 마포구 마포테니스장</span>
+        </div>
+        <div class="tournament-meta">
+          <span>개인전 단식</span>
+          <span style="font-size:12px;color:#94a3b8;">(아이콘 제거 — 텍스트로 충분)</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;margin-top:4px;">
+          <button style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:6px;cursor:pointer;">
+            <!-- lucide Copy -->
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+          </button>
+          <span style="font-size:12px;color:#10b981;">lucide Copy 컴포넌트</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 3. 참석 응답 버튼 -->
+  <h3>③ 참석 응답 버튼 — ⭕/❌ 이모지 → CheckCircle/XCircle</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before</div>
+      <div class="compare-title">이모지 문자 직접 렌더링</div>
+      <div class="attend-row">
+        <button class="attend-btn active-attend">
+          <span>⭕</span> 참석
+        </button>
+        <button class="attend-btn">
+          <span>❌</span> 불참
+        </button>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">⚠ OS/브라우저마다 이모지 렌더링이 다름<br>⚠ 색상·크기 CSS 제어 불가</p>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After</div>
+      <div class="compare-title">lucide CheckCircle / XCircle SVG</div>
+      <div class="attend-row">
+        <button class="attend-btn active-attend">
+          <!-- lucide CheckCircle -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+            <polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+          참석
+        </button>
+        <button class="attend-btn">
+          <!-- lucide XCircle -->
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="15" y1="9" x2="9" y2="15"/>
+            <line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+          불참
+        </button>
+      </div>
+      <p style="font-size:12px;color:#10b981;margin-top:8px;">✓ currentColor 상속 — 버튼 상태(active/inactive)에 따라 자동으로 색상 변경</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 4. 경기 타입 배지 -->
+  <h3>④ 경기 타입 배지 — 이모지 접두사 제거</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before</div>
+      <div class="compare-title">이모지 + 한글 텍스트 혼합</div>
+      <div>
+        <span class="match-badge">🏃 단식</span>
+        <span class="match-badge">🔵 남복</span>
+        <span class="match-badge">🔴 여복</span>
+        <span class="match-badge">🎾 혼복</span>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:10px;">⚠ 스크린 리더: "달리기하는 사람 단식", "파란 원 남복"으로 읽힘<br>⚠ 이모지가 텍스트에 비해 상대적으로 크게 렌더링됨</p>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After</div>
+      <div class="compare-title">한글 텍스트만 — 간결하고 일관됨</div>
+      <div>
+        <span class="match-badge">단식</span>
+        <span class="match-badge">남복</span>
+        <span class="match-badge">여복</span>
+        <span class="match-badge">혼복</span>
+      </div>
+      <p style="font-size:12px;color:#10b981;margin-top:10px;">✓ 스크린 리더: "단식", "남복"으로 정확히 읽힘<br>✓ 배지 크기 균일 — 레이아웃 안정성 향상</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 5. 성별 아바타 -->
+  <h3>⑤ 회원 프로필 아바타 — 이모지 → 이니셜 아바타</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before</div>
+      <div class="compare-title">이모지 플레이스홀더</div>
+      <div class="avatar-row">
+        <div>
+          <div class="avatar emoji-bg">🔵</div>
+          <div style="font-size:12px;color:#64748b;text-align:center;margin-top:4px;">남성</div>
+        </div>
+        <div>
+          <div class="avatar emoji-bg">🔴</div>
+          <div style="font-size:12px;color:#64748b;text-align:center;margin-top:4px;">여성</div>
+        </div>
+        <div>
+          <div class="avatar emoji-bg">🎾</div>
+          <div style="font-size:12px;color:#64748b;text-align:center;margin-top:4px;">미지정</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:10px;">⚠ 실제 아바타가 없는 느낌 — 완성도 낮음<br>⚠ 정체성 없는 이모지 플레이스홀더</p>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After</div>
+      <div class="compare-title">이니셜 + 성별 색상 아바타</div>
+      <div class="avatar-row">
+        <div>
+          <div class="avatar male-bg">김</div>
+          <div style="font-size:12px;color:#64748b;text-align:center;margin-top:4px;">남성 (파랑)</div>
+        </div>
+        <div>
+          <div class="avatar female-bg">이</div>
+          <div style="font-size:12px;color:#64748b;text-align:center;margin-top:4px;">여성 (분홍)</div>
+        </div>
+        <div>
+          <div class="avatar neutral-bg">박</div>
+          <div style="font-size:12px;color:#64748b;text-align:center;margin-top:4px;">미지정 (녹색)</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#10b981;margin-top:10px;">✓ 이름 첫 글자로 개인 식별 가능<br>✓ 성별 색상으로 구분 + aria-label 접근성 확보</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 6. 참석자 칩 성별 dot -->
+  <h3>⑥ 참석자 칩 성별 표시 — 🔵/🔴 → 색상 dot</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before</div>
+      <div class="compare-title">이름 뒤 이모지 추가</div>
+      <div>
+        <span class="chip">김민수 🔵 (85)</span>
+        <span class="chip">이지영 🔴 (72)</span>
+        <span class="chip">박준호 🔵 (91)</span>
+        <span class="chip">최수연 🔴 (68)</span>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:10px;">⚠ 이모지 크기가 텍스트와 맞지 않아 세로 정렬 불안정</p>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After</div>
+      <div class="compare-title">2px 색상 dot으로 교체</div>
+      <div>
+        <span class="chip">김민수<span class="dot blue" style="margin:0 2px;"></span>(85)</span>
+        <span class="chip">이지영<span class="dot rose" style="margin:0 2px;"></span>(72)</span>
+        <span class="chip">박준호<span class="dot blue" style="margin:0 2px;"></span>(91)</span>
+        <span class="chip">최수연<span class="dot rose" style="margin:0 2px;"></span>(68)</span>
+      </div>
+      <p style="font-size:12px;color:#10b981;margin-top:10px;">✓ 세로 정렬 안정 — baseline에 정확히 맞춤<br>✓ aria-label로 접근성 유지</p>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <!-- 7. 폰트 사이즈 -->
+  <h3>⑦ 폼 레이블 폰트 사이즈 — 12px → 14px</h3>
+  <div class="compare-grid">
+    <div class="compare-box before">
+      <div class="compare-label">Before — text-xs (12px)</div>
+      <div class="compare-title">작은 레이블로 가독성 저하</div>
+      <div class="font-demo">
+        <div class="font-label-row">
+          <label style="font-size:12px;color:#64748b;display:block;margin-bottom:3px;">경기 유형</label>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:14px;color:#94a3b8;">단식</div>
+        </div>
+        <div class="font-label-row" style="margin-top:10px;">
+          <label style="font-size:12px;color:#64748b;display:block;margin-bottom:3px;">선수 1A</label>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:14px;color:#94a3b8;">선택</div>
+        </div>
+        <div class="font-label-row" style="margin-top:10px;">
+          <label style="font-size:12px;color:#64748b;display:block;margin-bottom:3px;">코트 (선택)</label>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:14px;color:#94a3b8;">미지정</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#94a3b8;margin-top:8px;">⚠ 레이블(12px)과 입력값(14px)의 크기 불균형<br>⚠ WCAG AA: 14px 미만은 접근성 경계선</p>
+    </div>
+    <div class="compare-box after">
+      <div class="compare-label">After — text-sm (14px)</div>
+      <div class="compare-title">레이블과 입력값의 자연스러운 크기 관계</div>
+      <div class="font-demo">
+        <div class="font-label-row">
+          <label style="font-size:14px;color:#64748b;display:block;margin-bottom:3px;">경기 유형</label>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:14px;color:#94a3b8;">단식</div>
+        </div>
+        <div class="font-label-row" style="margin-top:10px;">
+          <label style="font-size:14px;color:#64748b;display:block;margin-bottom:3px;">선수 1A</label>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:14px;color:#94a3b8;">선택</div>
+        </div>
+        <div class="font-label-row" style="margin-top:10px;">
+          <label style="font-size:14px;color:#64748b;display:block;margin-bottom:3px;">코트 (선택)</label>
+          <div style="background:white;border:1px solid #e2e8f0;border-radius:6px;padding:8px 12px;font-size:14px;color:#94a3b8;">미지정</div>
+        </div>
+      </div>
+      <p style="font-size:12px;color:#10b981;margin-top:8px;">✓ 레이블과 입력값이 동일한 14px — 시각적 균형<br>✓ WCAG AA 최소 기준 충족</p>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     코드 변경 상세
+══════════════════════════════════════════ -->
+<div class="section">
+  <h2>코드 변경 상세</h2>
+
+  <h3>1-1. ChatInput.tsx — 인라인 SVG → lucide Send</h3>
+  <div class="issue-row fixed">
+    <span class="badge badge-fix">수정</span>
+    <div style="flex:1;">
+      <div><span class="file-tag">src/components/chat/ChatInput.tsx</span></div>
+      <div class="change-block">
+        <div class="change-label">before</div>
+        <div class="change-del">- &lt;svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"&gt;</div>
+        <div class="change-del">-   &lt;path strokeLinecap="round" ... d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /&gt;</div>
+        <div class="change-del">- &lt;/svg&gt;</div>
+        <div class="change-label" style="margin-top:8px;">after</div>
+        <div class="change-add">+ import { Send } from 'lucide-react'</div>
+        <div class="change-add">+ &lt;Send className="w-5 h-5" aria-hidden="true" /&gt;</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>1-2. TournamentCard.tsx — 📍 → MapPin, SVG → Copy, 🎾 제거</h3>
+  <div class="issue-row fixed">
+    <span class="badge badge-fix">수정</span>
+    <div style="flex:1;">
+      <div><span class="file-tag">src/components/tournaments/TournamentCard.tsx</span></div>
+      <div class="change-block">
+        <div class="change-label">before</div>
+        <div class="change-del">- &lt;span className="text-xs"&gt;📍&lt;/span&gt; {tournament.location}</div>
+        <div class="change-del">- &lt;span className="text-xs"&gt;🎾&lt;/span&gt; {formatMatchType()}</div>
+        <div class="change-del">- &lt;svg&gt;...하드코딩 복사 아이콘...&lt;/svg&gt;</div>
+        <div class="change-label" style="margin-top:8px;">after</div>
+        <div class="change-add">+ import { MapPin, Copy } from 'lucide-react'</div>
+        <div class="change-add">+ &lt;MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" /&gt; {tournament.location}</div>
+        <div class="change-add">+ {formatMatchType()} &nbsp;// 아이콘 없이 텍스트만</div>
+        <div class="change-add">+ &lt;Copy className="w-4 h-4" aria-hidden="true" /&gt;</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>1-3. AttendanceForm.tsx — ⭕/❌ → CheckCircle/XCircle</h3>
+  <div class="issue-row fixed">
+    <span class="badge badge-fix">수정</span>
+    <div style="flex:1;">
+      <div><span class="file-tag">src/components/clubs/sessions/AttendanceForm.tsx</span></div>
+      <div class="change-block">
+        <div class="change-label">before</div>
+        <div class="change-del">- { value: 'ATTENDING', label: '참석', emoji: '⭕' }</div>
+        <div class="change-del">- { value: 'NOT_ATTENDING', label: '불참', emoji: '❌' }</div>
+        <div class="change-label" style="margin-top:8px;">after</div>
+        <div class="change-add">+ import { CheckCircle, XCircle, type ReactNode } from 'react'</div>
+        <div class="change-add">+ { value: 'ATTENDING', label: '참석', icon: &lt;CheckCircle className="w-4 h-4" /&gt; }</div>
+        <div class="change-add">+ { value: 'NOT_ATTENDING', label: '불참', icon: &lt;XCircle className="w-4 h-4" /&gt; }</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>1-4. 경기 타입 배지 이모지 제거 (3개 파일)</h3>
+  <div class="issue-row fixed">
+    <span class="badge badge-fix">수정</span>
+    <div style="flex:1;">
+      <div>
+        <span class="file-tag">BracketEditor.tsx</span>
+        <span class="file-tag" style="margin-left:4px;">MatchBoard.tsx</span>
+        <span class="file-tag" style="margin-left:4px;">MemberResultsClient.tsx</span>
+      </div>
+      <div class="change-block">
+        <div class="change-label">before</div>
+        <div class="change-del">- singles: '🏃 단식', doubles_men: '🔵 남복', doubles_women: '🔴 여복', doubles_mixed: '🎾 혼복'</div>
+        <div class="change-label" style="margin-top:8px;">after</div>
+        <div class="change-add">+ singles: '단식', doubles_men: '남복', doubles_women: '여복', doubles_mixed: '혼복'</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>2-1. 회원 프로필 아바타 — 이모지 → 이니셜 아바타</h3>
+  <div class="issue-row fixed">
+    <span class="badge badge-fix">수정</span>
+    <div style="flex:1;">
+      <div><span class="file-tag">src/app/clubs/[id]/members/[memberId]/page.tsx</span></div>
+      <div class="change-block">
+        <div class="change-label">before</div>
+        <div class="change-del">- &lt;div className="... text-2xl"&gt;</div>
+        <div class="change-del">-   {gender === 'MALE' ? '🔵' : gender === 'FEMALE' ? '🔴' : '🎾'}</div>
+        <div class="change-label" style="margin-top:8px;">after</div>
+        <div class="change-add">+ &lt;div className="... bg-blue-500 / bg-rose-500 text-white font-bold" aria-label="남성|여성"&gt;</div>
+        <div class="change-add">+   {member.name.slice(0, 1)}</div>
+      </div>
+    </div>
+  </div>
+
+  <h3>2-2. 참석자 칩 성별 — 🔵/🔴 → 색상 dot</h3>
+  <div class="issue-row fixed">
+    <span class="badge badge-fix">수정</span>
+    <div style="flex:1;">
+      <div><span class="file-tag">src/components/clubs/sessions/BracketEditor.tsx</span></div>
+      <div class="change-block">
+        <div class="change-label">before</div>
+        <div class="change-del">- {gender === 'MALE' ? ' 🔵' : gender === 'FEMALE' ? ' 🔴' : ''}</div>
+        <div class="change-label" style="margin-top:8px;">after</div>
+        <div class="change-add">+ &lt;span className="inline-block w-2 h-2 rounded-full bg-blue-400 ml-1 align-middle" aria-label="남성" /&gt;</div>
+        <div class="change-add">+ &lt;span className="inline-block w-2 h-2 rounded-full bg-rose-400 ml-1 align-middle" aria-label="여성" /&gt;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     폰트 사이즈 수정 목록
+══════════════════════════════════════════ -->
+<div class="section">
+  <h2>폰트 사이즈 개선 — text-xs(12px) → text-sm(14px) 수정 파일</h2>
+  <p style="color:#475569;font-size:14px;margin-bottom:16px;">
+    <strong>배지/태그 UI 요소는 text-xs 유지</strong>, 읽어야 하는 텍스트(label, 설명, 정보)만 text-sm으로 업그레이드.
+  </p>
+  <table class="summary-table">
+    <thead>
+      <tr><th>파일</th><th>수정 대상</th><th>변경</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="file-tag">SessionForm.tsx</span></td><td>labelCls 상수 — 모든 form label 일괄 적용</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">AttendanceForm.tsx</span></td><td>참석 가능 시간 label, 메모 label</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">BracketEditor.tsx</span></td><td>경기유형/선수/코트/시간 label 8개, 설명 텍스트, 팀 헤더</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">AwardRegisterModal.tsx</span></td><td>대회/부문/수상내용/메모 label</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">AssociationForm.tsx</span></td><td>협회장/감사 정보 label (이름/연락처/이메일)</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">MatchDetailModal.tsx</span></td><td>팀1/팀2 선수 배정 label</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">ScoreInputModal.tsx</span></td><td>팀1/팀2 label</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">MatchResultForm.tsx</span></td><td>내 점수/상대 점수 label</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">SettingsTab.tsx</span></td><td>조 편성 방식 설명 텍스트</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">MatchRow.tsx</span></td><td>경기 번호, 부전승 텍스트</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">ClubMemberList.tsx</span></td><td>전화번호, 이메일 표시</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">MemberResultsClient.tsx</span></td><td>세션 날짜, 승/패 수, 상대 전적 통계</td><td class="check">text-xs → text-sm</td></tr>
+      <tr><td><span class="file-tag">profile/edit/page.tsx</span></td><td>레이팅 입력 설명 텍스트, 계정 삭제 label</td><td class="check">text-xs → text-sm</td></tr>
+    </tbody>
+  </table>
+</div>
+
+
+<!-- ══════════════════════════════════════════
+     전체 수정 파일 목록
+══════════════════════════════════════════ -->
+<div class="section">
+  <h2>수정 파일 전체 목록</h2>
+  <table class="summary-table">
+    <thead>
+      <tr><th>#</th><th>파일 경로</th><th>수정 유형</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1</td><td><span class="file-tag">src/components/chat/ChatInput.tsx</span></td><td>인라인 SVG → lucide Send</td></tr>
+      <tr><td>2</td><td><span class="file-tag">src/components/tournaments/TournamentCard.tsx</span></td><td>📍 → MapPin, SVG → Copy, 🎾 제거</td></tr>
+      <tr><td>3</td><td><span class="file-tag">src/components/clubs/sessions/AttendanceForm.tsx</span></td><td>⭕/❌ → CheckCircle/XCircle + label text-sm</td></tr>
+      <tr><td>4</td><td><span class="file-tag">src/components/clubs/sessions/BracketEditor.tsx</span></td><td>이모지 제거, 성별 dot, label text-sm</td></tr>
+      <tr><td>5</td><td><span class="file-tag">src/components/clubs/sessions/MatchBoard.tsx</span></td><td>경기 타입 이모지 제거</td></tr>
+      <tr><td>6</td><td><span class="file-tag">src/app/clubs/[id]/members/[memberId]/page.tsx</span></td><td>성별 이모지 → 이니셜 아바타</td></tr>
+      <tr><td>7</td><td><span class="file-tag">src/app/clubs/[id]/members/[memberId]/MemberResultsClient.tsx</span></td><td>이모지 제거, 통계 text-sm</td></tr>
+      <tr><td>8</td><td><span class="file-tag">src/components/clubs/sessions/SessionForm.tsx</span></td><td>labelCls text-xs → text-sm</td></tr>
+      <tr><td>9</td><td><span class="file-tag">src/components/clubs/sessions/MatchResultForm.tsx</span></td><td>점수 label text-sm</td></tr>
+      <tr><td>10</td><td><span class="file-tag">src/components/awards/AwardRegisterModal.tsx</span></td><td>label text-sm</td></tr>
+      <tr><td>11</td><td><span class="file-tag">src/components/associations/AssociationForm.tsx</span></td><td>label text-sm</td></tr>
+      <tr><td>12</td><td><span class="file-tag">src/components/admin/BracketManager/MatchDetailModal.tsx</span></td><td>label text-sm</td></tr>
+      <tr><td>13</td><td><span class="file-tag">src/components/tournaments/ScoreInputModal.tsx</span></td><td>label text-sm</td></tr>
+      <tr><td>14</td><td><span class="file-tag">src/components/admin/BracketManager/SettingsTab.tsx</span></td><td>설명 text-sm</td></tr>
+      <tr><td>15</td><td><span class="file-tag">src/components/admin/BracketManager/MatchRow.tsx</span></td><td>경기번호/부전승 text-sm</td></tr>
+      <tr><td>16</td><td><span class="file-tag">src/components/clubs/ClubMemberList.tsx</span></td><td>전화번호/이메일 text-sm</td></tr>
+      <tr><td>17</td><td><span class="file-tag">src/app/my/profile/edit/page.tsx</span></td><td>설명/label text-sm</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<div class="footer">Tennis Tab Docs &nbsp;·&nbsp; 2026-03-03</div>
+
+</body>
+</html>

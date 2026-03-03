@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, type ReactNode } from 'react'
+import { CheckCircle, XCircle } from 'lucide-react'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import { respondToSession, cancelAttendance } from '@/lib/clubs/session-actions'
 import type { AttendanceStatus } from '@/lib/clubs/types'
@@ -19,9 +20,9 @@ interface AttendanceFormProps {
   onResponded: () => void
 }
 
-const STATUS_OPTIONS: { value: AttendanceStatus; label: string; emoji: string; activeClass: string }[] = [
-  { value: 'ATTENDING', label: '참석', emoji: '⭕', activeClass: 'bg-emerald-500/20 border-emerald-500 text-emerald-400' },
-  { value: 'NOT_ATTENDING', label: '불참', emoji: '❌', activeClass: 'bg-gray-500/20 border-gray-500 text-gray-400' },
+const STATUS_OPTIONS: { value: AttendanceStatus; label: string; icon: ReactNode; activeClass: string }[] = [
+  { value: 'ATTENDING', label: '참석', icon: <CheckCircle className="w-4 h-4" aria-hidden="true" />, activeClass: 'bg-emerald-500/20 border-emerald-500 text-emerald-400' },
+  { value: 'NOT_ATTENDING', label: '불참', icon: <XCircle className="w-4 h-4" aria-hidden="true" />, activeClass: 'bg-gray-500/20 border-gray-500 text-gray-400' },
 ]
 
 export default function AttendanceForm({
@@ -96,7 +97,7 @@ export default function AttendanceForm({
                 : 'border-(--border-color) text-(--text-muted) hover:border-(--text-muted)'
             }`}
           >
-            <span className="mr-1">{opt.emoji}</span>
+            <span className="mr-1.5">{opt.icon}</span>
             {opt.label}
           </button>
         ))}
@@ -105,7 +106,7 @@ export default function AttendanceForm({
       {/* 참석 시 시간 선택 */}
       {status === 'ATTENDING' && (
         <div>
-          <label className="block text-xs text-(--text-muted) mb-1.5">참석 가능 시간</label>
+          <label className="block text-sm text-(--text-muted) mb-1.5">참석 가능 시간</label>
           <div className="flex items-center gap-2">
             <div className="flex-1">
               <SessionTimePicker
@@ -128,7 +129,7 @@ export default function AttendanceForm({
 
       {/* 메모 */}
       <div>
-        <label htmlFor="att-notes" className="block text-xs text-(--text-muted) mb-1">
+        <label htmlFor="att-notes" className="block text-sm text-(--text-muted) mb-1">
           메모 (선택)
         </label>
         <input

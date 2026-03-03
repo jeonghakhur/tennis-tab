@@ -11,11 +11,12 @@ const PERIOD_LABELS: Record<RankingPeriod, string> = {
   last_year: '작년',
 }
 
-const MATCH_TYPE_LABELS = {
-  singles: '🏃 단식',
-  doubles_men: '🔵 남복',
-  doubles_women: '🔴 여복',
-  doubles_mixed: '🎾 혼복',
+const MATCH_TYPE_LABELS: Record<string, string> = {
+  singles: '단식',
+  doubles: '복식',
+  doubles_men: '남복',
+  doubles_women: '여복',
+  doubles_mixed: '혼복',
 }
 
 interface Props {
@@ -114,7 +115,7 @@ export default function MemberResultsClient({ clubId, memberId, initialResults, 
             {opponents.map((o) => (
               <div key={o.id} className="flex items-center justify-between">
                 <span className="text-sm text-(--text-primary)">{o.name}</span>
-                <div className="flex items-center gap-2 text-xs">
+                <div className="flex items-center gap-2 text-sm">
                   <span className="text-emerald-400 font-semibold">{o.wins}승</span>
                   <span className="text-(--text-muted)">/</span>
                   <span className="text-rose-400 font-semibold">{o.losses}패</span>
@@ -140,9 +141,9 @@ export default function MemberResultsClient({ clubId, memberId, initialResults, 
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <div className="text-sm font-semibold text-(--text-primary)">{session.session_title}</div>
-                  <div className="text-xs text-(--text-muted)">{session.session_date}</div>
+                  <div className="text-sm text-(--text-muted)">{session.session_date}</div>
                 </div>
-                <div className="text-xs text-(--text-muted)">
+                <div className="text-sm text-(--text-muted)">
                   {session.matches.filter((m) => m.is_win).length}승 {session.matches.filter((m) => m.is_win === false).length}패
                 </div>
               </div>

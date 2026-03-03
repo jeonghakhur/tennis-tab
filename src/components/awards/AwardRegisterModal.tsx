@@ -147,7 +147,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
           <div className="space-y-4">
             {/* 대회 선택 */}
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 대회 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <Select value={selectedTournamentId} onValueChange={setSelectedTournamentId}>
@@ -167,7 +167,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
 
             {/* 부문 선택 */}
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 부문 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <Select value={selectedDivisionId} onValueChange={setSelectedDivisionId} disabled={!tournament}>
@@ -203,7 +203,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
 
             {/* 순위 */}
             <div>
-              <label className="block text-xs font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
+              <label className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-muted)' }}>
                 순위 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
               <div className="grid grid-cols-4 gap-2">
@@ -283,7 +283,7 @@ export function AwardRegisterModal({ isOpen, onClose, onCreated, tournaments, cl
             {/* 선수 목록 */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium" style={{ color: 'var(--text-muted)' }}>
+                <label className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
                   선수 이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
                   <span className="ml-1 font-normal">(1명당 레코드 1개)</span>
                 </label>

@@ -68,12 +68,12 @@ export function MatchRow({
   if (match.status === "BYE") {
     return (
       <div className="flex items-center gap-3 p-3 rounded-xl bg-(--bg-secondary) border border-(--border-color)">
-        <span className="text-xs text-(--text-muted)">
+        <span className="text-sm text-(--text-muted)">
           #{match.match_number}
         </span>
         <div className="flex-1">
           <span className="text-sm text-(--text-primary)">{team1Label}</span>
-          <span className="ml-2 text-xs text-(--text-muted)">(부전승)</span>
+          <span className="ml-2 text-sm text-(--text-muted)">(부전승)</span>
         </div>
       </div>
     );
@@ -89,7 +89,7 @@ export function MatchRow({
     >
       {/* 매치 정보 행 */}
       <div className="flex items-center gap-3 p-3">
-        <span className="text-xs text-(--text-muted) w-8">
+        <span className="text-sm text-(--text-muted) w-8">
           #{match.match_number}
         </span>
 

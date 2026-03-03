@@ -43,8 +43,11 @@ export default async function MemberResultsPage({ params }: Props) {
         {/* 멤버 프로필 */}
         <div className="glass-card rounded-2xl p-5 mb-5">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-full bg-(--accent-color)/20 flex items-center justify-center text-2xl">
-              {member.gender === 'MALE' ? '🔵' : member.gender === 'FEMALE' ? '🔴' : '🎾'}
+            <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold text-white
+              ${member.gender === 'MALE' ? 'bg-blue-500' : member.gender === 'FEMALE' ? 'bg-rose-500' : 'bg-(--accent-color)/60'}`}
+              aria-label={member.gender === 'MALE' ? '남성' : member.gender === 'FEMALE' ? '여성' : '성별 미지정'}
+            >
+              {member.name.slice(0, 1)}
             </div>
             <div>
               <h1 className="text-lg font-bold text-(--text-primary)">{member.name}</h1>

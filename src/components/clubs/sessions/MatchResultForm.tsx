@@ -75,7 +75,7 @@ export default function MatchResultForm({
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label htmlFor="my-score" className="block text-xs text-(--text-muted) mb-1 text-center">
+                  <label htmlFor="my-score" className="block text-sm text-(--text-muted) mb-1 text-center">
                     내 점수
                   </label>
                   <input
@@ -90,7 +90,7 @@ export default function MatchResultForm({
                   />
                 </div>
                 <div>
-                  <label htmlFor="opp-score" className="block text-xs text-(--text-muted) mb-1 text-center">
+                  <label htmlFor="opp-score" className="block text-sm text-(--text-muted) mb-1 text-center">
                     상대 점수
                   </label>
                   <input

@@ -360,7 +360,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
               <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-(--text-primary)">{m.name}</p>
-                <p className="text-xs text-(--text-muted)">{m.phone}</p>
+                <p className="text-sm text-(--text-muted)">{m.phone}</p>
               </div>
               <div className="flex gap-2">
                 <button
@@ -889,7 +889,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                   <div key={user.id} className="flex items-center justify-between px-4 py-3">
                     <div>
                       <p className="text-sm font-medium text-(--text-primary)">{user.name}</p>
-                      <p className="text-xs text-(--text-muted)">{user.email}</p>
+                      <p className="text-sm text-(--text-muted)">{user.email}</p>
                     </div>
                     <button
                       onClick={() => handleInvite(user.id, user.name)}

@@ -68,7 +68,7 @@ const fieldStyle = {
 }
 
 const inputCls = 'w-full h-11 px-3 rounded-lg text-sm outline-none focus:ring-1 focus:ring-[var(--accent-color)] box-border'
-const labelCls = 'block text-xs font-medium mb-1.5'
+const labelCls = 'block text-sm font-medium mb-1.5'
 
 export default function SessionForm({ clubId, isOpen, onClose, onCreated, session }: SessionFormProps) {
   const isEditMode = !!session

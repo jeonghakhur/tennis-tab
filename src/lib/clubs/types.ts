@@ -142,10 +142,11 @@ export interface SessionAttendanceDetail {
   notes: string | null
   responded_at: string | null
   // JOIN
-  member: { id: string; name: string; rating: number | null; is_registered: boolean }
+  member: { id: string; name: string; rating: number | null; is_registered: boolean; gender: 'MALE' | 'FEMALE' | null }
 }
 
-export type MatchType = 'singles' | 'doubles_men' | 'doubles_women' | 'doubles_mixed'
+// doubles_men/doubles_women/doubles_mixed은 기존 DB 레코드 호환용 (신규 생성은 'doubles' 사용)
+export type MatchType = 'singles' | 'doubles' | 'doubles_men' | 'doubles_women' | 'doubles_mixed'
 
 export interface ClubMatchResult {
   id: string

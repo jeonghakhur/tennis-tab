@@ -12,11 +12,12 @@ const statusConfig: Record<MatchResultStatus, { label: string; variant: BadgeVar
   CANCELLED: { label: '취소', variant: 'warning' },
 }
 
-const matchTypeBadge: Record<MatchType, string> = {
-  singles: '🏃 단식',
-  doubles_men: '🔵 남복',
-  doubles_women: '🔴 여복',
-  doubles_mixed: '🎾 혼복',
+const matchTypeBadge: Record<string, string> = {
+  singles: '단식',
+  doubles: '복식',
+  doubles_men: '남복',
+  doubles_women: '여복',
+  doubles_mixed: '혼복',
 }
 
 interface MatchBoardProps {
@@ -86,7 +87,7 @@ export default function MatchBoard({ matches, myMemberId, onRefresh }: MatchBoar
                 {/* 매치 타입 배지 + 코트 */}
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs text-(--text-muted) bg-(--bg-secondary) px-1.5 py-0.5 rounded">
-                    {matchTypeBadge[type as MatchType]}
+                    {matchTypeBadge[type] ?? '경기'}
                   </span>
                   {match.court_number && (
                     <span className="text-xs text-(--text-muted)">{match.court_number}</span>
