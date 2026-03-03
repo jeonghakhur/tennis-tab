@@ -29,12 +29,17 @@ export default function MatchResultForm({
   // 관리자 모드: 팀1/팀2 관점, 기존 점수 pre-fill
   // 일반 모드: 내 팀 / 상대 팀 관점
   const isPlayer1 = myMemberId === match.player1_member_id || myMemberId === match.player1b_member_id
+  // member 우선, 없으면 guest 폴백
+  const p1Name = match.player1?.name ?? match.player1_guest?.name ?? '?'
+  const p2Name = match.player2?.name ?? match.player2_guest?.name ?? '?'
+  const p1bName = match.player1b?.name ?? match.player1b_guest?.name ?? '?'
+  const p2bName = match.player2b?.name ?? match.player2b_guest?.name ?? '?'
   const team1Name = isDoubles
-    ? `${match.player1?.name || '?'} / ${match.player1b?.name || '?'}`
-    : (match.player1?.name || '팀1')
+    ? `${p1Name} / ${p1bName}`
+    : p1Name || '팀1'
   const team2Name = isDoubles
-    ? `${match.player2?.name || '?'} / ${match.player2b?.name || '?'}`
-    : (match.player2?.name || '팀2')
+    ? `${p2Name} / ${p2bName}`
+    : p2Name || '팀2'
 
   const [score1, setScore1] = useState(
     isOfficerOverride && match.player1_score != null ? String(match.player1_score) : ''

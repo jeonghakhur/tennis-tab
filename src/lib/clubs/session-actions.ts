@@ -547,13 +547,18 @@ export async function addSessionGuest(
 
   const { data: session } = await admin
     .from('club_sessions')
-    .select('id, club_id')
+    .select('id, club_id, status')
     .eq('id', sessionId)
     .single()
   if (!session) return { error: '모임을 찾을 수 없습니다.' }
 
   const { error: authError, user } = await checkSessionOfficerAuth(session.club_id)
   if (authError || !user) return { error: authError || '인증 오류' }
+
+  // OPEN / CLOSED 상태에서만 게스트 추가 가능
+  if (!['OPEN', 'CLOSED'].includes(session.status)) {
+    return { error: '완료되거나 취소된 모임에는 게스트를 추가할 수 없습니다.' }
+  }
 
   const name = sanitizeInput(input.name).trim()
   if (!name) return { error: '게스트 이름을 입력해주세요.' }
@@ -593,6 +598,21 @@ export async function removeSessionGuest(
   const clubId = extractClubId((guest as Record<string, unknown>).club_sessions)
   const { error: authError } = await checkSessionOfficerAuth(clubId)
   if (authError) return { error: authError }
+
+  // 완료된 경기에 참여한 게스트는 삭제 불가
+  const { data: completedMatch } = await admin
+    .from('club_match_results')
+    .select('id')
+    .or(
+      `player1_guest_id.eq.${guestId},player2_guest_id.eq.${guestId},` +
+      `player1b_guest_id.eq.${guestId},player2b_guest_id.eq.${guestId}`
+    )
+    .eq('status', 'COMPLETED')
+    .limit(1)
+    .maybeSingle()
+  if (completedMatch) {
+    return { error: '완료된 경기에 참여한 게스트는 삭제할 수 없습니다.' }
+  }
 
   const { error } = await admin
     .from('club_session_guests')
