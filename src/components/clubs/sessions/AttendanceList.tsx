@@ -242,6 +242,7 @@ export default function AttendanceList({
                   onValueChange={(v) => setGuestGender(v === 'NONE' ? '' : v as 'MALE' | 'FEMALE')}
                 >
                   <SelectTrigger
+                    data-testid="guest-gender-select"
                     className="w-full h-10 px-3 text-sm"
                     style={{
                       backgroundColor: 'var(--bg-secondary)',
@@ -265,7 +266,7 @@ export default function AttendanceList({
                   참석 가능 시간
                 </label>
                 <div className="flex items-center gap-2">
-                  <div className="flex-1">
+                  <div className="flex-1" data-testid="guest-from-time">
                     <SessionTimePicker
                       value={guestFrom}
                       onChange={setGuestFrom}
@@ -273,7 +274,7 @@ export default function AttendanceList({
                     />
                   </div>
                   <span className="text-sm shrink-0 text-(--text-muted)">~</span>
-                  <div className="flex-1">
+                  <div className="flex-1" data-testid="guest-until-time">
                     <SessionTimePicker
                       value={guestUntil}
                       onChange={setGuestUntil}
