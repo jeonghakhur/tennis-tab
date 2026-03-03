@@ -6,6 +6,7 @@ import type { SessionAttendanceDetail, AttendanceStatus, ClubSessionGuest } from
 import { addSessionGuest, removeSessionGuest } from '@/lib/clubs/session-actions'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import SessionTimePicker from './SessionTimePicker'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 const statusLabel: Record<AttendanceStatus, { text: string; variant: 'success' | 'secondary' | 'warning' }> = {
   ATTENDING: { text: '참석', variant: 'success' },
@@ -164,7 +165,7 @@ export default function AttendanceList({
             <h4 className="text-sm font-semibold text-(--text-primary)">
               게스트
               {guests.length > 0 && (
-                <span className="ml-1.5 text-xs text-amber-400">({guests.length}명)</span>
+                <span className="ml-1.5 text-xs text-(--text-muted)">({guests.length}명)</span>
               )}
             </h4>
             {!showAddGuest && (
@@ -181,14 +182,14 @@ export default function AttendanceList({
           {guests.map((g) => (
             <div key={g.id} className="flex items-center justify-between py-1.5 px-3 rounded-lg">
               <div className="flex items-center gap-2">
-                <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">게스트</span>
+                {/* Badge 컴포넌트 사용 — 명도 대비 보장 */}
+                <Badge variant="warning">게스트</Badge>
                 <span className="text-sm font-medium text-(--text-primary)">{g.name}</span>
                 {g.gender && (
                   <span className="text-xs text-(--text-muted)">
                     {g.gender === 'MALE' ? '남' : '여'}
                   </span>
                 )}
-                {/* 참석 가능 시간 표시 */}
                 {(g.available_from || g.available_until) && (
                   <span className="text-xs text-(--text-muted)">
                     {g.available_from?.slice(0, 5) || '?'} ~ {g.available_until?.slice(0, 5) || '?'}
@@ -225,21 +226,28 @@ export default function AttendanceList({
                 />
               </div>
 
-              {/* 성별 */}
+              {/* 성별 — shadcn Select 컴포넌트 사용 */}
               <div>
-                <label htmlFor="guest-gender" className="block text-sm text-(--text-muted) mb-1">
+                <label className="block text-sm text-(--text-muted) mb-1">
                   성별
                 </label>
-                <select
-                  id="guest-gender"
-                  value={guestGender}
-                  onChange={(e) => setGuestGender(e.target.value as 'MALE' | 'FEMALE' | '')}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-(--border-color) bg-(--bg-secondary) text-(--text-primary) focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                >
-                  <option value="">미지정</option>
-                  <option value="MALE">남</option>
-                  <option value="FEMALE">여</option>
-                </select>
+                <Select value={guestGender} onValueChange={(v) => setGuestGender(v as 'MALE' | 'FEMALE' | '')}>
+                  <SelectTrigger
+                    className="w-full h-10 px-3 text-sm"
+                    style={{
+                      backgroundColor: 'var(--bg-secondary)',
+                      border: '1px solid var(--border-color)',
+                      color: 'var(--text-primary)',
+                    }}
+                  >
+                    <SelectValue placeholder="미지정" />
+                  </SelectTrigger>
+                  <SelectContent style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+                    <SelectItem value="" style={{ color: 'var(--text-muted)' }}>미지정</SelectItem>
+                    <SelectItem value="MALE" style={{ color: 'var(--text-primary)' }}>남</SelectItem>
+                    <SelectItem value="FEMALE" style={{ color: 'var(--text-primary)' }}>여</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* 참석 가능 시간 */}
