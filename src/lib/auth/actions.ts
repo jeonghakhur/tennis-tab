@@ -103,7 +103,8 @@ export async function resetPassword(email: string) {
   if (emailErr) return { error: emailErr }
   if (!sanitizedEmail) return { error: '이메일을 입력해주세요.' }
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const origin = process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
   const supabase = await createClient()
   const { error } = await supabase.auth.resetPasswordForEmail(sanitizedEmail, {
     redirectTo: `${origin}/auth/reset-password`,
@@ -138,7 +139,8 @@ export async function updatePassword(newPassword: string) {
  */
 export async function signInWithOAuth(provider: 'google' | 'kakao' | 'naver', redirectTo?: string, origin?: string) {
   const supabase = await createClient()
-  const resolvedOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
+  const resolvedOrigin = origin || process.env.NEXT_PUBLIC_SITE_URL ||
+    (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
   const callbackUrl = redirectTo
     ? `${resolvedOrigin}/auth/callback?redirect=${encodeURIComponent(redirectTo)}`
     : `${resolvedOrigin}/auth/callback`

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const clientId = process.env.NAVER_CLIENT_ID
   const redirectTo = request.nextUrl.searchParams.get('redirect') || '/'
   const redirectUri = encodeURIComponent(
-    `${process.env.NEXT_PUBLIC_SITE_URL}/api/auth/naver/callback`
+    `${request.nextUrl.origin}/api/auth/naver/callback`
   )
 
   // CSRF 방지를 위한 state에 redirect 정보 포함 (base64 인코딩)
