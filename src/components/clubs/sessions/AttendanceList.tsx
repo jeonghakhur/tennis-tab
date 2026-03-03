@@ -210,7 +210,7 @@ export default function AttendanceList({
             <div className="mt-2 p-3 rounded-lg border border-(--border-color) space-y-3">
               {/* 이름 */}
               <div>
-                <label htmlFor="guest-name" className="block text-xs text-(--text-muted) mb-1">
+                <label htmlFor="guest-name" className="block text-sm text-(--text-muted) mb-1">
                   이름 <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -227,7 +227,7 @@ export default function AttendanceList({
 
               {/* 성별 */}
               <div>
-                <label htmlFor="guest-gender" className="block text-xs text-(--text-muted) mb-1">
+                <label htmlFor="guest-gender" className="block text-sm text-(--text-muted) mb-1">
                   성별
                 </label>
                 <select
@@ -244,7 +244,7 @@ export default function AttendanceList({
 
               {/* 참석 가능 시간 */}
               <div>
-                <label className="block text-xs text-(--text-muted) mb-1.5">
+                <label className="block text-sm text-(--text-muted) mb-1.5">
                   참석 가능 시간
                 </label>
                 <div className="flex items-center gap-2">
