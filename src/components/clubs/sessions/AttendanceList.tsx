@@ -5,6 +5,7 @@ import { Badge } from '@/components/common/Badge'
 import type { SessionAttendanceDetail, AttendanceStatus, ClubSessionGuest } from '@/lib/clubs/types'
 import { addSessionGuest, removeSessionGuest } from '@/lib/clubs/session-actions'
 import { AlertDialog } from '@/components/common/AlertDialog'
+import SessionTimePicker from './SessionTimePicker'
 
 const statusLabel: Record<AttendanceStatus, { text: string; variant: 'success' | 'secondary' | 'warning' }> = {
   ATTENDING: { text: '참석', variant: 'success' },
@@ -16,6 +17,9 @@ interface AttendanceListProps {
   attendances: SessionAttendanceDetail[]
   guests?: ClubSessionGuest[]
   sessionId: string
+  /** 세션 시작/종료 시간 (게스트 시간 선택 기본값용) */
+  sessionStartTime?: string
+  sessionEndTime?: string
   myMemberId?: string
   canRespond?: boolean
   isOfficer?: boolean
@@ -27,6 +31,8 @@ export default function AttendanceList({
   attendances,
   guests = [],
   sessionId,
+  sessionStartTime,
+  sessionEndTime,
   myMemberId,
   canRespond,
   isOfficer,
@@ -40,8 +46,17 @@ export default function AttendanceList({
   const [showAddGuest, setShowAddGuest] = useState(false)
   const [guestName, setGuestName] = useState('')
   const [guestGender, setGuestGender] = useState<'MALE' | 'FEMALE' | ''>('')
+  const [guestFrom, setGuestFrom] = useState(sessionStartTime?.slice(0, 5) || '')
+  const [guestUntil, setGuestUntil] = useState(sessionEndTime?.slice(0, 5) || '')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+
+  const resetGuestForm = () => {
+    setGuestName('')
+    setGuestGender('')
+    setGuestFrom(sessionStartTime?.slice(0, 5) || '')
+    setGuestUntil(sessionEndTime?.slice(0, 5) || '')
+  }
 
   const handleAddGuest = async () => {
     const name = guestName.trim()
@@ -53,14 +68,15 @@ export default function AttendanceList({
     const { error } = await addSessionGuest(sessionId, {
       name,
       gender: guestGender || null,
+      available_from: guestFrom || null,
+      available_until: guestUntil || null,
     })
     setIsSubmitting(false)
     if (error) {
       setAlert({ isOpen: true, message: error, type: 'error' })
       return
     }
-    setGuestName('')
-    setGuestGender('')
+    resetGuestForm()
     setShowAddGuest(false)
     onGuestsChange?.()
   }
@@ -172,6 +188,12 @@ export default function AttendanceList({
                     {g.gender === 'MALE' ? '남' : '여'}
                   </span>
                 )}
+                {/* 참석 가능 시간 표시 */}
+                {(g.available_from || g.available_until) && (
+                  <span className="text-xs text-(--text-muted)">
+                    {g.available_from?.slice(0, 5) || '?'} ~ {g.available_until?.slice(0, 5) || '?'}
+                  </span>
+                )}
               </div>
               <button
                 onClick={() => handleRemoveGuest(g.id)}
@@ -185,7 +207,8 @@ export default function AttendanceList({
 
           {/* 게스트 추가 폼 */}
           {showAddGuest && (
-            <div className="mt-2 p-3 rounded-lg border border-(--border-color) space-y-2">
+            <div className="mt-2 p-3 rounded-lg border border-(--border-color) space-y-3">
+              {/* 이름 */}
               <div>
                 <label htmlFor="guest-name" className="block text-xs text-(--text-muted) mb-1">
                   이름 <span className="text-red-400">*</span>
@@ -201,6 +224,8 @@ export default function AttendanceList({
                   autoFocus
                 />
               </div>
+
+              {/* 성별 */}
               <div>
                 <label htmlFor="guest-gender" className="block text-xs text-(--text-muted) mb-1">
                   성별
@@ -216,9 +241,35 @@ export default function AttendanceList({
                   <option value="FEMALE">여</option>
                 </select>
               </div>
+
+              {/* 참석 가능 시간 */}
+              <div>
+                <label className="block text-xs text-(--text-muted) mb-1.5">
+                  참석 가능 시간
+                </label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <SessionTimePicker
+                      value={guestFrom}
+                      onChange={setGuestFrom}
+                      placeholder="시작"
+                    />
+                  </div>
+                  <span className="text-sm shrink-0 text-(--text-muted)">~</span>
+                  <div className="flex-1">
+                    <SessionTimePicker
+                      value={guestUntil}
+                      onChange={setGuestUntil}
+                      placeholder="종료"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 버튼 */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setShowAddGuest(false); setGuestName(''); setGuestGender('') }}
+                  onClick={() => { setShowAddGuest(false); resetGuestForm() }}
                   className="flex-1 py-2 text-sm rounded-lg border border-(--border-color) text-(--text-muted)"
                 >
                   취소

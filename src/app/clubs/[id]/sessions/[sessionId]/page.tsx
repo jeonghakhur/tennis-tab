@@ -252,6 +252,8 @@ export default function SessionDetailPage() {
             attendances={session.attendances}
             guests={session.guests}
             sessionId={sessionId}
+            sessionStartTime={session.start_time}
+            sessionEndTime={session.end_time}
             myMemberId={myMemberId || undefined}
             canRespond={!!canRespond && !editAttendance}
             isOfficer={!!isOfficer}

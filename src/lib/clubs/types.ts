@@ -159,6 +159,8 @@ export interface ClubSessionGuest {
   session_id: string
   name: string
   gender: 'MALE' | 'FEMALE' | null
+  available_from: string | null   // HH:MM:SS (TIME 컬럼)
+  available_until: string | null  // HH:MM:SS (TIME 컬럼)
   notes: string | null
   created_by: string
   created_at: string
@@ -183,8 +185,8 @@ export type SchedulePlayer =
       guestId: string
       name: string
       gender: 'MALE' | 'FEMALE' | null
-      availableFrom: number  // 세션 시작 시간 (분)
-      availableUntil: number // 세션 종료 시간 (분)
+      availableFrom: number  // 분 단위 (게스트 등록 시간 or 세션 시작 시간)
+      availableUntil: number // 분 단위 (게스트 등록 시간 or 세션 종료 시간)
     }
 
 export interface ClubMatchResult {

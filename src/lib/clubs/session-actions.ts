@@ -541,7 +541,13 @@ export async function getSessionGuests(sessionId: string): Promise<ClubSessionGu
 /** 게스트 추가 (임원 전용) */
 export async function addSessionGuest(
   sessionId: string,
-  input: { name: string; gender?: 'MALE' | 'FEMALE' | null; notes?: string }
+  input: {
+    name: string
+    gender?: 'MALE' | 'FEMALE' | null
+    available_from?: string | null  // HH:MM
+    available_until?: string | null // HH:MM
+    notes?: string
+  }
 ): Promise<{ data?: ClubSessionGuest; error?: string }> {
   const admin = createAdminClient()
 
@@ -569,6 +575,8 @@ export async function addSessionGuest(
       session_id: sessionId,
       name,
       gender: input.gender ?? null,
+      available_from: input.available_from || null,
+      available_until: input.available_until || null,
       notes: input.notes ? sanitizeInput(input.notes) : null,
       created_by: user.id,
     })
@@ -712,7 +720,7 @@ export async function createAutoScheduleMatches(
       .eq('status', 'ATTENDING'),
     admin
       .from('club_session_guests')
-      .select('id, name, gender')
+      .select('id, name, gender, available_from, available_until')
       .eq('session_id', sessionId),
   ])
   const attendances = attendancesResult.data
@@ -758,8 +766,9 @@ export async function createAutoScheduleMatches(
       guestId: g.id as string,
       name: g.name as string,
       gender: g.gender as 'MALE' | 'FEMALE' | null,
-      availableFrom: sessionStart,   // 게스트는 세션 전체 시간
-      availableUntil: sessionEnd,
+      // 게스트 등록 시간이 있으면 사용, 없으면 세션 전체 시간
+      availableFrom: g.available_from ? toMinutes(g.available_from) : sessionStart,
+      availableUntil: g.available_until ? toMinutes(g.available_until) : sessionEnd,
     })),
   ]
 

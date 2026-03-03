@@ -251,6 +251,8 @@ export default function SessionManagePage() {
             attendances={session.attendances}
             guests={session.guests}
             sessionId={sessionId}
+            sessionStartTime={session.start_time}
+            sessionEndTime={session.end_time}
             myMemberId={myMemberId || undefined}
             isOfficer={!!isOfficer}
             onGuestsChange={fetchData}
