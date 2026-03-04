@@ -21,16 +21,6 @@ const STATUS_LABELS: Record<TournamentStatus, string> = {
     CANCELLED: '취소',
 };
 
-const STATUS_COLORS: Record<TournamentStatus, string> = {
-    DRAFT: 'var(--text-muted)',
-    UPCOMING: '#7c3aed',
-    OPEN: '#059669',
-    CLOSED: '#d97706',
-    IN_PROGRESS: '#2563eb',
-    COMPLETED: 'var(--text-muted)',
-    CANCELLED: '#dc2626',
-};
-
 interface TournamentActionsProps {
     tournamentId: string;
     currentStatus: TournamentStatus;
@@ -42,28 +32,31 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [status, setStatus] = useState<TournamentStatus>(currentStatus);
+    const [pendingStatus, setPendingStatus] = useState<TournamentStatus | null>(null);
     const [statusSaving, setStatusSaving] = useState(false);
     const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const });
     const [alertDialog, setAlertDialog] = useState<{
         isOpen: boolean;
         title: string;
         message: string;
-    }>({
-        isOpen: false,
-        title: '',
-        message: '',
-    });
+    }>({ isOpen: false, title: '', message: '' });
 
     useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
 
-    const isDirty = status !== currentStatus;
+    const handleStatusChange = (newStatus: TournamentStatus) => {
+        if (newStatus === status) return;
+        setPendingStatus(newStatus);
+    };
 
-    const handleStatusSave = async () => {
+    const handleStatusConfirm = async () => {
+        if (!pendingStatus) return;
         setStatusSaving(true);
-        const result = await updateTournamentStatus(tournamentId, status);
+        const result = await updateTournamentStatus(tournamentId, pendingStatus);
         setStatusSaving(false);
+        setPendingStatus(null);
 
         if (result.success) {
+            setStatus(pendingStatus);
             setToast({ isOpen: true, message: '대회 상태가 변경되었습니다.', type: 'success' });
             router.refresh();
         } else {
@@ -72,7 +65,6 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
                 title: '변경 실패',
                 message: result.error || '상태 변경에 실패했습니다.',
             });
-            setStatus(currentStatus); // 롤백
         }
     };
 
@@ -96,42 +88,19 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
 
     return (
         <>
-            {/* 상태 변경 */}
-            <div className="flex items-center gap-2">
-                <div className="w-36">
-                    <Select value={status} onValueChange={(v) => setStatus(v as TournamentStatus)}>
-                        <SelectTrigger className="h-9 text-sm">
-                            <SelectValue>
-                                <span style={{ color: STATUS_COLORS[status], fontWeight: 600 }}>
-                                    {STATUS_LABELS[status]}
-                                </span>
-                            </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                            {(Object.entries(STATUS_LABELS) as [TournamentStatus, string][]).map(([val, label]) => (
-                                <SelectItem key={val} value={val}>
-                                    <span style={{ color: STATUS_COLORS[val] }}>{label}</span>
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-                <button
-                    onClick={handleStatusSave}
-                    disabled={!isDirty || statusSaving}
-                    className="h-9 px-3 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
-                    style={{
-                        backgroundColor: isDirty ? 'var(--accent-color)' : 'var(--bg-card)',
-                        color: isDirty ? 'var(--bg-primary)' : 'var(--text-muted)',
-                        border: isDirty ? 'none' : '1px solid var(--border-color)',
-                    }}
-                >
-                    {statusSaving ? '저장 중...' : '변경'}
-                </button>
-            </div>
-
-            {/* 수정/복사/삭제 */}
             <div className="flex flex-col sm:flex-row gap-3">
+                {/* 상태 변경 셀렉트 */}
+                <Select value={status} onValueChange={(v) => handleStatusChange(v as TournamentStatus)}>
+                    <SelectTrigger className="w-full sm:w-36 h-[42px]">
+                        <SelectValue>{STATUS_LABELS[status]}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                        {(Object.entries(STATUS_LABELS) as [TournamentStatus, string][]).map(([val, label]) => (
+                            <SelectItem key={val} value={val}>{label}</SelectItem>
+                        ))}
+                    </SelectContent>
+                </Select>
+
                 <Link
                     href={`/tournaments/${tournamentId}/edit`}
                     className="w-full sm:w-auto bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
@@ -161,6 +130,45 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
                     삭제
                 </button>
             </div>
+
+            {/* 상태 변경 확인 모달 */}
+            {pendingStatus && mounted && createPortal(
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
+                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                            대회 상태 변경
+                        </h3>
+                        <p className="text-gray-600 dark:text-gray-400 mb-6">
+                            대회 상태를{' '}
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                                {STATUS_LABELS[status]}
+                            </span>
+                            에서{' '}
+                            <span className="font-semibold text-gray-900 dark:text-white">
+                                {STATUS_LABELS[pendingStatus]}
+                            </span>
+                            으로 변경하시겠습니까?
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setPendingStatus(null)}
+                                disabled={statusSaving}
+                                className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+                            >
+                                취소
+                            </button>
+                            <button
+                                onClick={handleStatusConfirm}
+                                disabled={statusSaving}
+                                className="flex-1 bg-gray-900 hover:bg-gray-800 dark:bg-white dark:hover:bg-gray-100 text-white dark:text-gray-900 px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+                            >
+                                {statusSaving ? '변경 중...' : '변경'}
+                            </button>
+                        </div>
+                    </div>
+                </div>,
+                document.body
+            )}
 
             {/* 삭제 확인 모달 */}
             {showDeleteConfirm && mounted && createPortal(
