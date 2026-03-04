@@ -11,7 +11,10 @@ import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusR
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { ProfileAwards } from "@/components/awards/ProfileAwards";
 import { getMyAwards } from "@/lib/awards/actions";
-import type { Database } from "@/lib/supabase/types";
+import { ScoreInputModal } from "@/components/tournaments/ScoreInputModal";
+import { submitPlayerScore } from "@/lib/bracket/actions";
+import { Toast } from "@/components/common/Toast";
+import type { Database, SetDetail } from "@/lib/supabase/types";
 
 // 전화번호 포맷팅 (010-1234-5678)
 function formatPhoneNumber(value: string): string {
@@ -53,15 +56,19 @@ interface BracketMatch {
   phase: string;
   roundNumber: number;
   matchNumber: number;
+  status: string;
+  setsDetail: SetDetail[] | null;
   team1Score: number | null;
   team2Score: number | null;
   winnerEntryId: string | null;
-  completedAt: string;
+  completedAt: string | null;
   courtNumber: string | null;
   tournamentId: string | null;
   tournamentTitle: string;
   tournamentLocation: string;
   divisionName: string;
+  matchType: string | null;
+  teamMatchCount: number | null;
   myEntryId: string;
   team1: {
     entryId: string | null;
@@ -188,6 +195,8 @@ export default function MyProfilePage() {
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [awardsLoading, setAwardsLoading] = useState(true);
+  const [scoreModalMatch, setScoreModalMatch] = useState<BracketMatch | null>(null);
+  const [scoreToast, setScoreToast] = useState({ isOpen: false, message: '', type: 'success' as 'success' | 'error' });
   const [activeTab, setActiveTab] = useState<
     "profile" | "tournaments" | "matches" | "awards"
   >("tournaments");
@@ -319,6 +328,32 @@ export default function MyProfilePage() {
       </>
     );
   }
+
+  const handleScoreSubmit = async (team1Score: number, team2Score: number, setsDetail?: SetDetail[]) => {
+    if (!scoreModalMatch) return;
+    const result = await submitPlayerScore(scoreModalMatch.id, team1Score, team2Score, setsDetail);
+    setScoreModalMatch(null);
+    if (result.error) {
+      setScoreToast({ isOpen: true, message: result.error, type: 'error' });
+    } else {
+      setScoreToast({ isOpen: true, message: '경기 결과가 저장되었습니다.', type: 'success' });
+      loadMatches();
+    }
+  };
+
+  // ScoreInputModal 호환 형식으로 변환
+  const toModalMatch = (m: BracketMatch) => ({
+    id: m.id,
+    match_number: m.matchNumber,
+    team1_entry_id: m.team1.entryId,
+    team2_entry_id: m.team2.entryId,
+    team1_score: m.team1Score,
+    team2_score: m.team2Score,
+    status: m.status,
+    sets_detail: m.setsDetail,
+    team1: { id: m.team1.entryId || '', player_name: m.team1.name, club_name: null, partner_data: m.team1.partnerData ? { name: m.team1.partnerData.name, rating: 0, club: m.team1.partnerData.club || null } : null },
+    team2: { id: m.team2.entryId || '', player_name: m.team2.name, club_name: null, partner_data: m.team2.partnerData ? { name: m.team2.partnerData.name, rating: 0, club: m.team2.partnerData.club || null } : null },
+  });
 
   const entryStatusLabels: Record<string, string> = {
     PENDING: "대기 중",
@@ -939,24 +974,18 @@ export default function MyProfilePage() {
               <MatchListSkeleton />
             ) : matches.length === 0 ? (
               <div className="glass-card p-12 text-center">
-                <p
-                  className="text-lg"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  아직 완료된 경기가 없습니다
+                <p className="text-lg" style={{ color: "var(--text-muted)" }}>
+                  예정된 경기가 없습니다
                 </p>
               </div>
             ) : (
               <div className="space-y-4">
                 {matches.map((match) => {
-                  const isWinner = match.winnerEntryId === match.myEntryId;
+                  const isScheduled = match.status === "SCHEDULED";
                   const isTeam1 = match.team1.entryId === match.myEntryId;
                   const myTeam = isTeam1 ? match.team1 : match.team2;
                   const opponent = isTeam1 ? match.team2 : match.team1;
-                  const myScore = isTeam1 ? match.team1Score : match.team2Score;
-                  const opponentScore = isTeam1 ? match.team2Score : match.team1Score;
 
-                  // 복식이면 파트너 이름 표시
                   const myDisplayName = myTeam.partnerData
                     ? `${myTeam.name} / ${myTeam.partnerData.name}`
                     : myTeam.name;
@@ -964,9 +993,81 @@ export default function MyProfilePage() {
                     ? `${opponent.name} / ${opponent.partnerData.name}`
                     : opponent.name;
 
+                  if (isScheduled) {
+                    // ── 예정 경기 카드 ──
+                    return (
+                      <div
+                        key={match.id}
+                        className="glass-card p-5"
+                        style={{ borderLeft: "3px solid var(--accent-color)" }}
+                      >
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3
+                                className="font-display text-sm truncate"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {match.tournamentTitle}
+                              </h3>
+                              {match.divisionName && (
+                                <span
+                                  className="text-xs px-2 py-0.5 rounded-full shrink-0"
+                                  style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-muted)" }}
+                                >
+                                  {match.divisionName}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                              {PHASE_LABELS[match.phase] || match.phase}
+                              {match.tournamentLocation && ` · ${match.tournamentLocation}`}
+                            </p>
+                          </div>
+                          <Badge variant="info" className="font-display tracking-wider shrink-0 ml-3">
+                            예정
+                          </Badge>
+                        </div>
+
+                        {/* 대전 상대 */}
+                        <div
+                          className="flex items-center justify-between py-3 px-4 rounded-xl mb-3"
+                          style={{ backgroundColor: "var(--bg-card-hover)" }}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate" style={{ color: "var(--accent-color)" }}>
+                              {myDisplayName}
+                            </p>
+                          </div>
+                          <span className="text-sm px-3" style={{ color: "var(--text-muted)" }}>vs</span>
+                          <div className="flex-1 min-w-0 text-right">
+                            <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                              {opponentDisplayName}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between">
+                          <div />
+                          <button
+                            onClick={() => setScoreModalMatch(match)}
+                            className="text-sm font-display tracking-wider px-4 py-1.5 rounded-lg hover:opacity-90"
+                            style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                          >
+                            결과 입력
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  // ── 완료된 경기 카드 ──
+                  const isWinner = match.winnerEntryId === match.myEntryId;
+                  const myScore = isTeam1 ? match.team1Score : match.team2Score;
+                  const opponentScore = isTeam1 ? match.team2Score : match.team1Score;
+
                   return (
                     <div key={match.id} className="glass-card p-5">
-                      {/* 대회 정보 + 라운드 */}
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-1">
@@ -979,114 +1080,58 @@ export default function MyProfilePage() {
                             {match.divisionName && (
                               <span
                                 className="text-xs px-2 py-0.5 rounded-full shrink-0"
-                                style={{
-                                  backgroundColor: "var(--bg-card-hover)",
-                                  color: "var(--text-muted)",
-                                }}
+                                style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-muted)" }}
                               >
                                 {match.divisionName}
                               </span>
                             )}
                           </div>
-                          <p
-                            className="text-xs"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            {new Date(match.completedAt).toLocaleDateString("ko-KR")}
+                          <p className="text-xs" style={{ color: "var(--text-muted)" }}>
+                            {match.completedAt && new Date(match.completedAt).toLocaleDateString("ko-KR")}
                             {match.tournamentLocation && ` · ${match.tournamentLocation}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-3">
                           <span
                             className="text-xs px-2 py-0.5 rounded-full font-medium"
-                            style={{
-                              backgroundColor: "var(--bg-card-hover)",
-                              color: "var(--text-secondary)",
-                            }}
+                            style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
                           >
                             {PHASE_LABELS[match.phase] || match.phase}
                           </span>
-                          <Badge
-                            variant={isWinner ? "success" : "secondary"}
-                            className="font-display tracking-wider"
-                          >
+                          <Badge variant={isWinner ? "success" : "secondary"} className="font-display tracking-wider">
                             {isWinner ? "승" : "패"}
                           </Badge>
                         </div>
                       </div>
 
-                      {/* 스코어보드 */}
                       <div
                         className="flex items-center justify-between py-3 px-4 rounded-xl"
                         style={{ backgroundColor: "var(--bg-card-hover)" }}
                       >
-                        {/* 나 */}
                         <div className="flex-1 min-w-0">
-                          <p
-                            className="text-sm font-medium truncate"
-                            style={{
-                              color: isWinner
-                                ? "var(--accent-color)"
-                                : "var(--text-primary)",
-                            }}
-                          >
+                          <p className="text-sm font-medium truncate" style={{ color: isWinner ? "var(--accent-color)" : "var(--text-primary)" }}>
                             {myDisplayName}
                           </p>
                         </div>
-
-                        {/* 점수 */}
                         <div className="flex items-center gap-2 px-4 shrink-0">
-                          <span
-                            className="text-xl font-display min-w-[1.5rem] text-right"
-                            style={{
-                              color: isWinner
-                                ? "var(--accent-color)"
-                                : "var(--text-primary)",
-                            }}
-                          >
+                          <span className="text-xl font-display min-w-[1.5rem] text-right" style={{ color: isWinner ? "var(--accent-color)" : "var(--text-primary)" }}>
                             {myScore ?? "-"}
                           </span>
-                          <span
-                            className="text-sm"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            :
-                          </span>
-                          <span
-                            className="text-xl font-display min-w-[1.5rem] text-left"
-                            style={{
-                              color: !isWinner
-                                ? "var(--accent-color)"
-                                : "var(--text-primary)",
-                            }}
-                          >
+                          <span className="text-sm" style={{ color: "var(--text-muted)" }}>:</span>
+                          <span className="text-xl font-display min-w-[1.5rem] text-left" style={{ color: !isWinner ? "var(--accent-color)" : "var(--text-primary)" }}>
                             {opponentScore ?? "-"}
                           </span>
                         </div>
-
-                        {/* 상대 */}
                         <div className="flex-1 min-w-0 text-right">
-                          <p
-                            className="text-sm font-medium truncate"
-                            style={{
-                              color: !isWinner
-                                ? "var(--accent-color)"
-                                : "var(--text-primary)",
-                            }}
-                          >
+                          <p className="text-sm font-medium truncate" style={{ color: !isWinner ? "var(--accent-color)" : "var(--text-primary)" }}>
                             {opponentDisplayName}
                           </p>
                         </div>
                       </div>
 
-                      {/* 대진표 링크 */}
                       {match.tournamentId && (
                         <div className="mt-2 text-right">
-                          <Link
-                            href={`/tournaments/${match.tournamentId}/bracket`}
-                            className="text-xs hover:underline"
-                            style={{ color: "var(--accent-color)" }}
-                          >
+                          <Link href={`/tournaments/${match.tournamentId}/bracket`} className="text-xs hover:underline" style={{ color: "var(--accent-color)" }}>
                             대진표 보기 →
                           </Link>
                         </div>
@@ -1097,6 +1142,26 @@ export default function MyProfilePage() {
               </div>
             )
           )}
+
+          {/* 점수 입력 모달 */}
+          {scoreModalMatch && (
+            <ScoreInputModal
+              isOpen={true}
+              onClose={() => setScoreModalMatch(null)}
+              match={toModalMatch(scoreModalMatch)}
+              matchType={(scoreModalMatch.matchType as Parameters<typeof ScoreInputModal>[0]['matchType']) ?? null}
+              teamMatchCount={scoreModalMatch.teamMatchCount}
+              onSubmit={handleScoreSubmit}
+            />
+          )}
+
+          <Toast
+            isOpen={scoreToast.isOpen}
+            onClose={() => setScoreToast({ ...scoreToast, isOpen: false })}
+            message={scoreToast.message}
+            type={scoreToast.type}
+            duration={3000}
+          />
         </div>
       </div>
     </>

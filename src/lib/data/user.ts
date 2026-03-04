@@ -202,7 +202,7 @@ export async function getMyMatches() {
     return { matches: [] }
   }
 
-  // bracket_matches에서 완료된 경기 조회
+  // bracket_matches에서 예정/완료 경기 조회
   const matchFilter = entryIds.map(id => `team1_entry_id.eq.${id},team2_entry_id.eq.${id}`).join(',')
   const { data: bracketMatches, error: matchError } = await supabase
     .from('bracket_matches')
@@ -216,12 +216,14 @@ export async function getMyMatches() {
       team1_score,
       team2_score,
       winner_entry_id,
+      status,
+      sets_detail,
       completed_at,
       court_number,
       bracket_config:bracket_configs!bracket_matches_bracket_config_id_fkey(
         division:tournament_divisions(
           name,
-          tournament:tournaments(id, title, location)
+          tournament:tournaments(id, title, location, match_type, team_match_count)
         )
       ),
       team1_entry:tournament_entries!bracket_matches_team1_entry_id_fkey(
@@ -232,27 +234,32 @@ export async function getMyMatches() {
       )
     `)
     .or(matchFilter)
-    .eq('status', 'COMPLETED')
-    .order('completed_at', { ascending: false })
+    .in('status', ['SCHEDULED', 'COMPLETED'])
+    .order('completed_at', { ascending: false, nullsFirst: false })
 
   if (matchError) {
     return { error: matchError.message }
   }
 
   // 플랫하게 가공 — Supabase nested join은 1:1이면 object, 1:N이면 array로 반환
-  const matches = (bracketMatches || []).map(m => {
-    const config = m.bracket_config as unknown as { division: { name: string; tournament: { id: string; title: string; location: string } } } | null
+  const matches = (bracketMatches || []).flatMap(m => {
+    // SCHEDULED 경기는 양쪽 모두 배정된 경우만 표시
+    if (m.status === 'SCHEDULED' && (!m.team1_entry_id || !m.team2_entry_id)) return []
+
+    const config = m.bracket_config as unknown as { division: { name: string; tournament: { id: string; title: string; location: string; match_type: string | null; team_match_count: number | null } } } | null
     const division = config?.division ?? null
     const tournament = division?.tournament ?? null
 
     const t1 = m.team1_entry as unknown as { id: string; player_name: string; partner_data: { name: string; club?: string } | null } | null
     const t2 = m.team2_entry as unknown as { id: string; player_name: string; partner_data: { name: string; club?: string } | null } | null
 
-    return {
+    return [{
       id: m.id,
       phase: m.phase,
       roundNumber: m.round_number,
       matchNumber: m.match_number,
+      status: m.status,
+      setsDetail: m.sets_detail,
       team1Score: m.team1_score,
       team2Score: m.team2_score,
       winnerEntryId: m.winner_entry_id,
@@ -262,6 +269,8 @@ export async function getMyMatches() {
       tournamentTitle: tournament?.title || '',
       tournamentLocation: tournament?.location || '',
       divisionName: division?.name || '',
+      matchType: tournament?.match_type || null,
+      teamMatchCount: tournament?.team_match_count || null,
       myEntryId: entryIds.find(id => id === m.team1_entry_id || id === m.team2_entry_id) || '',
       team1: {
         entryId: m.team1_entry_id,
@@ -273,7 +282,14 @@ export async function getMyMatches() {
         name: t2?.player_name || 'TBD',
         partnerData: t2?.partner_data || null,
       },
-    }
+    }]
+  })
+
+  // 예정 경기 먼저, 완료된 경기는 최신순
+  matches.sort((a, b) => {
+    if (a.status === 'SCHEDULED' && b.status !== 'SCHEDULED') return -1
+    if (a.status !== 'SCHEDULED' && b.status === 'SCHEDULED') return 1
+    return 0
   })
 
   return { matches }
