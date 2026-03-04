@@ -42,9 +42,9 @@ export default async function AdminLayout({
             userAvatar={profile.avatar_url}
             userRole={profile.role}
           />
-          <main className="flex-1 overflow-y-auto p-6">
+          <div className="flex-1 overflow-y-auto p-6">
             {children}
-          </main>
+          </div>
         </div>
       </div>
     </div>

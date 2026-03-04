@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { ThemeToggle } from './ThemeToggle'
 import { FontSizeToggle } from './FontSizeToggle'
 import { UserAvatar } from './UserAvatar'
@@ -18,6 +19,9 @@ const NAV_LINKS = [
 export function Navigation() {
   const { user, profile, loading } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  if (pathname?.startsWith('/admin')) return null
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
