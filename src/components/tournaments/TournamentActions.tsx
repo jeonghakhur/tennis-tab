@@ -91,7 +91,7 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
             <div className="flex flex-col sm:flex-row gap-3">
                 {/* 상태 변경 셀렉트 */}
                 <Select value={status} onValueChange={(v) => handleStatusChange(v as TournamentStatus)}>
-                    <SelectTrigger className="w-full sm:w-36 h-[42px]">
+                    <SelectTrigger className="w-full sm:w-auto px-6 py-2.5 h-auto min-h-0 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-xl font-medium text-base shadow-sm text-gray-900 dark:text-white">
                         <SelectValue>{STATUS_LABELS[status]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
