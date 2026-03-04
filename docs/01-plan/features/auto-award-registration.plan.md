@@ -48,5 +48,15 @@ THIRD_PLACE 완료
 - `src/lib/awards/actions.ts` — 기존 award 조회 로직 재활용
 - `supabase/migrations/16_auto_award_trigger.sql` — UNIQUE 제약 추가
 
+## 구현 결과
+
+- [x] `createAwardRecords()` 함수 구현 (`src/lib/bracket/actions.ts`)
+- [x] `updateMatchResultCore()`에서 FINAL/THIRD_PLACE 완료 시 자동 호출
+- [x] 우승/준우승/공동3위/3위 INSERT 로직
+- [x] 결과 수정 시 DELETE 후 재생성 (결과 수정 대응)
+- [x] 3위전 없는 대회: SEMI 패자 2명 → 공동3위 자동 처리
+- [x] 개인전/복식/단체전 players 배열 변환
+- [ ] `supabase/migrations/16_auto_award_trigger.sql` — DELETE+INSERT 방식으로 UNIQUE 제약 불필요
+
 ## 우선순위
-낮음 — 레거시 데이터로 명예의 전당 기능은 동작 중. 신규 대회 결과 자동화는 추후 진행.
+~~낮음~~ → **완료** (2026-03-04)

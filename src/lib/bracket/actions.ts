@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
-import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TournamentStatus } from '@/lib/supabase/types'
+import type { BracketStatus, MatchPhase, MatchStatus, MatchType, PartnerData, SetDetail, TeamMember, TournamentStatus } from '@/lib/supabase/types'
 
 // ============================================================================
 // 타입 정의
@@ -723,6 +723,155 @@ export async function getPreliminaryMatches(configId: string) {
  * 3. 같은 tournament의 모든 bracket_config가 COMPLETED인지 확인
  * 4. 전부 완료 시 tournaments.status → 'COMPLETED'
  */
+/**
+ * FINAL/THIRD_PLACE 완료 시 tournament_awards 자동 생성
+ * - FINAL: 우승/준우승 INSERT, 3위전 없으면 SEMI 패자 2명 공동3위 INSERT
+ * - THIRD_PLACE: 3위 INSERT
+ * - 결과 수정 시: 해당 순위 레코드 DELETE 후 재생성
+ */
+async function createAwardRecords(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  params: {
+    phase: MatchPhase
+    bracketConfigId: string
+    winnerId: string | null
+    loserId: string | null
+  }
+): Promise<void> {
+  if (!params.winnerId) return
+
+  // bracket_config → division → tournament 역추적
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id')
+    .eq('id', params.bracketConfigId)
+    .single()
+  if (!config) return
+
+  const { data: division } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('tournament_id, name')
+    .eq('id', config.division_id)
+    .single()
+  if (!division) return
+
+  const { data: tournament } = await supabaseAdmin
+    .from('tournaments')
+    .select('title, start_date, match_type')
+    .eq('id', division.tournament_id)
+    .single()
+  if (!tournament?.start_date) return
+
+  const year = new Date(tournament.start_date).getFullYear()
+  const matchType = tournament.match_type as MatchType
+  const isTeam = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES'
+  const isDoubles = matchType === 'INDIVIDUAL_DOUBLES'
+
+  // entry_id → players 배열 + 클럽명 조회
+  const fetchPlayers = async (entryId: string) => {
+    const { data } = await supabaseAdmin
+      .from('tournament_entries')
+      .select('player_name, club_name, partner_data, team_members')
+      .eq('id', entryId)
+      .single()
+    if (!data) return null
+    let players: string[]
+    if (isTeam && data.team_members?.length) {
+      players = (data.team_members as TeamMember[]).map((m) => m.name)
+    } else if (isDoubles && data.partner_data) {
+      players = [data.player_name, (data.partner_data as PartnerData).name]
+    } else {
+      players = [data.player_name]
+    }
+    return { players, clubName: data.club_name }
+  }
+
+  const baseRow = {
+    competition: tournament.title,
+    year,
+    division: division.name,
+    game_type: isTeam ? '단체전' : '개인전',
+    tournament_id: division.tournament_id,
+    division_id: config.division_id,
+  }
+
+  if (params.phase === 'FINAL') {
+    // 결과 수정 대응: 기존 FINAL 관련 순위 삭제 후 재생성
+    await supabaseAdmin
+      .from('tournament_awards')
+      .delete()
+      .eq('tournament_id', division.tournament_id)
+      .eq('division_id', config.division_id)
+      .in('award_rank', ['우승', '준우승', '공동3위'])
+
+    const rows: Record<string, unknown>[] = []
+
+    // 우승
+    const winner = await fetchPlayers(params.winnerId)
+    if (winner) {
+      rows.push({ ...baseRow, award_rank: '우승', players: winner.players, club_name: winner.clubName, entry_id: params.winnerId })
+    }
+
+    // 준우승
+    if (params.loserId) {
+      const loser = await fetchPlayers(params.loserId)
+      if (loser) {
+        rows.push({ ...baseRow, award_rank: '준우승', players: loser.players, club_name: loser.clubName, entry_id: params.loserId })
+      }
+    }
+
+    // 3위전 없는 경우: SEMI 패자 2명 → 공동3위
+    const { count: thirdPlaceCount } = await supabaseAdmin
+      .from('bracket_matches')
+      .select('id', { count: 'exact', head: true })
+      .eq('bracket_config_id', params.bracketConfigId)
+      .eq('phase', 'THIRD_PLACE')
+
+    if (!thirdPlaceCount) {
+      const { data: semiMatches } = await supabaseAdmin
+        .from('bracket_matches')
+        .select('team1_entry_id, team2_entry_id, winner_entry_id')
+        .eq('bracket_config_id', params.bracketConfigId)
+        .eq('phase', 'SEMI')
+        .eq('status', 'COMPLETED')
+
+      for (const semi of semiMatches ?? []) {
+        const semiLoserId = semi.winner_entry_id === semi.team1_entry_id
+          ? semi.team2_entry_id
+          : semi.team1_entry_id
+        if (!semiLoserId) continue
+        const semiLoser = await fetchPlayers(semiLoserId)
+        if (semiLoser) {
+          rows.push({ ...baseRow, award_rank: '공동3위', players: semiLoser.players, club_name: semiLoser.clubName, entry_id: semiLoserId })
+        }
+      }
+    }
+
+    if (rows.length > 0) {
+      await supabaseAdmin.from('tournament_awards').insert(rows)
+    }
+  } else if (params.phase === 'THIRD_PLACE') {
+    // 결과 수정 대응: 기존 3위 삭제 후 재생성
+    await supabaseAdmin
+      .from('tournament_awards')
+      .delete()
+      .eq('tournament_id', division.tournament_id)
+      .eq('division_id', config.division_id)
+      .eq('award_rank', '3위')
+
+    const winner = await fetchPlayers(params.winnerId)
+    if (winner) {
+      await supabaseAdmin.from('tournament_awards').insert([{
+        ...baseRow,
+        award_rank: '3위',
+        players: winner.players,
+        club_name: winner.clubName,
+        entry_id: params.winnerId,
+      }])
+    }
+  }
+}
+
 async function checkAndCompleteTournament(
   supabaseAdmin: ReturnType<typeof createAdminClient>,
   bracketConfigId: string,
@@ -868,9 +1017,15 @@ async function updateMatchResultCore(
       .eq('id', match.loser_next_match_id)
   }
 
-  // 결승/3·4위전 결과 입력 시 대회 자동 완료 체크
+  // 결승/3·4위전 결과 입력 시 대회 자동 완료 체크 + 입상 기록 자동 생성
   if (match.phase === 'FINAL' || match.phase === 'THIRD_PLACE') {
     await checkAndCompleteTournament(supabaseAdmin, match.bracket_config_id)
+    await createAwardRecords(supabaseAdmin, {
+      phase: match.phase,
+      bracketConfigId: match.bracket_config_id,
+      winnerId,
+      loserId,
+    })
   }
 
   return { winnerId }
