@@ -30,7 +30,10 @@ import {
   deleteMainBracket,
   deleteLatestRound,
 } from "@/lib/bracket/actions";
-import { useMatchesRealtime, type RealtimeMatchPayload } from "@/lib/realtime/useMatchesRealtime";
+import {
+  useMatchesRealtime,
+  type RealtimeMatchPayload,
+} from "@/lib/realtime/useMatchesRealtime";
 import { SettingsTab } from "./SettingsTab";
 import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
@@ -57,7 +60,8 @@ export function BracketManager({
   tournamentStatus,
 }: BracketManagerProps) {
   // 단체전 여부 판별
-  const isTeamMatch = matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES";
+  const isTeamMatch =
+    matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES";
   // 마감된 대회 여부 — 마감 시 모든 수정 UI 비활성화
   const isClosed = CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus);
   const [selectedDivision, setSelectedDivision] = useState(
@@ -83,7 +87,8 @@ export function BracketManager({
   const [showDeleteGroupsConfirm, setShowDeleteGroupsConfirm] = useState(false);
   const [showDeletePrelimConfirm, setShowDeletePrelimConfirm] = useState(false);
   const [showDeleteMainConfirm, setShowDeleteMainConfirm] = useState(false);
-  const [showDeleteLatestRoundConfirm, setShowDeleteLatestRoundConfirm] = useState(false);
+  const [showDeleteLatestRoundConfirm, setShowDeleteLatestRoundConfirm] =
+    useState(false);
   const [showDeleteBracketConfirm, setShowDeleteBracketConfirm] =
     useState(false);
   const [alertDialog, setAlertDialog] = useState<{
@@ -113,7 +118,9 @@ export function BracketManager({
   // 본선 시드 배치 미리보기 상태
   const [seedingGroups, setSeedingGroups] = useState<PreliminaryGroup[]>([]);
   const [allPrelimsDone, setAllPrelimsDone] = useState(false);
-  const [pendingSeedOrder, setPendingSeedOrder] = useState<(string | null)[]>([]);
+  const [pendingSeedOrder, setPendingSeedOrder] = useState<(string | null)[]>(
+    [],
+  );
   const [nextPhaseLabel, setNextPhaseLabel] = useState("");
   // React 18 batching 안전성: ref로 시드 순서를 동기적으로 참조
   const pendingSeedOrderRef = useRef<(string | null)[]>([]);
@@ -140,9 +147,7 @@ export function BracketManager({
         setConfig(configData);
 
         // 조편성은 항상 로드 (예선 유무와 무관)
-        const { data: groupsData } = await getPreliminaryGroups(
-          configData.id,
-        );
+        const { data: groupsData } = await getPreliminaryGroups(configData.id);
         setGroups(groupsData || []);
 
         // 예선 경기는 예선 모드일 때만 로드
@@ -161,9 +166,10 @@ export function BracketManager({
         // 시드 배치 데이터 로딩 조건:
         // 1) 예선 있는 대회에서 본선 미생성 (1R 시드 배치)
         // 2) 본선 매치 있지만 결승 미존재 (2R+ 시드 배치)
-        const hasFinal = (mainData || []).some(m => m.phase === 'FINAL');
+        const hasFinal = (mainData || []).some((m) => m.phase === "FINAL");
         const shouldLoadSeeds =
-          (configData.has_preliminaries && (!mainData || mainData.length === 0)) ||
+          (configData.has_preliminaries &&
+            (!mainData || mainData.length === 0)) ||
           (mainData && mainData.length > 0 && !hasFinal);
 
         if (shouldLoadSeeds) {
@@ -173,16 +179,24 @@ export function BracketManager({
             const teamCount = nextData.teams.length;
             const bracketSize =
               nextData.nextRound === 1
-                ? (teamCount <= 4 ? 4
-                  : teamCount <= 8 ? 8
-                  : teamCount <= 16 ? 16
-                  : teamCount <= 32 ? 32
-                  : teamCount <= 64 ? 64
-                  : 128)
+                ? teamCount <= 4
+                  ? 4
+                  : teamCount <= 8
+                    ? 8
+                    : teamCount <= 16
+                      ? 16
+                      : teamCount <= 32
+                        ? 32
+                        : teamCount <= 64
+                          ? 64
+                          : 128
                 : configData.bracket_size!;
             const totalRounds = Math.log2(bracketSize);
             // 다음 라운드 매치 수
-            const matchesInNextRound = Math.pow(2, totalRounds - nextData.nextRound);
+            const matchesInNextRound = Math.pow(
+              2,
+              totalRounds - nextData.nextRound,
+            );
 
             const virtualGroups: PreliminaryGroup[] = [];
             for (let i = 0; i < matchesInNextRound; i++) {
@@ -300,8 +314,12 @@ export function BracketManager({
   const handleMatchUpdate = useCallback(
     (payload: RealtimeMatchPayload) => {
       // entry_id 변경 감지를 ref로 동기적 비교 (setState 내부가 아닌 외부에서)
-      const prelimTarget = preliminaryMatchesRef.current.find((m) => m.id === payload.id);
-      const mainTarget = mainMatchesRef.current.find((m) => m.id === payload.id);
+      const prelimTarget = preliminaryMatchesRef.current.find(
+        (m) => m.id === payload.id,
+      );
+      const mainTarget = mainMatchesRef.current.find(
+        (m) => m.id === payload.id,
+      );
       const target = prelimTarget || mainTarget;
       const needsRefetch = !!(
         target &&
@@ -407,9 +425,10 @@ export function BracketManager({
     setLoading(true);
     try {
       // 시드 배치(DnD) 경유 → 라운드별 순차 생성
-      const { data, error } = seedOrder.length > 0
-        ? await generateNextRound(config.id, selectedDivision.id, seedOrder)
-        : await generateMainBracket(config.id, selectedDivision.id);
+      const { data, error } =
+        seedOrder.length > 0
+          ? await generateNextRound(config.id, selectedDivision.id, seedOrder)
+          : await generateMainBracket(config.id, selectedDivision.id);
 
       if (error) {
         showError("대진표 생성 실패", error);
@@ -418,9 +437,10 @@ export function BracketManager({
         setPendingSeedOrder([]);
         await loadBracketData();
         setActiveTab("main");
-        const label = data && 'targetRound' in data
-          ? `${data.targetRound}라운드 대진표가 생성되었습니다. (${data.matchCount}경기)`
-          : `본선 대진표가 생성되었습니다. (${data?.bracketSize}강)`;
+        const label =
+          data && "targetRound" in data
+            ? `${data.targetRound}라운드 대진표가 생성되었습니다. (${data.matchCount}경기)`
+            : `본선 대진표가 생성되었습니다. (${data?.bracketSize}강)`;
         showSuccess(label);
       }
     } catch {
@@ -431,11 +451,14 @@ export function BracketManager({
   };
 
   // 시드 배치 미리보기에서 시드 순서 확인 후 생성 요청
-  const handleRequestGenerateMainWithSeeds = useCallback((seedOrder: (string | null)[]) => {
-    pendingSeedOrderRef.current = seedOrder;
-    setPendingSeedOrder(seedOrder);
-    setShowGenerateMainConfirm(true);
-  }, []);
+  const handleRequestGenerateMainWithSeeds = useCallback(
+    (seedOrder: (string | null)[]) => {
+      pendingSeedOrderRef.current = seedOrder;
+      setPendingSeedOrder(seedOrder);
+      setShowGenerateMainConfirm(true);
+    },
+    [],
+  );
 
   // 테스트용: 예선 자동 결과 입력
   const handleAutoFillPreliminary = async () => {
@@ -447,7 +470,9 @@ export function BracketManager({
         showError("자동 입력 실패", error);
       } else {
         await loadBracketData();
-        showSuccess(`예선 ${data?.filledCount}경기 결과가 자동 입력되었습니다.`);
+        showSuccess(
+          `예선 ${data?.filledCount}경기 결과가 자동 입력되었습니다.`,
+        );
       }
     } catch {
       showError("오류", "자동 결과 입력 중 오류가 발생했습니다.");
@@ -461,7 +486,10 @@ export function BracketManager({
     if (!config) return;
     setLoading(true);
     try {
-      const { data, error } = await autoFillMainBracketResults(config.id, phase);
+      const { data, error } = await autoFillMainBracketResults(
+        config.id,
+        phase,
+      );
       if (error) {
         showError("자동 입력 실패", error);
       } else {
@@ -495,7 +523,11 @@ export function BracketManager({
     team2Score: number,
   ) => {
     try {
-      const { error } = await updateMatchResult(matchId, team1Score, team2Score);
+      const { error } = await updateMatchResult(
+        matchId,
+        team1Score,
+        team2Score,
+      );
       if (error) {
         showError("경기 결과 입력 실패", error);
       } else {
@@ -531,7 +563,12 @@ export function BracketManager({
   ) => {
     setDetailMatch(null);
     try {
-      const { error } = await updateMatchResult(matchId, team1Score, team2Score, setsDetail);
+      const { error } = await updateMatchResult(
+        matchId,
+        team1Score,
+        team2Score,
+        setsDetail,
+      );
       if (error) {
         showError("경기 결과 입력 실패", error);
       } else {
@@ -754,7 +791,9 @@ export function BracketManager({
               <SettingsTab
                 config={config}
                 onUpdate={isClosed ? undefined : handleConfigUpdate}
-                onDelete={isClosed ? undefined : () => setShowDeleteBracketConfirm(true)}
+                onDelete={
+                  isClosed ? undefined : () => setShowDeleteBracketConfirm(true)
+                }
               />
             )}
 
@@ -762,21 +801,35 @@ export function BracketManager({
               <GroupsTab
                 groups={groups}
                 hasPreliminary={config.has_preliminaries}
-                onAutoGenerate={isClosed ? undefined : () => {
-                  setAutoGenerateConfirmMessage(
-                    groups.length > 0
-                      ? `자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`
-                      : `자동 조 편성을 하시겠습니까?`,
-                  );
-                  setShowAutoGenerateConfirm(true);
-                }}
-                onGenerateMatches={isClosed ? undefined : () => setShowGeneratePrelimConfirm(true)}
-                onGenerateMainBracket={isClosed ? undefined : (seedOrder: (string | null)[]) => {
-                  pendingSeedOrderRef.current = seedOrder;
-                  setPendingSeedOrder(seedOrder);
-                  setShowGenerateMainConfirm(true);
-                }}
-                onDelete={isClosed ? undefined : () => setShowDeleteGroupsConfirm(true)}
+                onAutoGenerate={
+                  isClosed
+                    ? undefined
+                    : () => {
+                        setAutoGenerateConfirmMessage(
+                          groups.length > 0
+                            ? `자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`
+                            : `자동 조 편성을 하시겠습니까?`,
+                        );
+                        setShowAutoGenerateConfirm(true);
+                      }
+                }
+                onGenerateMatches={
+                  isClosed
+                    ? undefined
+                    : () => setShowGeneratePrelimConfirm(true)
+                }
+                onGenerateMainBracket={
+                  isClosed
+                    ? undefined
+                    : (seedOrder: (string | null)[]) => {
+                        pendingSeedOrderRef.current = seedOrder;
+                        setPendingSeedOrder(seedOrder);
+                        setShowGenerateMainConfirm(true);
+                      }
+                }
+                onDelete={
+                  isClosed ? undefined : () => setShowDeleteGroupsConfirm(true)
+                }
                 onTeamMove={isClosed ? undefined : loadBracketData}
                 onError={(msg) => showError("오류", msg)}
               />
@@ -788,7 +841,9 @@ export function BracketManager({
                 matches={preliminaryMatches}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
                 onAutoFill={isClosed ? undefined : handleAutoFillPreliminary}
-                onDelete={isClosed ? undefined : () => setShowDeletePrelimConfirm(true)}
+                onDelete={
+                  isClosed ? undefined : () => setShowDeletePrelimConfirm(true)
+                }
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={isClosed ? undefined : handleOpenDetail}
@@ -800,19 +855,31 @@ export function BracketManager({
               <MainBracketTab
                 config={config}
                 matches={mainMatches}
-                onGenerateBracket={isClosed ? undefined : () => setShowGenerateMainConfirm(true)}
+                onGenerateBracket={
+                  isClosed ? undefined : () => setShowGenerateMainConfirm(true)
+                }
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
-                onDelete={isClosed ? undefined : () => setShowDeleteMainConfirm(true)}
-                onDeleteLatestRound={isClosed ? undefined : () => setShowDeleteLatestRoundConfirm(true)}
+                onDelete={
+                  isClosed ? undefined : () => setShowDeleteMainConfirm(true)
+                }
+                onDeleteLatestRound={
+                  isClosed
+                    ? undefined
+                    : () => setShowDeleteLatestRoundConfirm(true)
+                }
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={isClosed ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
-                seedingGroups={seedingGroups.length > 0 ? seedingGroups : undefined}
+                seedingGroups={
+                  seedingGroups.length > 0 ? seedingGroups : undefined
+                }
                 allPrelimsDone={allPrelimsDone}
                 nextPhaseLabel={nextPhaseLabel}
-                onGenerateBracketWithSeeds={isClosed ? undefined : handleRequestGenerateMainWithSeeds}
+                onGenerateBracketWithSeeds={
+                  isClosed ? undefined : handleRequestGenerateMainWithSeeds
+                }
                 onRefreshNextRound={isClosed ? undefined : loadBracketData}
               />
             )}
