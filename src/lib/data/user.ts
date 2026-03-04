@@ -41,7 +41,8 @@ export async function getMyTournaments() {
     .from('tournament_entries')
     .select(`
       *,
-      tournament:tournaments(*)
+      tournament:tournaments(*),
+      division:tournament_divisions(name)
     `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
