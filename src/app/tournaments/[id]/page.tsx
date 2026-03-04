@@ -252,7 +252,7 @@ export default async function TournamentDetailPage({ params }: Props) {
                 대진표 보기
               </Link>
             )}
-            {isOrganizer && <TournamentActions tournamentId={tournament.id} />}
+            {isOrganizer && <TournamentActions tournamentId={tournament.id} currentStatus={tournament.status as 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'} />}
           </div>
         </div>
       </div>

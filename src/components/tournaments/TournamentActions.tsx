@@ -3,21 +3,47 @@
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { deleteTournament } from '@/lib/tournaments/actions';
+import { deleteTournament, updateTournamentStatus } from '@/lib/tournaments/actions';
 import Link from 'next/link';
 import { AlertDialog } from '@/components/common/AlertDialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Toast } from '@/components/common/Toast';
+
+type TournamentStatus = 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
+
+const STATUS_LABELS: Record<TournamentStatus, string> = {
+    DRAFT: '준비 중',
+    UPCOMING: '접수 예정',
+    OPEN: '접수 중',
+    CLOSED: '접수 마감',
+    IN_PROGRESS: '진행 중',
+    COMPLETED: '종료',
+    CANCELLED: '취소',
+};
+
+const STATUS_COLORS: Record<TournamentStatus, string> = {
+    DRAFT: 'var(--text-muted)',
+    UPCOMING: '#7c3aed',
+    OPEN: '#059669',
+    CLOSED: '#d97706',
+    IN_PROGRESS: '#2563eb',
+    COMPLETED: 'var(--text-muted)',
+    CANCELLED: '#dc2626',
+};
 
 interface TournamentActionsProps {
     tournamentId: string;
+    currentStatus: TournamentStatus;
 }
 
-export default function TournamentActions({ tournamentId }: TournamentActionsProps) {
+export default function TournamentActions({ tournamentId, currentStatus }: TournamentActionsProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
     const [mounted, setMounted] = useState(false);
-
-    useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
+    const [status, setStatus] = useState<TournamentStatus>(currentStatus);
+    const [statusSaving, setStatusSaving] = useState(false);
+    const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const });
     const [alertDialog, setAlertDialog] = useState<{
         isOpen: boolean;
         title: string;
@@ -27,6 +53,28 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
         title: '',
         message: '',
     });
+
+    useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
+
+    const isDirty = status !== currentStatus;
+
+    const handleStatusSave = async () => {
+        setStatusSaving(true);
+        const result = await updateTournamentStatus(tournamentId, status);
+        setStatusSaving(false);
+
+        if (result.success) {
+            setToast({ isOpen: true, message: '대회 상태가 변경되었습니다.', type: 'success' });
+            router.refresh();
+        } else {
+            setAlertDialog({
+                isOpen: true,
+                title: '변경 실패',
+                message: result.error || '상태 변경에 실패했습니다.',
+            });
+            setStatus(currentStatus); // 롤백
+        }
+    };
 
     const handleDelete = async () => {
         setLoading(true);
@@ -47,35 +95,72 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
     };
 
     return (
-        <div className="flex flex-col sm:flex-row gap-3">
-            <Link
-                href={`/tournaments/${tournamentId}/edit`}
-                className="w-full sm:w-auto bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
-            >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                </svg>
-                수정
-            </Link>
-            <Link
-                href={`/tournaments/new?template=${tournamentId}`}
-                className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
-            >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                </svg>
-                복사
-            </Link>
-            <button
-                onClick={() => setShowDeleteConfirm(true)}
-                disabled={loading}
-                className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-medium transition-all shadow-sm hover:shadow disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-                삭제
-            </button>
+        <>
+            {/* 상태 변경 */}
+            <div className="flex items-center gap-2">
+                <div className="w-36">
+                    <Select value={status} onValueChange={(v) => setStatus(v as TournamentStatus)}>
+                        <SelectTrigger className="h-9 text-sm">
+                            <SelectValue>
+                                <span style={{ color: STATUS_COLORS[status], fontWeight: 600 }}>
+                                    {STATUS_LABELS[status]}
+                                </span>
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(Object.entries(STATUS_LABELS) as [TournamentStatus, string][]).map(([val, label]) => (
+                                <SelectItem key={val} value={val}>
+                                    <span style={{ color: STATUS_COLORS[val] }}>{label}</span>
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </div>
+                <button
+                    onClick={handleStatusSave}
+                    disabled={!isDirty || statusSaving}
+                    className="h-9 px-3 rounded-lg text-sm font-medium transition-all disabled:opacity-40"
+                    style={{
+                        backgroundColor: isDirty ? 'var(--accent-color)' : 'var(--bg-card)',
+                        color: isDirty ? 'var(--bg-primary)' : 'var(--text-muted)',
+                        border: isDirty ? 'none' : '1px solid var(--border-color)',
+                    }}
+                >
+                    {statusSaving ? '저장 중...' : '변경'}
+                </button>
+            </div>
+
+            {/* 수정/복사/삭제 */}
+            <div className="flex flex-col sm:flex-row gap-3">
+                <Link
+                    href={`/tournaments/${tournamentId}/edit`}
+                    className="w-full sm:w-auto bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    수정
+                </Link>
+                <Link
+                    href={`/tournaments/new?template=${tournamentId}`}
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                    복사
+                </Link>
+                <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    disabled={loading}
+                    className="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl font-medium transition-all shadow-sm hover:shadow disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                    삭제
+                </button>
+            </div>
 
             {/* 삭제 확인 모달 */}
             {showDeleteConfirm && mounted && createPortal(
@@ -108,7 +193,13 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
                 document.body
             )}
 
-            {/* Alert Dialog */}
+            <Toast
+                isOpen={toast.isOpen}
+                onClose={() => setToast({ ...toast, isOpen: false })}
+                message={toast.message}
+                type={toast.type}
+                duration={3000}
+            />
             <AlertDialog
                 isOpen={alertDialog.isOpen}
                 onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
@@ -116,6 +207,6 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
                 message={alertDialog.message}
                 type="error"
             />
-        </div>
+        </>
     );
 }
