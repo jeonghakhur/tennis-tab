@@ -19,10 +19,12 @@ const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant; class
 
 interface PageProps {
   params: Promise<{ id: string }>
+  searchParams: Promise<{ divisionId?: string }>
 }
 
-export default async function TournamentBracketPage({ params }: PageProps) {
+export default async function TournamentBracketPage({ params, searchParams }: PageProps) {
   const { id } = await params
+  const { divisionId } = await searchParams
   const supabase = await createClient()
 
   // 대회 정보 조회
@@ -85,6 +87,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       <BracketView
         tournamentId={tournament.id}
         divisions={divisions}
+        initialDivisionId={divisionId}
         currentUserEntryIds={entryIds.length > 0 ? entryIds : undefined}
         matchType={tournament.match_type as MatchType | null}
         teamMatchCount={tournament.team_match_count}

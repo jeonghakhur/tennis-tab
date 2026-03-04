@@ -20,6 +20,7 @@ const CLOSED_TOURNAMENT_STATUSES: TournamentStatus[] = ['COMPLETED', 'CANCELLED'
 interface BracketViewProps {
   tournamentId: string
   divisions: Division[]
+  initialDivisionId?: string
   // 선수용 props (선택적 — 비로그인 시 undefined)
   currentUserEntryIds?: string[]
   matchType?: MatchType | null
@@ -90,11 +91,12 @@ const phaseLabels: Record<MatchPhase, string> = {
   THIRD_PLACE: '3/4위전',
 }
 
-export function BracketView({ tournamentId, divisions, currentUserEntryIds, matchType, teamMatchCount, tournamentStatus }: BracketViewProps) {
+export function BracketView({ tournamentId, divisions, initialDivisionId, currentUserEntryIds, matchType, teamMatchCount, tournamentStatus }: BracketViewProps) {
   const isClosed = CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus)
-  const [selectedDivision, setSelectedDivision] = useState<Division | null>(
-    divisions.length > 0 ? divisions[0] : null
-  )
+  const [selectedDivision, setSelectedDivision] = useState<Division | null>(() => {
+    if (divisions.length === 0) return null
+    return divisions.find((d) => d.id === initialDivisionId) ?? divisions[0]
+  })
   const [config, setConfig] = useState<BracketConfig | null>(null)
   const [groups, setGroups] = useState<PreliminaryGroup[] | null>(null)
   const [matches, setMatches] = useState<BracketMatch[] | null>(null)

@@ -42,7 +42,7 @@ export async function getMyTournaments() {
     .select(`
       *,
       tournament:tournaments(*),
-      division:tournament_divisions(name)
+      division:tournament_divisions(id, name)
     `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })

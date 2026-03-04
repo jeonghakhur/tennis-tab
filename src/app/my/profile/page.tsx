@@ -44,7 +44,7 @@ interface TournamentEntry {
     location: string;
     status: string;
   };
-  division: { name: string } | null;
+  division: { id: string; name: string } | null;
 }
 
 interface BracketMatch {
@@ -896,7 +896,7 @@ export default function MyProfilePage() {
                       <div className="flex items-center gap-3">
                         {(entry.tournament.status === "IN_PROGRESS" || entry.tournament.status === "COMPLETED") && entry.status === "CONFIRMED" && (
                           <Link
-                            href={`/tournaments/${entry.tournament.id}/bracket`}
+                            href={`/tournaments/${entry.tournament.id}/bracket${entry.division ? `?divisionId=${entry.division.id}` : ''}`}
                             className="text-sm font-display tracking-wider px-3 py-1 rounded-lg hover:opacity-90"
                             style={{
                               backgroundColor: "var(--accent-color)",
