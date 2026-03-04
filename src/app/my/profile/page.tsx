@@ -844,19 +844,25 @@ export default function MyProfilePage() {
                         >
                           {entry.tournament.title}
                         </h3>
-                        <div className="flex items-center gap-2 flex-wrap">
+                        <div className="flex items-center gap-2 flex-wrap mb-1">
                           {entry.division && (
                             <Badge variant="info" className="font-display tracking-wider">
                               {entry.division.name}
                             </Badge>
                           )}
-                          <p
-                            className="text-sm"
-                            style={{ color: "var(--text-muted)" }}
-                          >
-                            📍 {entry.tournament.location}
-                          </p>
                         </div>
+                        <p
+                          className="text-sm mb-0.5"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          📅 {formatKoreanDate(entry.tournament.start_date)}
+                        </p>
+                        <p
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          📍 {entry.tournament.location}
+                        </p>
                       </div>
                       <div className="flex flex-col items-end gap-2">
                         <Badge
