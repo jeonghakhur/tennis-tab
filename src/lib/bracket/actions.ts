@@ -724,6 +724,36 @@ export async function getPreliminaryMatches(configId: string) {
  * 4. 전부 완료 시 tournaments.status → 'COMPLETED'
  */
 /**
+ * configId에 해당하는 division의 어워드 전체 삭제
+ * deleteLatestRound / deleteMainBracket 시 stale 어워드 정리용
+ */
+async function deleteAwardsForConfig(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  configId: string
+): Promise<void> {
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id')
+    .eq('id', configId)
+    .single()
+  if (!config) return
+
+  const { data: division } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('tournament_id')
+    .eq('id', config.division_id)
+    .single()
+  if (!division) return
+
+  await supabaseAdmin
+    .from('tournament_awards')
+    .delete()
+    .eq('tournament_id', division.tournament_id)
+    .eq('division_id', config.division_id)
+    .in('award_rank', ['우승', '준우승', '공동3위', '3위'])
+}
+
+/**
  * FINAL/THIRD_PLACE 완료 시 tournament_awards 자동 생성
  * - FINAL: 우승/준우승 INSERT, 3위전 없으면 SEMI 패자 2명 공동3위 INSERT
  * - THIRD_PLACE: 3위 INSERT
@@ -2239,6 +2269,12 @@ export async function deleteLatestRound(configId: string) {
 
   if (deleteError) return { success: false, error: deleteError.message }
 
+  // 결승 라운드가 포함된 경우 어워드 정리 (stale 레코드 방지)
+  const hasFinalsDeleted = toDelete.some(m => m.phase === 'FINAL' || m.phase === 'THIRD_PLACE')
+  if (hasFinalsDeleted) {
+    await deleteAwardsForConfig(supabaseAdmin, configId)
+  }
+
   // 모든 본선 매치가 삭제되면 config 초기화
   const remainingCount = allMainMatches.length - deleteIds.length
   if (remainingCount === 0) {
@@ -2416,6 +2452,9 @@ export async function deleteMainBracket(configId: string) {
     if (error) {
       return { success: false, error: error.message }
     }
+
+    // 본선 전체 삭제 시 어워드도 정리
+    await deleteAwardsForConfig(supabaseAdmin, configId)
 
     const { error: updateError } = await supabaseAdmin
       .from('bracket_configs')
