@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import TournamentForm, { TournamentFormData } from '@/components/tournaments/TournamentForm';
+import TournamentStatusChange from '@/components/tournaments/TournamentStatusChange';
 
 interface Props {
     params: Promise<{ id: string }>;
@@ -63,6 +64,10 @@ export default async function TournamentEditPage({ params }: Props) {
 
     return (
         <div className="max-w-content mx-auto px-4 py-8">
+            <TournamentStatusChange
+                tournamentId={tournament.id}
+                currentStatus={tournament.status}
+            />
             <TournamentForm mode="edit" initialData={formData} />
         </div>
     );
