@@ -453,10 +453,14 @@ export async function getUserEntry(tournamentId: string) {
     try {
         const supabase = await createClient();
 
+        const authFallback = { data: { user: null }, error: null } as const;
         const {
             data: { user },
             error: authError,
-        } = await supabase.auth.getUser();
+        } = await Promise.race([
+            supabase.auth.getUser().catch(() => authFallback),
+            new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
+        ]);
 
         if (authError || !user) {
             return null;

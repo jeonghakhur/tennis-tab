@@ -110,9 +110,10 @@ export default function TournamentEntryActions({
     getUserEntry(tournamentId).then((e) => {
       if (e) {
         setEntry(e as CurrentEntry);
-      } else {
-        setEntry(null);
       }
+      // null 반환 시 서버에서 전달받은 entry 유지
+      // getUserEntry는 auth 오류 시에도 null을 반환하므로,
+      // 정상적으로 받은 currentEntry를 덮어쓰지 않음
     });
   }, [mounted, isLoggedIn, tournamentId]);
 
