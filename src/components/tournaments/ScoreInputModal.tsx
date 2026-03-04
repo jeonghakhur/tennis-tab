@@ -169,6 +169,7 @@ function SimpleScoreInput({
               value={team1Score}
               onChange={(e) => setTeam1Score(e.target.value)}
               placeholder="0"
+              aria-label={`${team1Label} 점수`}
               className="w-20 px-3 py-2 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-center text-lg font-mono"
             />
           </div>
@@ -191,6 +192,7 @@ function SimpleScoreInput({
               value={team2Score}
               onChange={(e) => setTeam2Score(e.target.value)}
               placeholder="0"
+              aria-label={`${team2Label} 점수`}
               className="w-20 px-3 py-2 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-center text-lg font-mono"
             />
           </div>

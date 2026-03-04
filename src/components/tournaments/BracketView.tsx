@@ -752,6 +752,9 @@ function MatchCard({
             : 'bg-(--bg-secondary) border border-(--border-color)'
       }`}
       onClick={handleClick}
+      role={canInputScore ? 'button' : undefined}
+      tabIndex={canInputScore ? 0 : undefined}
+      onKeyDown={canInputScore ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } } : undefined}
     >
       <div className="px-4 py-3 space-y-1.5">
         {/* 매치 번호 */}
