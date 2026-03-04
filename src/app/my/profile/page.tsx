@@ -844,19 +844,6 @@ export default function MyProfilePage() {
                         >
                           {entry.tournament.title}
                         </h3>
-                        <div className="flex items-center gap-2 flex-wrap mb-1">
-                          {entry.division && (
-                            <Badge variant="info" className="font-display tracking-wider">
-                              {entry.division.name}
-                            </Badge>
-                          )}
-                        </div>
-                        <p
-                          className="text-sm mb-0.5"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          📅 {formatKoreanDate(entry.tournament.start_date)}
-                        </p>
                         <p
                           className="text-sm"
                           style={{ color: "var(--text-muted)" }}
@@ -886,15 +873,26 @@ export default function MyProfilePage() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span
-                        className="text-sm"
-                        style={{ color: "var(--text-muted)" }}
-                      >
-                        신청일:{" "}
-                        {/* suppressHydrationWarning */ new Date(entry.created_at).toLocaleDateString(
-                          "ko-KR",
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {entry.division && (
+                          <Badge variant="info" className="font-display tracking-wider">
+                            {entry.division.name}
+                          </Badge>
                         )}
-                      </span>
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          신청일:{" "}
+                          {/* suppressHydrationWarning */ new Date(entry.created_at).toLocaleDateString("ko-KR")}
+                        </span>
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          시합일: {formatKoreanDate(entry.tournament.start_date)}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-3">
                         {(entry.tournament.status === "IN_PROGRESS" || entry.tournament.status === "COMPLETED") && entry.status === "CONFIRMED" && (
                           <Link
