@@ -44,7 +44,7 @@ interface TournamentEntry {
     location: string;
     status: string;
   };
-  division: { id: string; name: string } | null;
+  division: { id: string; name: string; bracket_configs: { id: string }[] } | null;
 }
 
 interface BracketMatch {
@@ -894,18 +894,30 @@ export default function MyProfilePage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        {(entry.tournament.status === "IN_PROGRESS" || entry.tournament.status === "COMPLETED") && entry.status === "CONFIRMED" && (
-                          <Link
-                            href={`/tournaments/${entry.tournament.id}/bracket${entry.division ? `?divisionId=${entry.division.id}` : ''}`}
-                            className="text-sm font-display tracking-wider px-3 py-1 rounded-lg hover:opacity-90"
-                            style={{
-                              backgroundColor: "var(--accent-color)",
-                              color: "var(--bg-primary)",
-                            }}
-                          >
-                            {entry.tournament.status === "COMPLETED" ? "대진표/결과 보기" : "대진표 보기"}
-                          </Link>
-                        )}
+                        {(entry.tournament.status === "IN_PROGRESS" || entry.tournament.status === "COMPLETED") && entry.status === "CONFIRMED" && (() => {
+                          const hasBracket = (entry.division?.bracket_configs?.length ?? 0) > 0;
+                          const label = entry.tournament.status === "COMPLETED" ? "대진표/결과 보기" : "대진표 보기";
+                          if (hasBracket) {
+                            return (
+                              <Link
+                                href={`/tournaments/${entry.tournament.id}/bracket${entry.division ? `?divisionId=${entry.division.id}` : ''}`}
+                                className="text-sm font-display tracking-wider px-3 py-1 rounded-lg hover:opacity-90"
+                                style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                              >
+                                {label}
+                              </Link>
+                            );
+                          }
+                          return (
+                            <span
+                              className="text-sm font-display tracking-wider px-3 py-1 rounded-lg opacity-40 cursor-not-allowed"
+                              style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-muted)" }}
+                              title="대진표가 아직 작성되지 않았습니다"
+                            >
+                              {label}
+                            </span>
+                          );
+                        })()}
                         <Link
                           href={`/tournaments/${entry.tournament.id}`}
                           className="text-sm font-display tracking-wider hover:underline"
