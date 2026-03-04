@@ -67,6 +67,7 @@ export async function handleViewAwards(
       playerName,
       year,
       rank,
+      competitionSearch: entities.tournament_name,
       userId: entities.scope === 'my' ? userId : undefined,
     })
 

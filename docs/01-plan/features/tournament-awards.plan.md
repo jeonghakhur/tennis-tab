@@ -77,19 +77,19 @@
 ## 기능 범위
 
 ### Must Have (Phase 1 — MVP)
-- [ ] `tournament_awards` 테이블 + RLS + 마이그레이션
-- [ ] 레거시 data import 스크립트 (429건)
-- [ ] `/awards` 명예의 전당 페이지 (필터: 연도, 대회명, 부, 순위)
-- [ ] 프로필 `awards` 탭 — 이름 자동 조회 + 클레임 확인 UI
-- [ ] `src/lib/supabase/types.ts` 타입 추가
+- [x] `tournament_awards` 테이블 + RLS + 마이그레이션
+- [x] 레거시 data import 스크립트 (429건)
+- [x] `/awards` 명예의 전당 페이지 (필터: 연도, 대회명, 부, 순위)
+- [x] 프로필 `awards` 탭 — 이름 자동 조회 + 클레임 확인 UI
+- [x] `src/lib/supabase/types.ts` 타입 추가
 
 ### Should Have (Phase 1 후반)
-- [ ] 클럽 상세 `awards` 탭 — 클럽명 기반 실적 표시
-- [ ] AI 채팅 `VIEW_RESULTS` 핸들러에 awards 조회 통합
-- [ ] 관리자 입상 기록 편집 UI (`/admin/awards`)
+- [x] 클럽 상세 `awards` 탭 — 클럽명 기반 실적 표시
+- [x] AI 채팅 — `VIEW_AWARDS` 별도 intent로 구현 (`VIEW_RESULTS` 확장 대신)
+- [x] ~~관리자 입상 기록 편집 UI (`/admin/awards`)~~ — 프론트 클레임 UI로 대체, 별도 관리 불필요
 
 ### Could Have (Phase 2)
-- [ ] 대회 FINAL 매치 완료 → `tournament_awards` 자동 생성
+- [ ] 대회 FINAL 매치 완료 → `tournament_awards` 자동 생성 (`auto-award-registration.plan.md` 참조)
 - [ ] 랭킹 포인트 시스템 (우승 3점, 준우승 2점, 3위 1점)
 - [ ] ClubMemberRole ENUM drift 정리 마이그레이션
 
@@ -282,8 +282,8 @@ src/lib/chat/
 
 ## 성공 기준
 
-- [ ] 429건 import 완료 (0 loss, legacy_id 중복 없음)
-- [ ] `/awards` 페이지 연도·부·순위 필터 동작
-- [ ] 프로필에서 내 입상 기록 이름 자동 조회 + 클레임
-- [ ] 클럽 상세 페이지 실적 섹션 표시
-- [ ] AI 채팅 "입상 기록 알려줘" 응답
+- [x] 429건 import 완료 (0 loss, legacy_id 중복 없음)
+- [x] `/awards` 페이지 연도·부·순위 필터 동작
+- [x] 프로필에서 내 입상 기록 이름 자동 조회 + 클레임
+- [x] 클럽 상세 페이지 실적 섹션 표시
+- [x] AI 채팅 "입상 기록 알려줘" 응답 (`VIEW_AWARDS` intent)

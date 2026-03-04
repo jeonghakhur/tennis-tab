@@ -10,6 +10,7 @@ type Award = Database['public']['Tables']['tournament_awards']['Row']
 interface GetAwardsOptions {
   year?: number
   competition?: string
+  competitionSearch?: string  // ilike 부분 검색 (AI 채팅용)
   rank?: string
   playerName?: string
   clubId?: string
@@ -31,6 +32,7 @@ export async function getAwards(opts: GetAwardsOptions = {}): Promise<Award[]> {
 
   if (opts.year) query = query.eq('year', opts.year)
   if (opts.competition) query = query.eq('competition', opts.competition)
+  if (opts.competitionSearch) query = query.ilike('competition', `%${opts.competitionSearch}%`)
   if (opts.rank) query = query.eq('award_rank', opts.rank)
   if (opts.playerName) query = query.contains('players', [opts.playerName])
   if (opts.clubId) query = query.eq('club_id', opts.clubId)

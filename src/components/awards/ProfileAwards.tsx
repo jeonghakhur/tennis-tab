@@ -68,6 +68,11 @@ export function ProfileAwards({ awards, myAwardIds: initialMyAwardIds, userId }:
     )
   }
 
+  // 통계
+  const wins = awards.filter((a) => a.award_rank === '우승').length
+  const runnerUps = awards.filter((a) => a.award_rank === '준우승').length
+  const thirds = awards.filter((a) => a.award_rank === '공동3위' || a.award_rank === '3위').length
+
   // 연도별 그룹핑
   const byYear = awards.reduce<Record<number, Award[]>>((acc, a) => {
     if (!acc[a.year]) acc[a.year] = []
@@ -77,6 +82,26 @@ export function ProfileAwards({ awards, myAwardIds: initialMyAwardIds, userId }:
 
   return (
     <>
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {[
+          { label: '우승', value: wins, variant: 'warning' as const },
+          { label: '준우승', value: runnerUps, variant: 'secondary' as const },
+          { label: '3위', value: thirds, variant: 'info' as const },
+        ].map(({ label, value, variant }) => (
+          <div
+            key={label}
+            className="rounded-xl p-3 text-center"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+          >
+            <p className="text-2xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
+              {value}
+            </p>
+            <Badge variant={variant}>{label}</Badge>
+          </div>
+        ))}
+      </div>
+
       <div className="space-y-8">
         {Object.entries(byYear)
           .sort(([a], [b]) => Number(b) - Number(a))

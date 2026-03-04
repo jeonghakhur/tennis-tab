@@ -1,9 +1,12 @@
+import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { AwardsFilters } from '@/components/awards/AwardsFilters'
 import { AwardsList } from '@/components/awards/AwardsList'
 import { AwardsAdminBar } from '@/components/awards/AwardsAdminBar'
 import { getAwards, getAwardsFilterOptions, getTournamentsForAwards, getClubsForAwards } from '@/lib/awards/actions'
 import { getCurrentUser } from '@/lib/auth/actions'
+
+export const metadata: Metadata = { title: '명예의 전당 | Tennis Tab' }
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>

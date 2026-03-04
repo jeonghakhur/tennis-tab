@@ -16,6 +16,8 @@ interface Props {
 }
 
 export function ClubAwards({ awards }: Props) {
+  const wins = awards.filter((a) => a.award_rank === '우승').length
+
   if (awards.length === 0) {
     return (
       <div
@@ -38,6 +40,9 @@ export function ClubAwards({ awards }: Props) {
 
   return (
     <div className="space-y-8">
+      <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+        총 {awards.length}건 · 우승 {wins}회
+      </p>
       {Object.entries(byYear)
         .sort(([a], [b]) => Number(b) - Number(a))
         .map(([year, yearAwards]) => {
