@@ -56,7 +56,16 @@ THIRD_PLACE 완료
 - [x] 결과 수정 시 DELETE 후 재생성 (결과 수정 대응)
 - [x] 3위전 없는 대회: SEMI 패자 2명 → 공동3위 자동 처리
 - [x] 개인전/복식/단체전 players 배열 변환
-- [ ] `supabase/migrations/16_auto_award_trigger.sql` — DELETE+INSERT 방식으로 UNIQUE 제약 불필요
+- [x] `supabase/migrations/16_auto_award_trigger.sql` — DELETE+INSERT 방식으로 UNIQUE 제약 불필요 (마이그레이션 불필요)
+
+## 검증 결과 (2026-03-04)
+제8회 마포구체육회장기 테니스대회 국화부(INDIVIDUAL_DOUBLES, 3위전 없음)로 직접 검증:
+- 우승: 김태윤/장영숙 (테니스마인드) ✅
+- 준우승: 조재헌/유병준 (태영회) ✅
+- 공동3위: 김권영/오세태 (불금테) ✅
+- 공동3위: 이헌/김성수 (건우회) ✅
+
+복식 `partner_data.name` 추출, SEMI 패자 자동 공동3위, DELETE+INSERT 모두 정상 동작.
 
 ## 우선순위
 ~~낮음~~ → **완료** (2026-03-04)
