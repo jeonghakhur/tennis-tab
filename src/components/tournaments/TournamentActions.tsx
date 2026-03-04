@@ -1,7 +1,8 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { deleteTournament } from '@/lib/tournaments/actions';
 import Link from 'next/link';
 import { AlertDialog } from '@/components/common/AlertDialog';
@@ -14,6 +15,9 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => { setMounted(true); return () => setMounted(false); }, []);
     const [alertDialog, setAlertDialog] = useState<{
         isOpen: boolean;
         title: string;
@@ -74,8 +78,8 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
             </button>
 
             {/* 삭제 확인 모달 */}
-            {showDeleteConfirm && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            {showDeleteConfirm && mounted && createPortal(
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
                     <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
                         <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                             대회 삭제
@@ -100,7 +104,8 @@ export default function TournamentActions({ tournamentId }: TournamentActionsPro
                             </button>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
 
             {/* Alert Dialog */}
