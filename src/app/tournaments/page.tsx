@@ -10,9 +10,13 @@ const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
 export default async function TournamentsPage() {
   const supabase = await createClient();
 
-  // 현재 사용자 확인 + 대회 목록 병렬 조회
+  // 현재 사용자 확인 + 대회 목록 병렬 조회 (auth 3초 타임아웃: hang 방지)
+  const authFallback = { data: { user: null } } as const;
   const [{ data: { user } }, { data: tournaments, error }] = await Promise.all([
-    supabase.auth.getUser(),
+    Promise.race([
+      supabase.auth.getUser().catch(() => authFallback),
+      new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
+    ]),
     supabase
       .from("tournaments")
       .select("id, title, status, start_date, end_date, location, poster_url")

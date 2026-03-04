@@ -20,10 +20,14 @@ export default async function TournamentDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // 현재 사용자 정보 가져오기
+  // 현재 사용자 정보 가져오기 (3초 타임아웃: 네트워크 지연 시 hang 방지)
+  const fallback = { data: { user: null } } as const;
   const {
     data: { user },
-  } = await supabase.auth.getUser();
+  } = await Promise.race([
+    supabase.auth.getUser().catch(() => fallback),
+    new Promise<typeof fallback>((resolve) => setTimeout(() => resolve(fallback), 3000)),
+  ]);
 
   const { data: tournament, error } = await supabase
     .from("tournaments")
