@@ -604,7 +604,7 @@ export default function MyProfilePage() {
                     : "var(--text-muted)",
               }}
             >
-              경기 결과 {!matchesLoading && `(${matches.length})`}
+              내 경기 {!matchesLoading && `(${matches.length})`}
             </button>
             <button
               onClick={() => setActiveTab("awards")}
@@ -968,7 +968,7 @@ export default function MyProfilePage() {
             )
           )}
 
-          {/* 경기 결과 탭 */}
+          {/* 내 경기 탭 */}
           {activeTab === "matches" && (
             matchesLoading ? (
               <MatchListSkeleton />
