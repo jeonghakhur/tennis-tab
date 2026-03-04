@@ -220,14 +220,13 @@ export async function deleteAccount() {
 export async function getCurrentUser() {
   const supabase = await createClient()
 
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser()
-
-  if (error || !user) {
-    return null
-  }
+  // 네트워크 오류(fetch failed) 또는 5초 이상 응답 없을 때 미인증으로 처리
+  const authData = await Promise.race([
+    supabase.auth.getUser().catch(() => null),
+    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+  ])
+  if (!authData || authData.error || !authData.data.user) return null
+  const user = authData.data.user
 
   // profiles 테이블에서 프로필 정보 가져오기
   const { data: profile } = await supabase

@@ -116,7 +116,13 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
     setLoading(true)
 
     try {
-      const data = await getBracketData(selectedDivision.id)
+      // 10초 타임아웃: Server Action hang 시 무한 스피너 방지
+      const data = await Promise.race([
+        getBracketData(selectedDivision.id),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('timeout')), 10000)
+        ),
+      ])
       setConfig(data.config)
       setGroups(data.groups)
       setMatches(data.matches)
@@ -128,7 +134,7 @@ export function BracketView({ tournamentId, divisions, currentUserEntryIds, matc
         setActiveTab('main')
       }
     } catch {
-      // 데이터 로딩 실패 — 빈 상태 유지
+      // 데이터 로딩 실패 또는 타임아웃 — 빈 상태 유지
     } finally {
       setLoading(false)
     }
