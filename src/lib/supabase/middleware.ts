@@ -29,10 +29,12 @@ export async function updateSession(request: NextRequest) {
   )
 
   // 세션 갱신 (만료 체크)
-  // Edge 런타임 sandbox에서 fetch 실패 시(네트워크 일시 오류) 에러 전파 방지
-  const { data: { user } } = await supabase.auth.getUser().catch(() => ({
-    data: { user: null },
-  }))
+  // .catch()만으로는 네트워크 지연(hang)을 처리할 수 없으므로 Promise.race + 3초 timeout 사용
+  const fallback = { data: { user: null } } as const
+  const { data: { user } } = await Promise.race([
+    supabase.auth.getUser().catch(() => fallback),
+    new Promise<typeof fallback>((resolve) => setTimeout(() => resolve(fallback), 3000)),
+  ])
 
   // 로그인이 필요한 페이지 보호
   const protectedPaths = ['/my', '/admin']
