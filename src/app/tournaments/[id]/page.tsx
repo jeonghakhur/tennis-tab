@@ -161,7 +161,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   })();
 
   return (
-    <div className="max-w-content mx-auto px-4 py-8">
+    <div className="max-w-content mx-auto px-4 py-8 pb-24 lg:pb-8">
       {/* 대회 상태 변경 실시간 감지 */}
       <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
       {/* 결제 완료 토스트 (?paid=1 쿼리 감지) */}
@@ -360,6 +360,14 @@ export default async function TournamentDetailPage({ params }: Props) {
                 {tournament.bank_account || "-"}
               </p>
             </div>
+          </div>
+
+          {/* 모바일 전용 지도 - 대회 요강 위에 표시 */}
+          <div className="lg:hidden">
+            <TournamentMap
+              address={tournament.address}
+              location={tournament.location}
+            />
           </div>
 
           {/* 대회 요강 */}
@@ -562,8 +570,8 @@ export default async function TournamentDetailPage({ params }: Props) {
           )}
         </div>
 
-        {/* Sidebar */}
-        <div className="space-y-6">
+        {/* Sidebar - 데스크탑에서만 표시, 모바일은 플로팅 바로 대체 */}
+        <div className="hidden lg:block space-y-6">
           <div className="sticky top-24 space-y-6">
             {/* Entry Actions */}
             <TournamentEntryActionsNew

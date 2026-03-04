@@ -304,8 +304,105 @@ export default function TournamentEntryActions({
     canAcceptEntry &&
     !["CANCELLED", "REJECTED"].includes(entry.status);
 
+  // 모바일 플로팅 바 내용 결정
+  const renderMobileFloating = () => {
+    if (!isLoggedIn) {
+      return (
+        <button
+          onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)}
+          className="flex-1 rounded-xl py-3 font-medium transition-all hover:opacity-80"
+          style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+        >
+          로그인하기
+        </button>
+      );
+    }
+
+    if (entry?.id) {
+      const isActive = !["CANCELLED", "REJECTED"].includes(entry.status);
+
+      if (entryFee > 0 && entry.payment_status === "PENDING" && isActive) {
+        return (
+          <>
+            <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>
+              {getStatusBadge(entry.status)}
+            </span>
+            <button
+              onClick={() => router.push(`/tournaments/${tournamentId}/payment?entryId=${entry.id}`)}
+              className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90"
+              style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+            >
+              참가비 결제하기
+            </button>
+          </>
+        );
+      }
+
+      if (canEditOrCancel) {
+        return (
+          <>
+            <button
+              onClick={() => setShowEditForm(true)}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 hover:opacity-80"
+              style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+            >
+              수정하기
+            </button>
+            <button
+              onClick={() => setShowCancelModal(true)}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 hover:opacity-80"
+              style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+            >
+              {isSubmitting ? "처리 중..." : "취소하기"}
+            </button>
+          </>
+        );
+      }
+
+      // 상태만 표시 (수정/취소 불가)
+      if (isActive) {
+        return (
+          <div className="flex-1 flex items-center justify-center gap-3">
+            {getStatusBadge(entry.status)}
+            <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+              신청 완료
+            </span>
+          </div>
+        );
+      }
+
+      return null;
+    }
+
+    if (canAcceptEntry) {
+      return (
+        <button
+          onClick={() => setShowEntryForm(true)}
+          className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90"
+          style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+        >
+          참가 신청하기
+        </button>
+      );
+    }
+
+    return (
+      <span className="flex-1 text-center text-sm py-3" style={{ color: "var(--text-muted)" }}>
+        {tournamentStatus === "UPCOMING" && "접수 예정"}
+        {tournamentStatus === "CLOSED" && "접수 마감"}
+        {tournamentStatus === "IN_PROGRESS" && "대회 진행 중"}
+        {tournamentStatus === "COMPLETED" && "종료된 대회"}
+        {tournamentStatus === "CANCELLED" && "취소된 대회"}
+        {tournamentStatus === "DRAFT" && "준비 중"}
+      </span>
+    );
+  };
+
   return (
     <>
+      {/* 데스크탑 카드 UI */}
       <div
         className="rounded-2xl p-6 shadow-lg"
         style={{
@@ -545,6 +642,38 @@ export default function TournamentEntryActions({
           </div>
         )}
       </div>
+
+      {/* 모바일 플로팅 바 - lg 이상 숨김, CANCELLED/REJECTED 상태에서는 불필요 */}
+      {mounted && !(entry?.id && ["CANCELLED", "REJECTED"].includes(entry.status)) && createPortal(
+        <div
+          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-safe"
+          style={{
+            backgroundColor: "var(--bg-secondary)",
+            borderTop: "1px solid var(--border-color)",
+            paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
+            paddingTop: "12px",
+          }}
+        >
+          {/* 주최자 마감 버튼 */}
+          {isOrganizer && tournamentStatus === "OPEN" ? (
+            <div className="flex gap-2">
+              {renderMobileFloating()}
+              <button
+                onClick={() => setShowCloseModal(true)}
+                disabled={isSubmitting}
+                className="flex-1 rounded-xl py-3 font-medium bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50"
+              >
+                접수 마감
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              {renderMobileFloating()}
+            </div>
+          )}
+        </div>,
+        document.body,
+      )}
 
       {/* 취소 확인 모달 */}
       {showCancelModal &&

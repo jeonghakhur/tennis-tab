@@ -321,7 +321,7 @@ export function EntriesManager({
           e.player_name?.toLowerCase().includes(query) ||
           e.profiles?.name?.toLowerCase().includes(query) ||
           e.profiles?.email?.toLowerCase().includes(query) ||
-          e.phone?.includes(query) ||
+          (e.phone || e.profiles?.phone)?.includes(query) ||
           e.club_name?.toLowerCase().includes(query)
       )
     }
@@ -696,7 +696,7 @@ export function EntriesManager({
                             </p>
                             <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
                               <Phone className="w-4 h-4" />
-                              {entry.phone}
+                              {entry.phone || entry.profiles?.phone || '-'}
                             </div>
                           </div>
                           {/* Partner/Team info */}

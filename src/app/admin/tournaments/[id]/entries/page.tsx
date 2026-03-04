@@ -4,6 +4,7 @@ import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { EntriesManager } from '@/components/admin/EntriesManager'
 import { TournamentStatusSelector } from '@/components/admin/TournamentStatusSelector'
+import { decryptProfile } from '@/lib/crypto/profileCrypto'
 import Link from 'next/link'
 import { ChevronLeft, Calendar, MapPin, Users, ListTree } from 'lucide-react'
 
@@ -55,7 +56,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
   }
 
   // 참가 신청 조회 (참가 신청 순 고정: created_at → id)
-  const { data: entries } = await supabase
+  const { data: rawEntries } = await supabase
     .from('tournament_entries')
     .select(`
       *,
@@ -65,6 +66,12 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
     .eq('tournament_id', id)
     .order('created_at', { ascending: true })
     .order('id', { ascending: true })
+
+  // profiles.phone / birth_year 복호화
+  const entries = (rawEntries ?? []).map((entry) => ({
+    ...entry,
+    profiles: entry.profiles ? decryptProfile(entry.profiles) : null,
+  }))
 
   const statusConfig: Record<string, { label: string; className: string }> = {
     DRAFT: { label: '초안', className: 'bg-gray-500/20 text-gray-400' },
@@ -120,7 +127,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
               <div className="flex items-center gap-1.5">
                 <Users className="w-4 h-4" />
                 <span>
-                  총 {entries?.length ?? 0}팀 신청
+                  총 {entries.length}팀 신청
                 </span>
               </div>
             </div>
@@ -164,7 +171,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
       {/* Entries Manager */}
       <EntriesManager
         tournamentId={tournament.id}
-        entries={entries ?? []}
+        entries={entries}
         divisions={tournament.tournament_divisions ?? []}
       />
     </div>
