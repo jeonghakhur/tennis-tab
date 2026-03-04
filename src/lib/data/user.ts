@@ -42,7 +42,7 @@ export async function getMyTournaments() {
     .select(`
       *,
       tournament:tournaments(*),
-      division:tournament_divisions(id, name, bracket_configs(id))
+      division:tournament_divisions(id, name)
     `)
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
@@ -51,7 +51,28 @@ export async function getMyTournaments() {
     return { error: error.message }
   }
 
-  return { entries }
+  // 대진표 존재 여부: division_id 목록으로 bracket_configs 별도 조회 (nested join 미신뢰)
+  const divisionIds = entries
+    .map((e) => (e.division as { id: string } | null)?.id)
+    .filter((id): id is string => Boolean(id))
+
+  const bracketDivisionSet = new Set<string>()
+  if (divisionIds.length > 0) {
+    const { data: bracketRows } = await supabase
+      .from('bracket_configs')
+      .select('division_id')
+      .in('division_id', divisionIds)
+    bracketRows?.forEach((r) => bracketDivisionSet.add(r.division_id))
+  }
+
+  const enrichedEntries = entries.map((e) => ({
+    ...e,
+    hasBracket: (e.division as { id: string } | null)?.id
+      ? bracketDivisionSet.has((e.division as { id: string }).id)
+      : false,
+  }))
+
+  return { entries: enrichedEntries }
 }
 
 // Supabase join 결과 타입 (1:1 관계는 object로 반환)

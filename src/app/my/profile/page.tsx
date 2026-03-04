@@ -44,7 +44,8 @@ interface TournamentEntry {
     location: string;
     status: string;
   };
-  division: { id: string; name: string; bracket_configs: { id: string }[] } | null;
+  division: { id: string; name: string } | null;
+  hasBracket: boolean;
 }
 
 interface BracketMatch {
@@ -895,9 +896,8 @@ export default function MyProfilePage() {
                       </div>
                       <div className="flex items-center gap-3">
                         {(entry.tournament.status === "IN_PROGRESS" || entry.tournament.status === "COMPLETED") && entry.status === "CONFIRMED" && (() => {
-                          const hasBracket = (entry.division?.bracket_configs?.length ?? 0) > 0;
                           const label = entry.tournament.status === "COMPLETED" ? "대진표/결과 보기" : "대진표 보기";
-                          if (hasBracket) {
+                          if (entry.hasBracket) {
                             return (
                               <Link
                                 href={`/tournaments/${entry.tournament.id}/bracket${entry.division ? `?divisionId=${entry.division.id}` : ''}`}
