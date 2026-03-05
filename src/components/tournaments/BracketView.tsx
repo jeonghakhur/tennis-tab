@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Trophy, Users, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
 import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
 import { useMatchesRealtime, type RealtimeMatchPayload } from '@/lib/realtime/useMatchesRealtime'
+import { useBracketConfigRealtime } from '@/lib/realtime/useBracketConfigRealtime'
 import { ScoreInputModal } from '@/components/tournaments/ScoreInputModal'
 import { Toast } from '@/components/common/AlertDialog'
 import type { BracketStatus, MatchPhase, MatchStatus, MatchType, SetDetail, TournamentStatus } from '@/lib/supabase/types'
@@ -34,6 +35,8 @@ interface BracketConfig {
   third_place_match: boolean
   bracket_size: number | null
   status: BracketStatus
+  active_phase: string | null
+  active_round: number | null
 }
 
 interface GroupTeam {
@@ -223,6 +226,28 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
     enabled: !!config?.id,
   })
 
+  // bracket_config active_phase/active_round 변경 → 실시간 반영
+  const configIds = useMemo(() => (config?.id ? [config.id] : []), [config?.id])
+  useBracketConfigRealtime({
+    configIds,
+    onConfigChange: (_configId, activePhase, activeRound) => {
+      setConfig((c) => c ? { ...c, active_phase: activePhase, active_round: activeRound } : c)
+    },
+    enabled: !isClosed && !!config?.id,
+  })
+
+  // 경기별 점수 입력 활성화 여부 — 관리자가 설정한 active_phase/active_round 기준
+  const isMatchInProgress = useCallback((match: BracketMatch): boolean => {
+    const activePhase = config?.active_phase
+    if (!activePhase) return false
+    if (activePhase === 'PRELIMINARY') return match.phase === 'PRELIMINARY'
+    if (activePhase === 'MAIN') {
+      const isMainPhase = match.phase !== 'PRELIMINARY'
+      return isMainPhase && (config.active_round === null || match.round_number === config.active_round)
+    }
+    return false
+  }, [config])
+
   // 선수 점수 입력 처리
   const handleScoreSubmit = async (team1Score: number, team2Score: number, setsDetail?: SetDetail[]) => {
     if (!scoreModalMatch) return
@@ -325,6 +350,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               matches={preliminaryMatches}
               currentUserEntryIds={currentUserEntryIds}
               onScoreInput={isClosed ? undefined : setScoreModalMatch}
+              isMatchInProgress={isMatchInProgress}
             />
           ) : (
             <MainBracketView
@@ -332,6 +358,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               matches={mainMatches}
               currentUserEntryIds={currentUserEntryIds}
               onScoreInput={isClosed ? undefined : setScoreModalMatch}
+              isMatchInProgress={isMatchInProgress}
             />
           )}
         </>
@@ -368,11 +395,13 @@ function PreliminaryView({
   matches,
   currentUserEntryIds,
   onScoreInput,
+  isMatchInProgress,
 }: {
   groups: PreliminaryGroup[]
   matches: BracketMatch[]
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
+  isMatchInProgress?: (match: BracketMatch) => boolean
 }) {
   if (groups.length === 0) {
     return (
@@ -476,6 +505,7 @@ function PreliminaryView({
                   match={match}
                   currentUserEntryIds={currentUserEntryIds}
                   onScoreInput={onScoreInput}
+                  isMatchInProgress={isMatchInProgress}
                 />
               ))}
             </div>
@@ -494,11 +524,13 @@ function MainBracketView({
   matches,
   currentUserEntryIds,
   onScoreInput,
+  isMatchInProgress,
 }: {
   config: BracketConfig
   matches: BracketMatch[]
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
+  isMatchInProgress?: (match: BracketMatch) => boolean
 }) {
   // 라운드별로 그룹화
   const matchesByPhase = useMemo(() => {
@@ -670,6 +702,7 @@ function MainBracketView({
               match={match}
               currentUserEntryIds={currentUserEntryIds}
               onScoreInput={onScoreInput}
+              isMatchInProgress={isMatchInProgress}
             />
           ))}
         </div>
@@ -699,17 +732,23 @@ function MatchCard({
   match,
   currentUserEntryIds,
   onScoreInput,
+  isMatchInProgress,
 }: {
   match: BracketMatch
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
+  isMatchInProgress?: (match: BracketMatch) => boolean
 }) {
   const isCompleted = match.status === 'COMPLETED'
   const isBye = match.status === 'BYE'
 
   const isMyMatch = isMyEntry(match.team1_entry_id, currentUserEntryIds) || isMyEntry(match.team2_entry_id, currentUserEntryIds)
-  const canInputScore = isMyMatch && (match.status === 'SCHEDULED' || match.status === 'COMPLETED')
+  // isMatchInProgress: 관리자가 활성화한 라운드에 해당하는 경기만 점수 입력 가능
+  const inProgress = isMatchInProgress?.(match) ?? false
+  const canInputScore = isMyMatch
+    && (match.status === 'SCHEDULED' || match.status === 'COMPLETED')
     && match.team1_entry_id && match.team2_entry_id
+    && inProgress
 
   const team1Text = teamName(match.team1)
   const team2Text = teamName(match.team2)
@@ -730,12 +769,6 @@ function MatchCard({
     )
   }
 
-  const handleClick = () => {
-    if (canInputScore && onScoreInput) {
-      onScoreInput(match)
-    }
-  }
-
   const team1Color = team1IsMe
     ? 'text-(--accent-color) font-bold'
     : team1IsWinner
@@ -752,17 +785,11 @@ function MatchCard({
     <div
       className={`rounded-xl overflow-hidden transition-all ${
         isMyMatch
-          ? canInputScore
-            ? 'border-2 border-(--accent-color) bg-(--accent-color)/5 cursor-pointer hover:bg-(--accent-color)/10 active:scale-[0.99]'
-            : 'border-2 border-(--accent-color) bg-(--accent-color)/5'
+          ? 'border-2 border-(--accent-color) bg-(--accent-color)/5'
           : isCompleted
             ? 'bg-emerald-500/5 border border-emerald-500/20'
             : 'bg-(--bg-secondary) border border-(--border-color)'
       }`}
-      onClick={handleClick}
-      role={canInputScore ? 'button' : undefined}
-      tabIndex={canInputScore ? 0 : undefined}
-      onKeyDown={canInputScore ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleClick() } } : undefined}
     >
       <div className="px-4 py-3 space-y-1.5">
         {/* 매치 번호 */}
@@ -802,6 +829,21 @@ function MatchCard({
               .filter(Boolean)
               .join(' | ')}
           </span>
+        </div>
+      )}
+
+      {/* 결과 입력 버튼 — 내 경기 + 관리자가 활성화한 라운드에만 표시 */}
+      {canInputScore && onScoreInput && (
+        <div className="border-t border-(--accent-color)/20 px-4 py-2">
+          <button
+            type="button"
+            onClick={() => onScoreInput(match)}
+            aria-label={`${match.match_number}번 경기 결과 입력`}
+            className="w-full text-sm font-display tracking-wider py-1.5 rounded-lg hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+          >
+            결과 입력
+          </button>
         </div>
       )}
     </div>

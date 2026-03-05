@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Trophy, Save, AlertTriangle, RefreshCw } from "lucide-react";
+import { Trophy, Save, AlertTriangle } from "lucide-react";
 import { MatchRow } from "./MatchRow";
 import { GroupsTab } from "./GroupsTab";
 import type { BracketConfig, BracketMatch, PreliminaryGroup } from "./types";
@@ -12,7 +12,6 @@ import type { CourtInfoUpdate } from "@/lib/bracket/actions";
 interface MainBracketTabProps {
   config: BracketConfig;
   matches: BracketMatch[];
-  onGenerateBracket?: () => void;
   onAutoFillPhase?: (phase: MatchPhase) => void;
   onMatchResult?: (
     matchId: string,
@@ -25,29 +24,40 @@ interface MainBracketTabProps {
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
   onCourtBatchSave?: (updates: CourtInfoUpdate[]) => void;
-  // 시드 배치 미리보기 props
+  // 시드 배치 props
   seedingGroups?: PreliminaryGroup[];
   allPrelimsDone?: boolean;
   nextPhaseLabel?: string;
   onGenerateBracketWithSeeds?: (seedOrder: (string | null)[]) => void;
-  onRefreshNextRound?: () => void;
+  /** 라운드별 경기 진행 토글 */
+  onToggleRoundActive?: (round: number) => void;
 }
 
+// round_number → 라운드 라벨 (8강, 준결승, 결승 등)
+function getRoundLabel(roundNum: number, bracketSize: number | null): string {
+  if (!bracketSize) return `${roundNum}라운드`;
+  const totalRounds = Math.log2(bracketSize);
+  const roundsFromFinal = totalRounds - roundNum + 1;
+  switch (roundsFromFinal) {
+    case 1: return "결승";
+    case 2: return "준결승";
+    case 3: return "8강";
+    case 4: return "16강";
+    case 5: return "32강";
+    case 6: return "64강";
+    default: return `${roundNum}라운드`;
+  }
+}
+
+// PHASE_ORDER는 한 라운드 탭 내에서 위상 정렬용
 const PHASE_ORDER: MatchPhase[] = [
-  "ROUND_128",
-  "ROUND_64",
-  "ROUND_32",
-  "ROUND_16",
-  "QUARTER",
-  "SEMI",
-  "THIRD_PLACE",
-  "FINAL",
+  "ROUND_128", "ROUND_64", "ROUND_32", "ROUND_16",
+  "QUARTER", "SEMI", "THIRD_PLACE", "FINAL",
 ];
 
 export function MainBracketTab({
   config,
   matches,
-  onGenerateBracket,
   onAutoFillPhase,
   onMatchResult,
   onDelete,
@@ -60,7 +70,7 @@ export function MainBracketTab({
   allPrelimsDone,
   nextPhaseLabel,
   onGenerateBracketWithSeeds,
-  onRefreshNextRound,
+  onToggleRoundActive,
 }: MainBracketTabProps) {
 
   // 코트 정보 상태
@@ -69,7 +79,7 @@ export function MainBracketTab({
   >({});
   const [dirtyIds, setDirtyIds] = useState<Set<string>>(new Set());
 
-  // matches 갱신 시 동기화
+  // matches 갱신 시 코트 데이터 동기화
   useEffect(() => {
     const data: Record<string, { location: string; number: string }> = {};
     for (const m of matches) {
@@ -93,6 +103,75 @@ export function MainBracketTab({
     [],
   );
 
+  // 라운드별 경기 그룹화 (PRELIMINARY 제외, THIRD_PLACE 포함)
+  const roundsData = useMemo(() => {
+    const map = new Map<number, BracketMatch[]>();
+    for (const m of matches.filter((m) => m.phase !== "PRELIMINARY")) {
+      const r = m.round_number ?? 0;
+      if (!map.has(r)) map.set(r, []);
+      map.get(r)!.push(m);
+    }
+    return Array.from(map.entries()).sort(([a], [b]) => a - b);
+  }, [matches]);
+
+  const maxRound = roundsData.length > 0 ? roundsData[roundsData.length - 1][0] : 0;
+  const hasFinal = matches.some((m) => m.phase === "FINAL");
+
+  // 조편성 탭 노출 조건: seedingGroups 있고 결승 미생성 + 콜백 있음
+  const showSeedingTab =
+    !!seedingGroups &&
+    seedingGroups.length > 0 &&
+    !hasFinal &&
+    !!onGenerateBracketWithSeeds;
+
+  // 현재 선택 탭: 'round-N' | 'seeding'
+  const defaultTab =
+    maxRound > 0 ? `round-${maxRound}` : showSeedingTab ? "seeding" : "";
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
+
+  // 라운드 추가 시 최신 라운드 탭 자동 이동
+  useEffect(() => {
+    if (maxRound > 0) {
+      setActiveTab(`round-${maxRound}`);
+    } else if (showSeedingTab) {
+      setActiveTab("seeding");
+    }
+  }, [maxRound, showSeedingTab]);
+
+  // 선택된 라운드 번호
+  const selectedRoundNum = activeTab.startsWith("round-")
+    ? parseInt(activeTab.replace("round-", ""), 10)
+    : null;
+
+  // 선택된 라운드 경기 목록 (PHASE_ORDER 정렬)
+  const selectedRoundMatches = useMemo(() => {
+    if (selectedRoundNum === null) return [];
+    const roundMatches = roundsData.find(([r]) => r === selectedRoundNum)?.[1] ?? [];
+    return [...roundMatches].sort(
+      (a, b) => PHASE_ORDER.indexOf(a.phase) - PHASE_ORDER.indexOf(b.phase),
+    );
+  }, [selectedRoundNum, roundsData]);
+
+  // 선택된 라운드 내 phase별 그룹 (같은 라운드에 FINAL+THIRD_PLACE 공존 가능)
+  const selectedMatchesByPhase = useMemo(() => {
+    return selectedRoundMatches.reduce(
+      (acc, m) => {
+        if (!acc[m.phase]) acc[m.phase] = [];
+        acc[m.phase].push(m);
+        return acc;
+      },
+      {} as Record<MatchPhase, BracketMatch[]>,
+    );
+  }, [selectedRoundMatches]);
+
+  // 최신 라운드 라벨 (삭제 버튼용)
+  const latestPhase = useMemo(() => {
+    const nonThirdPlace = matches.filter((m) => m.phase !== "THIRD_PLACE" && m.phase !== "PRELIMINARY");
+    if (nonThirdPlace.length === 0) return null;
+    const max = Math.max(...nonThirdPlace.map((m) => m.round_number ?? 0));
+    return nonThirdPlace.find((m) => m.round_number === max)?.phase ?? null;
+  }, [matches]);
+
   // 특정 강의 변경된 코트 정보만 수집하여 저장
   const handlePhaseCourtSave = (phaseMatchIds: string[]) => {
     if (!onCourtBatchSave) return;
@@ -103,49 +182,8 @@ export function MainBracketTab({
         courtLocation: courtData[id]?.location?.trim() || null,
         courtNumber: courtData[id]?.number?.trim() || null,
       }));
-    if (updates.length > 0) {
-      onCourtBatchSave(updates);
-    }
+    if (updates.length > 0) onCourtBatchSave(updates);
   };
-
-  // 라운드별로 경기 그룹화
-  const matchesByPhase = useMemo(
-    () =>
-      matches.reduce(
-        (acc, match) => {
-          if (!acc[match.phase]) acc[match.phase] = [];
-          acc[match.phase].push(match);
-          return acc;
-        },
-        {} as Record<MatchPhase, BracketMatch[]>,
-      ),
-    [matches],
-  );
-
-  // 결승 존재 여부
-  const hasFinal = matches.some(m => m.phase === "FINAL");
-
-  // 최신 라운드의 phase (THIRD_PLACE 제외) — 삭제 버튼 표시용
-  const latestPhase = useMemo(() => {
-    const nonThirdPlace = matches.filter(m => m.phase !== "THIRD_PLACE");
-    if (nonThirdPlace.length === 0) return null;
-    const maxRound = Math.max(...nonThirdPlace.map(m => m.round_number ?? 0));
-    const match = nonThirdPlace.find(m => m.round_number === maxRound);
-    return match?.phase ?? null;
-  }, [matches]);
-
-  // 최신 라운드 모든 경기 완료 여부 (BYE·빈 매치 포함, THIRD_PLACE 제외)
-  const latestRoundAllCompleted = useMemo(() => {
-    const nonThirdPlace = matches.filter(m => m.phase !== "THIRD_PLACE");
-    if (nonThirdPlace.length === 0) return false;
-    const maxRound = Math.max(...nonThirdPlace.map(m => m.round_number ?? 0));
-    const latestMatches = nonThirdPlace.filter(m => m.round_number === maxRound);
-    // 빈 매치(양팀 미배정)도 "완료"로 간주
-    return latestMatches.every(
-      m => m.status === "COMPLETED" || m.status === "BYE" ||
-        (!m.team1_entry_id && !m.team2_entry_id),
-    );
-  }, [matches]);
 
   return (
     <div className="space-y-6">
@@ -160,41 +198,141 @@ export function MainBracketTab({
           )}
         </h3>
         <div className="flex gap-2">
-          {/* 시드 배치 모드에서는 기존 생성 버튼 숨김 */}
-          {!seedingGroups && onGenerateBracket && (config.status === "DRAFT" || config.status === "PRELIMINARY") && (
-            <button onClick={onGenerateBracket} className="btn-primary btn-sm">
-              <span className="relative z-10">본선 대진표 생성</span>
-            </button>
-          )}
-          {/* 전체 본선 삭제 */}
           {onDelete && matches.length > 0 && (
-            <button
-              onClick={onDelete}
-              className="btn-outline-danger"
-            >
+            <button onClick={onDelete} className="btn-outline-danger">
               본선 대진표 삭제
             </button>
           )}
         </div>
       </div>
 
-      {/* 매치 목록 (매치가 있으면 항상 표시) */}
-      {matches.length > 0 && (
+      {/* 라운드 탭 네비게이션 */}
+      {(roundsData.length > 0 || showSeedingTab) && (
+        <div className="flex gap-0 border-b border-(--border-color) overflow-x-auto">
+          {roundsData.map(([roundNum, roundMatches]) => {
+            const tabId = `round-${roundNum}`;
+            const label = getRoundLabel(roundNum, config.bracket_size);
+            const isComplete = roundMatches
+              .filter((m) => m.phase !== "THIRD_PLACE")
+              .every((m) => m.status === "COMPLETED" || m.status === "BYE");
+            const isTabActive = activeTab === tabId;
+            const isRoundInProgress =
+              config.active_phase === "MAIN" && config.active_round === roundNum;
+            return (
+              <button
+                key={tabId}
+                onClick={() => setActiveTab(tabId)}
+                className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  isTabActive
+                    ? "border-(--accent-color) text-(--accent-color)"
+                    : "border-transparent text-(--text-muted) hover:text-(--text-primary)"
+                }`}
+              >
+                {label}
+                {isRoundInProgress && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-(--color-success) animate-pulse flex-shrink-0" />
+                )}
+                {!isRoundInProgress && isComplete && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-(--color-success) flex-shrink-0" />
+                )}
+              </button>
+            );
+          })}
+
+          {/* 조편성 탭 (다음 라운드 준비) */}
+          {showSeedingTab && (
+            <button
+              onClick={() => setActiveTab("seeding")}
+              className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                activeTab === "seeding"
+                  ? "border-(--accent-color) text-(--accent-color)"
+                  : "border-transparent text-(--text-muted) hover:text-(--text-primary)"
+              }`}
+            >
+              {nextPhaseLabel || "다음 라운드"} 조편성
+              {!allPrelimsDone && maxRound > 0 && (
+                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 flex-shrink-0" />
+              )}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* 조편성 탭 컨텐츠 */}
+      {activeTab === "seeding" && showSeedingTab && (
+        <div className="space-y-4">
+          {/* 현재 라운드 미완료 경고 */}
+          {!allPrelimsDone && maxRound > 0 && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-(--color-warning-subtle) border border-(--color-warning-border) text-(--color-warning) text-sm font-medium">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              현재 라운드의 모든 경기가 완료되어야 다음 라운드를 생성할 수 있습니다.
+            </div>
+          )}
+          <p className="text-sm text-(--text-muted)">
+            드래그하여 시드 순서를 조정하세요. 같은 칸 안의 팀끼리 대진합니다.
+          </p>
+          <GroupsTab
+            groups={seedingGroups}
+            hasPreliminary={false}
+            title={`${nextPhaseLabel || "본선"} 시드 배정`}
+            generateButtonLabel={
+              maxRound === 0
+                ? "1라운드 생성"
+                : `${nextPhaseLabel || "다음 라운드"} 생성`
+            }
+            onGenerateMainBracket={
+              allPrelimsDone ? onGenerateBracketWithSeeds : undefined
+            }
+            onError={() => {}}
+          />
+        </div>
+      )}
+
+      {/* 라운드 탭 컨텐츠 */}
+      {activeTab.startsWith("round-") && selectedRoundNum !== null && (
         <div className="space-y-6">
+          {/* 라운드별 경기 진행 토글 */}
+          {onToggleRoundActive && (
+            <div className="flex items-center justify-between px-1">
+              <span className="text-sm text-(--text-muted)">
+                {getRoundLabel(selectedRoundNum, config.bracket_size)} 참가자 점수 입력
+              </span>
+              {(() => {
+                const isRoundInProgress =
+                  config.active_phase === "MAIN" &&
+                  config.active_round === selectedRoundNum;
+                return (
+                  <button
+                    onClick={() => onToggleRoundActive(selectedRoundNum)}
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                      isRoundInProgress
+                        ? "bg-(--color-success-subtle) text-(--color-success) hover:bg-(--color-success-subtle)/80"
+                        : "bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-card-hover) border border-(--border-color)"
+                    }`}
+                  >
+                    <span
+                      className={`w-2 h-2 rounded-full flex-shrink-0 ${
+                        isRoundInProgress ? "bg-(--color-success) animate-pulse" : "bg-(--text-muted)"
+                      }`}
+                    />
+                    {isRoundInProgress ? "진행중" : "경기 진행"}
+                  </button>
+                );
+              })()}
+            </div>
+          )}
           {PHASE_ORDER.map((phase) => {
-            const phaseMatches = matchesByPhase[phase];
+            const phaseMatches = selectedMatchesByPhase[phase];
             if (!phaseMatches || phaseMatches.length === 0) return null;
 
             const phaseMatchIds = phaseMatches.map((m) => m.id);
             const hasDirty = phaseMatchIds.some((id) => dirtyIds.has(id));
-
             const hasScheduledWithTeams = phaseMatches.some(
               (m) =>
                 m.status === "SCHEDULED" &&
                 m.team1_entry_id &&
                 m.team2_entry_id,
             );
-
             const allCompleted = phaseMatches.every(
               (m) => m.status === "COMPLETED" || m.status === "BYE",
             );
@@ -214,7 +352,8 @@ export function MainBracketTab({
                     )}
                   </h4>
                   <div className="flex gap-2">
-                    {onAutoFillPhase && hasScheduledWithTeams &&
+                    {onAutoFillPhase &&
+                      hasScheduledWithTeams &&
                       process.env.NODE_ENV === "development" && (
                         <button
                           onClick={() => onAutoFillPhase(phase)}
@@ -249,85 +388,31 @@ export function MainBracketTab({
                     />
                   ))}
                 </div>
-                {/* 최신 라운드 하단에 삭제 버튼 */}
-                {phase === latestPhase && onDeleteLatestRound && (
-                  <div className="mt-3 flex justify-end">
-                    <button
-                      onClick={onDeleteLatestRound}
-                      className="btn-outline-warning btn-sm"
-                    >
-                      {phaseLabels[phase]} 삭제
-                    </button>
-                  </div>
-                )}
               </div>
             );
           })}
-        </div>
-      )}
 
-      {/* 다음 라운드 시드 배치 (시드 데이터가 있고 결승이 아직 없을 때) */}
-      {seedingGroups && seedingGroups.length > 0 && !hasFinal && (
-        <div className="space-y-4 mt-6 pt-6 border-t border-(--border-color)">
-          {!allPrelimsDone && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-(--color-warning-subtle) border border-(--color-warning-border) text-(--color-warning) text-sm font-medium">
-              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-              {matches.length === 0
-                ? "예선이 아직 완료되지 않았습니다. 모든 예선 경기가 끝나야 본선 대진표를 생성할 수 있습니다."
-                : "현재 라운드의 모든 경기가 완료되어야 다음 라운드를 생성할 수 있습니다."}
+          {/* 최신 라운드 하단에 라운드 삭제 버튼 */}
+          {selectedRoundNum === maxRound && onDeleteLatestRound && latestPhase && (
+            <div className="flex justify-end pt-2 border-t border-(--border-color)">
+              <button
+                onClick={onDeleteLatestRound}
+                className="btn-outline-warning btn-sm"
+              >
+                {getRoundLabel(selectedRoundNum, config.bracket_size)} 삭제
+              </button>
             </div>
           )}
-          <p className="text-sm text-(--text-muted)">
-            드래그하여 시드 순서를 조정하세요. 같은 조 안의 팀끼리 대진합니다.
-          </p>
-          <GroupsTab
-            groups={seedingGroups}
-            hasPreliminary={false}
-            title={`${nextPhaseLabel || "본선"} 시드 배정`}
-            generateButtonLabel={
-              matches.length === 0
-                ? "본선 대진표 생성"
-                : `${nextPhaseLabel || "본선"} 대진표 생성`
-            }
-            onGenerateMainBracket={allPrelimsDone ? onGenerateBracketWithSeeds : undefined}
-            onError={() => {}}
-          />
         </div>
       )}
 
-      {/* 현재 라운드 완료 감지 안내 (매치는 있지만 시드 데이터도 없고 결승도 없을 때) */}
-      {matches.length > 0 && !seedingGroups && !hasFinal && (
-        <div className="mt-4 px-4 py-4 rounded-lg bg-(--bg-secondary) border border-(--border-color) text-center">
-          {latestRoundAllCompleted ? (
-            <div className="space-y-3">
-              <p className="text-sm text-(--text-secondary)">
-                현재 라운드의 모든 경기가 완료되었습니다.
-              </p>
-              {onRefreshNextRound && (
-                <button
-                  onClick={onRefreshNextRound}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-(--accent-color) text-(--bg-primary) hover:opacity-90 transition-opacity text-sm font-medium"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  다음 라운드 준비
-                </button>
-              )}
-            </div>
-          ) : (
-            <p className="text-sm text-(--text-muted)">
-              현재 라운드의 모든 경기가 완료되면 다음 라운드를 준비할 수 있습니다.
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* 빈 상태 (매치도 시드도 없을 때) */}
-      {matches.length === 0 && (!seedingGroups || seedingGroups.length === 0) && (
+      {/* 빈 상태: 매치도 없고 조편성도 없음 */}
+      {matches.length === 0 && !showSeedingTab && (
         <div className="text-center py-8 text-(--text-muted)">
           <Trophy className="w-12 h-12 mx-auto mb-4 opacity-50" />
           <p>본선 대진표가 없습니다.</p>
           <p className="text-sm mt-1">
-            조 편성 완료 후 본선 대진표를 생성하세요.
+            조편성 탭에서 조편성을 완료하면 시드 배치 화면이 나타납니다.
           </p>
         </div>
       )}

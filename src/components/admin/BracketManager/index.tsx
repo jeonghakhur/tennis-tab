@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Settings, Users, Play, Trophy } from "lucide-react";
+import { Settings, Play, Trophy, ChevronLeft } from "lucide-react";
 import {
   AlertDialog,
   ConfirmDialog,
@@ -15,7 +15,6 @@ import {
   getPreliminaryGroups,
   generatePreliminaryMatches,
   getPreliminaryMatches,
-  generateMainBracket,
   generateNextRound,
   getMainBracketMatches,
   getAdvancingTeams,
@@ -29,6 +28,7 @@ import {
   deletePreliminaryMatches,
   deleteMainBracket,
   deleteLatestRound,
+  setActiveRound,
 } from "@/lib/bracket/actions";
 import {
   useMatchesRealtime,
@@ -50,7 +50,8 @@ import type {
 } from "./types";
 import { CLOSED_TOURNAMENT_STATUSES, phaseLabels } from "./types";
 
-type TabType = "settings" | "groups" | "preliminary" | "main";
+type TabType = "settings" | "preliminary" | "main";
+type SettingsView = "form" | "groups";
 
 export function BracketManager({
   tournamentId,
@@ -76,6 +77,8 @@ export function BracketManager({
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("불러오는 중...");
   const [activeTab, setActiveTab] = useState<TabType>("settings");
+  // 설정 탭 내부 뷰: form(설정 폼) | groups(조편성)
+  const [settingsView, setSettingsView] = useState<SettingsView>("form");
 
   // Dialog states
   const [showAutoGenerateConfirm, setShowAutoGenerateConfirm] = useState(false);
@@ -164,13 +167,9 @@ export function BracketManager({
         setMainMatches(mainData || []);
 
         // 시드 배치 데이터 로딩 조건:
-        // 1) 예선 있는 대회에서 본선 미생성 (1R 시드 배치)
-        // 2) 본선 매치 있지만 결승 미존재 (2R+ 시드 배치)
+        // 결승이 없으면 항상 로드 (1R 조편성 필수, 라운드별 순차 생성)
         const hasFinal = (mainData || []).some((m) => m.phase === "FINAL");
-        const shouldLoadSeeds =
-          (configData.has_preliminaries &&
-            (!mainData || mainData.length === 0)) ||
-          (mainData && mainData.length > 0 && !hasFinal);
+        const shouldLoadSeeds = !hasFinal;
 
         if (shouldLoadSeeds) {
           const { data: nextData } = await getNextRoundTeams(configData.id);
@@ -246,6 +245,7 @@ export function BracketManager({
   useEffect(() => {
     if (selectedDivision) {
       loadBracketData();
+      setSettingsView("form"); // 부서 변경 시 설정 폼으로 초기화
     }
   }, [selectedDivision, loadBracketData]);
 
@@ -355,12 +355,18 @@ export function BracketManager({
   const handleConfigUpdate = async (updates: Partial<BracketConfig>) => {
     if (!config) return;
 
+    // 낙관적 업데이트: 서버 응답 전에 UI 즉시 반영
+    const prevConfig = config;
+    setConfig({ ...config, ...updates });
+
     try {
       const { data } = await updateBracketConfig(config.id, updates);
       if (data) {
         setConfig(data);
       }
     } catch {
+      // 실패 시 이전 상태로 롤백
+      setConfig(prevConfig);
       showError("오류", "설정 업데이트 중 오류가 발생했습니다.");
     }
   };
@@ -381,7 +387,35 @@ export function BracketManager({
         showError("조 편성 실패", error);
       } else {
         await loadBracketData();
-        setActiveTab("groups");
+        setActiveTab("settings");
+        setSettingsView("groups");
+        showSuccess("자동 조 편성이 완료되었습니다.");
+      }
+    } catch {
+      showError("오류", "조 편성 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 설정 탭 "조편성 시작/수정" 버튼 핸들러
+  // - 기존 조편성 없음: 즉시 자동 편성 후 groups 뷰로 이동
+  // - 기존 조편성 있음: groups 뷰로 바로 이동 (재편성은 내부 버튼 사용)
+  const handleStartGrouping = async () => {
+    if (groups.length > 0) {
+      setSettingsView("groups");
+      return;
+    }
+    if (!config || !selectedDivision) return;
+    setLoadingMessage("조 편성 중...");
+    setLoading(true);
+    try {
+      const { error } = await autoGenerateGroups(config.id, selectedDivision.id);
+      if (error) {
+        showError("조 편성 실패", error);
+      } else {
+        await loadBracketData();
+        setSettingsView("groups");
         showSuccess("자동 조 편성이 완료되었습니다.");
       }
     } catch {
@@ -424,11 +458,12 @@ export function BracketManager({
     setLoadingMessage("대진표 생성 중...");
     setLoading(true);
     try {
-      // 시드 배치(DnD) 경유 → 라운드별 순차 생성
-      const { data, error } =
-        seedOrder.length > 0
-          ? await generateNextRound(config.id, selectedDivision.id, seedOrder)
-          : await generateMainBracket(config.id, selectedDivision.id);
+      // 항상 라운드별 순차 생성 (seedOrder 필수)
+      const { data, error } = await generateNextRound(
+        config.id,
+        selectedDivision.id,
+        seedOrder,
+      );
 
       if (error) {
         showError("대진표 생성 실패", error);
@@ -437,11 +472,9 @@ export function BracketManager({
         setPendingSeedOrder([]);
         await loadBracketData();
         setActiveTab("main");
-        const label =
-          data && "targetRound" in data
-            ? `${data.targetRound}라운드 대진표가 생성되었습니다. (${data.matchCount}경기)`
-            : `본선 대진표가 생성되었습니다. (${data?.bracketSize}강)`;
-        showSuccess(label);
+        showSuccess(
+          `${data?.targetRound}라운드 대진표가 생성되었습니다. (${data?.matchCount}경기)`,
+        );
       }
     } catch {
       showError("오류", "대진표 생성 중 오류가 발생했습니다.");
@@ -593,6 +626,7 @@ export function BracketManager({
         showError("삭제 실패", error);
       } else {
         await loadBracketData();
+        setSettingsView("form");
         showSuccess("조 편성이 삭제되었습니다.");
       }
     } catch {
@@ -614,6 +648,7 @@ export function BracketManager({
         showError("삭제 실패", error);
       } else {
         await loadBracketData();
+        setActiveTab("settings");
         showSuccess("예선 경기가 삭제되었습니다.");
       }
     } catch {
@@ -686,6 +721,43 @@ export function BracketManager({
     }
   };
 
+  // 예선 전체 활성화/비활성화 토글
+  const handleTogglePreliminaryActive = async () => {
+    if (!config) return;
+    const prevPhase = config.active_phase;
+    const prevRound = config.active_round;
+    const configId = config.id;
+    const isActive = config.active_phase === "PRELIMINARY";
+    const nextPhase = isActive ? null : "PRELIMINARY";
+    // optimistic update
+    setConfig((c) => c ? { ...c, active_phase: nextPhase, active_round: null } : c);
+    const result = await setActiveRound(configId, nextPhase, null);
+    if (!result.success) {
+      // 실패 시 변경한 필드만 복원 (동시 토글의 다른 필드 변경 보존)
+      setConfig((c) => c ? { ...c, active_phase: prevPhase, active_round: prevRound } : c);
+      showError("오류", result.error || "상태 변경에 실패했습니다.");
+    }
+  };
+
+  // 본선 특정 라운드 활성화/비활성화 토글
+  const handleToggleRoundActive = async (round: number) => {
+    if (!config) return;
+    const prevPhase = config.active_phase;
+    const prevRound = config.active_round;
+    const configId = config.id;
+    const isActive = config.active_phase === "MAIN" && config.active_round === round;
+    const nextPhase = isActive ? null : "MAIN";
+    const nextRound = isActive ? null : round;
+    // optimistic update
+    setConfig((c) => c ? { ...c, active_phase: nextPhase, active_round: nextRound } : c);
+    const result = await setActiveRound(configId, nextPhase, nextRound);
+    if (!result.success) {
+      // 실패 시 변경한 필드만 복원 (동시 토글의 다른 필드 변경 보존)
+      setConfig((c) => c ? { ...c, active_phase: prevPhase, active_round: prevRound } : c);
+      showError("오류", result.error || "상태 변경에 실패했습니다.");
+    }
+  };
+
   if (divisions.length === 0) {
     return (
       <div className="glass-card rounded-xl p-8 text-center">
@@ -721,7 +793,7 @@ export function BracketManager({
       {selectedDivision && config && (
         <>
           {/* Tabs */}
-          <div className="flex gap-1 p-1 bg-(--bg-card) rounded-xl">
+          <div className="flex items-center gap-1 p-1 bg-(--bg-card) rounded-xl">
             <button
               onClick={() => setActiveTab("settings")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
@@ -732,17 +804,6 @@ export function BracketManager({
             >
               <Settings className="w-4 h-4" />
               설정
-            </button>
-            {/* 조 편성 탭은 항상 표시 */}
-            <button
-              onClick={() => setActiveTab("groups")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                activeTab === "groups"
-                  ? "bg-(--accent-color)"
-                  : "hover:bg-white/10 text-(--text-secondary)"
-              }`}
-            >
-              <Users className="w-4 h-4" />조 편성
             </button>
             {/* 예선 탭은 예선 사용 시에만 */}
             {config.has_preliminaries && (
@@ -769,13 +830,14 @@ export function BracketManager({
               <Trophy className="w-4 h-4" />
               본선
             </button>
+
           </div>
 
           {/* Tab Content */}
           {/* 조 편성 탭과 본선 시드 배치 모드에서는 bg-(--bg-card)로 통일 (DnD 시 glass-card hover 방지) */}
           <div
             className={`rounded-xl p-6 border border-(--border-color) ${
-              activeTab === "groups" ||
+              (activeTab === "settings" && settingsView === "groups") ||
               (activeTab === "main" && seedingGroups.length > 0)
                 ? "bg-(--bg-card)"
                 : "glass-card"
@@ -787,56 +849,72 @@ export function BracketManager({
               </div>
             )}
 
-            {activeTab === "settings" && (
+            {activeTab === "settings" && settingsView === "form" && (
               <SettingsTab
                 config={config}
+                groupCount={groups.length}
+                teamCount={groups.reduce(
+                  (sum, g) => sum + (g.group_teams?.length ?? 0),
+                  0,
+                )}
+                onStartGrouping={isClosed ? undefined : handleStartGrouping}
                 onUpdate={isClosed ? undefined : handleConfigUpdate}
                 onDelete={
-                  isClosed ? undefined : () => setShowDeleteBracketConfirm(true)
+                  isClosed ||
+                  (groups.length === 0 &&
+                    preliminaryMatches.length === 0 &&
+                    mainMatches.length === 0)
+                    ? undefined
+                    : () => setShowDeleteBracketConfirm(true)
                 }
               />
             )}
 
-            {activeTab === "groups" && (
-              <GroupsTab
-                groups={groups}
-                hasPreliminary={config.has_preliminaries}
-                onAutoGenerate={
-                  isClosed
-                    ? undefined
-                    : () => {
-                        setAutoGenerateConfirmMessage(
-                          groups.length > 0
-                            ? `자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`
-                            : `자동 조 편성을 하시겠습니까?`,
-                        );
-                        setShowAutoGenerateConfirm(true);
-                      }
-                }
-                onGenerateMatches={
-                  isClosed
-                    ? undefined
-                    : () => setShowGeneratePrelimConfirm(true)
-                }
-                onGenerateMainBracket={
-                  isClosed
-                    ? undefined
-                    : (seedOrder: (string | null)[]) => {
-                        pendingSeedOrderRef.current = seedOrder;
-                        setPendingSeedOrder(seedOrder);
-                        setShowGenerateMainConfirm(true);
-                      }
-                }
-                onDelete={
-                  isClosed ? undefined : () => setShowDeleteGroupsConfirm(true)
-                }
-                onTeamMove={isClosed ? undefined : loadBracketData}
-                onError={(msg) => showError("오류", msg)}
-              />
+            {activeTab === "settings" && settingsView === "groups" && (
+              <div className="space-y-4">
+                {/* 뒤로가기 */}
+                <button
+                  onClick={() => setSettingsView("form")}
+                  className="flex items-center gap-1.5 text-sm text-(--text-muted) hover:text-(--text-primary) transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  설정으로 돌아가기
+                </button>
+                <GroupsTab
+                  groups={groups}
+                  hasPreliminary={config.has_preliminaries}
+                  onAutoGenerate={
+                    isClosed
+                      ? undefined
+                      : () => {
+                          setAutoGenerateConfirmMessage(
+                            groups.length > 0
+                              ? `자동 조 편성을 하시겠습니까?\n기존 조 편성이 삭제됩니다.`
+                              : `자동 조 편성을 하시겠습니까?`,
+                          );
+                          setShowAutoGenerateConfirm(true);
+                        }
+                  }
+                  onGenerateMatches={
+                    isClosed
+                      ? undefined
+                      : () => setShowGeneratePrelimConfirm(true)
+                  }
+                  onGenerateMainBracket={undefined}
+                  onDelete={
+                    isClosed
+                      ? undefined
+                      : () => setShowDeleteGroupsConfirm(true)
+                  }
+                  onTeamMove={isClosed ? undefined : loadBracketData}
+                  onError={(msg) => showError("오류", msg)}
+                />
+              </div>
             )}
 
             {activeTab === "preliminary" && (
               <PreliminaryTab
+                config={config}
                 groups={groups}
                 matches={preliminaryMatches}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
@@ -848,6 +926,7 @@ export function BracketManager({
                 isTeamMatch={isTeamMatch}
                 onOpenDetail={isClosed ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
+                onToggleActive={isClosed ? undefined : handleTogglePreliminaryActive}
               />
             )}
 
@@ -855,9 +934,6 @@ export function BracketManager({
               <MainBracketTab
                 config={config}
                 matches={mainMatches}
-                onGenerateBracket={
-                  isClosed ? undefined : () => setShowGenerateMainConfirm(true)
-                }
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
                 onDelete={
@@ -880,7 +956,7 @@ export function BracketManager({
                 onGenerateBracketWithSeeds={
                   isClosed ? undefined : handleRequestGenerateMainWithSeeds
                 }
-                onRefreshNextRound={isClosed ? undefined : loadBracketData}
+                onToggleRoundActive={isClosed ? undefined : handleToggleRoundActive}
               />
             )}
           </div>
@@ -946,11 +1022,7 @@ export function BracketManager({
         }}
         onConfirm={handleGenerateMainBracket}
         title="대진표 생성"
-        message={
-          pendingSeedOrder.length > 0
-            ? `현재 시드 배정 순서대로 ${nextPhaseLabel || "본선"} 대진표를 생성하시겠습니까?`
-            : "현재 조 편성 순서대로 본선 대진표를 생성하시겠습니까?"
-        }
+        message={`현재 시드 배정 순서대로 ${nextPhaseLabel || "본선"} 대진표를 생성하시겠습니까?`}
         type="info"
         isLoading={loading}
       />

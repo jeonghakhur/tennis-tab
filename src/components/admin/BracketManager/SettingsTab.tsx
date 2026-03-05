@@ -4,11 +4,21 @@ import type { BracketConfig } from "./types";
 
 interface SettingsTabProps {
   config: BracketConfig;
+  groupCount?: number;
+  teamCount?: number;
+  onStartGrouping?: () => void;
   onUpdate?: (updates: Partial<BracketConfig>) => void;
   onDelete?: () => void;
 }
 
-export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
+export function SettingsTab({
+  config,
+  groupCount = 0,
+  teamCount = 0,
+  onStartGrouping,
+  onUpdate,
+  onDelete,
+}: SettingsTabProps) {
   const readOnly = !onUpdate;
 
   return (
@@ -49,7 +59,9 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
           </div>
           <p className="text-sm text-(--text-muted)">
             {config.group_size === 2
-              ? "각 조 2팀 배치, 조별 대진이 본선 1라운드 매치가 됩니다"
+              ? config.has_preliminaries
+                ? "각 조 2팀 시딩 경기 진행, 전원 본선 진출 (예선 승패로 본선 시드 결정)"
+                : "각 조 2팀 배치, 조별 대진이 본선 1라운드 매치가 됩니다"
               : "각 조 3팀 풀리그 진행, 상위 2팀 본선 진출"}
           </p>
         </div>
@@ -94,6 +106,25 @@ export function SettingsTab({ config, onUpdate, onDelete }: SettingsTabProps) {
             본선 대진표 크기: {config.bracket_size}강
           </p>
         )}
+      </div>
+
+      {/* 조편성 섹션 */}
+      <div className="pt-4 border-t border-(--border-color)">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h4 className="font-medium text-(--text-primary)">조편성</h4>
+            <p className="text-sm text-(--text-muted) mt-0.5">
+              {groupCount > 0
+                ? `${groupCount}개 조 · ${teamCount}팀 편성됨`
+                : "아직 조편성이 없습니다."}
+            </p>
+          </div>
+          {onStartGrouping && (
+            <button onClick={onStartGrouping} className="btn-secondary btn-sm shrink-0">
+              {groupCount > 0 ? "조편성 수정" : "조편성 시작"}
+            </button>
+          )}
+        </div>
       </div>
 
       {onDelete && (

@@ -27,6 +27,10 @@ export interface BracketConfig {
   group_size: number;
   bracket_size: number | null;
   status: BracketStatus;
+  /** 현재 점수 입력 가능한 페이즈 (NULL = 비활성) */
+  active_phase: string | null;
+  /** 현재 점수 입력 가능한 라운드 (NULL = 해당 페이즈 전체) */
+  active_round: number | null;
 }
 
 export interface GroupTeam {

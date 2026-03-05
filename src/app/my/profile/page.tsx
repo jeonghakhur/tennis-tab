@@ -8,6 +8,7 @@ import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
+import { useBracketConfigRealtime } from "@/lib/realtime/useBracketConfigRealtime";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { ProfileAwards } from "@/components/awards/ProfileAwards";
 import { getMyAwards } from "@/lib/awards/actions";
@@ -63,9 +64,11 @@ interface BracketMatch {
   winnerEntryId: string | null;
   completedAt: string | null;
   courtNumber: string | null;
+  configId: string;
   tournamentId: string | null;
   tournamentTitle: string;
   tournamentLocation: string;
+  isInProgress: boolean;
   divisionName: string;
   matchType: string | null;
   teamMatchCount: number | null;
@@ -83,6 +86,7 @@ interface BracketMatch {
 }
 
 const PHASE_LABELS: Record<string, string> = {
+  PRELIMINARY: "예선",
   ROUND_32: "32강",
   ROUND_16: "16강",
   QUARTER: "8강",
@@ -234,7 +238,7 @@ export default function MyProfilePage() {
     [tournaments],
   );
 
-  // 대회 상태 변경 실시간 감지 → 로컬 상태 즉시 반영
+  // 대회 상태 변경 실시간 감지 → 내 대회 탭 즉시 반영
   const handleTournamentStatusChange = useCallback(
     (tournamentId: string, newStatus: string) => {
       setTournaments((prev) =>
@@ -250,6 +254,39 @@ export default function MyProfilePage() {
     },
     [],
   );
+
+  // bracket_config 활성 라운드 변경 → 내 경기 탭 결과 입력 버튼 즉시 반영
+  const bracketConfigIds = useMemo(
+    () => [...new Set(matches.map((m) => m.configId).filter(Boolean))],
+    [matches],
+  );
+
+  const handleConfigChange = useCallback(
+    (configId: string, activePhase: string | null, activeRound: number | null) => {
+      setMatches((prev) =>
+        prev.map((match) => {
+          if (match.configId !== configId) return match;
+          const isInProgress = (() => {
+            if (!activePhase) return false;
+            if (activePhase === "PRELIMINARY") return match.phase === "PRELIMINARY";
+            if (activePhase === "MAIN") {
+              const isMainPhase = match.phase !== "PRELIMINARY";
+              return isMainPhase && (activeRound === null || match.roundNumber === activeRound);
+            }
+            return false;
+          })();
+          return { ...match, isInProgress };
+        }),
+      );
+    },
+    [],
+  );
+
+  useBracketConfigRealtime({
+    configIds: bracketConfigIds,
+    onConfigChange: handleConfigChange,
+    enabled: matches.length > 0,
+  });
 
   useTournamentStatusRealtime({
     tournamentIds,
@@ -1024,8 +1061,11 @@ export default function MyProfilePage() {
                               {match.tournamentLocation && ` · ${match.tournamentLocation}`}
                             </p>
                           </div>
-                          <Badge variant="info" className="font-display tracking-wider shrink-0 ml-3">
-                            예정
+                          <Badge
+                            variant={match.isInProgress ? "success" : "info"}
+                            className="font-display tracking-wider shrink-0 ml-3"
+                          >
+                            {match.isInProgress ? "진행중" : "예정"}
                           </Badge>
                         </div>
 
@@ -1049,13 +1089,15 @@ export default function MyProfilePage() {
 
                         <div className="flex items-center justify-between">
                           <div />
-                          <button
-                            onClick={() => setScoreModalMatch(match)}
-                            className="text-sm font-display tracking-wider px-4 py-1.5 rounded-lg hover:opacity-90"
-                            style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
-                          >
-                            결과 입력
-                          </button>
+                          {match.isInProgress && (
+                            <button
+                              onClick={() => setScoreModalMatch(match)}
+                              className="text-sm font-display tracking-wider px-4 py-1.5 rounded-lg hover:opacity-90"
+                              style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                            >
+                              결과 입력
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

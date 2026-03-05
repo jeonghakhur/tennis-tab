@@ -19,6 +19,10 @@ export interface BracketConfig {
   group_size: number
   bracket_size: number | null
   status: BracketStatus
+  /** 현재 점수 입력 가능한 페이즈 (NULL = 비활성) */
+  active_phase: string | null
+  /** 현재 점수 입력 가능한 라운드 (NULL = 해당 페이즈 전체) */
+  active_round: number | null
 }
 
 export interface PreliminaryGroup {
@@ -723,6 +727,7 @@ export async function getPreliminaryMatches(configId: string) {
  * 3. 같은 tournament의 모든 bracket_config가 COMPLETED인지 확인
  * 4. 전부 완료 시 tournaments.status → 'COMPLETED'
  */
+
 /**
  * configId에 해당하는 division의 어워드 전체 삭제
  * deleteLatestRound / deleteMainBracket 시 stale 어워드 정리용
@@ -2188,6 +2193,7 @@ export async function generateNextRound(
       .from('bracket_configs')
       .update({ bracket_size: bracketSize, status: 'MAIN' })
       .eq('id', configId)
+
   }
 
   revalidatePath('/admin/tournaments')
@@ -2375,7 +2381,14 @@ export async function deletePreliminaryGroups(configId: string) {
   const supabaseAdmin = createAdminClient()
 
   try {
-    // CASCADE로 group_teams와 예선 bracket_matches도 삭제됨
+    // 예선 경기 먼저 삭제 (bracket_matches는 bracket_configs 참조이므로 CASCADE 없음)
+    await supabaseAdmin
+      .from('bracket_matches')
+      .delete()
+      .eq('bracket_config_id', configId)
+      .eq('phase', 'PRELIMINARY')
+
+    // 조편성 삭제 (group_teams는 FK CASCADE로 자동 삭제)
     const { error } = await supabaseAdmin
       .from('preliminary_groups')
       .delete()
@@ -2384,6 +2397,12 @@ export async function deletePreliminaryGroups(configId: string) {
     if (error) {
       return { success: false, error: error.message }
     }
+
+    // 조편성 전체 삭제 → 처음 상태로 복원
+    await supabaseAdmin
+      .from('bracket_configs')
+      .update({ status: 'DRAFT' })
+      .eq('id', configId)
 
     revalidatePath('/admin/tournaments')
     return { success: true }
@@ -2419,6 +2438,12 @@ export async function deletePreliminaryMatches(configId: string) {
       return { success: false, error: error.message }
     }
 
+    // 예선 경기 삭제 → 조편성 단계로 복원
+    await supabaseAdmin
+      .from('bracket_configs')
+      .update({ status: 'DRAFT' })
+      .eq('id', configId)
+
     revalidatePath('/admin/tournaments')
     return { success: true }
   } catch (error: unknown) {
@@ -2443,6 +2468,13 @@ export async function deleteMainBracket(configId: string) {
   const supabaseAdmin = createAdminClient()
 
   try {
+    // has_preliminaries 조회 (복원 상태 결정용)
+    const { data: configData } = await supabaseAdmin
+      .from('bracket_configs')
+      .select('has_preliminaries')
+      .eq('id', configId)
+      .single()
+
     const { error } = await supabaseAdmin
       .from('bracket_matches')
       .delete()
@@ -2456,11 +2488,14 @@ export async function deleteMainBracket(configId: string) {
     // 본선 전체 삭제 시 어워드도 정리
     await deleteAwardsForConfig(supabaseAdmin, configId)
 
+    // 예선 있음 → PRELIMINARY(조편성·예선 유지), 예선 없음 → DRAFT
+    const restoredStatus = configData?.has_preliminaries ? 'PRELIMINARY' : 'DRAFT'
+
     const { error: updateError } = await supabaseAdmin
       .from('bracket_configs')
       .update({
         bracket_size: null,
-        status: 'PRELIMINARY',
+        status: restoredStatus,
       })
       .eq('id', configId)
 
@@ -2492,6 +2527,13 @@ export async function deleteBracketConfig(configId: string) {
   const supabaseAdmin = createAdminClient()
 
   try {
+    // 대진표 삭제 전 tournament_id 조회 (status 복원용)
+    const { data: configRow } = await supabaseAdmin
+      .from('bracket_configs')
+      .select('division_id')
+      .eq('id', configId)
+      .single()
+
     // CASCADE로 관련 데이터 자동 삭제됨
     const { error } = await supabaseAdmin
       .from('bracket_configs')
@@ -2500,6 +2542,24 @@ export async function deleteBracketConfig(configId: string) {
 
     if (error) {
       return { success: false, error: error.message }
+    }
+
+    // 대진표가 삭제됐는데 tournament가 IN_PROGRESS이면 CLOSED로 복원
+    // (대진표 없이 "진행 중" 상태는 의미 없음)
+    if (configRow?.division_id) {
+      const { data: division } = await supabaseAdmin
+        .from('tournament_divisions')
+        .select('tournament_id')
+        .eq('id', configRow.division_id)
+        .single()
+
+      if (division?.tournament_id) {
+        await supabaseAdmin
+          .from('tournaments')
+          .update({ status: 'CLOSED' })
+          .eq('id', division.tournament_id)
+          .eq('status', 'IN_PROGRESS')
+      }
     }
 
     revalidatePath('/admin/tournaments')
@@ -2785,4 +2845,39 @@ export async function autoFillMainBracketResults(configId: string, phase?: Match
   revalidatePath('/admin/tournaments')
   revalidatePath('/tournaments')
   return { data: { filledCount }, error: null }
+}
+
+// ============================================================================
+// 경기 진행 라운드 관리
+// ============================================================================
+
+/**
+ * 부서별 활성 라운드 설정/해제
+ * - phase + round를 지정하면 해당 라운드 경기만 점수 입력 활성화
+ * - phase=null이면 전체 비활성화 (토글 off)
+ * - PRELIMINARY: active_round는 항상 null (예선 전체)
+ * - MAIN: active_round로 특정 라운드 지정
+ */
+export async function setActiveRound(
+  configId: string,
+  phase: 'PRELIMINARY' | 'MAIN' | null,
+  round: number | null,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
+  const supabaseAdmin = createAdminClient()
+
+  const { error } = await supabaseAdmin
+    .from('bracket_configs')
+    .update({ active_phase: phase, active_round: round })
+    .eq('id', configId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/tournaments')
+  return { success: true }
 }

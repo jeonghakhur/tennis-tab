@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from "react";
 import { Play, Save } from "lucide-react";
 import { MatchRow } from "./MatchRow";
-import type { PreliminaryGroup, BracketMatch } from "./types";
+import type { BracketConfig, PreliminaryGroup, BracketMatch } from "./types";
 import type { CourtInfoUpdate } from "@/lib/bracket/actions";
 
 interface PreliminaryTabProps {
+  config: BracketConfig | null;
   groups: PreliminaryGroup[];
   matches: BracketMatch[];
   onMatchResult?: (
@@ -20,9 +21,11 @@ interface PreliminaryTabProps {
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
   onCourtBatchSave?: (updates: CourtInfoUpdate[]) => void;
+  onToggleActive?: () => void;
 }
 
 export function PreliminaryTab({
+  config,
   groups,
   matches,
   onMatchResult,
@@ -32,7 +35,9 @@ export function PreliminaryTab({
   isTeamMatch,
   onOpenDetail,
   onCourtBatchSave,
+  onToggleActive,
 }: PreliminaryTabProps) {
+  const isActive = config?.active_phase === "PRELIMINARY";
   const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
 
   // 코트 정보 상태: matchId → { location, number }
@@ -86,7 +91,20 @@ export function PreliminaryTab({
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
           예선 경기
         </h3>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {onToggleActive && matches.length > 0 && (
+            <button
+              onClick={onToggleActive}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+                isActive
+                  ? "bg-(--color-success-subtle) text-(--color-success) hover:bg-(--color-success-subtle)/80"
+                  : "bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-card-hover) border border-(--border-color)"
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${isActive ? "bg-(--color-success) animate-pulse" : "bg-(--text-muted)"}`} />
+              {isActive ? "진행중" : "경기 진행"}
+            </button>
+          )}
           {onAutoFill && hasScheduledMatches && process.env.NODE_ENV === "development" && (
             <button
               onClick={onAutoFill}

@@ -221,6 +221,9 @@ export async function getMyMatches() {
       completed_at,
       court_number,
       bracket_config:bracket_configs!bracket_matches_bracket_config_id_fkey(
+        id,
+        active_phase,
+        active_round,
         division:tournament_divisions(
           name,
           tournament:tournaments(id, title, location, match_type, team_match_count)
@@ -246,9 +249,29 @@ export async function getMyMatches() {
     // SCHEDULED 경기는 양쪽 모두 배정된 경우만 표시
     if (m.status === 'SCHEDULED' && (!m.team1_entry_id || !m.team2_entry_id)) return []
 
-    const config = m.bracket_config as unknown as { division: { name: string; tournament: { id: string; title: string; location: string; match_type: string | null; team_match_count: number | null } } } | null
+    const config = m.bracket_config as unknown as {
+      id: string
+      active_phase: string | null
+      active_round: number | null
+      division: { name: string; tournament: { id: string; title: string; location: string; match_type: string | null; team_match_count: number | null } }
+    } | null
     const division = config?.division ?? null
     const tournament = division?.tournament ?? null
+    // 이 경기가 현재 점수 입력 활성화 라운드에 해당하는지 판단
+    // - 예선: active_phase='PRELIMINARY' → phase가 'PRELIMINARY'인 경기 전체
+    // - 본선: active_phase='MAIN' → match.phase는 ROUND_16·SEMI·FINAL 등이므로
+    //         phase 비교가 아닌 round_number로만 판단
+    const isInProgress = (() => {
+      if (!config?.active_phase) return false
+      if (config.active_phase === 'PRELIMINARY') {
+        return m.phase === 'PRELIMINARY'
+      }
+      if (config.active_phase === 'MAIN') {
+        const isMainPhase = m.phase !== 'PRELIMINARY'
+        return isMainPhase && (config.active_round === null || m.round_number === config.active_round)
+      }
+      return false
+    })()
 
     const t1 = m.team1_entry as unknown as { id: string; player_name: string; partner_data: { name: string; club?: string } | null } | null
     const t2 = m.team2_entry as unknown as { id: string; player_name: string; partner_data: { name: string; club?: string } | null } | null
@@ -265,9 +288,11 @@ export async function getMyMatches() {
       winnerEntryId: m.winner_entry_id,
       completedAt: m.completed_at,
       courtNumber: m.court_number,
+      configId: config?.id || '',
       tournamentId: tournament?.id || null,
       tournamentTitle: tournament?.title || '',
       tournamentLocation: tournament?.location || '',
+      isInProgress,
       divisionName: division?.name || '',
       matchType: tournament?.match_type || null,
       teamMatchCount: tournament?.team_match_count || null,
