@@ -5,6 +5,14 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
 
+// 파트너 검색 결과 타입
+export interface PartnerSearchResult {
+    id: string
+    name: string
+    rating: number | null
+    club: string | null
+}
+
 // 결과 타입 정의
 export interface CreateEntryResult {
     success: boolean;
@@ -25,6 +33,27 @@ export interface DeleteEntryResult {
 /**
  * 대회 참가 신청 생성 (확장된 버전)
  */
+/**
+ * 이름으로 파트너 검색 (복식 신청 시 시스템 사용자 검색용)
+ */
+export async function searchPartnerByName(name: string): Promise<PartnerSearchResult[]> {
+    if (!name || name.trim().length < 2) return []
+
+    const admin = createAdminClient()
+    const { data } = await admin
+        .from('profiles')
+        .select('id, name, rating, club')
+        .ilike('name', `%${name.trim()}%`)
+        .limit(10)
+
+    return (data ?? []).map((p) => ({
+        id: p.id,
+        name: p.name ?? '',
+        rating: p.rating,
+        club: p.club,
+    }))
+}
+
 export async function createEntry(
     tournamentId: string,
     entryData: {
@@ -35,6 +64,7 @@ export async function createEntry(
         clubName?: string | null;
         teamOrder?: string | null;
         partnerData?: { name: string; club: string; rating: number } | null;
+        partnerUserId?: string | null;
         teamMembers?: Array<{ name: string; rating: number }> | null;
     }
 ): Promise<CreateEntryResult> {
@@ -146,6 +176,7 @@ export async function createEntry(
             club_name: entryData.clubName ?? null,
             team_order: finalTeamOrder ?? null,
             partner_data: entryData.partnerData ?? null,
+            partner_user_id: entryData.partnerUserId ?? null,
             team_members: entryData.teamMembers ?? null,
             status: initialStatus,
             payment_status: 'PENDING',
@@ -394,6 +425,7 @@ export async function updateEntry(
         clubName?: string | null;
         teamOrder?: string | null;
         partnerData?: { name: string; club: string; rating: number } | null;
+        partnerUserId?: string | null;
         teamMembers?: Array<{ name: string; rating: number }> | null;
     }
 ): Promise<UpdateEntryResult> {
@@ -495,6 +527,7 @@ export async function updateEntry(
                 club_name: entryData.clubName ?? null,
                 team_order: finalTeamOrder ?? null,
                 partner_data: entryData.partnerData ?? null,
+                partner_user_id: entryData.partnerUserId ?? null,
                 team_members: entryData.teamMembers ?? null,
             })
             .eq('id', entryId)

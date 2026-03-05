@@ -2876,6 +2876,17 @@ export async function autoFillMainBracketResults(configId: string, phase?: Match
           .eq('id', match.loser_next_match_id)
       }
 
+      // FINAL/THIRD_PLACE 결과 시 입상 기록 자동 생성
+      if (match.phase === 'FINAL' || match.phase === 'THIRD_PLACE') {
+        await checkAndCompleteTournament(supabaseAdmin, match.bracket_config_id)
+        await createAwardRecords(supabaseAdmin, {
+          phase: match.phase as MatchPhase,
+          bracketConfigId: match.bracket_config_id,
+          winnerId: winnerId ?? null,
+          loserId: loserId ?? null,
+        })
+      }
+
       filledCount++
     }
   }

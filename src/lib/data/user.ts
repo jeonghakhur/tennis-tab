@@ -186,11 +186,11 @@ export async function getMyMatches() {
     return { error: '로그인이 필요합니다.' }
   }
 
-  // 본인의 확정된 entry IDs 조회
+  // 본인이 신청했거나 파트너로 등록된 확정 entry IDs 조회
   const { data: entries, error: entryError } = await supabase
     .from('tournament_entries')
     .select('id')
-    .eq('user_id', user.id)
+    .or(`user_id.eq.${user.id},partner_user_id.eq.${user.id}`)
     .eq('status', 'CONFIRMED')
 
   if (entryError) {
@@ -361,12 +361,13 @@ export async function getUserStats() {
 
     totalMatches = bracketTotal || 0
 
-    // bracket_matches에서 승리 경기 수
+    // bracket_matches에서 승리 경기 수 (COMPLETED만 — BYE 제외)
     const winFilter = entryIds.map(id => `winner_entry_id.eq.${id}`).join(',')
     const { count: bracketWins } = await supabase
       .from('bracket_matches')
       .select('*', { count: 'exact', head: true })
       .or(winFilter)
+      .eq('status', 'COMPLETED')
 
     wins = bracketWins || 0
   }
@@ -431,6 +432,7 @@ export async function getUserProfile(userId: string) {
       .from('bracket_matches')
       .select('*', { count: 'exact', head: true })
       .or(winFilter)
+      .eq('status', 'COMPLETED')
 
     wins = bracketWins || 0
   }

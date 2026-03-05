@@ -107,32 +107,9 @@ export async function getMyAwards(
     }
   }
 
-  if (myAwards.length === 0) return { myAwardIds: [], awards: [] }
-
-  // 내 레코드가 속한 (year, competition) 쌍의 전체 팀원 레코드 가져오기
-  const pairs = [...new Set(myAwards.map((a) => `${a.year}||${a.competition}`))]
-  const allAwards: Award[] = [...myAwards]
-
-  for (const pair of pairs) {
-    const [yearStr, ...compParts] = pair.split('||')
-    const competition = compParts.join('||')
-    const { data } = await supabase
-      .from('tournament_awards')
-      .select('*')
-      .eq('year', Number(yearStr))
-      .eq('competition', competition)
-
-    for (const a of data ?? []) {
-      if (!seen.has(a.id)) {
-        seen.add(a.id)
-        allAwards.push(a)
-      }
-    }
-  }
-
   return {
     myAwardIds: myAwards.map((a) => a.id),
-    awards: allAwards.sort((a, b) => b.year - a.year),
+    awards: myAwards.sort((a, b) => b.year - a.year),
   }
 }
 

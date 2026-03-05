@@ -253,6 +253,7 @@ export interface Database {
           club_name: string | null
           team_order: string | null
           partner_data: PartnerData | null
+          partner_user_id: string | null
           team_members: TeamMember[] | null
           payment_status: PaymentStatus
           payment_confirmed_at: string | null
@@ -271,6 +272,7 @@ export interface Database {
           club_name?: string | null
           team_order?: string | null
           partner_data?: PartnerData | null
+          partner_user_id?: string | null
           team_members?: TeamMember[] | null
           payment_status?: PaymentStatus
           payment_confirmed_at?: string | null
@@ -289,6 +291,7 @@ export interface Database {
           club_name?: string | null
           team_order?: string | null
           partner_data?: PartnerData | null
+          partner_user_id?: string | null
           team_members?: TeamMember[] | null
           payment_status?: PaymentStatus
           payment_confirmed_at?: string | null

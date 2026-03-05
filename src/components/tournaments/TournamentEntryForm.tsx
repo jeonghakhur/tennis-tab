@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { MatchType, PartnerData, TeamMember } from "@/lib/supabase/types";
 import PhoneInput from "@/components/ui/PhoneInput";
@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { searchPartnerByName, type PartnerSearchResult } from "@/lib/entries/actions";
 
 interface Division {
   id: string;
@@ -54,6 +55,7 @@ export interface EntryFormData {
   clubName?: string | null;
   teamOrder?: string | null;
   partnerData?: PartnerData | null;
+  partnerUserId?: string | null;
   teamMembers?: TeamMember[] | null;
 }
 
@@ -110,6 +112,57 @@ export default function TournamentEntryForm({
   const [partnerRating, setPartnerRating] = useState<number | null>(
     initialData?.partnerData?.rating ?? null,
   );
+  // 파트너 시스템 계정 연동
+  const [partnerUserId, setPartnerUserId] = useState<string | null>(
+    initialData?.partnerUserId ?? null,
+  );
+  const [partnerSearchResults, setPartnerSearchResults] = useState<PartnerSearchResult[]>([]);
+  const [isSearchingPartner, setIsSearchingPartner] = useState(false);
+  const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
+  const partnerSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const partnerDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 파트너 검색 입력 핸들러 (디바운스 300ms)
+  const handlePartnerNameChange = (value: string) => {
+    setPartnerName(value);
+    // 수동 입력 시 연동 해제
+    setPartnerUserId(null);
+
+    if (partnerSearchRef.current) clearTimeout(partnerSearchRef.current);
+    if (value.trim().length < 2) {
+      setPartnerSearchResults([]);
+      setShowPartnerDropdown(false);
+      return;
+    }
+    setIsSearchingPartner(true);
+    partnerSearchRef.current = setTimeout(async () => {
+      const results = await searchPartnerByName(value);
+      setPartnerSearchResults(results);
+      setShowPartnerDropdown(results.length > 0);
+      setIsSearchingPartner(false);
+    }, 300);
+  };
+
+  // 파트너 선택 시 자동 채우기
+  const handleSelectPartner = (partner: PartnerSearchResult) => {
+    setPartnerName(partner.name);
+    setPartnerClub(partner.club ?? "");
+    setPartnerRating(partner.rating ?? null);
+    setPartnerUserId(partner.id);
+    setShowPartnerDropdown(false);
+    setPartnerSearchResults([]);
+  };
+
+  // 파트너 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (partnerDropdownRef.current && !partnerDropdownRef.current.contains(e.target as Node)) {
+        setShowPartnerDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // 팀원 정보 (단체전) — 최소 필요 인원만큼 빈 슬롯 선생성
   const isTeamMatch =
@@ -267,6 +320,7 @@ export default function TournamentEntryForm({
         club: partnerClub,
         rating: partnerRating!,
       };
+      formData.partnerUserId = partnerUserId;
     }
 
     if (matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") {
@@ -398,16 +452,64 @@ export default function TournamentEntryForm({
                 파트너 정보
               </h3>
 
-              <div>
+              {/* 파트너 이름 + 검색 드롭다운 */}
+              <div className="relative" ref={partnerDropdownRef}>
                 <label className={labelClass}>
                   파트너 이름 <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={partnerName}
-                  onChange={(e) => setPartnerName(e.target.value)}
-                  className={inputClass}
-                />
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={partnerName}
+                    onChange={(e) => handlePartnerNameChange(e.target.value)}
+                    onFocus={() => partnerSearchResults.length > 0 && setShowPartnerDropdown(true)}
+                    className={inputClass}
+                    placeholder="이름 입력 후 검색"
+                    autoComplete="off"
+                  />
+                  {isSearchingPartner && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                      검색 중...
+                    </span>
+                  )}
+                  {partnerUserId && (
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-500 font-medium">
+                      ✓ 연동됨
+                    </span>
+                  )}
+                </div>
+                {showPartnerDropdown && (
+                  <ul className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                    {partnerSearchResults.map((p) => (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => handleSelectPartner(p)}
+                          className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        >
+                          <span className="font-medium text-gray-900 dark:text-white">{p.name}</span>
+                          <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                            {p.club && `${p.club} · `}{p.rating != null ? `${p.rating}점` : "점수 없음"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => setShowPartnerDropdown(false)}
+                        className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                      >
+                        직접 입력
+                      </button>
+                    </li>
+                  </ul>
+                )}
+                {!partnerUserId && partnerName && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    * 시스템에 등록된 회원이면 이름 입력 후 목록에서 선택하세요
+                  </p>
+                )}
               </div>
 
               <div>
