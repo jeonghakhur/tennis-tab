@@ -7,6 +7,7 @@ import TournamentActions from "@/components/tournaments/TournamentActions";
 import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
+import { decryptProfile } from "@/lib/crypto/profileCrypto";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 import { PaymentSuccessToast } from "@/components/tournaments/PaymentSuccessToast";
 
@@ -72,7 +73,7 @@ export default async function TournamentDetailPage({ params }: Props) {
       .eq("id", user.id)
       .single();
 
-    userProfile = profile;
+    userProfile = profile ? decryptProfile(profile) : null;
 
     // 현재 참가 신청 상태 확인 (여러 부서 신청 시 최신 1건, 수정/취소용)
     const { data: entry } = await supabase

@@ -111,22 +111,35 @@ export default function TournamentEntryForm({
     initialData?.partnerData?.rating ?? null,
   );
 
-  // 팀원 정보 (단체전)
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(
-    initialData?.teamMembers || [],
-  );
+  // 팀원 정보 (단체전) — 최소 필요 인원만큼 빈 슬롯 선생성
+  const isTeamMatch =
+    matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES";
+  const requiredTotal =
+    isTeamMatch && teamMatchCount
+      ? matchType === "TEAM_DOUBLES"
+        ? teamMatchCount * 2
+        : teamMatchCount
+      : 0;
+  const requiredMembers = Math.max(0, requiredTotal - 1);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
+    if (initialData?.teamMembers?.length) return initialData.teamMembers;
+    return Array.from({ length: requiredMembers }, () => ({
+      name: "",
+      rating: 0,
+    }));
+  });
 
   // 선택된 division 정보
   const selectedDivision = divisions.find((d) => d.id === divisionId);
 
-  // 팀원 추가
+  // 팀원 추가 — limit이 없으면 무제한, 있으면 AlertDialog로 차단
   const addTeamMember = () => {
-    if (!selectedDivision?.team_member_limit) return;
-    if (teamMembers.length >= selectedDivision.team_member_limit) {
+    const limit = selectedDivision?.team_member_limit;
+    if (limit != null && teamMembers.length >= limit) {
       setAlertDialog({
         isOpen: true,
         title: "팀원 추가 불가",
-        message: `최대 ${selectedDivision.team_member_limit}명까지 등록 가능합니다.`,
+        message: `최대 ${limit}명까지 등록 가능합니다.`,
         type: "warning",
       });
       return;
@@ -134,8 +147,17 @@ export default function TournamentEntryForm({
     setTeamMembers([...teamMembers, { name: "", rating: 0 }]);
   };
 
-  // 팀원 제거
+  // 팀원 제거 — 최소 필요 인원 이하로는 제거 불가
   const removeTeamMember = (index: number) => {
+    if (teamMembers.length <= requiredMembers) {
+      setAlertDialog({
+        isOpen: true,
+        title: "제거 불가",
+        message: `최소 ${requiredMembers}명의 팀원이 필요합니다.`,
+        type: "warning",
+      });
+      return;
+    }
     setTeamMembers(teamMembers.filter((_, i) => i !== index));
   };
 
@@ -299,6 +321,7 @@ export default function TournamentEntryForm({
           id="entry-form"
           onSubmit={handleSubmit}
           className="space-y-6"
+          noValidate
         >
           {/* 참가 부서 선택 */}
           <div>
@@ -337,7 +360,6 @@ export default function TournamentEntryForm({
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 className={inputClass}
-                required
               />
             </div>
 
@@ -348,7 +370,6 @@ export default function TournamentEntryForm({
               <PhoneInput
                 value={phone}
                 onChange={setPhone}
-                required
                 className={inputClass}
               />
             </div>
@@ -386,7 +407,6 @@ export default function TournamentEntryForm({
                   value={partnerName}
                   onChange={(e) => setPartnerName(e.target.value)}
                   className={inputClass}
-                  required
                 />
               </div>
 
@@ -399,7 +419,6 @@ export default function TournamentEntryForm({
                   value={partnerClub}
                   onChange={(e) => setPartnerClub(e.target.value)}
                   className={inputClass}
-                  required
                 />
               </div>
 
@@ -418,7 +437,6 @@ export default function TournamentEntryForm({
                   className={inputClass}
                   min="1"
                   max="9999"
-                  required
                 />
               </div>
             </div>
@@ -441,7 +459,6 @@ export default function TournamentEntryForm({
                     value={clubName}
                     onChange={(e) => setClubName(e.target.value)}
                     className={inputClass}
-                    required
                   />
                 </div>
 
@@ -461,73 +478,44 @@ export default function TournamentEntryForm({
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div>
                   <h3 className="font-semibold text-gray-900 dark:text-white">
                     팀원 정보
                   </h3>
-                  <button
-                    type="button"
-                    onClick={addTeamMember}
-                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
-                  >
-                    + 팀원 추가
-                  </button>
+                  {(() => {
+                    const requiredTotal = teamMatchCount
+                      ? matchType === "TEAM_DOUBLES" ? teamMatchCount * 2 : teamMatchCount
+                      : null;
+                    const maxLimit = selectedDivision?.team_member_limit;
+                    return (
+                      <p className="text-sm text-gray-500 mt-1">
+                        {requiredTotal && `* 신청자 포함 최소 ${requiredTotal}명 필요`}
+                        {requiredTotal && maxLimit && " / "}
+                        {maxLimit && `최대 ${maxLimit}명까지 등록 가능`}
+                      </p>
+                    );
+                  })()}
                 </div>
 
-                {(() => {
-                  const requiredTotal = teamMatchCount
-                    ? matchType === "TEAM_DOUBLES" ? teamMatchCount * 2 : teamMatchCount
-                    : null;
-                  const maxLimit = selectedDivision?.team_member_limit;
-                  return (
-                    <p className="text-sm text-gray-500">
-                      {requiredTotal && `* 신청자 포함 최소 ${requiredTotal}명 필요`}
-                      {requiredTotal && maxLimit && " / "}
-                      {maxLimit && `최대 ${maxLimit}명까지 등록 가능`}
-                    </p>
-                  );
-                })()}
-
-                {teamMembers.map((member, index) => (
-                  <div
-                    key={index}
-                    className="p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl space-y-3 border border-gray-200 dark:border-gray-700"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        팀원 {index + 1}
+                <div className="space-y-2">
+                  {teamMembers.map((member, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-10 shrink-0 text-center">
+                        {index + 1}
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => removeTeamMember(index)}
-                        className="text-red-600 hover:text-red-700 text-sm"
-                      >
-                        제거
-                      </button>
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        이름 <span className="text-red-500">*</span>
-                      </label>
                       <input
                         type="text"
                         value={member.name}
                         onChange={(e) =>
                           updateTeamMember(index, "name", e.target.value)
                         }
-                        className={inputClass}
-                        required
+                        placeholder="이름"
+                        className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label={`팀원 ${index + 1} 이름`}
                       />
-                    </div>
-
-                    <div>
-                      <label className={labelClass}>
-                        점수 <span className="text-red-500">*</span>
-                      </label>
                       <input
                         type="number"
-                        value={member.rating}
+                        value={member.rating || ""}
                         onChange={(e) =>
                           updateTeamMember(
                             index,
@@ -535,20 +523,32 @@ export default function TournamentEntryForm({
                             parseInt(e.target.value) || 0,
                           )
                         }
-                        className={inputClass}
+                        placeholder="점수(레이팅)"
+                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label={`팀원 ${index + 1} 점수`}
                         min="1"
                         max="9999"
-                        required
                       />
+                      <button
+                        type="button"
+                        onClick={() => removeTeamMember(index)}
+                        className="shrink-0 text-red-500 hover:text-red-700 text-sm px-1"
+                        aria-label={`팀원 ${index + 1} 제거`}
+                      >
+                        ✕
+                      </button>
                     </div>
-                  </div>
-                ))}
+                  ))}
 
-                {teamMembers.length === 0 && (
-                  <div className="text-center py-8 text-gray-500 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-                    팀원을 추가해주세요
-                  </div>
-                )}
+                  {/* 팀원 추가 버튼 — 리스트 마지막에 위치 */}
+                  <button
+                    type="button"
+                    onClick={addTeamMember}
+                    className="w-full mt-1 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-green-500 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 rounded-xl text-sm font-medium transition-colors"
+                  >
+                    + 팀원 추가
+                  </button>
+                </div>
               </div>
             </>
           )}
