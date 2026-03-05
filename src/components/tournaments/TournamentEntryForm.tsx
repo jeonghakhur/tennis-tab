@@ -1,13 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { MatchType, PartnerData, TeamMember } from "@/lib/supabase/types";
 import PhoneInput from "@/components/ui/PhoneInput";
 import { unformatPhoneNumber } from "@/lib/utils/phone";
 import { AlertDialog } from "@/components/common/AlertDialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Modal } from "@/components/common/Modal";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface Division {
   id: string;
@@ -27,6 +33,7 @@ interface TournamentEntryFormProps {
   tournamentId: string;
   tournamentTitle: string;
   matchType: MatchType | null;
+  teamMatchCount: number | null;
   divisions: Division[];
   userProfile: UserProfile;
   entryFee: number;
@@ -53,6 +60,7 @@ export interface EntryFormData {
 export default function TournamentEntryForm({
   tournamentTitle,
   matchType,
+  teamMatchCount,
   divisions,
   userProfile,
   entryFee,
@@ -64,7 +72,6 @@ export default function TournamentEntryForm({
 }: TournamentEntryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -77,42 +84,36 @@ export default function TournamentEntryForm({
     type: "info",
   });
 
-  // Portal을 위한 마운트 상태
-  useEffect(() => {
-    setMounted(true);
-    return () => setMounted(false);
-  }, []);
-
   // 폼 상태 (수정 모드일 경우 initialData 사용)
   const [divisionId, setDivisionId] = useState(initialData?.divisionId || "");
   const [phone, setPhone] = useState(
-    initialData?.phone || userProfile.phone || ""
+    initialData?.phone || userProfile.phone || "",
   );
   const [playerName, setPlayerName] = useState(
-    initialData?.playerName || userProfile.name
+    initialData?.playerName || userProfile.name,
   );
   const [playerRating, setPlayerRating] = useState<number | null>(
-    initialData?.playerRating ?? userProfile.rating
+    initialData?.playerRating ?? userProfile.rating,
   );
   const [clubName, setClubName] = useState(
-    initialData?.clubName || userProfile.club || ""
+    initialData?.clubName || userProfile.club || "",
   );
   const [teamOrder, setTeamOrder] = useState(initialData?.teamOrder || "");
 
   // 파트너 정보 (개인전 복식)
   const [partnerName, setPartnerName] = useState(
-    initialData?.partnerData?.name || ""
+    initialData?.partnerData?.name || "",
   );
   const [partnerClub, setPartnerClub] = useState(
-    initialData?.partnerData?.club || ""
+    initialData?.partnerData?.club || "",
   );
   const [partnerRating, setPartnerRating] = useState<number | null>(
-    initialData?.partnerData?.rating ?? null
+    initialData?.partnerData?.rating ?? null,
   );
 
   // 팀원 정보 (단체전)
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(
-    initialData?.teamMembers || []
+    initialData?.teamMembers || [],
   );
 
   // 선택된 division 정보
@@ -196,11 +197,21 @@ export default function TournamentEntryForm({
         });
         return;
       }
-      if (teamMembers.length === 0) {
+      // 단체전 팀원 수 검증: teamMatchCount 있으면 신청자 포함 필수 인원 계산
+      const requiredTotal = teamMatchCount
+        ? matchType === "TEAM_DOUBLES"
+          ? teamMatchCount * 2  // 3복식 → 6명
+          : teamMatchCount      // 3단식 → 3명
+        : 1;
+      const requiredMembers = requiredTotal - 1; // 신청자 제외 팀원 수
+      if (teamMembers.length < requiredMembers) {
+        const totalLabel = `신청자 포함 총 ${requiredTotal}명`;
         setAlertDialog({
           isOpen: true,
           title: "입력 필요",
-          message: "최소 1명의 팀원을 등록해주세요.",
+          message: requiredMembers > 0
+            ? `팀원 ${requiredMembers}명을 등록해주세요. (${totalLabel} 필요)`
+            : "최소 1명의 팀원을 등록해주세요.",
           type: "warning",
         });
         return;
@@ -249,7 +260,9 @@ export default function TournamentEntryForm({
       setAlertDialog({
         isOpen: true,
         title: editMode ? "수정 완료" : "신청 완료",
-        message: editMode ? "신청 정보가 수정되었습니다!" : "참가 신청이 완료되었습니다!",
+        message: editMode
+          ? "신청 정보가 수정되었습니다!"
+          : "참가 신청이 완료되었습니다!",
         type: "success",
       });
       router.refresh();
@@ -258,7 +271,11 @@ export default function TournamentEntryForm({
       setAlertDialog({
         isOpen: true,
         title: editMode ? "수정 실패" : "신청 실패",
-        message: result.error || (editMode ? "신청 수정에 실패했습니다." : "참가 신청에 실패했습니다."),
+        message:
+          result.error ||
+          (editMode
+            ? "신청 수정에 실패했습니다."
+            : "참가 신청에 실패했습니다."),
         type: "error",
       });
     }
@@ -269,60 +286,37 @@ export default function TournamentEntryForm({
   const labelClass =
     "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2";
 
-  // SSR에서는 렌더링하지 않음
-  if (!mounted) return null;
-
-  const modalContent = (
-    <div
-      className="fixed inset-0 bg-black/20 flex items-center justify-center p-4 overflow-y-auto backdrop-brightness-50"
-      style={{ zIndex: 9999 }}
+  return (
+    <Modal
+      isOpen={true}
+      onClose={onClose}
+      title={editMode ? "신청 수정" : "참가 신청"}
+      description={tournamentTitle}
+      size="2xl"
     >
-      <div
-        className="bg-white dark:bg-gray-800 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto relative"
-        style={{ zIndex: 10000 }}
-      >
-        <div className="sticky top-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              {editMode ? "신청 수정" : "참가 신청"}
-            </h2>
-            <button
-              onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-            >
-              <svg
-                className="w-6 h-6"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-            {tournamentTitle}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="p-6 space-y-6">
+      <Modal.Body>
+        <form
+          id="entry-form"
+          onSubmit={handleSubmit}
+          className="space-y-6"
+        >
           {/* 참가 부서 선택 */}
           <div>
             <label className={labelClass}>
               참가 부서 <span className="text-red-500">*</span>
             </label>
-            <Select value={divisionId || undefined} onValueChange={setDivisionId}>
+            <Select
+              value={divisionId}
+              onValueChange={setDivisionId}
+            >
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="선택해주세요" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent position="popper">
                 {divisions.map((division) => (
-                  <SelectItem key={division.id} value={division.id}>{division.name}</SelectItem>
+                  <SelectItem key={division.id} value={division.id}>
+                    {division.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -480,11 +474,19 @@ export default function TournamentEntryForm({
                   </button>
                 </div>
 
-                {selectedDivision?.team_member_limit && (
-                  <p className="text-sm text-gray-500">
-                    * 최대 {selectedDivision.team_member_limit}명까지 등록 가능
-                  </p>
-                )}
+                {(() => {
+                  const requiredTotal = teamMatchCount
+                    ? matchType === "TEAM_DOUBLES" ? teamMatchCount * 2 : teamMatchCount
+                    : null;
+                  const maxLimit = selectedDivision?.team_member_limit;
+                  return (
+                    <p className="text-sm text-gray-500">
+                      {requiredTotal && `* 신청자 포함 최소 ${requiredTotal}명 필요`}
+                      {requiredTotal && maxLimit && " / "}
+                      {maxLimit && `최대 ${maxLimit}명까지 등록 가능`}
+                    </p>
+                  );
+                })()}
 
                 {teamMembers.map((member, index) => (
                   <div
@@ -596,38 +598,40 @@ export default function TournamentEntryForm({
             )}
           </div>
 
-          {/* 제출 버튼 */}
-          <div className="flex gap-3 pt-4 border-t border-gray-200 dark:border-gray-700">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting
-                ? (editMode ? "수정 중..." : "신청 중...")
-                : (editMode ? "수정하기" : "참가 신청하기")}
-            </button>
-          </div>
         </form>
+      </Modal.Body>
 
-        {/* Alert Dialog */}
-        <AlertDialog
-          isOpen={alertDialog.isOpen}
-          onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
-          title={alertDialog.title}
-          message={alertDialog.message}
-          type={alertDialog.type}
-        />
-      </div>
-    </div>
+      <Modal.Footer>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
+        >
+          취소
+        </button>
+        <button
+          type="submit"
+          form="entry-form"
+          disabled={isSubmitting}
+          className="flex-1 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isSubmitting
+            ? editMode
+              ? "수정 중..."
+              : "신청 중..."
+            : editMode
+              ? "수정하기"
+              : "참가 신청하기"}
+        </button>
+      </Modal.Footer>
+
+      <AlertDialog
+        isOpen={alertDialog.isOpen}
+        onClose={() => setAlertDialog({ ...alertDialog, isOpen: false })}
+        title={alertDialog.title}
+        message={alertDialog.message}
+        type={alertDialog.type}
+      />
+    </Modal>
   );
-
-  return createPortal(modalContent, document.body);
 }

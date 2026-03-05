@@ -81,11 +81,9 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
     return { success: false, error: '프로필을 찾을 수 없습니다.' }
   }
 
-  /*
   if (!profile.role || !ALLOWED_ROLES.includes(profile.role)) {
     return { success: false, error: '대회를 생성할 권한이 없습니다.' }
   }
-  */
 
   // 3. 폼 데이터 유효성 검사
   const title = formData.get('title') as string

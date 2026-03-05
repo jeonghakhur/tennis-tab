@@ -5,6 +5,7 @@ import { createPortal } from "react-dom";
 import { useRouter, usePathname } from "next/navigation";
 import {
   createEntry,
+  confirmBankTransfer,
   deleteEntry,
   updateEntry,
   getUserEntry,
@@ -13,7 +14,6 @@ import { closeTournament } from "@/lib/tournaments/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
 import { AlertDialog } from "@/components/common/AlertDialog";
-import { Modal } from "@/components/common/Modal";
 
 interface Division {
   id: string;
@@ -49,6 +49,7 @@ interface TournamentEntryActionsProps {
   tournamentTitle: string;
   tournamentStatus: string;
   matchType: MatchType | null;
+  teamMatchCount: number | null;
   divisions: Division[];
   currentEntry: CurrentEntry | null;
   isLoggedIn: boolean;
@@ -65,6 +66,7 @@ export default function TournamentEntryActions({
   tournamentTitle,
   tournamentStatus,
   matchType,
+  teamMatchCount,
   divisions,
   currentEntry,
   isLoggedIn,
@@ -80,13 +82,13 @@ export default function TournamentEntryActions({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  // 결제 선택 다이얼로그: 참가 신청 직후 결제 여부 확인
-  const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [mounted, setMounted] = useState(false);
   // 서버에서 currentEntry가 null로 올 수 있어, 클라이언트에서 한 번 더 조회
   const [entry, setEntry] = useState<CurrentEntry | null>(currentEntry);
+  // 참가 신청 완료 후 결제 유도 모달 (entryFee > 0인 경우)
+  const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -145,16 +147,14 @@ export default function TournamentEntryActions({
       teamMembers: data.teamMembers,
     });
 
-    if (result.success && result.entryId) {
+    if (result.success) {
       // 엔트리 상태 갱신 (폼 닫힌 후 카드 표시)
       getUserEntry(tournamentId).then((e) => {
         if (e) setEntry(e as CurrentEntry);
       });
-
-      if (entryFee > 0) {
-        // 결제 선택 다이얼로그 표시
+      // 참가비가 있는 경우 결제 유도 모달 표시
+      if (entryFee > 0 && result.entryId) {
         setPaymentPrompt({ entryId: result.entryId });
-        return result;
       }
     }
 
@@ -202,6 +202,38 @@ export default function TournamentEntryActions({
         isOpen: true,
         title: "취소 실패",
         message: result.error || "신청 취소에 실패했습니다.",
+        type: "error",
+      });
+    }
+  };
+
+  // 입금 완료 확인 처리
+  const handleConfirmPayment = async () => {
+    if (!entry?.id || isSubmitting) return;
+
+    setIsSubmitting(true);
+    const result = await confirmBankTransfer(entry.id);
+    setIsSubmitting(false);
+
+    if (result.success) {
+      getUserEntry(tournamentId).then((e) => {
+        if (e) setEntry(e as CurrentEntry);
+      });
+      setAlertDialog({
+        isOpen: true,
+        title: "입금 확인 완료",
+        message:
+          result.status === "CONFIRMED"
+            ? "입금이 확인되었습니다. 참가가 확정되었습니다!"
+            : "입금이 확인되었습니다. 정원 초과로 대기자 명단에 등록되었습니다.",
+        type: result.status === "CONFIRMED" ? "success" : "warning",
+      });
+      router.refresh();
+    } else {
+      setAlertDialog({
+        isOpen: true,
+        title: "입금 확인 실패",
+        message: result.error || "입금 확인에 실패했습니다.",
         type: "error",
       });
     }
@@ -290,11 +322,11 @@ export default function TournamentEntryActions({
         style={{
           backgroundColor: isPaid
             ? "rgba(16, 185, 129, 0.15)"
-            : "rgba(239, 68, 68, 0.15)",
-          color: isPaid ? "#059669" : "#dc2626",
+            : "rgba(245, 158, 11, 0.15)",
+          color: isPaid ? "#059669" : "#d97706",
         }}
       >
-        {isPaid ? "결제 완료" : "미결제"}
+        {isPaid ? "입금 확인됨" : "입금 전"}
       </span>
     );
   };
@@ -329,11 +361,12 @@ export default function TournamentEntryActions({
               {getStatusBadge(entry.status)}
             </span>
             <button
-              onClick={() => router.push(`/tournaments/${tournamentId}/payment?entryId=${entry.id}`)}
-              className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90"
+              onClick={handleConfirmPayment}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
             >
-              참가비 결제하기
+              {isSubmitting ? "처리 중..." : "입금 완료"}
             </button>
           </>
         );
@@ -470,22 +503,37 @@ export default function TournamentEntryActions({
                 </div>
               </div>
 
-              {/* 미결제 상태일 때 결제 버튼 */}
+              {/* 입금 전 상태일 때 입금 완료 버튼 */}
               {entryFee > 0 && entry.payment_status === "PENDING" && (
-                <button
-                  onClick={() =>
-                    router.push(
-                      `/tournaments/${tournamentId}/payment?entryId=${entry.id}`
-                    )
-                  }
-                  className="w-full rounded-xl py-3 font-bold transition-all hover:opacity-90"
-                  style={{
-                    backgroundColor: "var(--accent-color)",
-                    color: "var(--bg-primary)",
-                  }}
-                >
-                  참가비 {entryFee.toLocaleString()}원 결제하기
-                </button>
+                <div className="space-y-2">
+                  {bankAccount && (
+                    <div
+                      className="rounded-xl p-3 text-sm"
+                      style={{ backgroundColor: "var(--bg-card)" }}
+                    >
+                      <p style={{ color: "var(--text-muted)" }} className="mb-1">
+                        입금 계좌
+                      </p>
+                      <p className="font-medium" style={{ color: "var(--text-primary)" }}>
+                        {bankAccount}
+                      </p>
+                      <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
+                        입금자명: {entry.player_name || "신청자 이름"}
+                      </p>
+                    </div>
+                  )}
+                  <button
+                    onClick={handleConfirmPayment}
+                    disabled={isSubmitting}
+                    className="w-full rounded-xl py-3 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: "var(--accent-color)",
+                      color: "var(--bg-primary)",
+                    }}
+                  >
+                    {isSubmitting ? "처리 중..." : `입금 완료 (${entryFee.toLocaleString()}원)`}
+                  </button>
+                </div>
               )}
 
               {canEditOrCancel && (
@@ -780,6 +828,7 @@ export default function TournamentEntryActions({
           tournamentId={tournamentId}
           tournamentTitle={tournamentTitle}
           matchType={matchType}
+          teamMatchCount={teamMatchCount}
           divisions={divisions}
           userProfile={userProfile}
           entryFee={entryFee}
@@ -795,6 +844,7 @@ export default function TournamentEntryActions({
           tournamentId={tournamentId}
           tournamentTitle={tournamentTitle}
           matchType={matchType}
+          teamMatchCount={teamMatchCount}
           divisions={divisions}
           userProfile={{
             name: entry.player_name || "",
@@ -829,58 +879,6 @@ export default function TournamentEntryActions({
         type={alertDialog.type}
       />
 
-      {/* 결제 선택 다이얼로그 */}
-      <Modal
-        isOpen={paymentPrompt !== null}
-        onClose={() => setPaymentPrompt(null)}
-        title="참가비 결제"
-        size="sm"
-        closeOnOverlayClick={false}
-      >
-        <Modal.Body>
-          <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
-            참가 신청이 완료되었습니다.
-          </p>
-          <p className="mt-3 text-lg font-semibold" style={{ color: "var(--text-primary)" }}>
-            참가비{" "}
-            <span style={{ color: "var(--accent-color)" }}>
-              {entryFee.toLocaleString()}원
-            </span>
-            을 지금 결제하시겠어요?
-          </p>
-          <p className="mt-2 text-xs" style={{ color: "var(--text-muted)" }}>
-            나중에 결제하면 마이페이지에서 진행할 수 있습니다.
-          </p>
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            onClick={() => setPaymentPrompt(null)}
-            className="flex-1 rounded-xl py-3 font-medium transition-all hover:opacity-80"
-            style={{
-              backgroundColor: "var(--bg-card-hover)",
-              color: "var(--text-secondary)",
-            }}
-          >
-            나중에 하기
-          </button>
-          <button
-            onClick={() => {
-              if (paymentPrompt) {
-                router.push(
-                  `/tournaments/${tournamentId}/payment?entryId=${paymentPrompt.entryId}`
-                );
-              }
-            }}
-            className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90"
-            style={{
-              backgroundColor: "var(--accent-color)",
-              color: "var(--bg-primary)",
-            }}
-          >
-            지금 결제하기
-          </button>
-        </Modal.Footer>
-      </Modal>
     </>
   );
 }

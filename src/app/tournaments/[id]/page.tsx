@@ -583,6 +583,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               tournamentTitle={tournament.title}
               tournamentStatus={tournament.status}
               matchType={tournament.match_type}
+              teamMatchCount={tournament.team_match_count ?? null}
               divisions={tournament.tournament_divisions || []}
               currentEntry={currentEntry}
               isLoggedIn={!!user}

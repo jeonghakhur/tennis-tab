@@ -1137,15 +1137,36 @@ export async function submitPlayerScore(
 
   const supabaseAdmin = createAdminClient()
 
-  // 경기 정보 조회 (상태 확인용)
+  // 경기 정보 조회 (상태 + active_phase 검증용)
   const { data: match, error: matchError } = await supabaseAdmin
     .from('bracket_matches')
-    .select('id, status, team1_entry_id, team2_entry_id')
+    .select('id, status, phase, round_number, team1_entry_id, team2_entry_id, bracket_config_id')
     .eq('id', matchId)
     .single()
 
   if (matchError || !match) {
     return { error: '경기 정보를 찾을 수 없습니다.' }
+  }
+
+  // active_phase 검증: 관리자가 활성화한 라운드에서만 점수 입력 가능
+  const { data: bracketConfig } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('active_phase, active_round')
+    .eq('id', match.bracket_config_id)
+    .single()
+
+  if (bracketConfig) {
+    const { active_phase, active_round } = bracketConfig
+    if (!active_phase) {
+      return { error: '현재 점수 입력이 활성화된 라운드가 없습니다.' }
+    }
+    if (active_phase !== match.phase) {
+      return { error: '현재 활성화된 페이즈의 경기가 아닙니다.' }
+    }
+    // MAIN 페이즈이고 특정 라운드가 지정된 경우
+    if (active_phase === 'MAIN' && active_round !== null && match.round_number !== active_round) {
+      return { error: '현재 활성화된 라운드의 경기가 아닙니다.' }
+    }
   }
 
   // SCHEDULED 또는 COMPLETED 상태에서만 입력/수정 가능
@@ -2868,6 +2889,9 @@ export async function setActiveRound(
 
   const idError = validateId(configId, '설정 ID')
   if (idError) return { success: false, error: idError }
+
+  const closedCheck = await checkTournamentNotClosed(configId)
+  if (closedCheck.error) return { success: false, error: closedCheck.error }
 
   const supabaseAdmin = createAdminClient()
 

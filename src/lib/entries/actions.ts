@@ -4,7 +4,6 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
-import { cancelTossPayment } from '@/lib/payment/actions';
 
 // 결과 타입 정의
 export interface CreateEntryResult {
@@ -278,16 +277,18 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
             return { success: false, error: '본인의 신청만 취소할 수 있습니다.' };
         }
 
-        // 4. 결제 완료 상태면 토스 결제 취소 먼저 처리
-        if (entry.payment_status === 'COMPLETED') {
-            const cancelResult = await cancelTossPayment(entryId)
-            if (!cancelResult.success) {
-                return { success: false, error: `결제 취소 실패: ${cancelResult.error}` }
-            }
+        // 4. 대진표 배정 여부 확인 — 배정 후 취소 시 bracket_matches FK null 방지
+        const admin = createAdminClient();
+        const { count: bracketCount } = await admin
+            .from('bracket_matches')
+            .select('id', { count: 'exact', head: true })
+            .or(`team1_entry_id.eq.${entryId},team2_entry_id.eq.${entryId}`);
+
+        if ((bracketCount ?? 0) > 0) {
+            return { success: false, error: '대진표에 배정된 참가 신청은 취소할 수 없습니다. 주최자에게 문의하세요.' };
         }
 
         // 5. 신청 삭제 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
-        const admin = createAdminClient();
         const { error: deleteError } = await admin
             .from('tournament_entries')
             .delete()
@@ -308,6 +309,75 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
     } catch (error) {
         console.error('Delete entry error:', error);
         return { success: false, error: '신청 취소 중 오류가 발생했습니다.' };
+    }
+}
+
+/**
+ * 계좌이체 입금 확인
+ * - 참가자가 이체 후 직접 호출
+ * - payment_status = COMPLETED + 정원 이내 → CONFIRMED, 초과 → WAITLISTED
+ */
+export async function confirmBankTransfer(entryId: string): Promise<{
+    success: boolean
+    error?: string
+    status?: 'CONFIRMED' | 'WAITLISTED'
+}> {
+    try {
+        const supabase = await createClient()
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) return { success: false, error: '로그인이 필요합니다.' }
+
+        // 본인 신청인지 확인
+        const { data: entry } = await supabase
+            .from('tournament_entries')
+            .select('id, user_id, division_id, payment_status, tournament_id')
+            .eq('id', entryId)
+            .eq('user_id', user.id)
+            .single()
+
+        if (!entry) return { success: false, error: '신청 정보를 찾을 수 없습니다.' }
+
+        // 이미 입금 확인된 경우 멱등성 처리
+        if (entry.payment_status === 'COMPLETED') {
+            return { success: true, status: 'CONFIRMED' }
+        }
+
+        const admin = createAdminClient()
+
+        // 부서 정원 체크
+        const [{ data: division }, { count }] = await Promise.all([
+            admin.from('tournament_divisions').select('max_teams').eq('id', entry.division_id).single(),
+            admin
+                .from('tournament_entries')
+                .select('*', { count: 'exact', head: true })
+                .eq('division_id', entry.division_id)
+                .eq('status', 'CONFIRMED'),
+        ])
+
+        // 정원 없거나 빈 자리 있으면 CONFIRMED, 아니면 WAITLISTED
+        const newStatus: 'CONFIRMED' | 'WAITLISTED' =
+            !division?.max_teams || (count ?? 0) < division.max_teams ? 'CONFIRMED' : 'WAITLISTED'
+
+        const { error } = await admin
+            .from('tournament_entries')
+            .update({
+                payment_status: 'COMPLETED',
+                payment_confirmed_at: new Date().toISOString(),
+                status: newStatus,
+            })
+            .eq('id', entryId)
+            .eq('user_id', user.id)
+
+        if (error) return { success: false, error: '입금 확인 처리에 실패했습니다.' }
+
+        revalidatePath(`/tournaments/${entry.tournament_id}`)
+        revalidatePath('/my/entries')
+
+        return { success: true, status: newStatus }
+    } catch (error) {
+        console.error('Confirm bank transfer error:', error)
+        return { success: false, error: '입금 확인 중 오류가 발생했습니다.' }
     }
 }
 

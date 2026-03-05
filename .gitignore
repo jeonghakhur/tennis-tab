@@ -55,3 +55,4 @@ docs/.pdca-snapshots/
 
 # yarn (npm 사용 — package-lock.json만 추적)
 yarn.lock
+.mcp.json
