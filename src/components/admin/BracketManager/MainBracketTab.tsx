@@ -117,12 +117,26 @@ export function MainBracketTab({
   const maxRound = roundsData.length > 0 ? roundsData[roundsData.length - 1][0] : 0;
   const hasFinal = matches.some((m) => m.phase === "FINAL");
 
-  // 조편성 탭 노출 조건: seedingGroups 있고 결승 미생성 + 콜백 있음
+  // 결승 라운드 여부: 조편성 없이 바로 생성
+  const isFinalGeneration = nextPhaseLabel === "결승";
+
+  // 조편성 탭 노출 조건: seedingGroups 있고 결승 미생성 + 콜백 있음 + 결승 라운드 아님
   const showSeedingTab =
     !!seedingGroups &&
     seedingGroups.length > 0 &&
     !hasFinal &&
-    !!onGenerateBracketWithSeeds;
+    !!onGenerateBracketWithSeeds &&
+    !isFinalGeneration;
+
+  // 결승 바로 생성: 준결승 승자 2명을 그대로 seedOrder로 사용
+  const handleGenerateFinalDirect = () => {
+    if (!seedingGroups || !onGenerateBracketWithSeeds) return;
+    const seedOrder = seedingGroups.flatMap((g) => {
+      const teams = g.group_teams || [];
+      return [teams[0]?.entry_id ?? null, teams[1]?.entry_id ?? null];
+    });
+    onGenerateBracketWithSeeds(seedOrder);
+  };
 
   // 현재 선택 탭: 'round-N' | 'seeding'
   const defaultTab =
@@ -285,6 +299,46 @@ export function MainBracketTab({
             }
             onError={() => {}}
           />
+        </div>
+      )}
+
+      {/* 결승 바로 생성 (조편성 없이) */}
+      {isFinalGeneration && !hasFinal && seedingGroups && seedingGroups.length > 0 && onGenerateBracketWithSeeds && (
+        <div className="rounded-xl border border-(--border-color) bg-(--bg-card) p-5 space-y-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="w-5 h-5 text-(--accent-color)" />
+            <h3 className="font-semibold text-(--text-primary)">결승 생성</h3>
+          </div>
+          {!allPrelimsDone ? (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-(--color-warning-subtle) border border-(--color-warning-border) text-(--color-warning) text-sm font-medium">
+              <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+              준결승 경기가 모두 완료되어야 결승을 생성할 수 있습니다.
+            </div>
+          ) : (
+            <>
+              <p className="text-sm text-(--text-muted)">
+                준결승 승자가 자동으로 배정됩니다.
+              </p>
+              <div className="flex gap-3">
+                {seedingGroups.flatMap((g) => g.group_teams || []).map((team) => (
+                  <div key={team.id} className="flex-1 px-3 py-2 rounded-lg bg-(--bg-secondary) text-sm">
+                    <p className="font-medium text-(--text-primary) truncate">
+                      {team.entry?.club_name || team.entry?.player_name}
+                    </p>
+                    {team.entry?.club_name && (
+                      <p className="text-xs text-(--text-muted) truncate">{team.entry.player_name}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={handleGenerateFinalDirect}
+                className="btn-primary w-full"
+              >
+                <span className="relative z-10">결승 생성</span>
+              </button>
+            </>
+          )}
         </div>
       )}
 

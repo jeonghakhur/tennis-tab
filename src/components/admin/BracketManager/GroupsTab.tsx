@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { Users, GripVertical, Shuffle } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Users, GripVertical, Shuffle, RotateCcw } from "lucide-react";
 import {
   DndContext,
   closestCenter,
@@ -187,13 +187,8 @@ export function GroupsTab({
   // 시드 배정 모드 여부 (예선 없고 본선 생성 콜백이 있으면 시드 배정)
   const isSeedingMode = !hasPreliminary && !!onGenerateMainBracket;
 
-  // 빈 그룹이 있고 2팀 이상인 그룹이 있으면 재배정 가능
-  const canRedistribute = useMemo(() => {
-    if (!isSeedingMode) return false;
-    const hasEmpty = localGroups.some((g) => (g.group_teams?.length ?? 0) === 0);
-    const hasMulti = localGroups.some((g) => (g.group_teams?.length ?? 0) >= 2);
-    return hasEmpty && hasMulti;
-  }, [isSeedingMode, localGroups]);
+  // 시드 배정 모드이고 그룹이 있으면 항상 재배정 가능 (드래그 후 리셋 용도 포함)
+  const canRedistribute = isSeedingMode && localGroups.length > 0;
 
   // 자동 배정: 시드 폴드 배치 (상위 시드 BYE, 하위 시드끼리 대전)
   // 예) 5팀, 4그룹 → [S1] [S2] [S3,S6(없으면 빈)] [S4,S5]
@@ -250,13 +245,24 @@ export function GroupsTab({
             </button>
           )}
           {isSeedingMode && canRedistribute && (
-            <button
-              onClick={handleAutoAssign}
-              className="btn-outline-info btn-sm flex items-center gap-1.5"
-            >
-              <Shuffle className="w-4 h-4" />
-              자동 배정
-            </button>
+            <>
+              <button
+                onClick={handleReset}
+                className="btn-outline-secondary btn-sm flex items-center gap-1.5"
+                title="서버에 저장된 초기 배정 상태로 되돌립니다"
+              >
+                <RotateCcw className="w-4 h-4" />
+                초기 배정
+              </button>
+              <button
+                onClick={handleAutoAssign}
+                className="btn-outline-info btn-sm flex items-center gap-1.5"
+                title="시드 순서 기반으로 자동 배정합니다"
+              >
+                <Shuffle className="w-4 h-4" />
+                자동 배정
+              </button>
+            </>
           )}
           {localGroups.length > 0 && (
             <>

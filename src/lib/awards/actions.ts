@@ -28,7 +28,6 @@ export async function getAwards(opts: GetAwardsOptions = {}): Promise<Award[]> {
     .select('*')
     .order('year', { ascending: false })
     .order('display_order', { ascending: true })
-    .limit(opts.limit ?? 100)
 
   if (opts.year) query = query.eq('year', opts.year)
   if (opts.competition) query = query.eq('competition', opts.competition)
@@ -38,6 +37,7 @@ export async function getAwards(opts: GetAwardsOptions = {}): Promise<Award[]> {
   if (opts.clubId) query = query.eq('club_id', opts.clubId)
   if (opts.clubName) query = query.eq('club_name', opts.clubName)
   if (opts.userId) query = query.contains('player_user_ids', [opts.userId])
+  if (opts.limit) query = query.limit(opts.limit)
 
   const { data, error } = await query
   if (error) throw new Error(error.message)

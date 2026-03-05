@@ -2197,13 +2197,30 @@ export async function generateNextRound(
         .sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0))
 
       for (let i = 0; i < semiMatches.length; i++) {
+        const semi = semiMatches[i]
         await supabaseAdmin
           .from('bracket_matches')
           .update({
             loser_next_match_id: thirdPlaceMatchId,
             loser_next_match_slot: i + 1,
           })
-          .eq('id', semiMatches[i].id)
+          .eq('id', semi.id)
+
+        // 준결승이 이미 완료된 경우 패자를 3/4위전에 즉시 배정
+        if (semi.winner_entry_id) {
+          const loserId =
+            semi.winner_entry_id === semi.team1_entry_id
+              ? semi.team2_entry_id
+              : semi.team1_entry_id
+          if (loserId) {
+            const slot = i + 1
+            const updateField = slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+            await supabaseAdmin
+              .from('bracket_matches')
+              .update({ [updateField]: loserId })
+              .eq('id', thirdPlaceMatchId)
+          }
+        }
       }
     }
   }
