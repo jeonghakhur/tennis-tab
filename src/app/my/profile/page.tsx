@@ -202,8 +202,8 @@ export default function MyProfilePage() {
   const [scoreModalMatch, setScoreModalMatch] = useState<BracketMatch | null>(null);
   const [scoreToast, setScoreToast] = useState({ isOpen: false, message: '', type: 'success' as 'success' | 'error' });
   const [activeTab, setActiveTab] = useState<
-    "profile" | "tournaments" | "matches" | "awards"
-  >("tournaments");
+    "profile" | "applications" | "tournaments" | "matches" | "awards"
+  >("applications");
 
   useEffect(() => {
     if (user && profile) {
@@ -235,6 +235,18 @@ export default function MyProfilePage() {
   // 참가 대회 ID 목록 (Realtime 구독용)
   const tournamentIds = useMemo(
     () => tournaments.map((e) => e.tournament.id),
+    [tournaments],
+  );
+
+  // 신청 현황: 아직 시작 전 대회 (OPEN·CLOSED·DRAFT)
+  const applicationEntries = useMemo(
+    () => tournaments.filter((e) => ['OPEN', 'CLOSED', 'DRAFT'].includes(e.tournament.status)),
+    [tournaments],
+  );
+
+  // 참가 대회: 진행 중이거나 종료된 대회 (IN_PROGRESS·COMPLETED)
+  const participatedEntries = useMemo(
+    () => tournaments.filter((e) => ['IN_PROGRESS', 'COMPLETED'].includes(e.tournament.status)),
     [tournaments],
   );
 
@@ -604,12 +616,30 @@ export default function MyProfilePage() {
 
           {/* 탭 메뉴 */}
           <div
-            className="flex gap-2 mb-6 border-b"
+            className="flex gap-2 mb-6 border-b overflow-x-auto"
             style={{ borderColor: "var(--border-color)" }}
           >
             <button
+              onClick={() => setActiveTab("applications")}
+              className={`px-6 py-3 font-display tracking-wider shrink-0 ${
+                activeTab === "applications" ? "border-b-2" : ""
+              }`}
+              style={{
+                borderColor:
+                  activeTab === "applications"
+                    ? "var(--accent-color)"
+                    : "transparent",
+                color:
+                  activeTab === "applications"
+                    ? "var(--accent-color)"
+                    : "var(--text-muted)",
+              }}
+            >
+              신청 현황 {!tournamentsLoading && `(${applicationEntries.length})`}
+            </button>
+            <button
               onClick={() => setActiveTab("tournaments")}
-              className={`px-6 py-3 font-display tracking-wider ${
+              className={`px-6 py-3 font-display tracking-wider shrink-0 ${
                 activeTab === "tournaments" ? "border-b-2" : ""
               }`}
               style={{
@@ -623,7 +653,7 @@ export default function MyProfilePage() {
                     : "var(--text-muted)",
               }}
             >
-              참가 대회 {!tournamentsLoading && `(${tournaments.length})`}
+              참가 대회 {!tournamentsLoading && `(${participatedEntries.length})`}
             </button>
             <button
               onClick={() => setActiveTab("matches")}
@@ -882,11 +912,113 @@ export default function MyProfilePage() {
             </div>
           )}
 
+          {/* 신청 현황 탭 */}
+          {activeTab === "applications" && (
+            tournamentsLoading ? (
+              <TournamentListSkeleton />
+            ) : applicationEntries.length === 0 ? (
+              <div className="glass-card p-12 text-center">
+                <p
+                  className="text-lg mb-4"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  신청한 대회가 없습니다
+                </p>
+                <Link
+                  href="/tournaments"
+                  className="inline-block px-6 py-2 rounded-lg font-display tracking-wider hover:opacity-90"
+                  style={{
+                    backgroundColor: "var(--accent-color)",
+                    color: "var(--bg-primary)",
+                  }}
+                >
+                  대회 찾아보기
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {applicationEntries.map((entry) => (
+                  <div key={entry.id} className="glass-card p-6">
+                    <div className="flex items-start justify-between mb-4">
+                      <div>
+                        <h3
+                          className="text-xl font-display mb-2"
+                          style={{ color: "var(--text-primary)" }}
+                        >
+                          {entry.tournament.title}
+                        </h3>
+                        <p
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          📍 {entry.tournament.location}
+                        </p>
+                      </div>
+                      <div className="flex flex-col items-end gap-2">
+                        <Badge
+                          variant={
+                            entry.status === "CONFIRMED"
+                              ? "success"
+                              : entry.status === "PENDING"
+                                ? "warning"
+                                : "secondary"
+                          }
+                          className="font-display tracking-wider"
+                        >
+                          {entryStatusLabels[entry.status]}
+                        </Badge>
+                        <Badge
+                          variant={
+                            entry.tournament.status === "OPEN"
+                              ? "info"
+                              : "secondary"
+                          }
+                          className="font-display tracking-wider"
+                        >
+                          {tournamentStatusLabels[entry.tournament.status]}
+                        </Badge>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {entry.division && (
+                          <Badge variant="info" className="font-display tracking-wider">
+                            {entry.division.name}
+                          </Badge>
+                        )}
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          신청일:{" "}
+                          {/* suppressHydrationWarning */ new Date(entry.created_at).toLocaleDateString("ko-KR")}
+                        </span>
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
+                          시합일: {formatKoreanDate(entry.tournament.start_date)}
+                        </span>
+                      </div>
+                      <Link
+                        href={`/tournaments/${entry.tournament.id}`}
+                        className="text-sm font-display tracking-wider hover:underline"
+                        style={{ color: "var(--accent-color)" }}
+                      >
+                        대회 상세보기 →
+                      </Link>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          )}
+
           {/* 참가 대회 탭 */}
           {activeTab === "tournaments" && (
             tournamentsLoading ? (
               <TournamentListSkeleton />
-            ) : tournaments.length === 0 ? (
+            ) : participatedEntries.length === 0 ? (
               <div className="glass-card p-12 text-center">
                 <p
                   className="text-lg mb-4"
@@ -907,7 +1039,7 @@ export default function MyProfilePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {tournaments.map((entry) => (
+                {participatedEntries.map((entry) => (
                   <div key={entry.id} className="glass-card p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
