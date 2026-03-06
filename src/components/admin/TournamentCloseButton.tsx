@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ban } from 'lucide-react'
-import { closeTournament } from '@/lib/tournaments/actions'
+import { updateTournamentStatus } from '@/lib/tournaments/actions'
 import { ConfirmDialog, AlertDialog } from '@/components/common/AlertDialog'
 import type { TournamentStatus } from '@/lib/supabase/types'
 
@@ -39,7 +39,7 @@ export function TournamentCloseButton({
     setConfirmDialog(false)
 
     try {
-      const result = await closeTournament(tournamentId)
+      const result = await updateTournamentStatus(tournamentId, 'CLOSED')
 
       if (result.success) {
         setAlertDialog({

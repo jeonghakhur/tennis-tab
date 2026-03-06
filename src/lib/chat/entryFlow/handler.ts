@@ -11,7 +11,7 @@ import {
   formatEntryFee,
   buildDivisionListMessage,
 } from './steps'
-import { createEntry } from '@/lib/entries/actions'
+import { createEntry, searchPartnerByName } from '@/lib/entries/actions'
 import type { EntryFlowResult, EntryFlowSession } from './types'
 
 /** 취소 키워드 */
@@ -64,6 +64,8 @@ export async function handleEntryFlow(
       return handleInputPhoneStep(session, message)
     case 'INPUT_PARTNER':
       return handleInputPartnerStep(session, message)
+    case 'SELECT_PARTNER_USER':
+      return handleSelectPartnerUserStep(session, message)
     case 'INPUT_CLUB_NAME':
       return handleInputClubNameStep(session, message)
     case 'INPUT_TEAM_ORDER':
@@ -253,6 +255,87 @@ async function handleInputPartnerStep(
   }
 
   session.data.partnerData = parsed
+
+  // 이름으로 시스템 유저 검색
+  const matches = await searchPartnerByName(parsed.name)
+  const nameMatches = matches.filter((u) => u.name === parsed.name)
+
+  if (nameMatches.length === 0) {
+    // 미등록 파트너 → 텍스트 정보만 저장
+    session.data.partnerUserId = null
+  } else if (nameMatches.length === 1) {
+    // 1명 정확 매칭 → 자동 연결
+    session.data.partnerUserId = nameMatches[0].id
+  } else {
+    // 동명이인 → 입력한 클럽으로 필터
+    const clubMatches = nameMatches.filter((u) => u.club === parsed.club)
+
+    if (clubMatches.length === 1) {
+      // 클럽까지 일치 → 자동 연결
+      session.data.partnerUserId = clubMatches[0].id
+    } else if (clubMatches.length === 0) {
+      // 클럽 매칭 없음 → 연결 포기
+      session.data.partnerUserId = null
+    } else {
+      // 동일 클럽 내 동명이인 → 생년으로 선택 요청
+      session.data.partnerCandidates = clubMatches.map((u) => ({
+        id: u.id,
+        name: u.name,
+        club: u.club,
+        birthYear: u.birthYear,
+      }))
+      session.step = 'SELECT_PARTNER_USER'
+      await setSession(session.userId, session)
+
+      const list = clubMatches
+        .map((u, i) => {
+          const birthLabel = u.birthYear ? `${u.birthYear}년생` : '생년 미상'
+          return `${i + 1}. ${u.name} (${u.club ?? ''}, ${birthLabel})`
+        })
+        .join('\n')
+
+      return {
+        success: true,
+        message: `같은 클럽에 동명이인이 있습니다. 파트너를 선택해주세요:\n${list}\n\n번호를 입력하세요. 연결 없이 진행하려면 "0"`,
+        flowActive: true,
+      }
+    }
+  }
+
+  session.step = 'CONFIRM'
+  await setSession(session.userId, session)
+
+  return {
+    success: true,
+    message: buildConfirmMessage(session, ''),
+    flowActive: true,
+  }
+}
+
+// ─── SELECT_PARTNER_USER (동명이인 선택) ─────────────
+
+async function handleSelectPartnerUserStep(
+  session: EntryFlowSession,
+  message: string,
+): Promise<EntryFlowResult> {
+  const candidates = session.data.partnerCandidates ?? []
+  const m = message.trim()
+  const num = parseInt(m, 10)
+
+  if (m === '0') {
+    // 연결 없이 진행
+    session.data.partnerUserId = null
+  } else if (!isNaN(num) && num >= 1 && num <= candidates.length) {
+    session.data.partnerUserId = candidates[num - 1].id
+  } else {
+    return {
+      success: true,
+      message: `1~${candidates.length} 사이 번호를 입력하거나, "0"을 입력하면 연결 없이 진행합니다.`,
+      flowActive: true,
+    }
+  }
+
+  session.data.partnerCandidates = undefined
   session.step = 'CONFIRM'
   await setSession(session.userId, session)
 
@@ -450,6 +533,7 @@ async function handleConfirmStep(
     clubName: data.clubName,
     teamOrder: data.teamOrder,
     partnerData: data.partnerData,
+    partnerUserId: data.partnerUserId,
     teamMembers: data.teamMembers,
   })
 

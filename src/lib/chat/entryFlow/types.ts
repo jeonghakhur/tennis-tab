@@ -6,6 +6,7 @@ export type EntryFlowStep =
   | 'SELECT_DIVISION'      // 부서 선택
   | 'INPUT_PHONE'          // 전화번호 입력 (프로필에 없을 때)
   | 'INPUT_PARTNER'        // 파트너 입력 (복식)
+  | 'SELECT_PARTNER_USER'  // 동명이인 파트너 선택 (동일 클럽 내 생년으로 구분)
   | 'INPUT_CLUB_NAME'      // 클럽명 입력 (단체전)
   | 'INPUT_TEAM_ORDER'     // 팀 순서 입력 (단체전)
   | 'INPUT_TEAM_MEMBERS'   // 팀원 입력 (단체전)
@@ -52,6 +53,9 @@ export interface EntryFlowData {
 
   // 복식 파트너
   partnerData?: { name: string; club: string; rating: number } | null
+  partnerUserId?: string | null  // 시스템 등록 유저 자동 매칭 시 설정
+  // 동명이인 파트너 후보 목록 (SELECT_PARTNER_USER 단계에서 사용)
+  partnerCandidates?: Array<{ id: string; name: string; club: string | null; birthYear: string | null }>
 
   // 단체전
   clubName?: string | null

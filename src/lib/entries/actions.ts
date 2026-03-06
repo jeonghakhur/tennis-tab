@@ -11,6 +11,7 @@ export interface PartnerSearchResult {
     name: string
     rating: number | null
     club: string | null
+    birthYear: string | null
 }
 
 // 결과 타입 정의
@@ -18,6 +19,8 @@ export interface CreateEntryResult {
     success: boolean;
     error?: string;
     entryId?: string;
+    /** 이미 해당 부서에 신청 내역이 있음 — 클라이언트에서 추가 신청 여부 확인용 */
+    alreadyRegistered?: boolean;
 }
 
 export interface UpdateEntryResult {
@@ -42,7 +45,7 @@ export async function searchPartnerByName(name: string): Promise<PartnerSearchRe
     const admin = createAdminClient()
     const { data } = await admin
         .from('profiles')
-        .select('id, name, rating, club')
+        .select('id, name, rating, club, birth_year')
         .ilike('name', `%${name.trim()}%`)
         .limit(10)
 
@@ -51,6 +54,7 @@ export async function searchPartnerByName(name: string): Promise<PartnerSearchRe
         name: p.name ?? '',
         rating: p.rating,
         club: p.club,
+        birthYear: p.birth_year,
     }))
 }
 
@@ -67,6 +71,8 @@ export async function createEntry(
         partnerUserId?: string | null;
         teamMembers?: Array<{ name: string; rating: number }> | null;
         applicantParticipates?: boolean;
+        /** true면 이미 신청한 부서에 추가 신청 허용 (단체전 여러 팀 등록용) */
+        allowDuplicate?: boolean;
     }
 ): Promise<CreateEntryResult> {
     try {
@@ -124,23 +130,23 @@ export async function createEntry(
             }
         }
 
-        // 6. 이미 신청했는지 확인 (같은 부서에 중복 신청 방지, 취소된 신청 제외)
-        const { data: existingEntry, error: checkError } = await supabase
+        // 6. 이미 신청했는지 확인 (취소된 신청 제외)
+        const { data: existingEntries, error: checkError } = await supabase
             .from('tournament_entries')
             .select('id')
             .eq('tournament_id', tournamentId)
             .eq('user_id', user.id)
             .eq('division_id', entryData.divisionId)
-            .neq('status', 'CANCELLED')
-            .maybeSingle();
+            .neq('status', 'CANCELLED');
 
         if (checkError) {
             console.error('Entry check error:', checkError);
             return { success: false, error: '신청 확인 중 오류가 발생했습니다.' };
         }
 
-        if (existingEntry) {
-            return { success: false, error: '이미 해당 부서에 참가 신청을 하셨습니다.' };
+        if (existingEntries && existingEntries.length > 0 && !entryData.allowDuplicate) {
+            // allowDuplicate=false → 클라이언트에서 추가 신청 여부를 물어보도록 신호 반환
+            return { success: false, alreadyRegistered: true, error: '이미 해당 부서에 참가 신청을 하셨습니다.' };
         }
 
         // 7. 팀 순서 자동 설정 (단체전이고 teamOrder가 없는 경우)
@@ -405,54 +411,34 @@ export async function confirmBankTransfer(entryId: string): Promise<{
 
         if (authError || !user) return { success: false, error: '로그인이 필요합니다.' }
 
-        // 본인 신청인지 확인
+        // revalidatePath용 tournament_id 조회 (권한 체크는 RPC 내부에서 수행)
         const { data: entry } = await supabase
             .from('tournament_entries')
-            .select('id, user_id, division_id, status, payment_status, tournament_id')
+            .select('tournament_id')
             .eq('id', entryId)
             .eq('user_id', user.id)
             .single()
 
         if (!entry) return { success: false, error: '신청 정보를 찾을 수 없습니다.' }
 
-        // 이미 입금 확인된 경우 멱등성 처리 — 실제 status 그대로 반환
-        if (entry.payment_status === 'COMPLETED') {
-            const currentStatus = entry.status as 'CONFIRMED' | 'WAITLISTED'
-            return { success: true, status: currentStatus }
-        }
-
+        // 정원 체크 + 상태 업데이트를 DB 트랜잭션 내에서 원자적으로 처리 (race condition 방지)
         const admin = createAdminClient()
+        const { data, error: rpcError } = await admin.rpc('confirm_bank_transfer', {
+            p_entry_id: entryId,
+            p_user_id: user.id,
+        })
 
-        // 부서 정원 체크
-        const [{ data: division }, { count }] = await Promise.all([
-            admin.from('tournament_divisions').select('max_teams').eq('id', entry.division_id).single(),
-            admin
-                .from('tournament_entries')
-                .select('*', { count: 'exact', head: true })
-                .eq('division_id', entry.division_id)
-                .eq('status', 'CONFIRMED'),
-        ])
+        if (rpcError) return { success: false, error: '입금 확인 처리에 실패했습니다.' }
 
-        // 정원 없거나 빈 자리 있으면 CONFIRMED, 아니면 WAITLISTED
-        const newStatus: 'CONFIRMED' | 'WAITLISTED' =
-            !division?.max_teams || (count ?? 0) < division.max_teams ? 'CONFIRMED' : 'WAITLISTED'
-
-        const { error } = await admin
-            .from('tournament_entries')
-            .update({
-                payment_status: 'COMPLETED',
-                payment_confirmed_at: new Date().toISOString(),
-                status: newStatus,
-            })
-            .eq('id', entryId)
-            .eq('user_id', user.id)
-
-        if (error) return { success: false, error: '입금 확인 처리에 실패했습니다.' }
+        const result = data?.[0]
+        if (!result?.success) {
+            return { success: false, error: result?.error_message ?? '입금 확인 처리에 실패했습니다.' }
+        }
 
         revalidatePath(`/tournaments/${entry.tournament_id}`)
         revalidatePath('/my/entries')
 
-        return { success: true, status: newStatus }
+        return { success: true, status: result.entry_status as 'CONFIRMED' | 'WAITLISTED' }
     } catch (error) {
         console.error('Confirm bank transfer error:', error)
         return { success: false, error: '입금 확인 중 오류가 발생했습니다.' }
@@ -618,17 +604,20 @@ export async function getUserEntry(tournamentId: string) {
             return null;
         }
 
-        // 순위 계산을 위한 RPC 호출 또는 직접 쿼리
-        const { data: entry, error } = await supabase
+        // 순위 계산을 위한 쿼리 — 여러 팀 등록 시 최신 신청 1건 반환
+        const { data: entries, error } = await supabase
             .from('tournament_entries')
             .select('*')
             .eq('tournament_id', tournamentId)
             .eq('user_id', user.id)
-            .maybeSingle();
+            .neq('status', 'CANCELLED')
+            .order('created_at', { ascending: false })
+            .limit(1)
 
-        if (error || !entry) {
+        if (error || !entries || entries.length === 0) {
             return null;
         }
+        const entry = entries[0];
 
         // 현재 순위 계산 (취소되지 않은 신청 중 created_at 기준)
         const { count } = await supabase

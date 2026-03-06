@@ -114,23 +114,21 @@ All notable changes to the Tennis-Tab project are documented here.
 
 ---
 
-## [2026-02-25] - Toss Payments Integration Complete
+## [2026-02-25] - Toss Payments 코드 구현 (서비스 미활성화)
+
+> ⚠️ 코드 구현 완료이나 **실제 서비스는 계좌이체(수동 입금 확인)만 사용 중**.
+> 토스 결제 UI는 사용자에게 노출되지 않으며, 토스페이먼츠 전면 활성화는 향후 예정.
 
 ### Added
 - Toss Payments SDK integration (`@tosspayments/tosspayments-sdk` v2)
-- Online payment flow for tournament entries with entry fees
-- Payment pages: entry, success, and failure pages
-- `TossPaymentWidget` client component for payment UI rendering
-- `confirmPayment` and `cancelTossPayment` server actions
+- Payment pages: entry, success, and failure pages (미활성화)
+- `TossPaymentWidget` client component for payment UI rendering (미활성화)
+- `confirmPayment` and `cancelTossPayment` server actions (구현 완료, 활성화 예정)
 - Payment status tracking: PENDING → COMPLETED → CANCELLED
-- Automatic refund on entry cancellation
 - `PaymentSuccessToast` component for payment completion notification
 
 ### Changed
-- Tournament entry flow: redirects to payment page when `entryFee > 0`
 - `payment_status` enum values: `UNPAID` → `PENDING`, `PAID` → `COMPLETED`
-- `TournamentEntryActionsNew.tsx`: added payment page redirect logic
-- `deleteEntry` action: integrated payment cancellation before entry deletion
 
 ### Fixed
 - Bug: `UNPAID` → `PENDING` in `src/lib/entries/actions.ts` (line 152)

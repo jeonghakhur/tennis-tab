@@ -6,7 +6,8 @@ import { saveChatLog } from '@/lib/chat/logs'
 import { checkRateLimit } from '@/lib/chat/rateLimit'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
 import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
-import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
+import { handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
+import { getCancelSession } from '@/lib/chat/cancelFlow/sessionStore'
 import type { ChatResponse, ChatMessage } from '@/lib/chat/types'
 import type { EntryFlowSession } from '@/lib/chat/entryFlow/types'
 
@@ -159,11 +160,11 @@ export async function POST(request: NextRequest): Promise<NextResponse<ChatRespo
         }
       }
 
-      const cancelSession = getCancelSession(userId)
+      const cancelSession = await getCancelSession(userId)
       if (cancelSession) {
         if (isNewQueryDuringFlow(sanitizedMessage, cancelSession.step)) {
           // 새 질문 감지 → 플로우 종료 후 에이전트에서 처리
-          clearCancelSession(userId)
+          await clearCancelSession(userId)
         } else {
           const flowResult = await handleCancelFlow(userId, sanitizedMessage)
           saveChatLog({

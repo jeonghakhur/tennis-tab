@@ -10,10 +10,10 @@ import {
   updateEntry,
   getUserEntry,
 } from "@/lib/entries/actions";
-import { closeTournament } from "@/lib/tournaments/actions";
+import { updateTournamentStatus } from "@/lib/tournaments/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
-import { AlertDialog } from "@/components/common/AlertDialog";
+import { AlertDialog, ConfirmDialog } from "@/components/common/AlertDialog";
 
 interface Division {
   id: string;
@@ -89,6 +89,8 @@ export default function TournamentEntryActions({
   const [entry, setEntry] = useState<CurrentEntry | null>(currentEntry);
   // 참가 신청 완료 후 결제 유도 모달 (entryFee > 0인 경우)
   const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
+  // 중복 신청 확인 다이얼로그 (단체전 추가 팀 등록 시)
+  const [duplicateConfirm, setDuplicateConfirm] = useState<{ pendingData: EntryFormData } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -134,8 +136,8 @@ export default function TournamentEntryActions({
   const withinPeriod = isWithinEntryPeriod();
   const canAcceptEntry = tournamentStatus === "OPEN" && withinPeriod;
 
-  // 참가 신청 폼 제출 처리 (신규)
-  const handleSubmit = async (data: EntryFormData) => {
+  // 실제 신청 실행 (allowDuplicate 옵션 포함)
+  const submitEntry = async (data: EntryFormData, allowDuplicate = false) => {
     const result = await createEntry(tournamentId, {
       divisionId: data.divisionId,
       phone: data.phone,
@@ -145,20 +147,42 @@ export default function TournamentEntryActions({
       teamOrder: data.teamOrder,
       partnerData: data.partnerData,
       teamMembers: data.teamMembers,
+      allowDuplicate,
     });
 
     if (result.success) {
-      // 엔트리 상태 갱신 (폼 닫힌 후 카드 표시)
       getUserEntry(tournamentId).then((e) => {
         if (e) setEntry(e as CurrentEntry);
       });
-      // 참가비가 있는 경우 결제 유도 모달 표시
       if (entryFee > 0 && result.entryId) {
         setPaymentPrompt({ entryId: result.entryId });
       }
     }
 
     return result;
+  };
+
+  // 참가 신청 폼 제출 처리 (신규)
+  const handleSubmit = async (data: EntryFormData) => {
+    const result = await submitEntry(data, false);
+
+    // 이미 신청한 부서 → 추가 신청 여부 확인 다이얼로그
+    if (result.alreadyRegistered) {
+      setDuplicateConfirm({ pendingData: data });
+      // 폼은 열린 채로 유지 — ConfirmDialog가 별도로 뜸
+      return { success: false, error: undefined }; // 폼에 에러 표시 안 함
+    }
+
+    return result;
+  };
+
+  // 추가 신청 확정 처리
+  const handleDuplicateConfirm = async () => {
+    if (!duplicateConfirm) return;
+    const data = duplicateConfirm.pendingData;
+    setDuplicateConfirm(null);
+    setShowEntryForm(false);
+    await submitEntry(data, true);
   };
 
   // 참가 신청 수정 처리
@@ -244,7 +268,7 @@ export default function TournamentEntryActions({
     if (isSubmitting) return;
 
     setIsSubmitting(true);
-    const result = await closeTournament(tournamentId);
+    const result = await updateTournamentStatus(tournamentId, 'CLOSED');
     setIsSubmitting(false);
     setShowCloseModal(false);
 
@@ -878,6 +902,20 @@ export default function TournamentEntryActions({
         message={alertDialog.message}
         type={alertDialog.type}
       />
+
+      {/* 중복 신청 확인 다이얼로그 */}
+      {duplicateConfirm && (
+        <ConfirmDialog
+          isOpen={true}
+          onClose={() => setDuplicateConfirm(null)}
+          onConfirm={handleDuplicateConfirm}
+          title="추가 팀 신청"
+          message="이미 해당 부서에 참가 신청을 하셨습니다. 추가로 팀을 신청하시겠습니까?"
+          type="warning"
+          confirmText="추가 신청"
+          cancelText="취소"
+        />
+      )}
 
     </>
   );

@@ -130,8 +130,8 @@ test.describe('공개 FAQ (고객센터)', () => {
     await page.goto(SUPPORT_URL)
     await expect(page.getByRole('heading', { name: '자주하는 질문' })).toBeVisible({ timeout: 10_000 })
 
-    // 첫 번째 FAQ 질문 버튼
-    const firstQuestion = page.locator('button[aria-expanded]').first()
+    // 첫 번째 FAQ 질문 버튼 (main 영역으로 스코프 — 네비 햄버거 버튼 제외)
+    const firstQuestion = page.locator('main').locator('button[aria-expanded]').first()
     if ((await firstQuestion.count()) === 0) {
       test.skip()
       return

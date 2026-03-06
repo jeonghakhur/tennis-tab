@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { runAgent, GeminiQuotaError } from '@/lib/chat/agent'
 import { handleEntryFlow } from '@/lib/chat/entryFlow/handler'
 import { getSession, deleteSession } from '@/lib/chat/entryFlow/sessionStore'
-import { getCancelSession, handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
+import { handleCancelFlow, clearCancelSession } from '@/lib/chat/cancelFlow/handler'
+import { getCancelSession } from '@/lib/chat/cancelFlow/sessionStore'
 import type { ChatMessage } from '@/lib/chat/types'
 import type { EntryFlowSession } from '@/lib/chat/entryFlow/types'
 
@@ -34,10 +35,10 @@ export async function POST(request: NextRequest) {
           return NextResponse.json({ success: true, intent: 'APPLY_TOURNAMENT', message: r.message, links: r.links, flow_active: r.flowActive })
         }
       }
-      const cancelSession = getCancelSession(user_id)
+      const cancelSession = await getCancelSession(user_id)
       if (cancelSession) {
         if (isNewQueryDuringFlow(message, cancelSession.step)) {
-          clearCancelSession(user_id)
+          await clearCancelSession(user_id)
         } else {
           const r = await handleCancelFlow(user_id, message)
           return NextResponse.json({ success: true, intent: 'CANCEL_ENTRY', message: r.message, links: r.links, flow_active: r.flowActive })

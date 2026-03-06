@@ -1,56 +1,27 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { cancelEntryByAdmin } from '@/lib/entries/actions'
+// createAdminClient는 fetchCancelableEntries에서 계속 사용
+import { getCancelSession, setCancelSession, deleteCancelSession } from './sessionStore'
 import type { ChatEntities, HandlerResult } from '../types'
 import type { CancelFlowSession, CancelFlowResult, CancelableEntry } from './types'
 
-// ─── 세션 저장소 ─────────────────────────────────────
+// ─── 세션 래퍼 (내부용 별칭) ─────────────────────────
 
-const sessionMap = new Map<string, CancelFlowSession>()
-
-/** 세션 TTL: 10분 */
-const SESSION_TTL_MS = 10 * 60 * 1000
-
-let lastCleanup = Date.now()
-const CLEANUP_INTERVAL_MS = 5 * 60 * 1000
-
-function cleanupExpired(): void {
-  const now = Date.now()
-  if (now - lastCleanup < CLEANUP_INTERVAL_MS) return
-  lastCleanup = now
-
-  for (const [key, session] of sessionMap) {
-    if (now - session.createdAt > SESSION_TTL_MS) {
-      sessionMap.delete(key)
-    }
-  }
+function getSession(userId: string) {
+  return getCancelSession(userId)
 }
 
-/** 세션 조회 (만료 시 null + 삭제) */
-export function getCancelSession(userId: string): CancelFlowSession | null {
-  cleanupExpired()
-
-  const session = sessionMap.get(userId)
-  if (!session) return null
-
-  if (Date.now() - session.createdAt > SESSION_TTL_MS) {
-    sessionMap.delete(userId)
-    return null
-  }
-
-  return session
+function setSession(userId: string, session: CancelFlowSession) {
+  return setCancelSession(userId, session)
 }
 
-function setSession(userId: string, session: CancelFlowSession): void {
-  session.updatedAt = Date.now()
-  sessionMap.set(userId, session)
-}
-
-function deleteSession(userId: string): void {
-  sessionMap.delete(userId)
+function deleteSession(userId: string) {
+  return deleteCancelSession(userId)
 }
 
 /** 외부에서 세션 강제 종료 (새 질문 감지 시 route.ts에서 호출) */
-export function clearCancelSession(userId: string): void {
-  sessionMap.delete(userId)
+export async function clearCancelSession(userId: string): Promise<void> {
+  await deleteCancelSession(userId)
 }
 
 // ─── 상태 레이블 매핑 ────────────────────────────────
@@ -113,22 +84,22 @@ export async function handleCancelEntry(
 
     if (matched.length === 0) {
       // 매칭 실패 → 전체 목록 표시
-      return createSelectOrConfirm(userId, allEntries, `"${entities.tournament_name}" 대회 신청을 찾지 못했습니다.\n\n취소 가능한 신청 내역:`)
+      return await createSelectOrConfirm(userId, allEntries, `"${entities.tournament_name}" 대회 신청을 찾지 못했습니다.\n\n취소 가능한 신청 내역:`)
     }
 
     entries = matched
   }
 
   // 1건 → 바로 CONFIRM_CANCEL / 복수 → SELECT_ENTRY
-  return createSelectOrConfirm(userId, entries)
+  return await createSelectOrConfirm(userId, entries)
 }
 
 /** 엔트리 수에 따라 CONFIRM_CANCEL 또는 SELECT_ENTRY 세션 생성 */
-function createSelectOrConfirm(
+async function createSelectOrConfirm(
   userId: string,
   entries: CancelableEntry[],
   headerOverride?: string,
-): HandlerResult & { flow_active?: boolean } {
+): Promise<HandlerResult & { flow_active?: boolean }> {
   if (entries.length === 1) {
     const entry = entries[0]
     const session: CancelFlowSession = {
@@ -139,7 +110,7 @@ function createSelectOrConfirm(
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
-    setSession(userId, session)
+    await setSession(userId, session)
 
     return {
       success: true,
@@ -156,7 +127,7 @@ function createSelectOrConfirm(
     createdAt: Date.now(),
     updatedAt: Date.now(),
   }
-  setSession(userId, session)
+  await setSession(userId, session)
 
   return {
     success: true,
@@ -177,7 +148,7 @@ export async function handleCancelFlow(
   userId: string,
   message: string,
 ): Promise<CancelFlowResult> {
-  const session = getCancelSession(userId)
+  const session = await getSession(userId)
   if (!session) {
     return {
       success: false,
@@ -188,7 +159,7 @@ export async function handleCancelFlow(
 
   // 중단 처리
   if (CANCEL_KEYWORDS.includes(message.trim().toLowerCase())) {
-    deleteSession(userId)
+    await deleteSession(userId)
     return {
       success: true,
       message: '취소를 중단했습니다.',
@@ -202,7 +173,7 @@ export async function handleCancelFlow(
     case 'CONFIRM_CANCEL':
       return handleConfirmCancelStep(session, message)
     default:
-      deleteSession(userId)
+      await deleteSession(userId)
       return {
         success: false,
         message: '알 수 없는 상태입니다. 다시 시작해주세요.',
@@ -214,10 +185,10 @@ export async function handleCancelFlow(
 // ─── Step 핸들러 ─────────────────────────────────────
 
 /** SELECT_ENTRY: 번호 선택 */
-function handleSelectEntryStep(
+async function handleSelectEntryStep(
   session: CancelFlowSession,
   message: string,
-): CancelFlowResult {
+): Promise<CancelFlowResult> {
   const num = parseInt(message.trim(), 10)
   if (isNaN(num) || num < 1 || num > session.entries.length) {
     return {
@@ -230,7 +201,7 @@ function handleSelectEntryStep(
   const selected = session.entries[num - 1]
   session.step = 'CONFIRM_CANCEL'
   session.selectedEntry = selected
-  setSession(session.userId, session)
+  await setSession(session.userId, session)
 
   return {
     success: true,
@@ -247,7 +218,7 @@ async function handleConfirmCancelStep(
   const answer = parseConfirm(message)
 
   if (answer === 'no') {
-    deleteSession(session.userId)
+    await deleteSession(session.userId)
     return {
       success: true,
       message: '취소를 중단했습니다.',
@@ -264,20 +235,15 @@ async function handleConfirmCancelStep(
   }
 
   const entry = session.selectedEntry!
-  deleteSession(session.userId)
+  await deleteSession(session.userId)
 
-  // admin client로 직접 삭제 (fetchCancelableEntries에서 userId 이미 검증됨)
-  const supabase = createAdminClient()
-  const { error: deleteError } = await supabase
-    .from('tournament_entries')
-    .delete()
-    .eq('id', entry.id)
-    .eq('user_id', session.userId)
+  // 공유 헬퍼: 대진표 체크 + 소프트 삭제(CANCELLED) + 대기자 자동 승격
+  const result = await cancelEntryByAdmin(entry.id, session.userId)
 
-  if (deleteError) {
+  if (!result.success) {
     return {
       success: false,
-      message: deleteError.message || '참가 취소에 실패했습니다.',
+      message: result.error ?? '참가 취소에 실패했습니다.',
       flowActive: false,
     }
   }

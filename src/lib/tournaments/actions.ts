@@ -13,6 +13,17 @@ function validateId(id: string, fieldName: string): string | null {
   return null
 }
 
+/** 대회 상태 전환 허용 매트릭스 */
+const VALID_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
+  DRAFT:       ['UPCOMING', 'OPEN', 'CANCELLED'],
+  UPCOMING:    ['OPEN', 'CANCELLED'],
+  OPEN:        ['CLOSED', 'CANCELLED'],
+  CLOSED:      ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+  COMPLETED:   [],
+  CANCELLED:   [],
+}
+
 // 대회 생성 권한이 있는 역할
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
 
@@ -157,7 +168,7 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
     },
     format: 'SINGLE_ELIMINATION' as const,
     organizer_id: profile.id,
-    status: 'OPEN' as const,
+    status: 'DRAFT' as const,
   }
 
   // Use supabaseAdmin
@@ -249,8 +260,16 @@ export async function updateTournament(
     return { success: false, error: '대회를 찾을 수 없습니다.' }
   }
 
-  // 3. 주최자 본인인지 확인
-  if (tournament.organizer_id !== user.id) {
+  // 3. 권한 확인 (주최자 본인 또는 ADMIN 이상)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  const isAdminOrHigher = ['ADMIN', 'SUPER_ADMIN'].includes(profile?.role ?? '')
+
+  if (!isAdminOrHigher && tournament.organizer_id !== user.id) {
     return { success: false, error: '대회를 수정할 권한이 없습니다.' }
   }
 
@@ -490,61 +509,6 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
   return { success: true }
 }
 
-export type CloseTournamentResult =
-  | { success: true }
-  | { success: false; error: string }
-
-export async function closeTournament(tournamentId: string): Promise<CloseTournamentResult> {
-  const supabase = await createClient()
-
-  // 1. 현재 사용자 확인
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return { success: false, error: '로그인이 필요합니다.' }
-  }
-
-  // 2. 대회 확인 및 권한 체크
-  const { data: tournament, error: tournamentError } = await supabase
-    .from('tournaments')
-    .select('organizer_id, status')
-    .eq('id', tournamentId)
-    .single()
-
-  if (tournamentError || !tournament) {
-    return { success: false, error: '대회를 찾을 수 없습니다.' }
-  }
-
-  // 3. 주최자 본인인지 확인
-  if (tournament.organizer_id !== user.id) {
-    return { success: false, error: '대회를 마감할 권한이 없습니다.' }
-  }
-
-  // 4. 이미 마감 상태인지 확인
-  if (tournament.status === 'CLOSED') {
-    return { success: false, error: '이미 마감된 대회입니다.' }
-  }
-
-  // Admin Client 생성
-  const supabaseAdmin = createAdminClient()
-
-  // 5. 대회 상태를 CLOSED로 변경
-  const { error: updateError } = await supabaseAdmin
-    .from('tournaments')
-    .update({ status: 'CLOSED' })
-    .eq('id', tournamentId)
-
-  if (updateError) {
-    return { success: false, error: '대회 마감에 실패했습니다. 다시 시도해주세요.' }
-  }
-
-  // 6. 캐시 무효화
-  revalidatePath('/tournaments')
-  revalidatePath(`/tournaments/${tournamentId}`)
-
-  return { success: true }
-}
-
 export type UpdateTournamentStatusResult =
   | { success: true }
   | { success: false; error: string }
@@ -562,10 +526,10 @@ export async function updateTournamentStatus(
     return { success: false, error: '로그인이 필요합니다.' }
   }
 
-  // 2. 대회 확인 및 권한 체크
+  // 2. 대회 확인 및 권한 체크 (현재 status 포함 조회)
   const { data: tournament, error: tournamentError } = await supabase
     .from('tournaments')
-    .select('organizer_id')
+    .select('organizer_id, status')
     .eq('id', tournamentId)
     .single()
 
@@ -586,7 +550,19 @@ export async function updateTournamentStatus(
     return { success: false, error: '대회 상태를 변경할 권한이 없습니다.' }
   }
 
-  // 4. Admin Client로 상태 변경
+  // 4. 상태 전환 유효성 검사
+  const currentStatus = tournament.status ?? ''
+  if (currentStatus === status) {
+    return { success: false, error: '이미 해당 상태입니다.' }
+  }
+  if (!VALID_TRANSITIONS[currentStatus]?.includes(status)) {
+    return {
+      success: false,
+      error: `${currentStatus} → ${status} 전환은 허용되지 않습니다.`,
+    }
+  }
+
+  // 5. Admin Client로 상태 변경
   const supabaseAdmin = createAdminClient()
 
   const { error: updateError } = await supabaseAdmin
@@ -598,7 +574,7 @@ export async function updateTournamentStatus(
     return { success: false, error: '대회 상태 변경에 실패했습니다. 다시 시도해주세요.' }
   }
 
-  // 5. 캐시 무효화
+  // 6. 캐시 무효화
   revalidatePath('/tournaments')
   revalidatePath(`/tournaments/${tournamentId}`)
   revalidatePath(`/admin/tournaments/${tournamentId}/entries`)

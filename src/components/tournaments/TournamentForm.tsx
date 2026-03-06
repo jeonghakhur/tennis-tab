@@ -8,6 +8,7 @@ import { UserRole, MatchType } from '@/lib/supabase/types';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Modal } from '@/components/common/Modal';
 
 const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
 
@@ -98,6 +99,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const { user, profile } = useAuth();
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [pendingRemove, setPendingRemove] = useState<{ index: number; name: string } | null>(null);
+    const [removeConfirmInput, setRemoveConfirmInput] = useState('');
     const [description, setDescription] = useState(initialData?.description || '');
     const [posterUrl, setPosterUrl] = useState<string | null>(initialData?.poster_url || null);
     const [matchType, setMatchType] = useState<MatchType | ''>(initialData?.match_type || '');
@@ -130,7 +133,22 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     };
 
     const removeDivision = (index: number) => {
-        setDivisions(divisions.filter((_, i) => i !== index));
+        const div = divisions[index];
+        // 신규 부서(id 없음): DB에 저장된 데이터 없으므로 즉시 제거
+        if (!div.id) {
+            setDivisions(divisions.filter((_, i) => i !== index));
+            return;
+        }
+        // 기존 부서(id 있음): 참가자 CASCADE 삭제 위험 → 이름 입력 확인
+        setPendingRemove({ index, name: div.name });
+        setRemoveConfirmInput('');
+    };
+
+    const confirmRemoveDivision = () => {
+        if (!pendingRemove) return;
+        setDivisions(divisions.filter((_, i) => i !== pendingRemove.index));
+        setPendingRemove(null);
+        setRemoveConfirmInput('');
     };
 
     const updateDivision = (index: number, field: keyof DivisionInput, value: any) => {
@@ -170,7 +188,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             if (isEditMode && initialData) {
                 router.push(`/tournaments/${initialData.id}`);
             } else {
-                router.push('/tournaments');
+                router.push(`/tournaments/${result.tournamentId}`);
             }
             router.refresh();
         } else {
@@ -210,7 +228,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             <div className="space-y-2">
                 <h2 className="text-2xl font-bold">{isEditMode ? '대회 수정' : '대회 만들기'}</h2>
                 <p className="text-gray-500">
-                    {isEditMode ? '대회 정보를 수정합니다.' : '새로운 테니스 대회를 개설합니다.'}
+                    {isEditMode ? '대회 정보를 수정합니다.' : '대회를 초안으로 저장합니다. 저장 후 상태를 변경하여 공개할 수 있습니다.'}
                 </p>
             </div>
 
@@ -633,9 +651,51 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                     disabled={loading}
                     className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-colors disabled:opacity-50"
                 >
-                    {loading ? (isEditMode ? '수정 중...' : '생성 중...') : (isEditMode ? '대회 수정하기' : '대회 생성하기')}
+                    {loading ? (isEditMode ? '수정 중...' : '저장 중...') : (isEditMode ? '대회 수정하기' : '초안으로 저장하기')}
                 </button>
             </div>
+
+            {/* 부서 삭제 확인 모달 — 부서명 직접 입력 */}
+            <Modal
+                isOpen={pendingRemove !== null}
+                onClose={() => { setPendingRemove(null); setRemoveConfirmInput(''); }}
+                title="부서 삭제"
+                closeOnOverlayClick={false}
+                size="sm"
+            >
+                <Modal.Body>
+                    <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                        이 부서를 삭제하면 참가 신청 데이터가 모두 영구 삭제됩니다.
+                    </p>
+                    <p className="text-sm mb-2">
+                        확인을 위해 부서명 <strong>{pendingRemove?.name}</strong>을(를) 정확히 입력하세요.
+                    </p>
+                    <input
+                        value={removeConfirmInput}
+                        onChange={(e) => setRemoveConfirmInput(e.target.value)}
+                        className={inputClass}
+                        placeholder={pendingRemove?.name}
+                        autoFocus
+                    />
+                </Modal.Body>
+                <Modal.Footer>
+                    <button
+                        type="button"
+                        onClick={() => { setPendingRemove(null); setRemoveConfirmInput(''); }}
+                        className="flex-1 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+                    >
+                        취소
+                    </button>
+                    <button
+                        type="button"
+                        onClick={confirmRemoveDivision}
+                        disabled={removeConfirmInput !== pendingRemove?.name}
+                        className="flex-1 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        삭제
+                    </button>
+                </Modal.Footer>
+            </Modal>
         </form>
     );
 }

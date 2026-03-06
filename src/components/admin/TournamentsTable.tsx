@@ -17,7 +17,8 @@ import {
 import type { Database, TournamentStatus, EntryStatus, PaymentStatus } from '@/lib/supabase/types'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
+import { Toast } from '@/components/common/AlertDialog'
+import { Modal } from '@/components/common/Modal'
 import { deleteTournament } from '@/lib/tournaments/actions'
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
@@ -87,6 +88,7 @@ export function TournamentsTable({
   const [sortOrder, setSortOrder] = useState<SortOrder>('desc')
   const [statusFilter, setStatusFilter] = useState<TournamentStatus | 'ALL'>('ALL')
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; title: string } | null>(null)
+  const [deleteConfirmInput, setDeleteConfirmInput] = useState('')
   const [isDeleting, setIsDeleting] = useState(false)
   const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' }>({
     isOpen: false,
@@ -171,6 +173,11 @@ export function TournamentsTable({
     )
   }
 
+  const closeDeleteModal = () => {
+    setDeleteTarget(null)
+    setDeleteConfirmInput('')
+  }
+
   const handleDelete = async () => {
     if (!deleteTarget) return
     setIsDeleting(true)
@@ -184,7 +191,7 @@ export function TournamentsTable({
       }
     } finally {
       setIsDeleting(false)
-      setDeleteTarget(null)
+      closeDeleteModal()
     }
   }
 
@@ -425,18 +432,47 @@ export function TournamentsTable({
         ))}
       </div>
 
-      {/* 삭제 확인 다이얼로그 */}
-      <ConfirmDialog
+      {/* 대회 삭제 확인 모달 — 대회명 직접 입력 */}
+      <Modal
         isOpen={deleteTarget !== null}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
+        onClose={closeDeleteModal}
         title="대회 삭제"
-        message={`'${deleteTarget?.title}' 대회를 삭제하시겠습니까?\n\n삭제하면 참가 신청 및 관련 데이터가 모두 함께 삭제되며 복구할 수 없습니다.`}
-        confirmText="삭제"
-        cancelText="취소"
-        type="error"
-        isLoading={isDeleting}
-      />
+        closeOnOverlayClick={false}
+        size="sm"
+      >
+        <Modal.Body>
+          <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+            참가 신청 및 모든 관련 데이터가 영구 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+          </p>
+          <p className="text-sm mb-2">
+            확인을 위해 대회명 <strong>{deleteTarget?.title}</strong>을(를) 정확히 입력하세요.
+          </p>
+          <input
+            value={deleteConfirmInput}
+            onChange={(e) => setDeleteConfirmInput(e.target.value)}
+            placeholder={deleteTarget?.title}
+            className="w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-red-500 outline-none"
+            autoFocus
+          />
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            type="button"
+            onClick={closeDeleteModal}
+            className="flex-1 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={deleteConfirmInput !== deleteTarget?.title || isDeleting}
+            className="flex-1 px-4 py-2 rounded-lg bg-red-500 hover:bg-red-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            {isDeleting ? '삭제 중...' : '삭제'}
+          </button>
+        </Modal.Footer>
+      </Modal>
 
       <Toast
         isOpen={toast.isOpen}

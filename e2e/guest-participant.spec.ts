@@ -12,7 +12,7 @@ import { test, expect, type Page } from '@playwright/test'
 const TEST_EMAIL = 'e2e.admin@mapo-tennis-test.dev'
 const TEST_PASSWORD = 'E2ETest2026x'
 const CLUB_ID = '3084ca9f-c86c-4365-917a-b25cd36e2291'
-const SESSION_ID = 'be7e0040-e107-42d5-a0f3-105001e4e127'
+const SESSION_ID = '50eb8318-e5e2-49a1-8b7c-8a845490d0ac'
 
 const SESSION_URL = `http://localhost:3000/clubs/${CLUB_ID}/sessions/${SESSION_ID}`
 const MANAGE_URL = `${SESSION_URL}/manage`

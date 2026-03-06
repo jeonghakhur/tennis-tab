@@ -7,7 +7,7 @@
 import { test, expect, type Page } from '@playwright/test'
 
 const TEST_EMAIL = 'e2e.admin@mapo-tennis-test.dev'
-const TEST_PASSWORD = 'E2ETest1234x'
+const TEST_PASSWORD = 'E2ETest2026x'
 const TEST_PLAYER = `E2E테스트_${Date.now()}`
 const TOURNAMENT_LABEL = '2025년 · 제2회 마포구협회장배 시니어대회'
 const DIVISION_NAME = '시니어부'

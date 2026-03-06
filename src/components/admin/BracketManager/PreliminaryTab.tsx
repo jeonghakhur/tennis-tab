@@ -136,9 +136,15 @@ export function PreliminaryTab({
             const groupMatchIds = groupMatches.map((m) => m.id);
             const hasDirty = groupMatchIds.some((id) => dirtyIds.has(id));
             const standings = group.group_teams?.slice().sort((a, b) => {
-              if (a.final_rank && b.final_rank)
-                return a.final_rank - b.final_rank;
-              return b.wins - b.losses - (a.wins - a.losses);
+              // 1순위: 확정 순위 (이미 배정된 경우)
+              if (a.final_rank && b.final_rank) return a.final_rank - b.final_rank;
+              // 2순위: 승패 차이
+              const winDiff = (b.wins - b.losses) - (a.wins - a.losses);
+              if (winDiff !== 0) return winDiff;
+              // 3순위 (동점): 득실점 차이 (득점 - 실점)
+              const aNetScore = (a.points_for ?? 0) - (a.points_against ?? 0);
+              const bNetScore = (b.points_for ?? 0) - (b.points_against ?? 0);
+              return bNetScore - aNetScore;
             });
 
             return (

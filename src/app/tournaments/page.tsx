@@ -10,29 +10,31 @@ const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
 export default async function TournamentsPage() {
   const supabase = await createClient();
 
-  // 현재 사용자 확인 + 대회 목록 병렬 조회 (auth 3초 타임아웃: hang 방지)
+  // 1. 인증 (3초 타임아웃)
   const authFallback = { data: { user: null } } as const;
-  const [{ data: { user } }, { data: tournaments, error }] = await Promise.all([
-    Promise.race([
-      supabase.auth.getUser().catch(() => authFallback),
-      new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
-    ]),
-    supabase
-      .from("tournaments")
-      .select("id, title, status, start_date, end_date, location, poster_url")
-      .order("start_date", { ascending: false }),
+  const { data: { user } } = await Promise.race([
+    supabase.auth.getUser().catch(() => authFallback),
+    new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
   ]);
 
-  let canCreateTournament = false;
-  if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .single();
-    canCreateTournament =
-      !!profile?.role && ALLOWED_ROLES.includes(profile.role);
-  }
+  // 2. 프로필 + 대회 목록 병렬 조회
+  const tournamentQuery = supabase
+    .from("tournaments")
+    .select("id, title, status, start_date, end_date, location, poster_url")
+    .order("start_date", { ascending: false });
+
+  const [profileResult, { data: allTournaments, error }] = await Promise.all([
+    user ? supabase.from("profiles").select("role").eq("id", user.id).single() : Promise.resolve({ data: null }),
+    tournamentQuery,
+  ]);
+
+  const role = profileResult.data?.role ?? null;
+  const canCreateTournament = !!role && ALLOWED_ROLES.includes(role as UserRole);
+
+  // 관리자가 아닌 경우 DRAFT 대회 제외
+  const tournaments = canCreateTournament
+    ? allTournaments
+    : allTournaments?.filter((t) => t.status !== "DRAFT");
 
   if (error) {
     console.error("Error fetching tournaments:", error);
