@@ -290,8 +290,8 @@ export default function TournamentEntryForm({
       if (!clubName) {
         setAlertDialog({
           isOpen: true,
-          title: "입력 필요",
-          message: "클럽명을 입력해주세요.",
+          title: "클럽 정보 없음",
+          message: "프로필에 클럽을 등록해야 단체전 신청이 가능합니다.",
           type: "warning",
         });
         return;
@@ -585,23 +585,12 @@ export default function TournamentEntryForm({
           {/* 단체전 - 클럽 및 팀원 정보 */}
           {(matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") && (
             <>
-              {/* 클럽명 — 수정 모드에서는 읽기 전용 */}
+              {/* 클럽명 — 항상 읽기 전용 (프로필 클럽 자동 사용) */}
               <div>
-                <label className={labelClass}>
-                  클럽명 <span className="text-red-500">*</span>
-                </label>
-                {editMode ? (
-                  <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm">
-                    {clubName}
-                  </p>
-                ) : (
-                  <input
-                    type="text"
-                    value={clubName}
-                    onChange={(e) => setClubName(e.target.value)}
-                    className={inputClass}
-                  />
-                )}
+                <label className={labelClass}>클럽명</label>
+                <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                  {clubName || "프로필에 클럽을 등록해주세요"}
+                </p>
               </div>
 
               {/* 팀 순서 — 수정 모드에서만 읽기 전용 표시 (신규 신청 시 서버에서 자동 부여) */}
