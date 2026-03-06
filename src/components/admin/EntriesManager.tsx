@@ -18,6 +18,7 @@ import {
   bulkUpdateEntryStatus,
   bulkUpdatePaymentStatus,
 } from '@/lib/admin/entries'
+import { markRefundComplete } from '@/lib/entries/actions'
 import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -30,6 +31,12 @@ type Entry = Database['public']['Tables']['tournament_entries']['Row'] & {
     club: string | null
   } | null
   tournament_divisions: { name: string } | null
+  // 환불 관련 (DB 마이그레이션으로 추가된 컬럼)
+  refund_status?: string | null
+  refund_bank?: string | null
+  refund_account?: string | null
+  refund_holder?: string | null
+  cancelled_at?: string | null
 }
 
 type Division = {
@@ -46,7 +53,7 @@ interface EntriesManagerProps {
 
 // 목록은 항상 참가 신청 순(created_at 오름차순)으로 고정
 
-type NormalizedStatus = 'PENDING' | 'APPROVED' | 'WAITLISTED' | 'REJECTED'
+type NormalizedStatus = 'PENDING' | 'APPROVED' | 'WAITLISTED' | 'REJECTED' | 'CANCELLED'
 
 const entryStatusConfig: Record<
   NormalizedStatus,
@@ -72,7 +79,15 @@ const entryStatusConfig: Record<
     className: 'bg-subtle-danger',
     order: 4,
   },
+  CANCELLED: {
+    label: '취소됨',
+    className: 'bg-subtle-secondary',
+    order: 5,
+  },
 }
+
+// 관리자가 직접 선택 가능한 상태 (참가자 취소는 선택 불가)
+const ADMIN_SELECTABLE_STATUSES: NormalizedStatus[] = ['PENDING', 'APPROVED', 'WAITLISTED', 'REJECTED']
 
 // 결제 상태는 결제/미결제만
 const paymentStatusConfig: Record<
@@ -93,7 +108,7 @@ const paymentStatusConfig: Record<
 function normalizeStatus(status: EntryStatus): NormalizedStatus {
   if (status === 'CONFIRMED') return 'APPROVED'
   if (status === 'WAITLISTED') return 'WAITLISTED'
-  if (status === 'CANCELLED') return 'REJECTED'
+  if (status === 'CANCELLED') return 'CANCELLED'
   return status as NormalizedStatus
 }
 
@@ -111,6 +126,7 @@ export function EntriesManager({
   const [statusFilter, setStatusFilter] = useState<NormalizedStatus | 'ALL'>('ALL')
   const [paymentFilter, setPaymentFilter] = useState<'PENDING' | 'COMPLETED' | 'ALL'>('ALL')
   const [divisionFilter, setDivisionFilter] = useState<string>('ALL')
+  const [refundFilter, setRefundFilter] = useState(false)
   const [selectedEntries, setSelectedEntries] = useState<string[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
   // 일괄 변경 select controlled state
@@ -341,6 +357,13 @@ export function EntriesManager({
       filtered = filtered.filter((e) => e.division_id === divisionFilter)
     }
 
+    // 환불 필요 필터 (취소 + 입금완료 + 환불 미처리)
+    if (refundFilter) {
+      filtered = filtered.filter(
+        (e) => e.status === 'CANCELLED' && e.payment_status === 'COMPLETED' && e.refund_status === 'REQUESTED'
+      )
+    }
+
     // 항상 참가 신청 순(created_at → id) 고정. 동일 created_at이어도 id로 순서 유지
     return [...filtered].sort((a, b) => {
       const t1 = new Date(a.created_at).getTime()
@@ -348,19 +371,24 @@ export function EntriesManager({
       if (t1 !== t2) return t1 - t2
       return a.id.localeCompare(b.id)
     })
-  }, [entries, searchQuery, statusFilter, paymentFilter, divisionFilter])
+  }, [entries, searchQuery, statusFilter, paymentFilter, divisionFilter, refundFilter])
 
   // 선택된 부서별 신청 현황 (부서 선택 시 해당 부서만, 전체 선택 시 전체)
   const entriesForStats =
     divisionFilter === 'ALL'
       ? entries
       : entries.filter((e) => e.division_id === divisionFilter)
+  const refundNeededCount = entries.filter(
+    (e) => e.status === 'CANCELLED' && e.payment_status === 'COMPLETED' && e.refund_status === 'REQUESTED'
+  ).length
+
   const stats = {
     total: entriesForStats.length,
     pending: entriesForStats.filter((e) => normalizeStatus(e.status) === 'PENDING').length,
     approved: entriesForStats.filter((e) => normalizeStatus(e.status) === 'APPROVED').length,
     waitlisted: entriesForStats.filter((e) => normalizeStatus(e.status) === 'WAITLISTED').length,
     paid: entriesForStats.filter((e) => e.payment_status === 'COMPLETED').length,
+    cancelled: entriesForStats.filter((e) => normalizeStatus(e.status) === 'CANCELLED').length,
   }
   const selectedDivisionName =
     divisionFilter === 'ALL'
@@ -467,7 +495,7 @@ export function EntriesManager({
             {selectedDivisionName} 신청 현황
           </p>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-4">
           <div className="glass-card rounded-xl p-5 text-center">
             <p className="text-3xl font-display font-bold text-(--text-primary)">
               {stats.total}
@@ -498,6 +526,12 @@ export function EntriesManager({
             </p>
             <p className="text-sm text-(--text-secondary) mt-1">결제 완료</p>
           </div>
+          <div className="glass-card rounded-xl p-5 text-center">
+            <p className="text-3xl font-display font-bold text-(--text-muted)">
+              {stats.cancelled}
+            </p>
+            <p className="text-sm text-(--text-secondary) mt-1">취소</p>
+          </div>
         </div>
       </div>
 
@@ -523,7 +557,7 @@ export function EntriesManager({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">모든 상태</SelectItem>
-              {Object.entries(entryStatusConfig).map(([key, { label }]) => (
+              {(Object.entries(entryStatusConfig) as [NormalizedStatus, { label: string }][]).map(([key, { label }]) => (
                 <SelectItem key={key} value={key}>{label}</SelectItem>
               ))}
             </SelectContent>
@@ -556,6 +590,21 @@ export function EntriesManager({
               </SelectContent>
             </Select>
           )}
+
+          {/* 환불 필요 필터 */}
+          {refundNeededCount > 0 && (
+            <button
+              type="button"
+              onClick={() => setRefundFilter((v) => !v)}
+              className={`px-4 py-3 rounded-xl text-base font-medium border transition-colors ${
+                refundFilter
+                  ? 'bg-red-500/20 text-red-400 border-red-500/40'
+                  : 'bg-(--bg-card) border-(--border-color) text-(--text-primary)'
+              }`}
+            >
+              환불 필요 {refundNeededCount}건
+            </button>
+          )}
         </div>
       </div>
 
@@ -585,8 +634,8 @@ export function EntriesManager({
                 <SelectValue placeholder="상태 일괄 변경" />
               </SelectTrigger>
               <SelectContent>
-                {Object.entries(entryStatusConfig).map(([key, { label }]) => (
-                  <SelectItem key={key} value={key}>{label}</SelectItem>
+                {ADMIN_SELECTABLE_STATUSES.map((key) => (
+                  <SelectItem key={key} value={key}>{entryStatusConfig[key].label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -655,12 +704,19 @@ export function EntriesManager({
                   const isProcessing = processing === entry.id
                   const normalizedStatus = normalizeStatus(entry.status)
                   const normalizedPayment = normalizePaymentStatus(entry.payment_status)
+                  const isCancelled = normalizedStatus === 'CANCELLED'
+                  const isRefundNeeded = entry.status === 'CANCELLED' && entry.payment_status === 'COMPLETED' && entry.refund_status === 'REQUESTED'
+                  const isRefundDone = entry.refund_status === 'COMPLETED'
 
                   return (
                     <tr
                       key={entry.id}
                       className={`border-b border-(--border-color) last:border-b-0 transition-colors ${
-                        selectedEntries.includes(entry.id)
+                        isRefundNeeded
+                          ? 'bg-red-500/5'
+                          : isCancelled
+                          ? 'opacity-60'
+                          : selectedEntries.includes(entry.id)
                           ? 'bg-(--accent-color)/5'
                           : 'hover:bg-(--bg-card-hover)'
                       } ${isProcessing ? 'opacity-50' : ''}`}
@@ -764,8 +820,12 @@ export function EntriesManager({
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Object.entries(entryStatusConfig).map(([key, { label }]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
+                            {/* 취소됨은 표시만 되고, 관리자가 선택 가능한 상태만 옵션 제공 */}
+                            {normalizedStatus === 'CANCELLED' && (
+                              <SelectItem value="CANCELLED" disabled>취소됨 (참가자 취소)</SelectItem>
+                            )}
+                            {ADMIN_SELECTABLE_STATUSES.map((key) => (
+                              <SelectItem key={key} value={key}>{entryStatusConfig[key].label}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
@@ -796,16 +856,54 @@ export function EntriesManager({
                             minute: '2-digit',
                           })}
                         </p>
+                        {isCancelled && entry.cancelled_at && (
+                          <p className="text-xs text-(--text-muted) mt-1">
+                            취소: {formatKoreanDateTime(entry.cancelled_at)}
+                          </p>
+                        )}
                       </td>
                       <td className="p-4">
-                        <button
-                          onClick={() => setConfirmDialog({ isOpen: true, entryId: entry.id })}
-                          disabled={isProcessing}
-                          className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                        <div className="flex flex-col gap-2">
+                          {/* 환불 필요 — 계좌 정보 + 완료 버튼 */}
+                          {isRefundNeeded && (
+                            <div className="text-sm space-y-0.5 mb-1">
+                              <p className="font-medium text-red-400">환불 필요</p>
+                              {entry.refund_bank && (
+                                <p className="text-(--text-secondary)">
+                                  {entry.refund_bank} {entry.refund_account} ({entry.refund_holder})
+                                </p>
+                              )}
+                              <button
+                                type="button"
+                                disabled={isProcessing}
+                                onClick={async () => {
+                                  setProcessing(entry.id)
+                                  const res = await markRefundComplete(entry.id)
+                                  setProcessing(null)
+                                  if (res.success) {
+                                    router.refresh()
+                                  } else {
+                                    setAlertDialog({ isOpen: true, title: '오류', message: res.error ?? '처리 실패', type: 'error' })
+                                  }
+                                }}
+                                className="mt-1 px-3 py-1 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
+                              >
+                                환불 완료 처리
+                              </button>
+                            </div>
+                          )}
+                          {isRefundDone && (
+                            <span className="text-sm text-emerald-500">환불 완료</span>
+                          )}
+                          <button
+                            onClick={() => setConfirmDialog({ isOpen: true, entryId: entry.id })}
+                            disabled={isProcessing}
+                            className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors w-fit"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )
