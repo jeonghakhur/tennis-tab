@@ -255,6 +255,7 @@ export interface Database {
           partner_data: PartnerData | null
           partner_user_id: string | null
           team_members: TeamMember[] | null
+          applicant_participates: boolean
           payment_status: PaymentStatus
           payment_confirmed_at: string | null
           created_at: string
@@ -274,6 +275,7 @@ export interface Database {
           partner_data?: PartnerData | null
           partner_user_id?: string | null
           team_members?: TeamMember[] | null
+          applicant_participates?: boolean
           payment_status?: PaymentStatus
           payment_confirmed_at?: string | null
           created_at?: string
@@ -293,6 +295,7 @@ export interface Database {
           partner_data?: PartnerData | null
           partner_user_id?: string | null
           team_members?: TeamMember[] | null
+          applicant_participates?: boolean
           payment_status?: PaymentStatus
           payment_confirmed_at?: string | null
           updated_at?: string

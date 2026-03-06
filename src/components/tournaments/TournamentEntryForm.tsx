@@ -57,6 +57,7 @@ export interface EntryFormData {
   partnerData?: PartnerData | null;
   partnerUserId?: string | null;
   teamMembers?: TeamMember[] | null;
+  applicantParticipates?: boolean;
 }
 
 export default function TournamentEntryForm({
@@ -173,7 +174,17 @@ export default function TournamentEntryForm({
         ? teamMatchCount * 2
         : teamMatchCount
       : 0;
-  const requiredMembers = Math.max(0, requiredTotal - 1);
+
+  // 신청자 참가 여부 (단체전 전용) — false면 팀원 슬롯이 requiredTotal 전체로 늘어남
+  const [applicantParticipates, setApplicantParticipates] = useState(
+    initialData?.applicantParticipates ?? true
+  );
+
+  const requiredMembers = Math.max(
+    0,
+    applicantParticipates ? requiredTotal - 1 : requiredTotal
+  );
+
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
     if (initialData?.teamMembers?.length) return initialData.teamMembers;
     return Array.from({ length: requiredMembers }, () => ({
@@ -181,6 +192,19 @@ export default function TournamentEntryForm({
       rating: 0,
     }));
   });
+
+  // 신청자 참가 여부 변경 핸들러
+  const handleApplicantParticipatesChange = (checked: boolean) => {
+    setApplicantParticipates(checked);
+    // 불참으로 변경 시 부족한 팀원 슬롯 자동 추가
+    const newRequired = checked ? requiredTotal - 1 : requiredTotal;
+    if (teamMembers.length < newRequired) {
+      setTeamMembers((prev) => [
+        ...prev,
+        ...Array.from({ length: newRequired - prev.length }, () => ({ name: "", rating: 0 })),
+      ]);
+    }
+  };
 
   // 선택된 division 정보
   const selectedDivision = divisions.find((d) => d.id === divisionId);
@@ -272,21 +296,18 @@ export default function TournamentEntryForm({
         });
         return;
       }
-      // 단체전 팀원 수 검증: teamMatchCount 있으면 신청자 포함 필수 인원 계산
-      const requiredTotal = teamMatchCount
-        ? matchType === "TEAM_DOUBLES"
-          ? teamMatchCount * 2  // 3복식 → 6명
-          : teamMatchCount      // 3단식 → 3명
-        : 1;
-      const requiredMembers = requiredTotal - 1; // 신청자 제외 팀원 수
-      if (teamMembers.length < requiredMembers) {
-        const totalLabel = `신청자 포함 총 ${requiredTotal}명`;
+      // 단체전 팀원 수 검증: 신청자 참가 여부에 따라 필요 팀원 수 계산
+      const effectiveRequired = applicantParticipates
+        ? requiredMembers   // 신청자 포함 → 팀원만 requiredTotal-1명
+        : requiredTotal;    // 신청자 불참 → 팀원으로 requiredTotal명 전체 필요
+      if (teamMembers.length < effectiveRequired) {
+        const label = applicantParticipates
+          ? `신청자 포함 총 ${requiredTotal}명`
+          : `신청자 제외 총 ${requiredTotal}명`;
         setAlertDialog({
           isOpen: true,
           title: "입력 필요",
-          message: requiredMembers > 0
-            ? `팀원 ${requiredMembers}명을 등록해주세요. (${totalLabel} 필요)`
-            : "최소 1명의 팀원을 등록해주세요.",
+          message: `팀원 ${effectiveRequired}명을 등록해주세요. (${label} 필요)`,
           type: "warning",
         });
         return;
@@ -327,6 +348,7 @@ export default function TournamentEntryForm({
       formData.clubName = clubName;
       formData.teamOrder = teamOrder || null;
       formData.teamMembers = teamMembers;
+      formData.applicantParticipates = applicantParticipates;
     }
 
     const result = await onSubmit(formData);
@@ -399,27 +421,59 @@ export default function TournamentEntryForm({
             </Select>
           </div>
 
-          {/* 참가자 기본 정보 */}
-          <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-            <h3 className="font-semibold text-gray-900 dark:text-white">
-              참가자 정보
-            </h3>
+          {/* 참가자 기본 정보 — 개인전만 전체 섹션 표시 */}
+          {!isTeamMatch && (
+            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                참가자 정보
+              </h3>
 
-            <div>
-              <label className={labelClass}>
-                이름 <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                className={inputClass}
-              />
+              <div>
+                <label className={labelClass}>
+                  이름 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  전화번호 <span className="text-red-500">*</span>
+                </label>
+                <PhoneInput
+                  value={phone}
+                  onChange={setPhone}
+                  className={inputClass}
+                />
+              </div>
+
+              <div>
+                <label className={labelClass}>점수 (레이팅)</label>
+                <input
+                  type="number"
+                  value={playerRating || ""}
+                  onChange={(e) =>
+                    setPlayerRating(
+                      e.target.value ? parseInt(e.target.value) : null,
+                    )
+                  }
+                  className={inputClass}
+                  min="1"
+                  max="9999"
+                />
+              </div>
             </div>
+          )}
 
+          {/* 단체전: 연락처만 간소 표시 */}
+          {isTeamMatch && (
             <div>
               <label className={labelClass}>
-                전화번호 <span className="text-red-500">*</span>
+                연락처 <span className="text-red-500">*</span>
               </label>
               <PhoneInput
                 value={phone}
@@ -427,23 +481,7 @@ export default function TournamentEntryForm({
                 className={inputClass}
               />
             </div>
-
-            <div>
-              <label className={labelClass}>점수 (레이팅)</label>
-              <input
-                type="number"
-                value={playerRating || ""}
-                onChange={(e) =>
-                  setPlayerRating(
-                    e.target.value ? parseInt(e.target.value) : null,
-                  )
-                }
-                className={inputClass}
-                min="1"
-                max="9999"
-              />
-            </div>
-          </div>
+          )}
 
           {/* 개인전 복식 - 파트너 정보 */}
           {matchType === "INDIVIDUAL_DOUBLES" && (
@@ -547,52 +585,57 @@ export default function TournamentEntryForm({
           {/* 단체전 - 클럽 및 팀원 정보 */}
           {(matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") && (
             <>
-              <div className="space-y-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800">
-                <h3 className="font-semibold text-gray-900 dark:text-white">
-                  클럽 정보
-                </h3>
+              {/* 클럽명 — 연락처와 동일 레벨 */}
+              <div>
+                <label className={labelClass}>
+                  클럽명 <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={clubName}
+                  onChange={(e) => setClubName(e.target.value)}
+                  className={inputClass}
+                />
+              </div>
 
+              {/* 팀 순서 — 수정 모드에서만 읽기 전용 표시 (신규 신청 시 서버에서 자동 부여) */}
+              {editMode && teamOrder && (
                 <div>
-                  <label className={labelClass}>
-                    클럽명 <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={clubName}
-                    onChange={(e) => setClubName(e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClass}>팀 순서 (가, 나, 다 등)</label>
-                  <input
-                    type="text"
-                    value={teamOrder}
-                    onChange={(e) => setTeamOrder(e.target.value)}
-                    placeholder="예: 가"
-                    className={inputClass}
-                  />
-                  <p className="text-xs text-gray-500 mt-1">
-                    * 같은 클럽이 여러 팀 출전 시 순서를 입력해주세요
+                  <label className={labelClass}>팀 순서</label>
+                  <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                    {teamOrder}팀
                   </p>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-4">
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white">
-                    팀원 정보
-                  </h3>
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                      팀원 정보
+                    </h3>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={applicantParticipates}
+                        onChange={(e) => handleApplicantParticipatesChange(e.target.checked)}
+                        className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600"
+                      />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">
+                        신청자도 선수로 참가
+                      </span>
+                    </label>
+                  </div>
                   {(() => {
-                    const requiredTotal = teamMatchCount
-                      ? matchType === "TEAM_DOUBLES" ? teamMatchCount * 2 : teamMatchCount
-                      : null;
                     const maxLimit = selectedDivision?.team_member_limit;
                     return (
                       <p className="text-sm text-gray-500 mt-1">
-                        {requiredTotal && `* 신청자 포함 최소 ${requiredTotal}명 필요`}
-                        {requiredTotal && maxLimit && " / "}
+                        {requiredTotal > 0 && (
+                          applicantParticipates
+                            ? `* 신청자 포함 최소 ${requiredTotal}명 필요`
+                            : `* 신청자 제외 ${requiredTotal}명 필요`
+                        )}
+                        {requiredTotal > 0 && maxLimit && " / "}
                         {maxLimit && `최대 ${maxLimit}명까지 등록 가능`}
                       </p>
                     );
@@ -600,10 +643,45 @@ export default function TournamentEntryForm({
                 </div>
 
                 <div className="space-y-2">
+                  {/* 신청자(본인) 슬롯 — 참가 시 맨 앞에 자동 표시 */}
+                  {applicantParticipates && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-10 shrink-0 text-center bg-blue-100 dark:bg-blue-900/40 rounded-lg py-2">
+                        본인
+                      </span>
+                      <input
+                        type="text"
+                        value={playerName}
+                        onChange={(e) => setPlayerName(e.target.value)}
+                        placeholder="이름"
+                        className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label="신청자 이름"
+                      />
+                      <input
+                        type="number"
+                        value={playerRating || ""}
+                        onChange={(e) =>
+                          setPlayerRating(
+                            e.target.value ? parseInt(e.target.value) : null,
+                          )
+                        }
+                        placeholder="점수"
+                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        aria-label="신청자 점수"
+                        min="1"
+                        max="9999"
+                      />
+                      {/* 신청자 슬롯은 제거 불가 — 체크박스로 해제 */}
+                      <span className="shrink-0 w-6 text-center text-blue-300 dark:text-blue-600 text-xs">
+                        🔒
+                      </span>
+                    </div>
+                  )}
+
                   {teamMembers.map((member, index) => (
                     <div key={index} className="flex items-center gap-2">
                       <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-10 shrink-0 text-center">
-                        {index + 1}
+                        {applicantParticipates ? index + 2 : index + 1}
                       </span>
                       <input
                         type="text"
@@ -613,7 +691,7 @@ export default function TournamentEntryForm({
                         }
                         placeholder="이름"
                         className="flex-1 min-w-0 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        aria-label={`팀원 ${index + 1} 이름`}
+                        aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 이름`}
                       />
                       <input
                         type="number"
@@ -627,7 +705,7 @@ export default function TournamentEntryForm({
                         }
                         placeholder="점수(레이팅)"
                         className="w-32 shrink-0 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        aria-label={`팀원 ${index + 1} 점수`}
+                        aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 점수`}
                         min="1"
                         max="9999"
                       />
@@ -635,7 +713,7 @@ export default function TournamentEntryForm({
                         type="button"
                         onClick={() => removeTeamMember(index)}
                         className="shrink-0 text-red-500 hover:text-red-700 text-sm px-1"
-                        aria-label={`팀원 ${index + 1} 제거`}
+                        aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 제거`}
                       >
                         ✕
                       </button>

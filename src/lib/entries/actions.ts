@@ -66,6 +66,7 @@ export async function createEntry(
         partnerData?: { name: string; club: string; rating: number } | null;
         partnerUserId?: string | null;
         teamMembers?: Array<{ name: string; rating: number }> | null;
+        applicantParticipates?: boolean;
     }
 ): Promise<CreateEntryResult> {
     try {
@@ -178,6 +179,7 @@ export async function createEntry(
             partner_data: entryData.partnerData ?? null,
             partner_user_id: entryData.partnerUserId ?? null,
             team_members: entryData.teamMembers ?? null,
+            applicant_participates: entryData.applicantParticipates ?? true,
             status: initialStatus,
             payment_status: 'PENDING',
         };
@@ -276,6 +278,77 @@ export async function updateEntryStatus(
 }
 
 /**
+ * 내부 취소 헬퍼 — 인증 없이 entryId + userId로 소프트 삭제 + 대기자 승격
+ * deleteEntry(사용자 Server Action)와 cancelFlow(채팅 핸들러) 양쪽에서 재사용
+ */
+export async function cancelEntryByAdmin(
+    entryId: string,
+    userId: string
+): Promise<DeleteEntryResult> {
+    const admin = createAdminClient();
+
+    // 1. 신청 정보 조회 (상태/division_id 필요)
+    const { data: entry, error: entryError } = await admin
+        .from('tournament_entries')
+        .select('id, user_id, status, division_id, tournament_id')
+        .eq('id', entryId)
+        .eq('user_id', userId)
+        .single();
+
+    if (entryError || !entry) {
+        return { success: false, error: '신청 정보를 찾을 수 없습니다.' };
+    }
+
+    // 2. 대진표 배정 여부 확인
+    const { count: bracketCount } = await admin
+        .from('bracket_matches')
+        .select('id', { count: 'exact', head: true })
+        .or(`team1_entry_id.eq.${entryId},team2_entry_id.eq.${entryId}`);
+
+    if ((bracketCount ?? 0) > 0) {
+        return { success: false, error: '대진표에 배정된 참가 신청은 취소할 수 없습니다. 주최자에게 문의하세요.' };
+    }
+
+    const wasConfirmed = entry.status === 'CONFIRMED';
+
+    // 3. 소프트 삭제: CANCELLED 상태로 변경 (취소 이력 보존)
+    const { error: cancelError } = await admin
+        .from('tournament_entries')
+        .update({ status: 'CANCELLED', updated_at: new Date().toISOString() })
+        .eq('id', entryId)
+        .eq('user_id', userId);
+
+    if (cancelError) {
+        return { success: false, error: cancelError.message || '신청 취소에 실패했습니다.' };
+    }
+
+    // 4. CONFIRMED 취소 시 대기자 자동 승격
+    if (wasConfirmed) {
+        const { data: waitlisted } = await admin
+            .from('tournament_entries')
+            .select('id')
+            .eq('division_id', entry.division_id)
+            .eq('status', 'WAITLISTED')
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+        if (waitlisted) {
+            await admin
+                .from('tournament_entries')
+                .update({ status: 'CONFIRMED', updated_at: new Date().toISOString() })
+                .eq('id', waitlisted.id);
+        }
+    }
+
+    revalidatePath(`/tournaments/${entry.tournament_id}`);
+    revalidatePath('/tournaments');
+    revalidatePath('/my/entries');
+
+    return { success: true };
+}
+
+/**
  * 참가 신청 취소/삭제
  */
 export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
@@ -308,35 +381,8 @@ export async function deleteEntry(entryId: string): Promise<DeleteEntryResult> {
             return { success: false, error: '본인의 신청만 취소할 수 있습니다.' };
         }
 
-        // 4. 대진표 배정 여부 확인 — 배정 후 취소 시 bracket_matches FK null 방지
-        const admin = createAdminClient();
-        const { count: bracketCount } = await admin
-            .from('bracket_matches')
-            .select('id', { count: 'exact', head: true })
-            .or(`team1_entry_id.eq.${entryId},team2_entry_id.eq.${entryId}`);
-
-        if ((bracketCount ?? 0) > 0) {
-            return { success: false, error: '대진표에 배정된 참가 신청은 취소할 수 없습니다. 주최자에게 문의하세요.' };
-        }
-
-        // 5. 신청 삭제 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
-        const { error: deleteError } = await admin
-            .from('tournament_entries')
-            .delete()
-            .eq('id', entryId)
-            .eq('user_id', user.id);
-
-        if (deleteError) {
-            console.error('Delete error:', deleteError);
-            return { success: false, error: deleteError.message || '신청 취소에 실패했습니다.' };
-        }
-
-        // 5. 캐시 무효화
-        revalidatePath(`/tournaments/${entry.tournament_id}`);
-        revalidatePath('/tournaments');
-        revalidatePath('/my/entries');
-
-        return { success: true };
+        // 4~7. 공유 헬퍼로 위임 (대진표 체크 + 소프트 삭제 + 대기자 승격 + 캐시 무효화)
+        return cancelEntryByAdmin(entryId, user.id);
     } catch (error) {
         console.error('Delete entry error:', error);
         return { success: false, error: '신청 취소 중 오류가 발생했습니다.' };
@@ -362,16 +408,17 @@ export async function confirmBankTransfer(entryId: string): Promise<{
         // 본인 신청인지 확인
         const { data: entry } = await supabase
             .from('tournament_entries')
-            .select('id, user_id, division_id, payment_status, tournament_id')
+            .select('id, user_id, division_id, status, payment_status, tournament_id')
             .eq('id', entryId)
             .eq('user_id', user.id)
             .single()
 
         if (!entry) return { success: false, error: '신청 정보를 찾을 수 없습니다.' }
 
-        // 이미 입금 확인된 경우 멱등성 처리
+        // 이미 입금 확인된 경우 멱등성 처리 — 실제 status 그대로 반환
         if (entry.payment_status === 'COMPLETED') {
-            return { success: true, status: 'CONFIRMED' }
+            const currentStatus = entry.status as 'CONFIRMED' | 'WAITLISTED'
+            return { success: true, status: currentStatus }
         }
 
         const admin = createAdminClient()
@@ -427,6 +474,7 @@ export async function updateEntry(
         partnerData?: { name: string; club: string; rating: number } | null;
         partnerUserId?: string | null;
         teamMembers?: Array<{ name: string; rating: number }> | null;
+        applicantParticipates?: boolean;
     }
 ): Promise<UpdateEntryResult> {
     try {
@@ -529,6 +577,7 @@ export async function updateEntry(
                 partner_data: entryData.partnerData ?? null,
                 partner_user_id: entryData.partnerUserId ?? null,
                 team_members: entryData.teamMembers ?? null,
+                applicant_participates: entryData.applicantParticipates ?? true,
             })
             .eq('id', entryId)
             .eq('user_id', user.id);

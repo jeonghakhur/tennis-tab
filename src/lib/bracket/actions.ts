@@ -806,13 +806,17 @@ async function createAwardRecords(
   const fetchPlayers = async (entryId: string) => {
     const { data } = await supabaseAdmin
       .from('tournament_entries')
-      .select('player_name, club_name, partner_data, team_members')
+      .select('player_name, club_name, partner_data, team_members, applicant_participates')
       .eq('id', entryId)
       .single()
     if (!data) return null
     let players: string[]
     if (isTeam && data.team_members?.length) {
-      players = (data.team_members as TeamMember[]).map((m) => m.name)
+      const members = (data.team_members as TeamMember[]).map((m) => m.name)
+      // 신청자 참가 시 player_name도 포함 (기존 버그 수정: 신청자가 awards에서 누락되던 문제)
+      players = data.applicant_participates !== false
+        ? [data.player_name, ...members]
+        : members
     } else if (isDoubles && data.partner_data) {
       players = [data.player_name, (data.partner_data as PartnerData).name]
     } else {
