@@ -18,8 +18,9 @@ import {
   bulkUpdateEntryStatus,
   bulkUpdatePaymentStatus,
 } from '@/lib/admin/entries'
-import { markRefundComplete } from '@/lib/entries/actions'
+import { updateRefundStatus } from '@/lib/entries/actions'
 import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
+import { Modal } from '@/components/common/Modal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
 type Entry = Database['public']['Tables']['tournament_entries']['Row'] & {
@@ -127,6 +128,7 @@ export function EntriesManager({
   const [paymentFilter, setPaymentFilter] = useState<'PENDING' | 'COMPLETED' | 'ALL'>('ALL')
   const [divisionFilter, setDivisionFilter] = useState<string>('ALL')
   const [refundFilter, setRefundFilter] = useState(false)
+  const [refundModalEntryId, setRefundModalEntryId] = useState<string | null>(null)
   const [selectedEntries, setSelectedEntries] = useState<string[]>([])
   const [processing, setProcessing] = useState<string | null>(null)
   // 일괄 변경 select controlled state
@@ -706,7 +708,8 @@ export function EntriesManager({
                   const normalizedPayment = normalizePaymentStatus(entry.payment_status)
                   const isCancelled = normalizedStatus === 'CANCELLED'
                   const isRefundNeeded = entry.status === 'CANCELLED' && entry.payment_status === 'COMPLETED' && entry.refund_status === 'REQUESTED'
-                  const isRefundDone = entry.refund_status === 'COMPLETED'
+                  const isRefundDone = entry.status === 'CANCELLED' && entry.payment_status === 'COMPLETED' && entry.refund_status === 'COMPLETED'
+                  const hasRefund = isRefundNeeded || isRefundDone
 
                   return (
                     <tr
@@ -831,20 +834,36 @@ export function EntriesManager({
                         </Select>
                       </td>
                       <td className="p-4">
-                        <Select
-                          value={normalizedPayment}
-                          onValueChange={(v) => handlePaymentChange(entry.id, v as PaymentStatus)}
-                          disabled={isProcessing}
-                        >
-                          <SelectTrigger className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${paymentStatusConfig[normalizedPayment].className}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
-                              <SelectItem key={key} value={key}>{label}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <div className="flex flex-col gap-1.5">
+                          <Select
+                            value={normalizedPayment}
+                            onValueChange={(v) => handlePaymentChange(entry.id, v as PaymentStatus)}
+                            disabled={isProcessing}
+                          >
+                            <SelectTrigger className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${paymentStatusConfig[normalizedPayment].className}`}>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {Object.entries(paymentStatusConfig).map(([key, { label }]) => (
+                                <SelectItem key={key} value={key}>{label}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {/* 취소 + 결제완료 건에 환불 버튼 표시 */}
+                          {hasRefund && (
+                            <button
+                              type="button"
+                              onClick={() => setRefundModalEntryId(entry.id)}
+                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                                isRefundDone
+                                  ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                                  : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                              }`}
+                            >
+                              {isRefundDone ? '환불 완료' : '환불 처리'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 hidden sm:table-cell">
                         <p className="text-base text-(--text-primary)">
@@ -863,47 +882,14 @@ export function EntriesManager({
                         )}
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-col gap-2">
-                          {/* 환불 필요 — 계좌 정보 + 완료 버튼 */}
-                          {isRefundNeeded && (
-                            <div className="text-sm space-y-0.5 mb-1">
-                              <p className="font-medium text-red-400">환불 필요</p>
-                              {entry.refund_bank && (
-                                <p className="text-(--text-secondary)">
-                                  {entry.refund_bank} {entry.refund_account} ({entry.refund_holder})
-                                </p>
-                              )}
-                              <button
-                                type="button"
-                                disabled={isProcessing}
-                                onClick={async () => {
-                                  setProcessing(entry.id)
-                                  const res = await markRefundComplete(entry.id)
-                                  setProcessing(null)
-                                  if (res.success) {
-                                    router.refresh()
-                                  } else {
-                                    setAlertDialog({ isOpen: true, title: '오류', message: res.error ?? '처리 실패', type: 'error' })
-                                  }
-                                }}
-                                className="mt-1 px-3 py-1 rounded-lg text-sm font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-colors disabled:opacity-50"
-                              >
-                                환불 완료 처리
-                              </button>
-                            </div>
-                          )}
-                          {isRefundDone && (
-                            <span className="text-sm text-emerald-500">환불 완료</span>
-                          )}
-                          <button
-                            onClick={() => setConfirmDialog({ isOpen: true, entryId: entry.id })}
-                            disabled={isProcessing}
-                            className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors w-fit"
-                            title="삭제"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
-                        </div>
+                        <button
+                          onClick={() => setConfirmDialog({ isOpen: true, entryId: entry.id })}
+                          disabled={isProcessing}
+                          className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
+                          title="삭제"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </td>
                     </tr>
                   )
@@ -931,6 +917,95 @@ export function EntriesManager({
         message={alertDialog.message}
         type={alertDialog.type}
       />
+
+      {/* 환불 정보 모달 */}
+      {(() => {
+        const modalEntry = refundModalEntryId
+          ? entries.find((e) => e.id === refundModalEntryId)
+          : null
+        if (!modalEntry) return null
+        const modalIsRefundDone = modalEntry.refund_status === 'COMPLETED'
+        return (
+          <Modal
+            isOpen={!!refundModalEntryId}
+            onClose={() => setRefundModalEntryId(null)}
+            title="환불 정보"
+            size="sm"
+          >
+            <Modal.Body>
+              <div className="space-y-4">
+                {/* 환불 계좌 정보 */}
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-(--text-secondary)">환불 계좌</p>
+                  {modalEntry.refund_bank ? (
+                    <div className="p-3 rounded-lg bg-(--bg-secondary) space-y-1">
+                      <p className="text-sm text-(--text-primary)">
+                        <span className="text-(--text-muted)">은행</span>{' '}
+                        <span className="font-medium">{modalEntry.refund_bank}</span>
+                      </p>
+                      <p className="text-sm text-(--text-primary)">
+                        <span className="text-(--text-muted)">계좌번호</span>{' '}
+                        <span className="font-medium font-mono">{modalEntry.refund_account}</span>
+                      </p>
+                      <p className="text-sm text-(--text-primary)">
+                        <span className="text-(--text-muted)">예금주</span>{' '}
+                        <span className="font-medium">{modalEntry.refund_holder}</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-(--text-muted)">환불 계좌 정보가 없습니다.</p>
+                  )}
+                </div>
+                {/* 현재 환불 상태 */}
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-medium text-(--text-secondary)">환불 상태</p>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    modalIsRefundDone
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-red-500/20 text-red-400'
+                  }`}>
+                    {modalIsRefundDone ? '환불 완료' : '환불 대기'}
+                  </span>
+                </div>
+              </div>
+            </Modal.Body>
+            <Modal.Footer>
+              <button
+                onClick={() => setRefundModalEntryId(null)}
+                className="flex-1 px-4 py-2 rounded-lg text-sm font-medium bg-(--bg-secondary) text-(--text-primary) hover:bg-(--bg-card-hover) transition-colors"
+              >
+                닫기
+              </button>
+              <button
+                disabled={processing === modalEntry.id}
+                onClick={async () => {
+                  const nextStatus = modalIsRefundDone ? 'REQUESTED' : 'COMPLETED'
+                  setProcessing(modalEntry.id)
+                  const res = await updateRefundStatus(modalEntry.id, nextStatus)
+                  setProcessing(null)
+                  if (res.success) {
+                    setRefundModalEntryId(null)
+                    router.refresh()
+                  } else {
+                    setAlertDialog({ isOpen: true, title: '오류', message: res.error ?? '처리 실패', type: 'error' })
+                  }
+                }}
+                className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 ${
+                  modalIsRefundDone
+                    ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30'
+                    : 'bg-emerald-500 text-white hover:bg-emerald-600'
+                }`}
+              >
+                {processing === modalEntry.id
+                  ? '처리 중...'
+                  : modalIsRefundDone
+                  ? '환불 대기로 변경'
+                  : '환불 완료로 변경'}
+              </button>
+            </Modal.Footer>
+          </Modal>
+        )
+      })()}
 
       {/* Confirm Dialog */}
       <ConfirmDialog

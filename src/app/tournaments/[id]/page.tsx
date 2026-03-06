@@ -64,7 +64,7 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   // 사용자 프로필 가져오기
   let userProfile = null;
-  let currentEntry = null;
+  let myEntries: unknown[] = [];
 
   if (user) {
     const { data: profile } = await supabase
@@ -75,17 +75,16 @@ export default async function TournamentDetailPage({ params }: Props) {
 
     userProfile = profile ? decryptProfile(profile) : null;
 
-    // 현재 참가 신청 상태 확인 (여러 부서 신청 시 최신 1건, 수정/취소용)
-    const { data: entry } = await supabase
+    // 취소 제외, 신청일 오름차순 전체 조회 (여러 팀 신청 UI 지원)
+    const { data: entries } = await supabase
       .from("tournament_entries")
       .select("*")
       .eq("tournament_id", id)
       .eq("user_id", user.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .neq("status", "CANCELLED")
+      .order("created_at", { ascending: true });
 
-    currentEntry = entry ?? null;
+    myEntries = entries ?? [];
   }
 
   const organizerName = tournament.profiles
@@ -586,7 +585,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               matchType={tournament.match_type}
               teamMatchCount={tournament.team_match_count ?? null}
               divisions={tournament.tournament_divisions || []}
-              currentEntry={currentEntry}
+              myEntries={myEntries}
               isLoggedIn={!!user}
               userProfile={userProfile}
               entryFee={tournament.entry_fee}

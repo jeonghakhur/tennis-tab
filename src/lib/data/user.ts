@@ -66,11 +66,32 @@ export async function getMyTournaments() {
     bracketRows?.forEach((r) => bracketDivisionSet.add(r.division_id))
   }
 
+  // 취소되지 않은 엔트리의 대기 순번 계산 (같은 division 내 created_at 순)
+  const activeEntries = entries.filter((e) => e.status !== 'CANCELLED');
+  const rankMap: Record<string, number> = {};
+  if (activeEntries.length > 0) {
+    const rankResults = await Promise.all(
+      activeEntries.map(async (e) => {
+        const divId = (e.division as { id: string } | null)?.id;
+        if (!divId) return { id: e.id, rank: 1 };
+        const { count } = await supabase
+          .from('tournament_entries')
+          .select('*', { count: 'exact', head: true })
+          .eq('division_id', divId)
+          .neq('status', 'CANCELLED')
+          .lte('created_at', e.created_at);
+        return { id: e.id, rank: count ?? 1 };
+      })
+    );
+    rankResults.forEach((r) => { rankMap[r.id] = r.rank; });
+  }
+
   const enrichedEntries = entries.map((e) => ({
     ...e,
     hasBracket: (e.division as { id: string } | null)?.id
       ? bracketDivisionSet.has((e.division as { id: string }).id)
       : false,
+    current_rank: rankMap[e.id] ?? null,
   }))
 
   return { entries: enrichedEntries }

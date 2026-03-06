@@ -7,6 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
+import { getMyClubMemberships } from "@/lib/clubs/actions";
+import type { Club, ClubMember } from "@/lib/clubs/types";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
 import { useBracketConfigRealtime } from "@/lib/realtime/useBracketConfigRealtime";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
@@ -16,6 +18,8 @@ import { ScoreInputModal } from "@/components/tournaments/ScoreInputModal";
 import { submitPlayerScore } from "@/lib/bracket/actions";
 import { Toast } from "@/components/common/Toast";
 import type { Database, SetDetail } from "@/lib/supabase/types";
+import { confirmBankTransfer, deleteEntry } from "@/lib/entries/actions";
+import { ConfirmDialog } from "@/components/common/AlertDialog";
 
 // 전화번호 포맷팅 (010-1234-5678)
 function formatPhoneNumber(value: string): string {
@@ -40,16 +44,28 @@ interface UserStats {
 interface TournamentEntry {
   id: string;
   status: string;
+  payment_status: string;
   created_at: string;
+  player_name: string;
+  player_rating: number | null;
+  club_name: string | null;
+  team_order: string | null;
+  partner_data: { name: string; club?: string | null; rating: number } | null;
+  team_members: Array<{ name: string; rating: number }> | null;
+  applicant_participates: boolean | null;
   tournament: {
     id: string;
     title: string;
     start_date: string;
     location: string;
     status: string;
+    entry_fee: number;
+    bank_account: string | null;
+    match_type: string | null;
   };
   division: { id: string; name: string } | null;
   hasBracket: boolean;
+  current_rank: number | null;
 }
 
 interface BracketMatch {
@@ -195,12 +211,16 @@ export default function MyProfilePage() {
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [awards, setAwards] = useState<MyAward[]>([]);
   const [myAwardIds, setMyAwardIds] = useState<string[]>([]);
+  const [clubMemberships, setClubMemberships] = useState<Array<{ club: Club; membership: ClubMember }>>([]);
   const [statsLoading, setStatsLoading] = useState(true);
   const [tournamentsLoading, setTournamentsLoading] = useState(true);
   const [matchesLoading, setMatchesLoading] = useState(true);
   const [awardsLoading, setAwardsLoading] = useState(true);
   const [scoreModalMatch, setScoreModalMatch] = useState<BracketMatch | null>(null);
   const [scoreToast, setScoreToast] = useState({ isOpen: false, message: '', type: 'success' as 'success' | 'error' });
+  // 신청 현황 — 취소 확인 / 액션 로딩
+  const [cancelConfirmId, setCancelConfirmId] = useState<string | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
     "profile" | "applications" | "tournaments" | "matches" | "awards"
   >("applications");
@@ -211,6 +231,7 @@ export default function MyProfilePage() {
       loadTournaments();
       loadMatches();
       loadAwards();
+      getMyClubMemberships().then((r) => setClubMemberships(r.data || []));
     }
   }, [user, profile]);
 
@@ -378,6 +399,35 @@ export default function MyProfilePage() {
     );
   }
 
+  // 입금완료 처리
+  const handleConfirmPayment = async (entryId: string) => {
+    setActionLoadingId(entryId);
+    const result = await confirmBankTransfer(entryId);
+    setActionLoadingId(null);
+    if (result.success) {
+      setScoreToast({ isOpen: true, message: '입금이 확인되었습니다.', type: 'success' });
+      loadTournaments();
+    } else {
+      setScoreToast({ isOpen: true, message: result.error ?? '처리 중 오류가 발생했습니다.', type: 'error' });
+    }
+  };
+
+  // 참가 취소 처리 (결제 없는 경우)
+  const handleCancelEntry = async () => {
+    if (!cancelConfirmId) return;
+    setActionLoadingId(cancelConfirmId);
+    setCancelConfirmId(null);
+    const result = await deleteEntry(cancelConfirmId);
+    setActionLoadingId(null);
+    if (result.success) {
+      setScoreToast({ isOpen: true, message: '참가 신청이 취소되었습니다.', type: 'success' });
+      loadTournaments();
+    } else {
+      setScoreToast({ isOpen: true, message: result.error ?? '취소 중 오류가 발생했습니다.', type: 'error' });
+    }
+  };
+
+
   const handleScoreSubmit = async (team1Score: number, team2Score: number, setsDetail?: SetDetail[]) => {
     if (!scoreModalMatch) return;
     const result = await submitPlayerScore(scoreModalMatch.id, team1Score, team2Score, setsDetail);
@@ -428,7 +478,7 @@ export default function MyProfilePage() {
       >
         <div className="max-w-content mx-auto px-6 py-12">
           {/* 프로필 헤더 */}
-          <div className="glass-card p-8 mb-8">
+          <div className="glass-card rounded-2xl p-8 mb-8">
             <div className="flex items-start gap-6">
               <div className="shrink-0">
                 <div
@@ -492,17 +542,34 @@ export default function MyProfilePage() {
                       ⭐ {profile.rating}점
                     </span>
                   )}
-                  {profile.club && (
-                    <span
-                      className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
-                      style={{
-                        backgroundColor: "var(--bg-card-hover)",
-                        color: "var(--text-secondary)",
-                      }}
-                    >
-                      🏢 {profile.club}
-                    </span>
-                  )}
+                  {clubMemberships.length > 0
+                    ? clubMemberships.map((m) => (
+                        <span
+                          key={m.club.id}
+                          className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
+                          style={{
+                            backgroundColor: m.membership.is_primary
+                              ? "var(--accent-color)"
+                              : "var(--bg-card-hover)",
+                            color: m.membership.is_primary
+                              ? "var(--bg-primary)"
+                              : "var(--text-secondary)",
+                          }}
+                        >
+                          {m.club.name}
+                        </span>
+                      ))
+                    : profile.club && (
+                        <span
+                          className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
+                          style={{
+                            backgroundColor: "var(--bg-card-hover)",
+                            color: "var(--text-secondary)",
+                          }}
+                        >
+                          {profile.club}
+                        </span>
+                      )}
                   {profile.role && profile.role !== "USER" && (
                     <span
                       className="px-3 py-1 text-xs rounded-full font-display tracking-wider"
@@ -536,83 +603,6 @@ export default function MyProfilePage() {
             </div>
           </div>
 
-          {/* 통계 카드 — 로딩 중에도 항상 표시 */}
-          {statsLoading ? (
-            <StatsCardsSkeleton />
-          ) : stats ? (
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.tournaments}
-                </div>
-                <div
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  참가 대회
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.totalMatches}
-                </div>
-                <div
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  총 경기
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.wins}
-                </div>
-                <div
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  승리
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {stats.losses}
-                </div>
-                <div
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  패배
-                </div>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <div
-                  className="text-3xl font-display mb-2"
-                  style={{ color: "var(--accent-color)" }}
-                >
-                  {stats.winRate}%
-                </div>
-                <div
-                  className="text-sm"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  승률
-                </div>
-              </div>
-            </div>
-          ) : null}
 
           {/* 탭 메뉴 */}
           <div
@@ -937,79 +927,163 @@ export default function MyProfilePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {applicationEntries.map((entry) => (
-                  <div key={entry.id} className="glass-card p-6">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h3
-                          className="text-xl font-display mb-2"
-                          style={{ color: "var(--text-primary)" }}
-                        >
-                          {entry.tournament.title}
-                        </h3>
-                        <p
-                          className="text-sm"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          📍 {entry.tournament.location}
-                        </p>
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <Badge
-                          variant={
-                            entry.status === "CONFIRMED"
-                              ? "success"
-                              : entry.status === "PENDING"
-                                ? "warning"
-                                : "secondary"
-                          }
-                          className="font-display tracking-wider"
-                        >
-                          {entryStatusLabels[entry.status]}
-                        </Badge>
-                        <Badge
-                          variant={
-                            entry.tournament.status === "OPEN"
-                              ? "info"
-                              : "secondary"
-                          }
-                          className="font-display tracking-wider"
-                        >
-                          {tournamentStatusLabels[entry.tournament.status]}
-                        </Badge>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {entry.division && (
-                          <Badge variant="info" className="font-display tracking-wider">
-                            {entry.division.name}
-                          </Badge>
-                        )}
-                        <span
-                          className="text-sm"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          신청일:{" "}
-                          {/* suppressHydrationWarning */ new Date(entry.created_at).toLocaleDateString("ko-KR")}
-                        </span>
-                        <span
-                          className="text-sm"
-                          style={{ color: "var(--text-muted)" }}
-                        >
-                          시합일: {formatKoreanDate(entry.tournament.start_date)}
-                        </span>
-                      </div>
-                      <Link
-                        href={`/tournaments/${entry.tournament.id}`}
-                        className="text-sm font-display tracking-wider hover:underline"
-                        style={{ color: "var(--accent-color)" }}
+                {applicationEntries.map((entry) => {
+                  const isLoading = actionLoadingId === entry.id;
+                  const isPendingPayment = entry.tournament.entry_fee > 0 && entry.payment_status !== 'COMPLETED' && entry.status !== 'CANCELLED';
+                  const canCancel = entry.status !== 'CANCELLED' && !entry.hasBracket;
+                  const isTeam = entry.tournament.match_type === 'TEAM_SINGLES' || entry.tournament.match_type === 'TEAM_DOUBLES';
+
+                  return (
+                  <div key={entry.id} className="glass-card overflow-hidden rounded-2xl">
+                    {/* 헤더: 대회명 + 위치/날짜 */}
+                    <div className="px-4 pt-4 pb-2">
+                      <h3
+                        className="text-base font-display mb-0.5 truncate"
+                        style={{ color: "var(--text-primary)" }}
                       >
-                        대회 상세보기 →
-                      </Link>
+                        {entry.tournament.title}
+                      </h3>
+                      <p className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                        {entry.tournament.location} · {formatKoreanDate(entry.tournament.start_date)}
+                      </p>
+                    </div>
+
+                    {/* 배지 행: 부서 · 신청 상태 · 결제 상태 · 순번(마지막) */}
+                    <div className="flex items-center gap-1.5 flex-wrap px-4 pb-3">
+                      {entry.division && (
+                        <Badge variant="info" className="font-display tracking-wider">
+                          {entry.division.name}
+                        </Badge>
+                      )}
+                      <Badge
+                        variant={
+                          entry.status === "CONFIRMED" ? "success"
+                          : entry.status === "PENDING" ? "warning"
+                          : entry.status === "WAITLISTED" ? "info"
+                          : "secondary"
+                        }
+                        className="font-display tracking-wider"
+                      >
+                        {entryStatusLabels[entry.status] ?? entry.status}
+                      </Badge>
+                      {entry.tournament.entry_fee > 0 && (
+                        entry.payment_status === 'COMPLETED' ? (
+                          <Badge variant="success">입금 확인됨</Badge>
+                        ) : entry.status !== 'CANCELLED' ? (
+                          <Badge variant="warning">입금 대기</Badge>
+                        ) : null
+                      )}
+                      {(entry.status === "PENDING" || entry.status === "WAITLISTED") && entry.current_rank != null && (
+                        <span className="text-sm font-medium px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
+                          #{entry.current_rank}번 대기
+                        </span>
+                      )}
+                    </div>
+
+                    {/* 참가자 정보 */}
+                    <div
+                      className="mx-4 mb-3 p-3 rounded-xl text-sm space-y-1.5"
+                      style={{ backgroundColor: "var(--bg-card-hover)" }}
+                    >
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {isTeam && entry.club_name && (
+                          <span style={{ color: "var(--text-primary)" }}>
+                            {entry.club_name}{entry.team_order ? ` ${entry.team_order}팀` : ""}
+                          </span>
+                        )}
+                        {!isTeam && (
+                          <span style={{ color: "var(--text-primary)" }}>
+                            {entry.player_name}
+                            {entry.player_rating != null && (
+                              <span className="ml-1.5" style={{ color: "var(--text-secondary)" }}>
+                                {entry.player_rating}점
+                              </span>
+                            )}
+                          </span>
+                        )}
+                        {/* 복식 파트너 */}
+                        {entry.partner_data && (
+                          <span style={{ color: "var(--text-secondary)" }}>
+                            파트너: {entry.partner_data.name}
+                            {entry.partner_data.rating ? ` (${entry.partner_data.rating}점)` : ""}
+                          </span>
+                        )}
+                        {/* 참가비 (텍스트만) */}
+                        {entry.tournament.entry_fee > 0 && (
+                          <span style={{ color: "var(--text-secondary)" }}>
+                            참가비 {entry.tournament.entry_fee.toLocaleString()}원
+                          </span>
+                        )}
+                      </div>
+                      {/* 단체전 팀원 */}
+                      {isTeam && entry.team_members && entry.team_members.length > 0 && (
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                          {entry.applicant_participates && (
+                            <span style={{ color: "var(--text-secondary)" }}>
+                              본인: {entry.player_name}
+                            </span>
+                          )}
+                          {entry.team_members.map((m, i) => (
+                            <span key={i} style={{ color: "var(--text-secondary)" }}>
+                              {i + (entry.applicant_participates ? 2 : 1)}. {m.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 하단 액션 */}
+                    <div
+                      className="flex items-center justify-between px-4 py-3 border-t"
+                      style={{ borderColor: "var(--border-color)" }}
+                    >
+                      <span className="text-sm" style={{ color: "var(--text-secondary)" }}>
+                        신청일 {/* suppressHydrationWarning */}
+                        {new Date(entry.created_at).toLocaleDateString("ko-KR")}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        {/* 입금완료 버튼 */}
+                        {isPendingPayment && (
+                          <button
+                            type="button"
+                            onClick={() => handleConfirmPayment(entry.id)}
+                            disabled={isLoading}
+                            className="text-sm font-display tracking-wider px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                            style={{
+                              backgroundColor: "var(--accent-color)",
+                              color: "var(--bg-primary)",
+                            }}
+                          >
+                            {isLoading ? "처리 중..." : "입금완료"}
+                          </button>
+                        )}
+                        {/* 참가 취소 버튼 */}
+                        {canCancel && (
+                          <button
+                            type="button"
+                            onClick={() => setCancelConfirmId(entry.id)}
+                            disabled={isLoading}
+                            className="text-sm font-display tracking-wider px-3 py-1.5 rounded-lg border transition-colors disabled:opacity-50"
+                            style={{
+                              borderColor: "var(--border-color)",
+                              color: "var(--text-secondary)",
+                            }}
+                          >
+                            참가 취소
+                          </button>
+                        )}
+                        <Link
+                          href={`/tournaments/${entry.tournament.id}`}
+                          className="text-sm font-display tracking-wider hover:underline"
+                          style={{ color: "var(--accent-color)" }}
+                        >
+                          대회 보기 →
+                        </Link>
+                      </div>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )
           )}
@@ -1139,16 +1213,39 @@ export default function MyProfilePage() {
 
           {/* 내 경기 탭 */}
           {activeTab === "matches" && (
-            matchesLoading ? (
+            matchesLoading || statsLoading ? (
               <MatchListSkeleton />
-            ) : matches.length === 0 ? (
-              <div className="glass-card p-12 text-center">
-                <p className="text-lg" style={{ color: "var(--text-muted)" }}>
-                  예정된 경기가 없습니다
-                </p>
-              </div>
             ) : (
               <div className="space-y-4">
+                {/* 경기 요약 통계 */}
+                {stats && (
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "총 경기", value: stats.totalMatches, accent: true },
+                      { label: "승 / 패", value: `${stats.wins} / ${stats.losses}`, accent: false },
+                      { label: "승률", value: `${stats.winRate}%`, accent: true },
+                    ].map((item) => (
+                      <div key={item.label} className="glass-card rounded-xl p-4 text-center">
+                        <div
+                          className="text-2xl font-display mb-1"
+                          style={{ color: item.accent ? "var(--accent-color)" : "var(--text-muted)" }}
+                        >
+                          {item.value}
+                        </div>
+                        <div className="text-xs" style={{ color: "var(--text-muted)" }}>
+                          {item.label}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {matches.length === 0 ? (
+                  <div className="glass-card p-12 text-center">
+                    <p className="text-lg" style={{ color: "var(--text-muted)" }}>
+                      예정된 경기가 없습니다
+                    </p>
+                  </div>
+                ) : null}
                 {matches.map((match) => {
                   const isScheduled = match.status === "SCHEDULED";
                   const isTeam1 = match.team1.entryId === match.myEntryId;
@@ -1316,6 +1413,23 @@ export default function MyProfilePage() {
               </div>
             )
           )}
+
+          {/* 참가 취소 확인 다이얼로그 */}
+          <ConfirmDialog
+            isOpen={cancelConfirmId !== null}
+            onClose={() => setCancelConfirmId(null)}
+            onConfirm={handleCancelEntry}
+            title="참가 신청 취소"
+            message={(() => {
+              const entry = applicationEntries.find((e) => e.id === cancelConfirmId);
+              return entry?.payment_status === 'COMPLETED'
+                ? '입금 완료된 참가비는 신청 시 등록한 계좌로 환불 처리됩니다. 취소하시겠습니까?'
+                : '참가 신청을 취소하시겠습니까? 취소 후에는 되돌릴 수 없습니다.';
+            })()}
+            type="warning"
+            confirmText="취소하기"
+            cancelText="아니오"
+          />
 
           {/* 점수 입력 모달 */}
           {scoreModalMatch && (

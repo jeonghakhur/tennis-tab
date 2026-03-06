@@ -34,7 +34,6 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
   }, [])
 
   const loadMemberships = async () => {
-    setLoading(true)
     const result = await getMyClubMemberships()
     setClubs(result.data || [])
     setLoading(false)
@@ -50,7 +49,13 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
       return
     }
 
-    await loadMemberships()
+    // 재조회 없이 로컬 state만 업데이트 — 리렌더 깜빡임 방지
+    setClubs((prev) =>
+      prev.map((e) => ({
+        ...e,
+        membership: { ...e.membership, is_primary: e.club.id === clubId },
+      }))
+    )
     onClubChange?.()
     setToast({ isOpen: true, message: '대표 클럽이 변경되었습니다.', type: 'success' })
   }
