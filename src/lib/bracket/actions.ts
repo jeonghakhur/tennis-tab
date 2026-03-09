@@ -112,32 +112,24 @@ async function checkBracketManagementAuth(): Promise<{ error: string | null }> {
 /** 대회가 마감(COMPLETED/CANCELLED)되었는지 확인 — 마감 시 수정 불가 */
 const CLOSED_TOURNAMENT_STATUSES: TournamentStatus[] = ['COMPLETED', 'CANCELLED']
 
-/** configId로 대회 상태를 조회하여 마감 여부 검증 */
+/** configId로 대회 상태를 조회하여 마감 여부 검증 (1 JOIN 쿼리) */
 async function checkTournamentNotClosed(configId: string): Promise<{ error: string | null }> {
   const supabaseAdmin = createAdminClient()
 
-  const { data: config } = await supabaseAdmin
+  // bracket_configs → tournament_divisions → tournaments 를 단일 JOIN으로 조회
+  const { data } = await supabaseAdmin
     .from('bracket_configs')
-    .select('division_id')
+    .select('tournament_divisions!inner(tournaments!inner(status))')
     .eq('id', configId)
     .single()
-  if (!config) return { error: '대진표 설정을 찾을 수 없습니다.' }
 
-  const { data: division } = await supabaseAdmin
-    .from('tournament_divisions')
-    .select('tournament_id')
-    .eq('id', config.division_id)
-    .single()
-  if (!division) return { error: '부서 정보를 찾을 수 없습니다.' }
+  if (!data) return { error: '대진표 설정을 찾을 수 없습니다.' }
 
-  const { data: tournament } = await supabaseAdmin
-    .from('tournaments')
-    .select('status')
-    .eq('id', division.tournament_id)
-    .single()
-  if (!tournament) return { error: '대회 정보를 찾을 수 없습니다.' }
+  const division = data.tournament_divisions as unknown as { tournaments: { status: string } }
+  const status = division?.tournaments?.status
+  if (!status) return { error: '대회 정보를 찾을 수 없습니다.' }
 
-  if (CLOSED_TOURNAMENT_STATUSES.includes(tournament.status)) {
+  if (CLOSED_TOURNAMENT_STATUSES.includes(status as TournamentStatus)) {
     return { error: '마감된 대회의 대진표는 수정할 수 없습니다.' }
   }
   return { error: null }
@@ -1030,31 +1022,43 @@ async function updateMatchResultCore(
     return { error: '경기 결과 업데이트에 실패했습니다.' }
   }
 
-  // 예선 경기인 경우 조별 순위 업데이트
+  // post-UPDATE 작업은 서로 독립적이므로 병렬 실행
+  const postUpdateTasks: Promise<unknown>[] = []
+
+  // 예선 경기: 조별 순위 업데이트
   if (match.phase === 'PRELIMINARY' && match.group_id) {
-    await updateGroupStandings(match.group_id)
+    postUpdateTasks.push(updateGroupStandings(match.group_id))
   }
 
-  // 본선 경기인 경우 다음 경기에 승자 배정
+  // 본선 경기: 다음 경기에 승자 배정 → BYE 전파 (순서 의존: next 배정 후 propagate)
   if (match.next_match_id && match.next_match_slot && winnerId) {
+    const nextMatchId = match.next_match_id
     const updateField = match.next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
-    await supabaseAdmin
-      .from('bracket_matches')
-      .update({ [updateField]: winnerId })
-      .eq('id', match.next_match_id)
-
-    // 상대 피더가 빈 슬롯이면 자동 BYE 전파
-    await propagateByeIfNeeded(supabaseAdmin, match.next_match_id)
+    postUpdateTasks.push(
+      (async () => {
+        await supabaseAdmin
+          .from('bracket_matches')
+          .update({ [updateField]: winnerId })
+          .eq('id', nextMatchId)
+        await propagateByeIfNeeded(supabaseAdmin, nextMatchId)
+      })()
+    )
   }
 
-  // 3/4위전에 패자 배정
+  // 3/4위전에 패자 배정 (승자 배정과 독립적)
   if (match.loser_next_match_id && match.loser_next_match_slot && loserId) {
     const updateField = match.loser_next_match_slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
-    await supabaseAdmin
-      .from('bracket_matches')
-      .update({ [updateField]: loserId })
-      .eq('id', match.loser_next_match_id)
+    postUpdateTasks.push(
+      (async () => {
+        await supabaseAdmin
+          .from('bracket_matches')
+          .update({ [updateField]: loserId })
+          .eq('id', match.loser_next_match_id!)
+      })()
+    )
   }
+
+  await Promise.all(postUpdateTasks)
 
   // 결승/3·4위전 결과 입력 시 대회 자동 완료 체크 + 입상 기록 자동 생성
   if (match.phase === 'FINAL' || match.phase === 'THIRD_PLACE') {
@@ -1141,36 +1145,56 @@ export async function submitPlayerScore(
 
   const supabaseAdmin = createAdminClient()
 
-  // 경기 정보 조회 (상태 + active_phase 검증용)
-  const { data: match, error: matchError } = await supabaseAdmin
-    .from('bracket_matches')
-    .select('id, status, phase, round_number, team1_entry_id, team2_entry_id, bracket_config_id')
-    .eq('id', matchId)
-    .single()
+  // match + config + tournament 상태 를 1 JOIN 쿼리로 조회, entries 는 병렬 실행
+  const [matchResult, entriesResult] = await Promise.all([
+    supabaseAdmin
+      .from('bracket_matches')
+      .select(`
+        id, status, phase, round_number, team1_entry_id, team2_entry_id, bracket_config_id,
+        bracket_configs!inner(
+          active_phase,
+          active_round,
+          tournament_divisions!inner(tournaments!inner(status))
+        )
+      `)
+      .eq('id', matchId)
+      .single(),
+    supabaseAdmin
+      .from('tournament_entries')
+      .select('id')
+      .eq('user_id', user.id),
+  ])
 
-  if (matchError || !match) {
+  if (matchResult.error || !matchResult.data) {
     return { error: '경기 정보를 찾을 수 없습니다.' }
+  }
+  const match = matchResult.data
+
+  // JOIN으로 가져온 bracket_config + tournament 정보
+  type BracketConfigJoin = {
+    active_phase: string | null
+    active_round: number | null
+    tournament_divisions: { tournaments: { status: string } }
+  }
+  const cfg = match.bracket_configs as unknown as BracketConfigJoin
+  const tournamentStatus = cfg?.tournament_divisions?.tournaments?.status
+
+  // 마감 대회 검증
+  if (tournamentStatus && CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus as TournamentStatus)) {
+    return { error: '마감된 대회의 대진표는 수정할 수 없습니다.' }
   }
 
   // active_phase 검증: 관리자가 활성화한 라운드에서만 점수 입력 가능
-  const { data: bracketConfig } = await supabaseAdmin
-    .from('bracket_configs')
-    .select('active_phase, active_round')
-    .eq('id', match.bracket_config_id)
-    .single()
-
-  if (bracketConfig) {
-    const { active_phase, active_round } = bracketConfig
-    if (!active_phase) {
-      return { error: '현재 점수 입력이 활성화된 라운드가 없습니다.' }
-    }
-    if (active_phase !== match.phase) {
-      return { error: '현재 활성화된 페이즈의 경기가 아닙니다.' }
-    }
-    // MAIN 페이즈이고 특정 라운드가 지정된 경우
-    if (active_phase === 'MAIN' && active_round !== null && match.round_number !== active_round) {
-      return { error: '현재 활성화된 라운드의 경기가 아닙니다.' }
-    }
+  const { active_phase, active_round } = cfg ?? {}
+  if (!active_phase) {
+    return { error: '현재 점수 입력이 활성화된 라운드가 없습니다.' }
+  }
+  if (active_phase !== match.phase) {
+    return { error: '현재 활성화된 페이즈의 경기가 아닙니다.' }
+  }
+  // MAIN 페이즈이고 특정 라운드가 지정된 경우
+  if (active_phase === 'MAIN' && active_round !== null && match.round_number !== active_round) {
+    return { error: '현재 활성화된 라운드의 경기가 아닙니다.' }
   }
 
   // SCHEDULED 또는 COMPLETED 상태에서만 입력/수정 가능
@@ -1178,13 +1202,8 @@ export async function submitPlayerScore(
     return { error: '점수를 입력할 수 없는 경기 상태입니다.' }
   }
 
-  // 본인 경기 확인: user의 entry_id가 team1 또는 team2에 포함되는지
-  const { data: myEntries } = await supabaseAdmin
-    .from('tournament_entries')
-    .select('id')
-    .eq('user_id', user.id)
-
-  const myEntryIds = myEntries?.map(e => e.id) || []
+  // 본인 경기 확인
+  const myEntryIds = (entriesResult.data || []).map(e => e.id)
   const isMyMatch = myEntryIds.includes(match.team1_entry_id ?? '') || myEntryIds.includes(match.team2_entry_id ?? '')
 
   if (!isMyMatch) {
@@ -1364,21 +1383,22 @@ async function updateGroupStandings(groupId: string) {
       return b.pf - a.pf
     })
 
-  // DB 업데이트 (update는 개별로 — 각 팀마다 다른 값이므로 배치 불가)
-  for (let i = 0; i < ranked.length; i++) {
-    const team = ranked[i]
-    await supabaseAdmin
-      .from('group_teams')
-      .update({
-        wins: team.wins,
-        losses: team.losses,
-        points_for: team.pf,
-        points_against: team.pa,
-        final_rank: i + 1,
-      })
-      .eq('group_id', groupId)
-      .eq('entry_id', team.entryId)
-  }
+  // 각 팀마다 다른 값이므로 배치 upsert 불가 — 그러나 순서 의존성 없으므로 병렬 실행
+  await Promise.all(
+    ranked.map((team, i) =>
+      supabaseAdmin
+        .from('group_teams')
+        .update({
+          wins: team.wins,
+          losses: team.losses,
+          points_for: team.pf,
+          points_against: team.pa,
+          final_rank: i + 1,
+        })
+        .eq('group_id', groupId)
+        .eq('entry_id', team.entryId)
+    )
+  )
 }
 
 // ============================================================================

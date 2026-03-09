@@ -762,7 +762,7 @@ export function BracketManager({
     const prevRound = config.active_round;
     const configId = config.id;
 
-    let nextPhase: string | null;
+    let nextPhase: 'PRELIMINARY' | 'MAIN' | null;
     let nextRound: number | null;
     if (type === "preliminary") {
       nextPhase = isActive ? null : "PRELIMINARY";
