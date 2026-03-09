@@ -94,6 +94,14 @@ export function BracketManager({
     useState(false);
   const [showDeleteBracketConfirm, setShowDeleteBracketConfirm] =
     useState(false);
+  // 경기 진행 토글 확인 다이얼로그
+  const [toggleActiveConfirm, setToggleActiveConfirm] = useState<{
+    show: boolean;
+    type: "preliminary" | "round" | null;
+    round?: number;
+    isActive: boolean;
+    label: string;
+  }>({ show: false, type: null, isActive: false, label: "" });
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -721,40 +729,58 @@ export function BracketManager({
     }
   };
 
-  // 예선 전체 활성화/비활성화 토글
-  const handleTogglePreliminaryActive = async () => {
+  // 예선 전체 활성화/비활성화 토글 — 확인 다이얼로그 표시
+  const handleTogglePreliminaryActive = () => {
     if (!config) return;
-    const prevPhase = config.active_phase;
-    const prevRound = config.active_round;
-    const configId = config.id;
     const isActive = config.active_phase === "PRELIMINARY";
-    const nextPhase = isActive ? null : "PRELIMINARY";
-    // optimistic update
-    setConfig((c) => c ? { ...c, active_phase: nextPhase, active_round: null } : c);
-    const result = await setActiveRound(configId, nextPhase, null);
-    if (!result.success) {
-      // 실패 시 변경한 필드만 복원 (동시 토글의 다른 필드 변경 보존)
-      setConfig((c) => c ? { ...c, active_phase: prevPhase, active_round: prevRound } : c);
-      showError("오류", result.error || "상태 변경에 실패했습니다.");
-    }
+    setToggleActiveConfirm({
+      show: true,
+      type: "preliminary",
+      isActive,
+      label: isActive ? "예선 경기 진행을 중단하시겠습니까?" : "예선 경기 진행을 시작하시겠습니까?\n참가자들이 점수를 입력할 수 있게 됩니다.",
+    });
   };
 
-  // 본선 특정 라운드 활성화/비활성화 토글
-  const handleToggleRoundActive = async (round: number) => {
+  // 본선 특정 라운드 활성화/비활성화 토글 — 확인 다이얼로그 표시
+  const handleToggleRoundActive = (round: number) => {
     if (!config) return;
+    const isActive = config.active_phase === "MAIN" && config.active_round === round;
+    setToggleActiveConfirm({
+      show: true,
+      type: "round",
+      round,
+      isActive,
+      label: isActive ? "해당 라운드 경기 진행을 중단하시겠습니까?" : "해당 라운드 경기 진행을 시작하시겠습니까?\n참가자들이 점수를 입력할 수 있게 됩니다.",
+    });
+  };
+
+  // 경기 진행 토글 실제 실행
+  const handleConfirmToggleActive = async () => {
+    if (!config || !toggleActiveConfirm.type) return;
+    const { type, round, isActive } = toggleActiveConfirm;
     const prevPhase = config.active_phase;
     const prevRound = config.active_round;
     const configId = config.id;
-    const isActive = config.active_phase === "MAIN" && config.active_round === round;
-    const nextPhase = isActive ? null : "MAIN";
-    const nextRound = isActive ? null : round;
+
+    let nextPhase: string | null;
+    let nextRound: number | null;
+    if (type === "preliminary") {
+      nextPhase = isActive ? null : "PRELIMINARY";
+      nextRound = null;
+    } else {
+      nextPhase = isActive ? null : "MAIN";
+      nextRound = isActive ? null : (round ?? null);
+    }
+
+    setToggleActiveConfirm((s) => ({ ...s, show: false }));
     // optimistic update
     setConfig((c) => c ? { ...c, active_phase: nextPhase, active_round: nextRound } : c);
     const result = await setActiveRound(configId, nextPhase, nextRound);
     if (!result.success) {
-      // 실패 시 변경한 필드만 복원 (동시 토글의 다른 필드 변경 보존)
       setConfig((c) => c ? { ...c, active_phase: prevPhase, active_round: prevRound } : c);
       showError("오류", result.error || "상태 변경에 실패했습니다.");
+    } else {
+      showSuccess(nextPhase ? "경기 진행이 시작되었습니다." : "경기 진행이 중단되었습니다.");
     }
   };
 
@@ -1075,6 +1101,16 @@ export function BracketManager({
         message={`전체 대진표 설정을 삭제하시겠습니까?\n모든 조 편성, 예선, 본선 데이터가 영구적으로 삭제됩니다.`}
         type="error"
         isLoading={loading}
+      />
+
+      <ConfirmDialog
+        isOpen={toggleActiveConfirm.show}
+        onClose={() => setToggleActiveConfirm((s) => ({ ...s, show: false }))}
+        onConfirm={handleConfirmToggleActive}
+        title="경기 진행 상태 변경"
+        message={toggleActiveConfirm.label}
+        confirmText={toggleActiveConfirm.isActive ? "중단" : "시작"}
+        type={toggleActiveConfirm.isActive ? "warning" : "info"}
       />
     </div>
   );

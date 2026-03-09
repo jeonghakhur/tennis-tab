@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateTournamentStatus } from '@/lib/tournaments/actions'
-import { AlertDialog } from '@/components/common/AlertDialog'
+import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { TournamentStatus } from '@/lib/supabase/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
@@ -52,6 +52,7 @@ export function TournamentStatusSelector({
 }: TournamentStatusSelectorProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [pendingStatus, setPendingStatus] = useState<TournamentStatus | null>(null)
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean
     title: string
@@ -64,23 +65,31 @@ export function TournamentStatusSelector({
     type: 'info',
   })
 
-  const handleStatusChange = async (newStatus: TournamentStatus) => {
+  const handleStatusChange = (newStatus: TournamentStatus) => {
     if (newStatus === currentStatus || isLoading) return
+    // 변경 전 확인 다이얼로그 표시
+    setPendingStatus(newStatus)
+  }
+
+  const handleConfirmChange = async () => {
+    if (!pendingStatus) return
 
     setIsLoading(true)
 
     try {
-      const result = await updateTournamentStatus(tournamentId, newStatus)
+      const result = await updateTournamentStatus(tournamentId, pendingStatus)
 
       if (result.success) {
+        setPendingStatus(null)
         setAlertDialog({
           isOpen: true,
           title: '상태 변경 완료',
-          message: `대회 상태가 "${statusConfig[newStatus].label}"(으)로 변경되었습니다.`,
+          message: `대회 상태가 "${statusConfig[pendingStatus].label}"(으)로 변경되었습니다.`,
           type: 'success',
         })
         router.refresh()
       } else {
+        setPendingStatus(null)
         setAlertDialog({
           isOpen: true,
           title: '상태 변경 실패',
@@ -89,6 +98,7 @@ export function TournamentStatusSelector({
         })
       }
     } catch {
+      setPendingStatus(null)
       setAlertDialog({
         isOpen: true,
         title: '오류',
@@ -116,6 +126,17 @@ export function TournamentStatusSelector({
           ))}
         </SelectContent>
       </Select>
+
+      <ConfirmDialog
+        isOpen={pendingStatus !== null}
+        onClose={() => setPendingStatus(null)}
+        onConfirm={handleConfirmChange}
+        title="상태 변경"
+        message={pendingStatus ? `대회 상태를 "${statusConfig[pendingStatus].label}"(으)로 변경하시겠습니까?` : ''}
+        confirmText="변경"
+        type="warning"
+        isLoading={isLoading}
+      />
 
       <AlertDialog
         isOpen={alertDialog.isOpen}

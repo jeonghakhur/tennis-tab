@@ -14,14 +14,15 @@ function validateId(id: string, fieldName: string): string | null {
 }
 
 /** 대회 상태 전환 허용 매트릭스 */
+const ALL_STATUSES = ['DRAFT', 'UPCOMING', 'OPEN', 'CLOSED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] as const
 const VALID_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
-  DRAFT:       ['UPCOMING', 'OPEN', 'CANCELLED'],
-  UPCOMING:    ['OPEN', 'CANCELLED'],
-  OPEN:        ['CLOSED', 'CANCELLED'],
-  CLOSED:      ['IN_PROGRESS', 'OPEN', 'CANCELLED'],
-  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
-  COMPLETED:   [],
-  CANCELLED:   [],
+  DRAFT:       ALL_STATUSES,
+  UPCOMING:    ALL_STATUSES,
+  OPEN:        ALL_STATUSES,
+  CLOSED:      ALL_STATUSES,
+  IN_PROGRESS: ALL_STATUSES,
+  COMPLETED:   ALL_STATUSES,
+  CANCELLED:   ALL_STATUSES,
 }
 
 // 대회 생성 권한이 있는 역할
