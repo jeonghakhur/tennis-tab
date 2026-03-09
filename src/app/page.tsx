@@ -1,12 +1,19 @@
 import { createClient } from '@/lib/supabase/server'
-import { ChatSection } from "@/components/chat/ChatSection";
+import { HomeFeed } from '@/components/home/HomeFeed'
+import { FloatingChat } from '@/components/chat/FloatingChat'
 
 export default async function Home() {
   const supabase = await createClient()
-  const fallback = { data: { user: null } } as const;
+  const fallback = { data: { user: null } } as const
   const { data: { user } } = await Promise.race([
     supabase.auth.getUser().catch(() => fallback),
     new Promise<typeof fallback>((resolve) => setTimeout(() => resolve(fallback), 3000)),
-  ]);
-  return <ChatSection isLoggedIn={!!user} />;
+  ])
+
+  return (
+    <>
+      <HomeFeed userId={user?.id ?? null} isLoggedIn={!!user} />
+      <FloatingChat isLoggedIn={!!user} />
+    </>
+  )
 }
