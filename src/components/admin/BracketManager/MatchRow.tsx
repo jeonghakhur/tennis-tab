@@ -151,7 +151,7 @@ export function MatchRow({
               !(onResult && match.team1_entry_id && match.team2_entry_id)
                 ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
                 : match.team1_score !== null
-                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
+                  ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
                   : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             }`}
           >
@@ -172,7 +172,7 @@ export function MatchRow({
               !(onResult && match.team1_entry_id && match.team2_entry_id)
                 ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
                 : match.team1_score !== null
-                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
+                  ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
                   : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             }`}
           >
