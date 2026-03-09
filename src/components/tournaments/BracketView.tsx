@@ -472,13 +472,21 @@ function PreliminaryView({
                           </span>
                         </td>
                         <td className="py-2 px-2">
-                          <p className={`font-medium ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
-                            {team.entry?.player_name}{isMe ? ' (나)' : ''}
-                          </p>
-                          {team.entry?.partner_data && (
-                            <p className={`text-xs ${isMe ? 'text-(--accent-color)/70' : 'text-(--text-muted)'}`}>
-                              {team.entry.partner_data.name}
+                          {matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES' ? (
+                            <p className={`font-medium ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
+                              {team.entry?.club_name || team.entry?.player_name}{isMe ? ' (나)' : ''}
                             </p>
+                          ) : (
+                            <>
+                              <p className={`font-medium ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
+                                {team.entry?.player_name}{isMe ? ' (나)' : ''}
+                              </p>
+                              {team.entry?.partner_data && (
+                                <p className={`text-xs ${isMe ? 'text-(--accent-color)/70' : 'text-(--text-muted)'}`}>
+                                  {team.entry.partner_data.name}
+                                </p>
+                              )}
+                            </>
                           )}
                         </td>
                         <td className="py-2 px-2 text-center text-emerald-400 font-medium">{team.wins}</td>
