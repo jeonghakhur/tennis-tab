@@ -104,28 +104,8 @@ export function MatchRow({
           <span className="text-sm">{team1Label}</span>
         </div>
 
-        {/* Score — 단체전이면 모달 트리거 */}
-        {isTeamMatch && onOpenDetail ? (
-          <button
-            onClick={() => onOpenDetail(match)}
-            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              !(onResult && match.team1_entry_id && match.team2_entry_id)
-                ? "opacity-50 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
-                : match.team1_score !== null
-                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
-                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-            }`}
-            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
-          >
-            {match.team1_score !== null ? (
-              <span className="font-mono">
-                {match.team1_score} : {match.team2_score}
-              </span>
-            ) : (
-              "점수 입력"
-            )}
-          </button>
-        ) : editing ? (
+        {/* Score — 개인전 편집 중이면 입력 필드, 아니면 점수 표시 */}
+        {editing ? (
           <div className="flex items-center gap-1">
             <input
               type="number"
@@ -142,33 +122,13 @@ export function MatchRow({
               className="w-12 px-2 py-1 text-center rounded bg-(--bg-card) border border-(--border-color) text-(--text-primary)"
               min="0"
             />
-            <button
-              onClick={handleSubmit}
-              className="p-1 rounded bg-(--color-success) text-white"
-            >
-              <Check className="w-4 h-4" />
-            </button>
           </div>
         ) : (
-          <button
-            onClick={() => onResult && setEditing(true)}
-            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              !(onResult && match.team1_entry_id && match.team2_entry_id)
-                ? "opacity-50 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
-                : match.team1_score !== null
-                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
-                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-            }`}
-            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
-          >
-            {match.team1_score !== null ? (
-              <span className="font-mono">
-                {match.team1_score} : {match.team2_score}
-              </span>
-            ) : (
-              "점수 입력"
-            )}
-          </button>
+          <div className="flex items-center gap-1 px-3 py-1 font-mono text-sm text-(--text-primary)">
+            <span>{match.team1_score ?? "-"}</span>
+            <span className="text-(--text-muted)">:</span>
+            <span>{match.team2_score ?? "-"}</span>
+          </div>
         )}
 
         {/* Team 2 */}
@@ -181,6 +141,44 @@ export function MatchRow({
         >
           <span className="text-sm">{team2Label}</span>
         </div>
+
+        {/* 액션 버튼 — 우측 고정 */}
+        {isTeamMatch && onOpenDetail ? (
+          <button
+            onClick={() => onOpenDetail(match)}
+            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
+            className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              !(onResult && match.team1_entry_id && match.team2_entry_id)
+                ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
+                : match.team1_score !== null
+                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
+                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+            }`}
+          >
+            {match.team1_score !== null ? "수정" : "점수 입력"}
+          </button>
+        ) : editing ? (
+          <button
+            onClick={handleSubmit}
+            className="shrink-0 p-1.5 rounded-lg bg-(--color-success) text-white hover:bg-(--color-success-emphasis) transition-colors"
+          >
+            <Check className="w-4 h-4" />
+          </button>
+        ) : (
+          <button
+            onClick={() => onResult && setEditing(true)}
+            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
+            className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              !(onResult && match.team1_entry_id && match.team2_entry_id)
+                ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
+                : match.team1_score !== null
+                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
+                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+            }`}
+          >
+            {match.team1_score !== null ? "수정" : "점수 입력"}
+          </button>
+        )}
       </div>
 
       {/* 코트 정보 — 항상 입력 가능 (부모가 상태 관리) */}
