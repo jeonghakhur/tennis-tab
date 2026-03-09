@@ -344,6 +344,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               currentUserEntryIds={currentUserEntryIds}
               onScoreInput={isClosed ? undefined : setScoreModalMatch}
               isMatchInProgress={isMatchInProgress}
+              matchType={matchType}
             />
           ) : (
             <MainBracketView
@@ -352,6 +353,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               currentUserEntryIds={currentUserEntryIds}
               onScoreInput={isClosed ? undefined : setScoreModalMatch}
               isMatchInProgress={isMatchInProgress}
+              matchType={matchType}
             />
           )}
         </>
@@ -389,12 +391,14 @@ function PreliminaryView({
   currentUserEntryIds,
   onScoreInput,
   isMatchInProgress,
+  matchType,
 }: {
   groups: PreliminaryGroup[]
   matches: BracketMatch[]
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
   isMatchInProgress?: (match: BracketMatch) => boolean
+  matchType?: MatchType | null
 }) {
   if (groups.length === 0) {
     return (
@@ -499,6 +503,7 @@ function PreliminaryView({
                   currentUserEntryIds={currentUserEntryIds}
                   onScoreInput={onScoreInput}
                   isMatchInProgress={isMatchInProgress}
+                  matchType={matchType}
                 />
               ))}
             </div>
@@ -518,12 +523,14 @@ function MainBracketView({
   currentUserEntryIds,
   onScoreInput,
   isMatchInProgress,
+  matchType,
 }: {
   config: BracketConfig
   matches: BracketMatch[]
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
   isMatchInProgress?: (match: BracketMatch) => boolean
+  matchType?: MatchType | null
 }) {
   // 라운드별로 그룹화
   const matchesByPhase = useMemo(() => {
@@ -715,6 +722,7 @@ function MainBracketView({
               currentUserEntryIds={currentUserEntryIds}
               onScoreInput={onScoreInput}
               isMatchInProgress={isMatchInProgress}
+              matchType={matchType}
             />
           ))}
         </div>
@@ -731,9 +739,12 @@ function isMyEntry(entryId: string | null, currentUserEntryIds?: string[]): bool
   return currentUserEntryIds.includes(entryId)
 }
 
-// 참가자 이름 (복식: "참가자 & 파트너")
-function teamName(team: BracketMatch['team1']): string {
+// 참가자 이름 — 단체전: 팀명(club_name), 복식: "선수 & 파트너", 단식: 선수명
+function teamName(team: BracketMatch['team1'], matchType?: MatchType | null): string {
   if (!team) return 'TBD'
+  if (matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES') {
+    return team.club_name || team.player_name
+  }
   if (team.partner_data) {
     return `${team.player_name} & ${team.partner_data.name}`
   }
@@ -745,11 +756,13 @@ function MatchCard({
   currentUserEntryIds,
   onScoreInput,
   isMatchInProgress,
+  matchType,
 }: {
   match: BracketMatch
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
   isMatchInProgress?: (match: BracketMatch) => boolean
+  matchType?: MatchType | null
 }) {
   const isCompleted = match.status === 'COMPLETED'
   const isBye = match.status === 'BYE'
@@ -762,8 +775,8 @@ function MatchCard({
     && match.team1_entry_id && match.team2_entry_id
     && inProgress
 
-  const team1Text = teamName(match.team1)
-  const team2Text = teamName(match.team2)
+  const team1Text = teamName(match.team1, matchType)
+  const team2Text = teamName(match.team2, matchType)
 
   const hasCourt = match.court_location || match.court_number
   const team1IsMe = isMyEntry(match.team1_entry_id, currentUserEntryIds)
