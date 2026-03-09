@@ -108,16 +108,20 @@ export function MatchRow({
         {isTeamMatch && onOpenDetail ? (
           <button
             onClick={() => onOpenDetail(match)}
-            className="flex items-center gap-1 px-3 py-1 rounded-lg bg-(--bg-card) hover:bg-(--bg-card-hover) transition-colors"
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+              onResult && match.team1_entry_id && match.team2_entry_id
+                ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer text-(--text-primary)"
+                : "bg-(--bg-card) opacity-50 cursor-not-allowed text-(--text-muted)"
+            }`}
             disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
           >
-            <span className="text-(--text-primary) font-mono">
-              {match.team1_score ?? "-"}
-            </span>
-            <span className="text-(--text-muted)">:</span>
-            <span className="text-(--text-primary) font-mono">
-              {match.team2_score ?? "-"}
-            </span>
+            {match.team1_score !== null ? (
+              <span className="font-mono">
+                {match.team1_score} : {match.team2_score}
+              </span>
+            ) : (
+              "점수 입력"
+            )}
           </button>
         ) : editing ? (
           <div className="flex items-center gap-1">
@@ -146,21 +150,20 @@ export function MatchRow({
         ) : (
           <button
             onClick={() => onResult && setEditing(true)}
-            className={`flex items-center gap-1 px-3 py-1 rounded-lg transition-colors ${
+            className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
               onResult && match.team1_entry_id && match.team2_entry_id
-                ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer"
-                : "bg-(--bg-card) opacity-50 cursor-not-allowed"
+                ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer text-(--text-primary)"
+                : "bg-(--bg-card) opacity-50 cursor-not-allowed text-(--text-muted)"
             }`}
             disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
-            title={!onResult ? undefined : match.status === "COMPLETED" ? "클릭하여 수정" : undefined}
           >
-            <span className="text-(--text-primary) font-mono">
-              {match.team1_score ?? "-"}
-            </span>
-            <span className="text-(--text-muted)">:</span>
-            <span className="text-(--text-primary) font-mono">
-              {match.team2_score ?? "-"}
-            </span>
+            {match.team1_score !== null ? (
+              <span className="font-mono">
+                {match.team1_score} : {match.team2_score}
+              </span>
+            ) : (
+              "점수 입력"
+            )}
           </button>
         )}
 

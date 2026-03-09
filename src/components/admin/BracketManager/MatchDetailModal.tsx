@@ -108,19 +108,7 @@ export function MatchDetailModal({
     };
   }, [sets, winsNeeded]);
 
-  // 세트가 비활성화 되는지 (앞선 세트까지 결정 난 경우)
-  const isSetDisabled = (setIndex: number): boolean => {
-    let t1 = 0;
-    let t2 = 0;
-    for (let i = 0; i < setIndex; i++) {
-      const s = sets[i];
-      if (s.team1_score !== null && s.team2_score !== null) {
-        if (s.team1_score > s.team2_score) t1++;
-        else if (s.team2_score > s.team1_score) t2++;
-      }
-    }
-    return t1 >= winsNeeded || t2 >= winsNeeded;
-  };
+  // 세트 비활성화 제거 — 승부가 결정돼도 나머지 세트 입력 가능 (실제 진행될 수 있음)
 
   // 복식: 이전 세트에서 사용된 선수들 (세트 간 중복 방지)
   const getUsedPlayers = (setIndex: number, team: "team1" | "team2") => {
@@ -179,29 +167,30 @@ export function MatchDetailModal({
     );
   };
 
-  // 저장 가능 여부 검증
+  // 저장 가능 여부: 승부 결정 + 입력된 세트는 모두 유효
   const canSave = useMemo(() => {
     if (!matchDecided) return false;
 
-    // 결정된 세트까지 모두 점수와 선수가 입력되었는지 확인
+    // 점수가 하나라도 입력된 세트는 모두 유효해야 함 (동점 없음, 선수 선택 완료)
     for (const set of sets) {
-      if (isSetDisabled(set.set_number - 1)) break;
+      const hasAnyScore = set.team1_score !== null || set.team2_score !== null;
+      if (!hasAnyScore) continue;
       if (set.team1_score === null || set.team2_score === null) return false;
       if (set.team1_score === set.team2_score) return false;
-      // 선수 선택 확인
       if (set.team1_players.some((p) => !p)) return false;
       if (set.team2_players.some((p) => !p)) return false;
     }
 
     return true;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sets, matchDecided]);
 
   const handleSave = () => {
     if (!match || !canSave) return;
 
-    // 유효한 세트만 필터 (비활성화되지 않은 세트)
-    const validSets = sets.filter((_, i) => !isSetDisabled(i));
+    // 점수가 입력된 세트만 저장 (미입력 세트 제외)
+    const validSets = sets.filter(
+      (s) => s.team1_score !== null && s.team2_score !== null,
+    );
 
     onSave(match.id, team1Wins, team2Wins, validSets);
   };
@@ -239,24 +228,13 @@ export function MatchDetailModal({
 
         {/* 세트별 입력 */}
         <div className="space-y-5">
-          {sets.map((set, setIndex) => {
-            const disabled = isSetDisabled(setIndex);
-            return (
+          {sets.map((set, setIndex) => (
               <div
                 key={set.set_number}
-                className={`rounded-xl border p-4 transition-opacity ${
-                  disabled
-                    ? "opacity-40 border-(--border-color)/50 bg-(--bg-secondary)/30"
-                    : "border-(--border-color) bg-(--bg-secondary)/50"
-                }`}
+                className="rounded-xl border p-4 border-(--border-color) bg-(--bg-secondary)/50"
               >
                 <h4 className="text-sm font-semibold text-(--text-primary) mb-3">
                   세트 {set.set_number}
-                  {disabled && (
-                    <span className="ml-2 text-xs text-(--text-muted) font-normal">
-                      (승부 결정)
-                    </span>
-                  )}
                 </h4>
 
                 {/* 선수 선택 + 점수 그리드 */}
@@ -271,9 +249,8 @@ export function MatchDetailModal({
                         key={`t1-${pIdx}`}
                         value={set.team1_players[pIdx] || undefined}
                         onValueChange={(v) => updatePlayer(setIndex, "team1", pIdx, v)}
-                        disabled={disabled}
                       >
-                        <SelectTrigger size="sm" className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
+                        <SelectTrigger size="sm" className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm">
                           <SelectValue placeholder="선수 선택" />
                         </SelectTrigger>
                         <SelectContent>
@@ -295,9 +272,8 @@ export function MatchDetailModal({
                               : parseInt(e.target.value),
                         })
                       }
-                      disabled={disabled}
                       placeholder="점수"
-                      className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-center text-sm disabled:opacity-50"
+                      className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-center text-sm"
                     />
                   </div>
 
@@ -318,9 +294,8 @@ export function MatchDetailModal({
                         key={`t2-${pIdx}`}
                         value={set.team2_players[pIdx] || undefined}
                         onValueChange={(v) => updatePlayer(setIndex, "team2", pIdx, v)}
-                        disabled={disabled}
                       >
-                        <SelectTrigger size="sm" className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm disabled:opacity-50">
+                        <SelectTrigger size="sm" className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-sm">
                           <SelectValue placeholder="선수 선택" />
                         </SelectTrigger>
                         <SelectContent>
@@ -342,15 +317,13 @@ export function MatchDetailModal({
                               : parseInt(e.target.value),
                         })
                       }
-                      disabled={disabled}
                       placeholder="점수"
-                      className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-center text-sm disabled:opacity-50"
+                      className="w-full px-2 py-1.5 rounded-lg bg-(--bg-input) border border-(--border-color) text-(--text-primary) text-center text-sm"
                     />
                   </div>
                 </div>
               </div>
-            );
-          })}
+            ))}
         </div>
       </Modal.Body>
 
