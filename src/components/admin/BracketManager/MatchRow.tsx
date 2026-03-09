@@ -109,9 +109,11 @@ export function MatchRow({
           <button
             onClick={() => onOpenDetail(match)}
             className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              onResult && match.team1_entry_id && match.team2_entry_id
-                ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer text-(--text-primary)"
-                : "bg-(--bg-card) opacity-50 cursor-not-allowed text-(--text-muted)"
+              !(onResult && match.team1_entry_id && match.team2_entry_id)
+                ? "opacity-50 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
+                : match.team1_score !== null
+                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
+                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             }`}
             disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
           >
@@ -151,9 +153,11 @@ export function MatchRow({
           <button
             onClick={() => onResult && setEditing(true)}
             className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              onResult && match.team1_entry_id && match.team2_entry_id
-                ? "bg-(--bg-card) hover:bg-(--bg-card-hover) cursor-pointer text-(--text-primary)"
-                : "bg-(--bg-card) opacity-50 cursor-not-allowed text-(--text-muted)"
+              !(onResult && match.team1_entry_id && match.team2_entry_id)
+                ? "opacity-50 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
+                : match.team1_score !== null
+                  ? "bg-(--bg-card) hover:bg-(--bg-card-hover) text-(--text-primary)"
+                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             }`}
             disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
           >
