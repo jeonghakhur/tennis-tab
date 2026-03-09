@@ -280,19 +280,19 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
   return (
     <div className="space-y-6">
       {/* Division Tabs */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex overflow-x-auto scrollbar-none border-b border-(--border-color)" style={{ WebkitOverflowScrolling: "touch" }}>
         {divisions.map((division) => {
           const isSelected = selectedDivision?.id === division.id
           return (
             <button
               key={division.id}
               onClick={() => setSelectedDivision(division)}
-              className={`px-4 py-2 rounded-lg font-medium transition-all ${
-                isSelected
-                  ? 'bg-(--accent-color) text-white'
-                  : 'text-(--text-secondary) hover:bg-(--bg-card-hover)'
-              }`}
-              style={!isSelected ? { border: '1px solid var(--border-color)' } : undefined}
+              className="relative shrink-0 px-4 py-2.5 text-sm font-medium transition-colors whitespace-nowrap"
+              style={{
+                color: isSelected ? 'var(--text-primary)' : 'var(--text-muted)',
+                borderBottom: isSelected ? '2px solid var(--accent-color)' : '2px solid transparent',
+                marginBottom: '-1px',
+              }}
             >
               {division.name}
             </button>
@@ -315,31 +315,24 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
         <>
           {/* Phase Tabs (if has preliminaries) */}
           {config.has_preliminaries && (
-            <div className="flex gap-2 w-fit">
-              <button
-                onClick={() => setActiveTab('preliminary')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  activeTab === 'preliminary'
-                    ? 'bg-(--accent-color) text-white'
-                    : 'text-(--text-secondary) hover:bg-(--bg-card-hover)'
-                }`}
-                style={activeTab !== 'preliminary' ? { border: '1px solid var(--border-color)' } : undefined}
-              >
-                <Users className="w-4 h-4" />
-                예선
-              </button>
-              <button
-                onClick={() => setActiveTab('main')}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all ${
-                  activeTab === 'main'
-                    ? 'bg-(--accent-color) text-white'
-                    : 'text-(--text-secondary) hover:bg-(--bg-card-hover)'
-                }`}
-                style={activeTab !== 'main' ? { border: '1px solid var(--border-color)' } : undefined}
-              >
-                <Trophy className="w-4 h-4" />
-                본선
-              </button>
+            <div className="flex overflow-x-auto scrollbar-none border-b border-(--border-color)" style={{ WebkitOverflowScrolling: "touch" }}>
+              {[
+                { key: 'preliminary', label: '예선', icon: <Users className="w-4 h-4" /> },
+                { key: 'main', label: '본선', icon: <Trophy className="w-4 h-4" /> },
+              ].map(({ key, label, icon }) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveTab(key as 'preliminary' | 'main')}
+                  className="relative shrink-0 flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium transition-colors whitespace-nowrap"
+                  style={{
+                    color: activeTab === key ? 'var(--text-primary)' : 'var(--text-muted)',
+                    borderBottom: activeTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
+                    marginBottom: '-1px',
+                  }}
+                >
+                  {icon}{label}
+                </button>
+              ))}
             </div>
           )}
 
@@ -648,48 +641,67 @@ function MainBracketView({
 
   return (
     <div className="space-y-6">
-      {/* 라운드 탭 — 완료 + 현재 진행 라운드만 표시 */}
-      <div className="flex flex-wrap items-center gap-2">
+      {/* 라운드 탭 — 언더라인 스타일, 뎁스별 굵기 차등 */}
+      <div
+        className="flex overflow-x-auto scrollbar-none border-b border-(--border-color)"
+        style={{ WebkitOverflowScrolling: 'touch' }}
+      >
         {visiblePhases.map((phase, index) => {
           const s = phaseStatus[phase]
           const isSelected = selectedPhase === phase
           const isCurrent = phase === currentPhase && !s.allDone
+          // 뎁스: 뒤 라운드일수록 index 높음 → 폰트 더 굵게
+          const depthWeight = index < visiblePhases.length / 2 ? 400 : index < visiblePhases.length * 0.75 ? 500 : 600
 
           return (
-            <div key={phase} className="flex items-center gap-2">
-              {index > 0 && <ChevronRight className="w-4 h-4 text-(--text-muted)" />}
-              <button
-                onClick={() => setSelectedPhase(phase)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  isSelected
-                    ? 'bg-(--accent-color) text-white'
-                    : s.allDone
-                      ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20'
-                      : 'bg-(--bg-card) text-(--text-primary) hover:bg-(--bg-card-hover)'
-                }`}
+            <button
+              key={phase}
+              onClick={() => setSelectedPhase(phase)}
+              className="relative shrink-0 flex flex-col items-center px-4 py-2.5 transition-colors whitespace-nowrap"
+              style={{
+                fontWeight: isSelected ? 700 : depthWeight,
+                fontSize: '13px',
+                color: isSelected
+                  ? 'var(--text-primary)'
+                  : s.allDone
+                  ? '#34d399'
+                  : 'var(--text-muted)',
+                borderBottom: isSelected
+                  ? '2px solid var(--accent-color)'
+                  : '2px solid transparent',
+                marginBottom: '-1px',
+              }}
+            >
+              <span className="flex items-center gap-1">
+                {phaseLabels[phase]}
+                {isCurrent && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-(--accent-color) animate-pulse" />
+                )}
+              </span>
+              <span
+                className="text-[10px] mt-0.5"
+                style={{ opacity: isSelected ? 0.6 : 0.45 }}
               >
-                <span className="flex items-center gap-1.5">
-                  {phaseLabels[phase]}
-                  <span className={`text-xs ${isSelected ? 'text-white/70' : 'text-(--text-muted)'}`}>
-                    {s.completed}/{s.total}
-                  </span>
-                  {isCurrent && (
-                    <span className="w-2 h-2 rounded-full bg-(--accent-color) animate-pulse" />
-                  )}
-                </span>
-              </button>
-            </div>
+                {s.completed}/{s.total}
+              </span>
+            </button>
           )
         })}
-        {/* 다음 잠긴 라운드 표시 */}
         {nextLockedPhase && (
-          <div className="flex items-center gap-2">
-            <ChevronRight className="w-4 h-4 text-(--text-muted)" />
-            <span className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm bg-(--bg-secondary) text-(--text-muted) opacity-50">
+          <span
+            className="shrink-0 flex flex-col items-center px-4 py-2.5 whitespace-nowrap opacity-30"
+            style={{
+              fontSize: '13px',
+              color: 'var(--text-muted)',
+              borderBottom: '2px solid transparent',
+              marginBottom: '-1px',
+            }}
+          >
+            <span className="flex items-center gap-1">
               <Lock className="w-3 h-3" />
               {phaseLabels[nextLockedPhase]}
             </span>
-          </div>
+          </span>
         )}
       </div>
 

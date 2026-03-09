@@ -123,6 +123,7 @@ function LoginContent() {
               id="login-email"
               type="email"
               autoComplete="email"
+              suppressHydrationWarning
               placeholder="이메일"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -142,6 +143,7 @@ function LoginContent() {
               id="login-password"
               type="password"
               autoComplete="current-password"
+              suppressHydrationWarning
               placeholder="비밀번호"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -236,7 +238,7 @@ function LoginContent() {
             disabled={loading !== null}
             className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl font-medium transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
             style={{
-              backgroundColor: '#03C75A',
+              backgroundColor: '#028f41',
               color: '#FFFFFF',
             }}
           >

@@ -518,9 +518,9 @@ export default function TournamentEntryForm({
   })();
 
   const inputClass =
-    "w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+    "w-full px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent";
   const labelClass =
-    "block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2";
+    "block text-sm font-medium text-(--text-secondary) mb-2";
 
   return (
     <Modal
@@ -561,8 +561,8 @@ export default function TournamentEntryForm({
 
           {/* 참가자 기본 정보 — 개인전만 전체 섹션 표시 */}
           {!isTeamMatch && (
-            <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900/50 rounded-xl">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+            <div className="space-y-4 p-4 bg-(--bg-secondary) rounded-xl">
+              <h3 className="font-semibold text-(--text-primary)">
                 참가자 정보
               </h3>
 
@@ -624,7 +624,7 @@ export default function TournamentEntryForm({
           {/* 개인전 복식 - 파트너 정보 */}
           {matchType === "INDIVIDUAL_DOUBLES" && (
             <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-semibold text-(--text-primary)">
                 파트너 정보
               </h3>
 
@@ -655,7 +655,7 @@ export default function TournamentEntryForm({
                   )}
                 </div>
                 {showPartnerDropdown && (
-                  <ul className="absolute z-50 w-full mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                  <ul className="absolute z-50 w-full mt-1 bg-(--bg-input) border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
                     {partnerSearchResults.map((p) => (
                       <li key={p.id}>
                         <button
@@ -663,8 +663,8 @@ export default function TournamentEntryForm({
                           onClick={() => handleSelectPartner(p)}
                           className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                         >
-                          <span className="font-medium text-gray-900 dark:text-white">{p.name}</span>
-                          <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                          <span className="font-medium text-(--text-primary)">{p.name}</span>
+                          <span className="ml-2 text-sm text-(--text-muted)">
                             {p.club && `${p.club} · `}{p.rating != null ? `${p.rating}점` : "점수 없음"}
                           </span>
                         </button>
@@ -726,7 +726,7 @@ export default function TournamentEntryForm({
               {/* 클럽명 — 항상 읽기 전용 (프로필 클럽 자동 사용) */}
               <div>
                 <label className={labelClass}>클럽명</label>
-                <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-(--bg-input) text-(--text-muted) text-sm">
                   {clubName || "프로필에 클럽을 등록해주세요"}
                 </p>
               </div>
@@ -735,7 +735,7 @@ export default function TournamentEntryForm({
               {editMode && teamOrder && (
                 <div>
                   <label className={labelClass}>팀 순서</label>
-                  <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 text-sm">
+                  <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-(--bg-input) text-(--text-muted) text-sm">
                     {teamOrder}팀
                   </p>
                 </div>
@@ -744,7 +744,7 @@ export default function TournamentEntryForm({
               <div className="space-y-4">
                 <div>
                   <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-gray-900 dark:text-white">
+                    <h3 className="font-semibold text-(--text-primary)">
                       팀원 정보
                     </h3>
                     <label className="flex items-center gap-2 cursor-pointer">
@@ -781,10 +781,10 @@ export default function TournamentEntryForm({
                     const isNonMember = debouncedPlayerName && clubMembers.length > 0 && !isClubMember(debouncedPlayerName);
                     const isDupe = debouncedPlayerName && displayDupeNames.has(debouncedPlayerName.trim());
                     const borderClass = isNonMember
-                      ? "border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/10"
+                      ? "border-red-400 bg-(--bg-input)"
                       : isDupe
-                      ? "border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/10"
-                      : "border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20";
+                      ? "border-amber-400 bg-(--bg-input)"
+                      : "border-(--border-color) bg-(--bg-input)";
                     return (
                     <div className="flex items-start gap-2">
                       <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-10 shrink-0 text-center bg-blue-100 dark:bg-blue-900/40 rounded-lg py-2 mt-0.5">
@@ -796,7 +796,7 @@ export default function TournamentEntryForm({
                           value={playerName}
                           onChange={(e) => handlePlayerNameChange(e.target.value)}
                           placeholder="이름"
-                          className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                          className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                           aria-label="신청자 이름"
                         />
                         {isNonMember && (
@@ -815,7 +815,7 @@ export default function TournamentEntryForm({
                           )
                         }
                         placeholder="점수"
-                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         aria-label="신청자 점수"
                         min="1"
                         max="9999"
@@ -833,13 +833,13 @@ export default function TournamentEntryForm({
                     const isNonMember = debouncedName && clubMembers.length > 0 && !isClubMember(debouncedName);
                     const isDupe = debouncedName && displayDupeNames.has(debouncedName.trim());
                     const borderClass = isNonMember
-                      ? "border-red-400 dark:border-red-500 bg-red-50 dark:bg-red-900/10"
+                      ? "border-red-400 bg-(--bg-input)"
                       : isDupe
-                      ? "border-amber-400 dark:border-amber-500 bg-amber-50 dark:bg-amber-900/10"
-                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800";
+                      ? "border-amber-400 bg-(--bg-input)"
+                      : "border-(--border-color) bg-(--bg-input)";
                     return (
                     <div key={index} className="flex items-start gap-2">
-                      <span className="text-sm font-medium text-gray-500 dark:text-gray-400 w-10 shrink-0 text-center mt-3">
+                      <span className="text-sm font-medium text-(--text-muted) w-10 shrink-0 text-center mt-3">
                         {applicantParticipates ? index + 2 : index + 1}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -850,7 +850,7 @@ export default function TournamentEntryForm({
                             updateTeamMember(index, "name", e.target.value)
                           }
                           placeholder="이름"
-                          className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                          className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                           aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 이름`}
                         />
                         {isNonMember && (
@@ -871,7 +871,7 @@ export default function TournamentEntryForm({
                           )
                         }
                         placeholder="점수(레이팅)"
-                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 점수`}
                         min="1"
                         max="9999"
@@ -892,7 +892,7 @@ export default function TournamentEntryForm({
                   <button
                     type="button"
                     onClick={addTeamMember}
-                    className="w-full mt-1 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 text-gray-500 dark:text-gray-400 hover:border-green-500 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 rounded-xl text-sm font-medium transition-colors"
+                    className="w-full mt-1 py-2 border-2 border-dashed border-gray-300 dark:border-gray-600 text-(--text-muted) hover:border-green-500 hover:text-green-600 dark:hover:border-green-500 dark:hover:text-green-400 rounded-xl text-sm font-medium transition-colors"
                   >
                     + 팀원 추가
                   </button>
@@ -904,7 +904,7 @@ export default function TournamentEntryForm({
           {/* 참가비 결제 */}
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-gray-900 dark:text-white">
+              <h3 className="font-semibold text-(--text-primary)">
                 참가비
               </h3>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
@@ -913,11 +913,11 @@ export default function TournamentEntryForm({
             </div>
 
             {entryFee > 0 && bankAccount && (
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-3 space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+              <div className="bg-(--bg-input) rounded-lg p-3 space-y-2">
+                <p className="text-sm text-(--text-muted)">
                   입금 계좌
                 </p>
-                <p className="font-medium text-gray-900 dark:text-white">
+                <p className="font-medium text-(--text-primary)">
                   {bankAccount}
                 </p>
                 <button
@@ -939,7 +939,7 @@ export default function TournamentEntryForm({
             )}
 
             {entryFee > 0 && (
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-(--text-muted)">
                 * 참가 신청 후 위 계좌로 참가비를 입금해주세요.
                 <br />* 입금자명은 신청자 이름과 동일하게 해주세요.
               </p>
@@ -948,7 +948,7 @@ export default function TournamentEntryForm({
             {/* 환불 계좌 — 참가비 있는 경우 필수 입력 */}
             {entryFee > 0 && (
               <div className="space-y-3 pt-2 border-t border-blue-200 dark:border-blue-800">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <p className="text-sm font-medium text-(--text-secondary)">
                   환불 계좌
                   <span className="ml-1 text-xs text-gray-400 font-normal">(취소 시 환불 계좌)</span>
                 </p>
@@ -998,7 +998,7 @@ export default function TournamentEntryForm({
         <button
           type="button"
           onClick={onClose}
-          className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-xl font-medium transition-colors"
+          className="flex-1 px-6 py-3 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 dark:hover:bg-gray-600 text-(--text-secondary) rounded-xl font-medium transition-colors"
         >
           취소
         </button>

@@ -326,10 +326,10 @@
   --badge-success-text: #fff;
   --badge-danger-bg: #dc3545;
   --badge-danger-text: #fff;
-  --badge-warning-bg: #ffc107;
-  --badge-warning-text: #000;
-  --badge-info-bg: #0dcaf0;
-  --badge-info-text: #000;
+  --badge-warning-bg: #b45309;
+  --badge-warning-text: #fff;
+  --badge-info-bg: #0369a1;
+  --badge-info-text: #fff;
   --badge-purple-bg: #6f42c1;
   --badge-purple-text: #fff;
   --badge-orange-bg: #fd7e14;
@@ -1162,4 +1162,13 @@ body {
   hr {
     margin: 1rem 0;
   }
+}
+
+/* 스크롤바 숨김 */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
 }

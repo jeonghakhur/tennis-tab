@@ -65,7 +65,7 @@ export default async function TournamentsPage() {
       )}
 
       {!tournaments || tournaments.length === 0 ? (
-        <div className="text-center py-20 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
+        <div className="text-center py-20 bg-(--bg-input)/50 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
           <div className="text-4xl mb-4">🎾</div>
           <h3 className="text-lg font-medium mb-2">등록된 대회가 없습니다</h3>
           <p className="text-gray-500 mb-6">

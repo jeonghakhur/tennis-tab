@@ -31,6 +31,16 @@ interface ThemeProviderProps {
   children: ReactNode;
 }
 
+function applyTheme(theme: Theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  // Tailwind dark: prefix 호환을 위해 .dark 클래스도 동시 적용
+  if (theme === "dark") {
+    document.documentElement.classList.add("dark");
+  } else {
+    document.documentElement.classList.remove("dark");
+  }
+}
+
 export function ThemeProvider({ children }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>("dark");
   const [mounted, setMounted] = useState(false);
@@ -40,18 +50,18 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
       const savedTheme = localStorage.getItem("theme") as Theme | null;
       if (savedTheme) {
         setThemeState(savedTheme);
-        document.documentElement.setAttribute("data-theme", savedTheme);
+        applyTheme(savedTheme);
       } else {
         const prefersDark = window.matchMedia(
           "(prefers-color-scheme: dark)"
         ).matches;
         const defaultTheme = prefersDark ? "dark" : "light";
         setThemeState(defaultTheme);
-        document.documentElement.setAttribute("data-theme", defaultTheme);
+        applyTheme(defaultTheme);
       }
     } catch (error) {
       console.error("[ThemeProvider] initialization error:", error);
-      document.documentElement.setAttribute("data-theme", "dark");
+      applyTheme("dark");
     } finally {
       setMounted(true);
     }
@@ -60,7 +70,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   const setTheme = (newTheme: Theme) => {
     setThemeState(newTheme);
     localStorage.setItem("theme", newTheme);
-    document.documentElement.setAttribute("data-theme", newTheme);
+    applyTheme(newTheme);
   };
 
   const toggleTheme = () => {
@@ -70,7 +80,7 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme, toggleTheme, mounted }}>
-      <div className="flex-1 flex flex-col" style={{ visibility: mounted ? "visible" : "hidden" }}>
+      <div className="flex-1 flex flex-col" suppressHydrationWarning>
         {children}
       </div>
     </ThemeContext.Provider>

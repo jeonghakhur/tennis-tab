@@ -58,7 +58,7 @@ export default function InquiryDetailPage() {
             </p>
             <Link
               href="/auth/login"
-              className="inline-block px-6 py-3 rounded-lg font-medium text-white"
+              className="inline-block px-6 py-3 rounded-lg font-medium text-(--bg-primary)"
               style={{ backgroundColor: 'var(--accent-color)' }}
             >
               로그인

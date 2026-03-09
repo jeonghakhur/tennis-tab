@@ -91,7 +91,7 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
             <div className="flex flex-col sm:flex-row gap-3">
                 {/* 상태 변경 셀렉트 */}
                 <Select value={status} onValueChange={(v) => handleStatusChange(v as TournamentStatus)}>
-                    <SelectTrigger className="w-full sm:w-auto px-4 py-2.5 h-auto min-h-0 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 border-gray-300 dark:border-gray-600 rounded-xl font-medium text-base shadow-sm text-gray-900 dark:text-white">
+                    <SelectTrigger className="w-full sm:w-auto px-4 py-2.5 h-auto min-h-0 bg-white hover:bg-(--bg-input) dark:hover:bg-gray-700 border-(--border-color) rounded-xl font-medium text-base shadow-sm text-(--text-primary)">
                         <SelectValue>{STATUS_LABELS[status]}</SelectValue>
                     </SelectTrigger>
                     <SelectContent>
@@ -103,7 +103,7 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
 
                 <Link
                     href={`/tournaments/${tournamentId}/edit`}
-                    className="w-full sm:w-auto bg-white hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-900 dark:text-white border border-gray-300 dark:border-gray-600 px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
+                    className="w-full sm:w-auto bg-white hover:bg-(--bg-input) dark:hover:bg-gray-700 text-(--text-primary) border border-(--border-color) px-6 py-2.5 rounded-xl font-medium text-center transition-all shadow-sm hover:shadow flex items-center justify-center gap-2"
                 >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -134,17 +134,17 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
             {/* 상태 변경 확인 모달 */}
             {pendingStatus && mounted && createPortal(
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    <div className="bg-(--bg-input) rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                        <h3 className="text-xl font-bold text-(--text-primary) mb-2">
                             대회 상태 변경
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        <p className="text-(--text-muted) mb-6">
                             대회 상태를{' '}
-                            <span className="font-semibold text-gray-900 dark:text-white">
+                            <span className="font-semibold text-(--text-primary)">
                                 {STATUS_LABELS[status]}
                             </span>
                             에서{' '}
-                            <span className="font-semibold text-gray-900 dark:text-white">
+                            <span className="font-semibold text-(--text-primary)">
                                 {STATUS_LABELS[pendingStatus]}
                             </span>
                             으로 변경하시겠습니까?
@@ -153,7 +153,7 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
                             <button
                                 onClick={() => setPendingStatus(null)}
                                 disabled={statusSaving}
-                                className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+                                className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-(--text-primary) px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
                             >
                                 취소
                             </button>
@@ -173,18 +173,18 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
             {/* 삭제 확인 모달 */}
             {showDeleteConfirm && mounted && createPortal(
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999] p-4">
-                    <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-md w-full shadow-2xl">
-                        <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                    <div className="bg-(--bg-input) rounded-2xl p-6 max-w-md w-full shadow-2xl">
+                        <h3 className="text-xl font-bold text-(--text-primary) mb-2">
                             대회 삭제
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-400 mb-6">
+                        <p className="text-(--text-muted) mb-6">
                             정말로 이 대회를 삭제하시겠습니까? 이 작업은 되돌릴 수 없으며, 모든 참가 부서 정보도 함께 삭제됩니다.
                         </p>
                         <div className="flex gap-3">
                             <button
                                 onClick={() => setShowDeleteConfirm(false)}
                                 disabled={loading}
-                                className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
+                                className="flex-1 bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-(--text-primary) px-4 py-2.5 rounded-lg font-medium transition-colors disabled:opacity-50"
                             >
                                 취소
                             </button>

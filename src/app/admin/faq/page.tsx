@@ -502,7 +502,7 @@ export default function AdminFaqPage() {
           </button>
           <button
             onClick={handleSave}
-            className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white"
+            className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-(--bg-primary)"
             style={{ backgroundColor: 'var(--accent-color)' }}
           >
             {editingFaq ? '수정' : '추가'}

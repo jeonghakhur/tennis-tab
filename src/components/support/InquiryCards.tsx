@@ -47,7 +47,7 @@ export function InquiryCards() {
           </p>
           <Link
             href="/auth/login"
-            className="inline-block px-4 py-1.5 rounded-lg text-xs font-medium text-white"
+            className="inline-block px-4 py-1.5 rounded-lg text-xs font-medium text-(--bg-primary)"
             style={{ backgroundColor: 'var(--accent-color)' }}
           >
             로그인

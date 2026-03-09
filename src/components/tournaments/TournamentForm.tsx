@@ -220,7 +220,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
         );
     }
 
-    const inputClass = "w-full bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none";
+    const inputClass = "w-full bg-(--bg-input) border border-(--border-color) rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none";
     const labelClass = "block text-sm font-medium mb-1";
 
     return (
@@ -239,8 +239,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             )}
 
             {/* 대표 이미지 섹션 */}
-            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                <h3 className="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">대표 이미지</h3>
+            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+                <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">대표 이미지</h3>
                 <ImageUpload
                     value={posterUrl}
                     onChange={setPosterUrl}
@@ -251,8 +251,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 기본 정보 섹션 */}
-            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                <h3 className="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">기본 정보</h3>
+            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+                <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">기본 정보</h3>
 
                 <div>
                     <label className={labelClass}>대회명 *</label>
@@ -353,8 +353,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 일정 섹션 */}
-            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                <h3 className="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">대회 일정</h3>
+            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+                <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">대회 일정</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -437,8 +437,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 참가 정보 섹션 */}
-            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                <h3 className="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">참가 정보</h3>
+            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+                <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">참가 정보</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
@@ -485,8 +485,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 참가부서 섹션 */}
-            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-2">
+            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+                <div className="flex items-center justify-between border-b border-(--border-color) pb-2">
                     <h3 className="text-lg font-semibold">참가 부서</h3>
                     <button
                         type="button"
@@ -504,7 +504,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                 ) : (
                     <div className="space-y-6">
                         {divisions.map((division, index) => (
-                            <div key={index} className="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 space-y-4">
+                            <div key={index} className="p-4 bg-(--bg-input) rounded-lg border border-(--border-color) space-y-4">
                                 <div className="flex items-center justify-between">
                                     <span className="font-medium">부서 {index + 1}</span>
                                     <button
@@ -626,8 +626,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 상세 설명 섹션 */}
-            <section className="space-y-4 p-6 bg-gray-50 dark:bg-gray-900 rounded-xl">
-                <h3 className="text-lg font-semibold border-b border-gray-200 dark:border-gray-700 pb-2">상세 설명</h3>
+            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+                <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">상세 설명</h3>
                 <input type="hidden" name="description" value={description} />
                 <RichTextEditor
                     value={description}
@@ -641,7 +641,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-gray-900 dark:text-white font-medium py-3 px-8 rounded-lg transition-colors"
+                        className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-(--text-primary) font-medium py-3 px-8 rounded-lg transition-colors"
                     >
                         취소
                     </button>
@@ -682,7 +682,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                     <button
                         type="button"
                         onClick={() => { setPendingRemove(null); setRemoveConfirmInput(''); }}
-                        className="flex-1 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className="flex-1 px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-700 text-(--text-primary)"
                     >
                         취소
                     </button>

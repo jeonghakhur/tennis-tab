@@ -40,7 +40,7 @@ export default function InquiryHistoryPage() {
             </p>
             <Link
               href="/auth/login"
-              className="inline-block px-6 py-3 rounded-lg font-medium text-white"
+              className="inline-block px-6 py-3 rounded-lg font-medium text-(--bg-primary)"
               style={{ backgroundColor: 'var(--accent-color)' }}
             >
               로그인
@@ -77,7 +77,7 @@ export default function InquiryHistoryPage() {
             </h1>
             <Link
               href="/support/inquiry"
-              className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium text-white"
+              className="flex items-center gap-1 px-4 py-2 rounded-lg text-sm font-medium text-(--bg-primary)"
               style={{ backgroundColor: 'var(--accent-color)' }}
             >
               <Plus className="w-4 h-4" />
