@@ -8,6 +8,7 @@ import { FontSizeToggle } from './FontSizeToggle'
 import { UserAvatar } from './UserAvatar'
 import { useAuth } from './AuthProvider'
 import { AvatarSkeleton } from './Skeleton'
+import { NotificationBell } from './notifications/NotificationBell'
 
 const NAV_LINKS = [
   { href: '/tournaments', label: '대회' },
@@ -47,6 +48,7 @@ export function Navigation() {
         <div className="flex items-center gap-4">
           <FontSizeToggle />
           <ThemeToggle />
+          {user && <NotificationBell />}
           {loading ? (
             <AvatarSkeleton size={40} />
           ) : user && profile ? (

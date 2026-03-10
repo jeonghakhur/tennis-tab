@@ -6,6 +6,8 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
 import type { BracketStatus, MatchPhase, MatchStatus, MatchType, PartnerData, SetDetail, TeamMember, TournamentStatus } from '@/lib/supabase/types'
+import { createNotification, createBulkNotifications } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 
 // ============================================================================
 // 타입 정의
@@ -1108,6 +1110,37 @@ export async function updateMatchResult(
   const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
   if (result.error) return { error: result.error }
 
+  // 알림: 양측 참가자에게 경기 결과 알림
+  try {
+    const { data: matchData } = await supabaseAdmin
+      .from('bracket_matches')
+      .select('team1_entry_id, team2_entry_id, bracket_config_id')
+      .eq('id', matchId)
+      .single()
+    if (matchData) {
+      const entryIds = [matchData.team1_entry_id, matchData.team2_entry_id].filter(Boolean) as string[]
+      if (entryIds.length > 0) {
+        const { data: entries } = await supabaseAdmin
+          .from('tournament_entries')
+          .select('user_id, tournament_id')
+          .in('id', entryIds)
+        const userIds = [...new Set((entries ?? []).map(e => e.user_id).filter(Boolean))] as string[]
+        const tournamentId = entries?.[0]?.tournament_id
+        if (userIds.length > 0) {
+          await createBulkNotifications({
+            user_ids: userIds,
+            type: NotificationType.MATCH_RESULT_UPDATED,
+            title: '경기 결과 확정',
+            message: `경기 결과: ${team1Score} - ${team2Score}`,
+            tournament_id: tournamentId ?? null,
+            match_id: matchId,
+            metadata: { link: tournamentId ? `/tournaments/${tournamentId}` : undefined },
+          })
+        }
+      }
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+
   revalidatePath('/admin/tournaments')
   revalidatePath('/tournaments')
   return { data: { winnerId: result.winnerId }, error: null }
@@ -1213,6 +1246,31 @@ export async function submitPlayerScore(
   // 점수 저장 + 승자 전파 (공유 로직)
   const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
   if (result.error) return { error: result.error }
+
+  // 알림: 상대방에게 경기 결과 알림
+  try {
+    const opponentEntryId = myEntryIds.includes(match.team1_entry_id ?? '')
+      ? match.team2_entry_id
+      : match.team1_entry_id
+    if (opponentEntryId) {
+      const { data: opponentEntry } = await supabaseAdmin
+        .from('tournament_entries')
+        .select('user_id, tournament_id')
+        .eq('id', opponentEntryId)
+        .single()
+      if (opponentEntry?.user_id) {
+        await createNotification({
+          user_id: opponentEntry.user_id,
+          type: NotificationType.MATCH_RESULT_UPDATED,
+          title: '경기 결과 입력',
+          message: `경기 결과: ${team1Score} - ${team2Score}`,
+          tournament_id: opponentEntry.tournament_id,
+          match_id: matchId,
+          metadata: { link: opponentEntry.tournament_id ? `/tournaments/${opponentEntry.tournament_id}` : undefined },
+        })
+      }
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
   revalidatePath('/tournaments')
   return { data: { winnerId: result.winnerId }, error: null }
@@ -2020,6 +2078,33 @@ export async function generateMainBracket(configId: string, divisionId: string, 
     .from('bracket_configs')
     .update({ bracket_size: bracketSize, status: 'MAIN' })
     .eq('id', configId)
+
+  // 알림: 해당 부서 참가자 전원에게 대진표 생성 알림
+  try {
+    const { data: division } = await supabaseAdmin
+      .from('tournament_divisions')
+      .select('tournament_id')
+      .eq('id', divisionId)
+      .single()
+    if (division) {
+      const { data: entries } = await supabaseAdmin
+        .from('tournament_entries')
+        .select('user_id')
+        .eq('division_id', divisionId)
+        .neq('status', 'CANCELLED')
+      const userIds = [...new Set((entries ?? []).map(e => e.user_id).filter(Boolean))] as string[]
+      if (userIds.length > 0) {
+        await createBulkNotifications({
+          user_ids: userIds,
+          type: NotificationType.BRACKET_GENERATED,
+          title: '대진표 생성',
+          message: '본선 대진표가 생성되었습니다.',
+          tournament_id: division.tournament_id,
+          metadata: { link: `/tournaments/${division.tournament_id}` },
+        })
+      }
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
   revalidatePath('/admin/tournaments')
   revalidatePath('/tournaments')

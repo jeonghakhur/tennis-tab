@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { MatchType, UserRole } from '@/lib/supabase/types'
+import { createBulkNotifications } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 
 /** UUID 형식 검증 */
 function validateId(id: string, fieldName: string): string | null {
@@ -574,6 +576,30 @@ export async function updateTournamentStatus(
   if (updateError) {
     return { success: false, error: '대회 상태 변경에 실패했습니다. 다시 시도해주세요.' }
   }
+
+  // 알림: 참가자 전원에게 대회 상태 변경 알림
+  try {
+    const statusLabels: Record<string, string> = {
+      OPEN: '접수 시작', CLOSED: '접수 마감', IN_PROGRESS: '진행 중',
+      COMPLETED: '종료', CANCELLED: '취소', UPCOMING: '예정', DRAFT: '임시저장',
+    }
+    const { data: entries } = await supabaseAdmin
+      .from('tournament_entries')
+      .select('user_id')
+      .eq('tournament_id', tournamentId)
+      .neq('status', 'CANCELLED')
+    const userIds = [...new Set((entries ?? []).map(e => e.user_id).filter(Boolean))] as string[]
+    if (userIds.length > 0) {
+      await createBulkNotifications({
+        user_ids: userIds,
+        type: NotificationType.TOURNAMENT_STATUS_CHANGED,
+        title: '대회 상태 변경',
+        message: `대회 상태가 "${statusLabels[status] ?? status}"(으)로 변경되었습니다.`,
+        tournament_id: tournamentId,
+        metadata: { link: `/tournaments/${tournamentId}` },
+      })
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
   // 6. 캐시 무효화
   revalidatePath('/tournaments')

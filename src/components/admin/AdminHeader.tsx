@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useTheme } from '@/components/ThemeProvider'
 import { useFontSize } from '@/components/FontSizeProvider'
 import { Sun, Moon, Home, LogOut } from 'lucide-react'
+import { NotificationBell } from '@/components/notifications/NotificationBell'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS } from '@/lib/auth/roles'
 import { signOut } from '@/lib/auth/actions'
@@ -62,6 +63,9 @@ export function AdminHeader({ userName, userEmail, userAvatar, userRole }: Admin
               ? <Sun className="w-5 h-5 text-(--text-secondary)" />
               : <Moon className="w-5 h-5 text-(--text-secondary)" />}
           </button>
+
+          {/* 알림 */}
+          <NotificationBell />
 
           {/* 메인으로 (모바일 전용) */}
           <Link href="/"

@@ -11,6 +11,8 @@ import {
   hasValidationErrors,
 } from '@/lib/utils/validation'
 import type { UserRole } from '@/lib/supabase/types'
+import { createNotification } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 import type {
   Inquiry,
   CreateInquiryInput,
@@ -187,6 +189,24 @@ export async function replyInquiry(
     .eq('id', input.inquiry_id)
 
   if (error) return { error: error.message }
+
+  // 알림: 문의자에게 답변 알림
+  try {
+    const { data: inquiry } = await admin
+      .from('inquiries')
+      .select('user_id')
+      .eq('id', input.inquiry_id)
+      .single()
+    if (inquiry?.user_id) {
+      await createNotification({
+        user_id: inquiry.user_id,
+        type: NotificationType.INQUIRY_REPLIED,
+        title: '문의 답변',
+        message: '문의에 답변이 등록되었습니다.',
+        metadata: { link: `/my/inquiries/${input.inquiry_id}` },
+      })
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
   revalidatePath('/admin/inquiries')
   revalidatePath(`/admin/inquiries/${input.inquiry_id}`)

@@ -12,6 +12,8 @@ import {
   hasValidationErrors,
 } from '@/lib/utils/validation'
 import { decryptProfile } from '@/lib/crypto/profileCrypto'
+import { createNotification, createBulkNotifications } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 import type {
   Club,
   ClubMember,
@@ -656,6 +658,29 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     return { error: '클럽 가입에 실패했습니다.' }
   }
 
+  // 알림: APPROVAL 모드 → 클럽 OWNER/ADMIN에게 가입 신청 알림
+  if (status === 'PENDING') {
+    try {
+      const { data: admins } = await admin
+        .from('club_members')
+        .select('user_id')
+        .eq('club_id', clubId)
+        .in('role', ['OWNER', 'ADMIN'])
+        .eq('status', 'ACTIVE')
+      const adminUserIds = (admins ?? []).map(a => a.user_id).filter(Boolean) as string[]
+      if (adminUserIds.length > 0) {
+        await createBulkNotifications({
+          user_ids: adminUserIds,
+          type: NotificationType.CLUB_JOIN_REQUESTED,
+          title: '클럽 가입 신청',
+          message: `${user.name}님이 클럽 가입을 신청했습니다.`,
+          club_id: clubId,
+          metadata: { link: `/admin/clubs/${clubId}` },
+        })
+      }
+    } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+  }
+
   // 첫 클럽이면 profiles.club 레거시 필드 동기화
   if (shouldBePrimary) {
     await admin
@@ -711,6 +736,19 @@ export async function inviteMember(clubId: string, userId: string): Promise<{ er
     if (error.code === '23505') return { error: '이미 해당 클럽에 등록된 사용자입니다.' }
     return { error: '회원 초대에 실패했습니다.' }
   }
+
+  // 알림: 초대받은 사용자에게 클럽 초대 알림
+  try {
+    const { data: club } = await admin.from('clubs').select('name').eq('id', clubId).single()
+    await createNotification({
+      user_id: userId,
+      type: NotificationType.CLUB_INVITED,
+      title: '클럽 초대',
+      message: `${club?.name ?? '클럽'}에 초대되었습니다.`,
+      club_id: clubId,
+      metadata: { link: `/clubs/${clubId}` },
+    })
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
   revalidatePath(`/admin/clubs/${clubId}`)
   return {}
@@ -861,6 +899,23 @@ export async function respondJoinRequest(
   } else {
     // 거절 시 레코드 삭제
     await admin.from('club_members').delete().eq('id', memberId)
+  }
+
+  // 알림: 신청자에게 승인/거절 알림
+  if (member.user_id) {
+    try {
+      const { data: club } = await admin.from('clubs').select('name').eq('id', member.club_id).single()
+      await createNotification({
+        user_id: member.user_id,
+        type: approve ? NotificationType.CLUB_MEMBER_APPROVED : NotificationType.CLUB_MEMBER_REJECTED,
+        title: approve ? '클럽 가입 승인' : '클럽 가입 거절',
+        message: approve
+          ? `${club?.name ?? '클럽'} 가입이 승인되었습니다.`
+          : `${club?.name ?? '클럽'} 가입이 거절되었습니다.`,
+        club_id: member.club_id,
+        metadata: { link: approve ? `/clubs/${member.club_id}` : '/clubs' },
+      })
+    } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
   }
 
   revalidatePath(`/admin/clubs/${member.club_id}`)

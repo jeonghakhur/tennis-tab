@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
+import { createNotification } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
@@ -240,6 +242,19 @@ export async function createEntry(
             return { success: false, error: '참가 신청 처리 후 결과를 확인할 수 없습니다.' };
         }
 
+        // 알림: 주최자에게 참가 신청 접수 알림
+        try {
+            await createNotification({
+                user_id: tournament.organizer_id,
+                type: NotificationType.ENTRY_SUBMITTED,
+                title: '참가 신청 접수',
+                message: `${entryData.playerName}님이 참가 신청했습니다.`,
+                tournament_id: tournamentId,
+                entry_id: newEntry.id,
+                metadata: { link: `/admin/tournaments/${tournamentId}/entries` },
+            })
+        } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+
         // 8. 캐시 무효화
         revalidatePath(`/tournaments/${tournamentId}`);
         revalidatePath('/tournaments');
@@ -303,6 +318,22 @@ export async function updateEntryStatus(
             console.error('Update error:', updateError);
             return { success: false, error: '상태 업데이트에 실패했습니다.' };
         }
+
+        // 알림: 참가자에게 승인/거절 알림
+        try {
+            const isApproved = newStatus === 'CONFIRMED'
+            await createNotification({
+                user_id: entry.user_id,
+                type: isApproved ? NotificationType.ENTRY_APPROVED : NotificationType.ENTRY_REJECTED,
+                title: isApproved ? '참가 신청 승인' : '참가 신청 거절',
+                message: isApproved
+                    ? '참가 신청이 승인되었습니다.'
+                    : '참가 신청이 거절되었습니다.',
+                tournament_id: entry.tournament_id,
+                entry_id: entryId,
+                metadata: { link: '/my/entries' },
+            })
+        } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
         // 5. 캐시 무효화
         revalidatePath(`/tournaments/${entry.tournament_id}`);
@@ -374,6 +405,26 @@ export async function cancelEntryByAdmin(
     if (cancelError) {
         return { success: false, error: cancelError.message || '신청 취소에 실패했습니다.' };
     }
+
+    // 알림: 주최자에게 참가 취소 알림
+    try {
+        const { data: tournament } = await admin
+            .from('tournaments')
+            .select('organizer_id')
+            .eq('id', entry.tournament_id)
+            .single()
+        if (tournament) {
+            await createNotification({
+                user_id: tournament.organizer_id,
+                type: NotificationType.ENTRY_CANCELLED,
+                title: '참가 취소',
+                message: '참가자가 신청을 취소했습니다.',
+                tournament_id: entry.tournament_id,
+                entry_id: entryId,
+                metadata: { link: `/admin/tournaments/${entry.tournament_id}/entries` },
+            })
+        }
+    } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
     // 4. CONFIRMED 취소 시 대기자 자동 승격
     if (wasConfirmed) {
@@ -466,7 +517,7 @@ export async function updateRefundStatus(
         const admin = createAdminClient()
         const { data: entry } = await admin
             .from('tournament_entries')
-            .select('tournament_id')
+            .select('tournament_id, user_id')
             .eq('id', entryId)
             .single()
 
@@ -476,6 +527,21 @@ export async function updateRefundStatus(
             .eq('id', entryId)
 
         if (error) return { success: false, error: error.message }
+
+        // 알림: 환불 완료 시 참가자에게 알림
+        if (status === 'COMPLETED' && entry?.user_id) {
+            try {
+                await createNotification({
+                    user_id: entry.user_id,
+                    type: NotificationType.REFUND_COMPLETED,
+                    title: '환불 완료',
+                    message: '환불이 완료되었습니다.',
+                    tournament_id: entry.tournament_id,
+                    entry_id: entryId,
+                    metadata: { link: '/my/entries' },
+                })
+            } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+        }
 
         if (entry?.tournament_id) {
             revalidatePath(`/admin/tournaments/${entry.tournament_id}/entries`)
@@ -526,6 +592,26 @@ export async function confirmBankTransfer(entryId: string): Promise<{
         if (!result?.success) {
             return { success: false, error: result?.error_message ?? '입금 확인 처리에 실패했습니다.' }
         }
+
+        // 알림: 주최자에게 결제 확인 알림
+        try {
+            const { data: tournament } = await admin
+                .from('tournaments')
+                .select('organizer_id')
+                .eq('id', entry.tournament_id)
+                .single()
+            if (tournament) {
+                await createNotification({
+                    user_id: tournament.organizer_id,
+                    type: NotificationType.PAYMENT_COMPLETED,
+                    title: '입금 확인',
+                    message: '참가자가 입금 확인을 요청했습니다.',
+                    tournament_id: entry.tournament_id,
+                    entry_id: entryId,
+                    metadata: { link: `/admin/tournaments/${entry.tournament_id}/entries` },
+                })
+            }
+        } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
         revalidatePath(`/tournaments/${entry.tournament_id}`)
         revalidatePath('/my/entries')
