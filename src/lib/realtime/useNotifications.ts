@@ -40,6 +40,10 @@ export function useNotifications({
 
   const handleSetUnreadCount = useCallback((count: number) => {
     setUnreadCount(count)
+    // 다른 useNotifications 인스턴스(예: NotificationBell)에 알림
+    window.dispatchEvent(
+      new CustomEvent('notifications:unreadCount', { detail: count })
+    )
   }, [])
 
   useEffect(() => {
@@ -100,6 +104,16 @@ export function useNotifications({
   useEffect(() => {
     setUnreadCount(initialUnreadCount)
   }, [initialUnreadCount])
+
+  // 다른 인스턴스에서 발행한 unreadCount 변경 이벤트 수신
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const count = (e as CustomEvent<number>).detail
+      setUnreadCount(count)
+    }
+    window.addEventListener('notifications:unreadCount', handler)
+    return () => window.removeEventListener('notifications:unreadCount', handler)
+  }, [])
 
   return {
     unreadCount,
