@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { X } from "lucide-react";
 import { GuideCarousel, type GuideSlide } from "./GuideCarousel";
 
@@ -14,48 +14,40 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     title: "대회 목록 확인",
     description:
       "상단 내비게이션의 대회를 클릭하면 전체 목록이 나타납니다. 상태 배지(접수중 · 예정 · 마감 · 진행중)로 지금 신청 가능한 대회를 바로 파악하세요.",
-    screenshot: "tournament-flow/list-desktop.png",
-    screenshotMobile: "tournament-flow/list-mobile.png",
+    screenshot: "tournament-flow/01-list-desktop.png",
+    screenshotMobile: "tournament-flow/01-list-mobile.png",
     screenshotAlt: "대회 목록 화면",
   },
   {
     title: "대회 상세 확인",
     description:
-      "대회 카드를 클릭하면 일시 · 장소 · 참가비 · 부서별 정보를 한눈에 확인할 수 있습니다. 신청 버튼이 우측 패널에 바로 제공됩니다.",
-    screenshot: "tournament-flow/detail-desktop.png",
-    screenshotMobile: "tournament-flow/detail-mobile.png",
+      "대회 카드를 클릭하면 일시 · 장소 · 참가비 · 신청 버튼을 한눈에 확인할 수 있습니다. 우측 패널에서 바로 참가 신청이 가능합니다.",
+    screenshot: "tournament-flow/02-detail-desktop.png",
+    screenshotMobile: "tournament-flow/02-detail-mobile.png",
     screenshotAlt: "대회 상세 화면",
   },
   {
     title: "요강 & 부서 정보",
     description:
       "스크롤을 내리면 참가 부서 · 경기 방식 · 요강 · 장소 지도까지 상세 정보가 이어집니다. 참가 전 꼭 확인하세요.",
-    screenshot: "tournament-flow/detail-info-desktop.png",
-    screenshotMobile: "tournament-flow/detail-info-mobile.png",
+    screenshot: "tournament-flow/03-detail-scroll-desktop.png",
+    screenshotMobile: "tournament-flow/03-detail-scroll-mobile.png",
     screenshotAlt: "대회 요강 및 부서 정보 화면",
-  },
-  {
-    title: "참가 신청 & 결제",
-    description:
-      "참가 신청 버튼 → 부서 선택 → 정보 입력 순으로 진행합니다. 참가비가 있는 경우 계좌이체 후 주최측 확인을 기다리세요.",
-    screenshot: "tournament-flow/apply-desktop.png",
-    screenshotMobile: "tournament-flow/apply-mobile.png",
-    screenshotAlt: "참가 신청 화면",
   },
   {
     title: "대진표 확인",
     description:
       "대회가 시작되면 대진표 탭에서 조별 편성과 경기 일정을 확인하세요. 결과 입력 후 실시간으로 대진이 업데이트됩니다.",
-    screenshot: "tournament-flow/bracket-desktop.png",
-    screenshotMobile: "tournament-flow/bracket-mobile.png",
+    screenshot: "tournament-flow/06-bracket-desktop.png",
+    screenshotMobile: "tournament-flow/06-bracket-mobile.png",
     screenshotAlt: "대진표 화면",
   },
   {
     title: "내 신청 내역 관리",
     description:
       "상단 내 정보 → 신청 내역에서 모든 대회 신청 현황을 확인합니다. 상태별 필터로 대기 중 · 승인 · 진행 중을 구분하고 필요 시 취소할 수 있습니다.",
-    screenshot: "tournament-flow/my-entries-desktop.png",
-    screenshotMobile: "tournament-flow/my-entries-mobile.png",
+    screenshot: "tournament-flow/07-my-entries-desktop.png",
+    screenshotMobile: "tournament-flow/07-my-entries-mobile.png",
     screenshotAlt: "내 신청 내역 화면",
   },
 ];
@@ -242,6 +234,7 @@ export function GuideOnboardingModal() {
   const [isClosing, setIsClosing] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const dragStartY = useRef<number | null>(null);
+  const dragYRef = useRef(0); // 최신 dragY를 document 핸들러에서 읽기 위한 ref
   const isDragging = useRef(false);
 
   useEffect(() => {
@@ -270,29 +263,57 @@ export function GuideOnboardingModal() {
     closeWithAnimation();
   };
 
-  // ── 드래그 핸들러 (터치 + 마우스 공통) ──
-  const onDragStart = (clientY: number) => {
-    dragStartY.current = clientY;
-    isDragging.current = true;
-  };
-
-  const onDragMove = (clientY: number) => {
+  // ── 터치 드래그 핸들러 ──
+  const onTouchDragMove = (clientY: number) => {
     if (!isDragging.current || dragStartY.current === null) return;
-    const delta = clientY - dragStartY.current;
-    setDragY(Math.max(0, delta)); // 위로는 안 올라감
+    const delta = Math.max(0, clientY - dragStartY.current);
+    dragYRef.current = delta;
+    setDragY(delta);
   };
 
-  const onDragEnd = () => {
+  const onTouchDragEnd = useCallback(() => {
     if (!isDragging.current) return;
     isDragging.current = false;
-    if (dragY >= DRAG_CLOSE_THRESHOLD) {
+    dragStartY.current = null;
+    if (dragYRef.current >= DRAG_CLOSE_THRESHOLD) {
       closeWithAnimation();
     } else {
-      // 스냅백
+      dragYRef.current = 0;
       setDragY(0);
     }
-    dragStartY.current = null;
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ── 마우스 드래그 — document 레벨 처리 (핸들 영역 밖으로 이동해도 유지) ──
+  const onMouseDragStart = useCallback((clientY: number) => {
+    dragStartY.current = clientY;
+    isDragging.current = true;
+    dragYRef.current = 0;
+
+    const handleMove = (e: MouseEvent) => {
+      if (!isDragging.current || dragStartY.current === null) return;
+      const delta = Math.max(0, e.clientY - dragStartY.current);
+      dragYRef.current = delta;
+      setDragY(delta);
+    };
+
+    const handleUp = () => {
+      isDragging.current = false;
+      document.removeEventListener("mousemove", handleMove);
+      document.removeEventListener("mouseup", handleUp);
+      dragStartY.current = null;
+      if (dragYRef.current >= DRAG_CLOSE_THRESHOLD) {
+        closeWithAnimation();
+      } else {
+        dragYRef.current = 0;
+        setDragY(0);
+      }
+    };
+
+    document.addEventListener("mousemove", handleMove);
+    document.addEventListener("mouseup", handleUp);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!visible) return null;
 
@@ -338,13 +359,14 @@ export function GuideOnboardingModal() {
             paddingTop: "10px",
             paddingBottom: "10px",
           }}
-          onMouseDown={(e) => onDragStart(e.clientY)}
-          onMouseMove={(e) => { if (isDragging.current) onDragMove(e.clientY); }}
-          onMouseUp={onDragEnd}
-          onMouseLeave={onDragEnd}
-          onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
-          onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
-          onTouchEnd={onDragEnd}
+          onMouseDown={(e) => onMouseDragStart(e.clientY)}
+          onTouchStart={(e) => {
+            dragStartY.current = e.touches[0].clientY;
+            isDragging.current = true;
+            dragYRef.current = 0;
+          }}
+          onTouchMove={(e) => onTouchDragMove(e.touches[0].clientY)}
+          onTouchEnd={onTouchDragEnd}
           aria-hidden="true"
         >
           {/* 아이폰 홈 인디케이터 스타일 핸들 바 */}
