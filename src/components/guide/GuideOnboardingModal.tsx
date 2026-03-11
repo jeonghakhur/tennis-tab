@@ -97,6 +97,14 @@ const CHAT_SLIDES: GuideSlide[] = [
     screenshotMobile: "chat-club-schedule-mobile.png",
     screenshotAlt: "AI 채팅 — 클럽 모임 일정 조회",
   },
+  {
+    title: "대화로 간편하게 참가 신청",
+    description:
+      '"○○대회 신청하고 싶어"라고 입력하면 AI가 단계별로 안내합니다. 부서 선택 → 신청 확인 순으로 진행되며 "취소"를 입력하면 언제든 중단할 수 있습니다.',
+    screenshot: "chat-tournament-registration-desktop.png",
+    screenshotMobile: "chat-tournament-registration-mobile.png",
+    screenshotAlt: "AI 채팅 — 대회 참가 신청 플로우",
+  },
 ];
 
 const SECTIONS = [
@@ -185,7 +193,7 @@ export function GuideOnboardingModal() {
 
         {/* ── 3개 섹션 전체 표시 (스크롤) ── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl mx-auto px-4 py-8 space-y-14">
+          <div className="max-w-2xl md:max-w-4xl mx-auto px-4 py-8 space-y-14">
             {SECTIONS.map((section) => (
               <div key={section.label}>
                 <GuideCarousel

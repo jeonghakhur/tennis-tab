@@ -70,6 +70,24 @@ const DEMO_SCENARIOS: Record<string, { title: string; messages: DemoMessage[] }>
       },
     ],
   },
+  'tournament-registration': {
+    title: '대회 참가 신청',
+    messages: [
+      { role: 'user', content: '마포구청장기 테니스 대회 신청하고 싶어' },
+      {
+        role: 'assistant',
+        content: `마포구청장기 테니스 대회 참가 신청을 도와드릴게요! ✍️\n\n**마포구청장기 테니스 대회**\n📅 2025년 3월 22일 (토) 09:00\n📍 마포 테니스장\n💰 참가비: 30,000원 (계좌이체)\n\n아래 부서 중 어디에 신청하시겠어요?\n\n1️⃣ 일반부 단식 (남자)\n2️⃣ 일반부 단식 (여자)\n3️⃣ 혼합 복식\n4️⃣ 35세 이상 시니어 단식\n\n번호를 입력하거나 직접 부서명을 말씀해 주세요.\n("취소"를 입력하면 신청을 중단합니다)`,
+      },
+      { role: 'user', content: '1번으로 할게' },
+      {
+        role: 'assistant',
+        content: `일반부 단식 (남자) 선택하셨습니다! 👍\n\n신청 전 아래 정보를 확인해 주세요:\n\n📋 **신청 정보**\n• 대회: 마포구청장기 테니스 대회\n• 부서: 일반부 단식 (남자)\n• 참가비: 30,000원\n• 입금 계좌: 국민은행 123-456-789012 (마포구테니스협회)\n\n✅ 위 내용으로 신청을 진행할까요?\n"확인" 입력 시 신청이 완료됩니다.`,
+        links: [
+          { href: '/tournaments', label: '대회 상세 보기' },
+        ],
+      },
+    ],
+  },
 }
 
 function ChatDemoContent() {

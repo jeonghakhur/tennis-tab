@@ -11,10 +11,7 @@ const OUTPUT_DIR = path.join(__dirname, '../public/guide/screenshots')
 const BASE_URL = 'http://localhost:3000'
 
 const SCENARIOS = [
-  { key: 'tournament-search', label: '대회 검색' },
-  { key: 'my-application', label: '나의 참가 신청' },
-  { key: 'winners', label: '우승자 조회' },
-  { key: 'club-schedule', label: '클럽 모임 일정' },
+  { key: 'tournament-registration', label: '참가 신청 플로우' },
 ]
 
 const VIEWPORTS = [
