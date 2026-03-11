@@ -27,28 +27,34 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     screenshotAlt: "대회 상세 화면",
   },
   {
-    title: "요강 & 부서 정보",
+    title: "참가 신청 폼",
     description:
-      "스크롤을 내리면 참가 부서 · 경기 방식 · 요강 · 장소 지도까지 상세 정보가 이어집니다. 참가 전 꼭 확인하세요.",
-    screenshot: "tournament-flow/03-detail-scroll-desktop.png",
-    screenshotMobile: "tournament-flow/03-detail-scroll-mobile.png",
-    screenshotAlt: "대회 요강 및 부서 정보 화면",
+      "참가 신청 버튼을 클릭하면 신청 폼이 열립니다. 부서 선택 · 파트너 정보 · 환불 계좌를 입력하고 제출하면 즉시 신청이 완료됩니다.",
+    screenshot: "tournament-flow/05-apply-form-desktop.png",
+    screenshotAlt: "참가 신청 폼 화면",
   },
   {
     title: "대진표 확인",
     description:
-      "대회가 시작되면 대진표 탭에서 조별 편성과 경기 일정을 확인하세요. 결과 입력 후 실시간으로 대진이 업데이트됩니다.",
-    screenshot: "tournament-flow/06-bracket-desktop.png",
-    screenshotMobile: "tournament-flow/06-bracket-mobile.png",
+      "대회가 시작되면 대진표 탭에서 부서별 경기 일정을 확인하세요. 예선 · 본선 탭으로 나뉘며 각 매치의 대진과 결과가 실시간으로 업데이트됩니다.",
+    screenshot: "tournament-flow/09-bracket-public-desktop.png",
+    screenshotMobile: "tournament-flow/09-bracket-public-mobile.png",
     screenshotAlt: "대진표 화면",
   },
   {
     title: "내 신청 내역 관리",
     description:
-      "상단 내 정보 → 신청 내역에서 모든 대회 신청 현황을 확인합니다. 상태별 필터로 대기 중 · 승인 · 진행 중을 구분하고 필요 시 취소할 수 있습니다.",
-    screenshot: "tournament-flow/07-my-entries-desktop.png",
-    screenshotMobile: "tournament-flow/07-my-entries-mobile.png",
+      "상단 내 정보 → 신청 내역에서 모든 대회 신청 현황을 확인합니다. 상태별 필터로 대기 중 · 확정 · 취소를 구분하고 파트너 정보도 한눈에 볼 수 있습니다.",
+    screenshot: "tournament-flow/10-my-entries-desktop.png",
+    screenshotMobile: "tournament-flow/10-my-entries-mobile.png",
     screenshotAlt: "내 신청 내역 화면",
+  },
+  {
+    title: "점수 입력",
+    description:
+      "대회 관리자는 경기가 완료되면 각 매치의 점수를 입력합니다. 점수 입력 후 승자가 자동으로 다음 라운드로 진출하며 대진표가 실시간으로 업데이트됩니다.",
+    screenshot: "tournament-flow/07-score-entry-desktop.png",
+    screenshotAlt: "점수 입력 화면",
   },
 ];
 
@@ -205,21 +211,30 @@ const CHAT_SLIDES: GuideSlide[] = [
 const SECTIONS = [
   {
     label: "대회 참가",
+    description: "대회 검색부터 신청·대진표 확인까지",
+    icon: "🎾",
     slides: TOURNAMENT_SLIDES,
     accentColor: "#ccff00",
     accentBorder: "rgba(204,255,0,0.2)",
+    accentBg: "rgba(204,255,0,0.08)",
   },
   {
     label: "클럽 이용",
+    description: "클럽 탐색·가입·모임 참여 전 과정",
+    icon: "🏅",
     slides: CLUB_SLIDES,
-    accentColor: "rgba(255,255,255,0.75)",
-    accentBorder: "rgba(255,255,255,0.1)",
+    accentColor: "rgba(255,255,255,0.85)",
+    accentBorder: "rgba(255,255,255,0.12)",
+    accentBg: "rgba(255,255,255,0.04)",
   },
   {
     label: "AI 채팅",
+    description: "자연어로 대회·클럽 정보 즉시 조회",
+    icon: "💬",
     slides: CHAT_SLIDES,
     accentColor: "#3B82F6",
     accentBorder: "rgba(59,130,246,0.2)",
+    accentBg: "rgba(59,130,246,0.08)",
   },
 ];
 
@@ -385,9 +400,15 @@ export function GuideOnboardingModal() {
 
         {/* ── 3개 섹션 전체 표시 (스크롤) ── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl md:max-w-screen-xl mx-auto px-4 py-6 space-y-14">
-            {SECTIONS.map((section) => (
+          <div className="max-w-2xl md:max-w-screen-xl mx-auto px-4 py-10 space-y-0">
+            {SECTIONS.map((section, idx) => (
               <div key={section.label}>
+                {idx > 0 && (
+                  <div
+                    className="h-px mb-16"
+                    style={{ backgroundColor: "var(--border-color)" }}
+                  />
+                )}
                 <GuideCarousel
                   slides={section.slides}
                   accentColor={section.accentColor}

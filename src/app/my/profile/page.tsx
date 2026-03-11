@@ -797,57 +797,7 @@ export default function MyProfilePage() {
                 </div>
               </div>
 
-              {/* 팔로워 섹션 (추후 구현 예정) */}
-              <div className="glass-card p-6">
-                <h3
-                  className="text-xl font-display mb-4"
-                  style={{ color: "var(--text-primary)" }}
-                >
-                  팔로워
-                </h3>
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div
-                    className="text-center py-4 rounded-lg"
-                    style={{ backgroundColor: "var(--bg-card-hover)" }}
-                  >
-                    <div
-                      className="text-2xl font-display mb-1"
-                      style={{ color: "var(--accent-color)" }}
-                    >
-                      0
-                    </div>
-                    <div
-                      className="text-sm"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      팔로워
-                    </div>
-                  </div>
-                  <div
-                    className="text-center py-4 rounded-lg"
-                    style={{ backgroundColor: "var(--bg-card-hover)" }}
-                  >
-                    <div
-                      className="text-2xl font-display mb-1"
-                      style={{ color: "var(--accent-color)" }}
-                    >
-                      0
-                    </div>
-                    <div
-                      className="text-sm"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      팔로잉
-                    </div>
-                  </div>
-                </div>
-                <p
-                  className="text-sm text-center"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  팔로워 기능은 추후 업데이트 예정입니다
-                </p>
-              </div>
+              {/* 팔로워 섹션 — 추후 구현 예정, 숨김 처리 */}
 
               {/* 화면 설정 */}
               <div className="glass-card p-6">
