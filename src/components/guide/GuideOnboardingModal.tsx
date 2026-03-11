@@ -367,7 +367,7 @@ export function GuideOnboardingModal() {
         tabIndex={-1}
         className="relative flex flex-col outline-none rounded-t-3xl"
         style={{
-          height: "90vh",
+          height: "90dvh",
           backgroundColor: "var(--bg-primary)",
           border: "1px solid var(--border-color)",
           borderBottom: "none",
