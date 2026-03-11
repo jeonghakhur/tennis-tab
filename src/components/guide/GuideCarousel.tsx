@@ -153,7 +153,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                   </span>
                 </div>
                 {/* 이미지 — 데스크탑/모바일 반응형 */}
-                <div className="overflow-hidden" style={{ maxHeight: "clamp(300px, 50vw, 560px)" }}>
+                <div className="overflow-hidden" style={{ maxHeight: "clamp(300px, 62.5vw, 800px)" }}>
                   {/* 데스크탑 이미지 (md 이상) */}
                   <Image
                     src={`/guide/screenshots/${s.screenshot}`}
@@ -161,7 +161,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                     width={1280}
                     height={800}
                     className={`w-full h-auto${s.screenshotMobile ? " hidden md:block" : " block"}`}
-                    style={{ maxHeight: "clamp(300px, 50vw, 560px)", objectFit: "cover", objectPosition: "top" }}
+                    style={{ maxHeight: "clamp(300px, 62.5vw, 800px)", objectFit: "cover", objectPosition: "top" }}
                     priority={i === 0}
                     draggable={false}
                   />
@@ -173,7 +173,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                       width={390}
                       height={844}
                       className="w-full h-auto block md:hidden"
-                      style={{ maxHeight: "clamp(300px, 50vw, 560px)", objectFit: "cover", objectPosition: "top" }}
+                      style={{ maxHeight: "clamp(300px, 62.5vw, 800px)", objectFit: "cover", objectPosition: "top" }}
                       priority={i === 0}
                       draggable={false}
                     />
