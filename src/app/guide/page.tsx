@@ -1,13 +1,19 @@
-"use client";
+import type { Metadata } from "next";
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
+import {
+  GuideCarousel,
+  type GuideSlide,
+} from "@/components/guide/GuideCarousel";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import { X } from "lucide-react";
-import { GuideCarousel, type GuideSlide } from "./GuideCarousel";
-
-const STORAGE_KEY = "guide_onboarding_dismissed";
+export const metadata: Metadata = {
+  title: "이용 안내 | Tennis Tab",
+  description:
+    "Tennis Tab 주요 기능 사용 방법 안내: 대회 참가, 클럽 이용, AI 자연어 검색",
+};
 
 // ─────────────────────────────────────────────
-// 슬라이드 데이터 (GuideCarousel과 동일)
+// 섹션별 슬라이드 데이터
 // ─────────────────────────────────────────────
 const TOURNAMENT_SLIDES: GuideSlide[] = [
   {
@@ -181,278 +187,147 @@ const CHAT_SLIDES: GuideSlide[] = [
     title: "대회 검색",
     description:
       '"지금 신청 가능한 대회 알려줘", "마포구 대회 있어?", "6월에 열리는 테니스 대회 보여줘" — 지역, 날짜, 상태 조건을 자유롭게 조합해 물어보세요.',
-    screenshot: "chat-tournament-search-desktop.png",
-    screenshotMobile: "chat-tournament-search-mobile.png",
-    screenshotAlt: "AI 채팅 — 대회 검색 결과",
+    screenshot: "chat-main.png",
+    screenshotAlt: "AI 채팅 — 대회 검색",
   },
   {
-    title: "대화로 간편하게 참가 신청",
+    title: "참가 신청",
     description:
-      '"○○대회 신청하고 싶어"라고 입력하면 AI가 단계별로 안내합니다. 부서 선택 → 신청 확인 순으로 진행되며 "취소"를 입력하면 언제든 중단할 수 있습니다.',
-    screenshot: "chat-tournament-registration-desktop.png",
-    screenshotMobile: "chat-tournament-registration-mobile.png",
-    screenshotAlt: "AI 채팅 — 대회 참가 신청 플로우",
+      '"○○대회 신청하고 싶어"라고 입력하면 AI가 단계별로 안내합니다. 대회 선택 → 부서 → 연락처 → 확인 순으로 진행되며, "취소"를 입력하면 언제든 중단할 수 있습니다.',
+    screenshot: "chat-main.png",
+    screenshotAlt: "AI 채팅 — 참가 신청",
   },
   {
-    title: "나의 참가 신청 확인",
-    description:
-      '"내가 신청한 대회 목록 보여줘", "다음 내 경기 언제야?" — AI가 내 신청 내역과 경기 일정을 한눈에 정리해 드립니다.',
-    screenshot: "chat-my-application-desktop.png",
-    screenshotMobile: "chat-my-application-mobile.png",
-    screenshotAlt: "AI 채팅 — 나의 참가 신청 조회",
-  },
-  {
-    title: "우승자 · 입상 기록 조회",
+    title: "우승자 조회",
     description:
       '"최근 우승자 누구야?", "○○대회 단식 우승자 알려줘", "올해 입상 기록 보여줘" — 대회별 입상 기록을 바로 확인할 수 있습니다.',
-    screenshot: "chat-winners-desktop.png",
-    screenshotMobile: "chat-winners-mobile.png",
-    screenshotAlt: "AI 채팅 — 우승자 및 입상 기록 조회",
+    screenshot: "chat-main.png",
+    screenshotAlt: "AI 채팅 — 우승자 조회",
   },
   {
-    title: "클럽 모임 일정 조회",
+    title: "모임 검색",
     description:
-      '"이번 주 클럽 모임 일정 알려줘", "내가 신청한 모임 보여줘" — 가입한 클럽의 모임 일정과 내 참석 현황을 바로 조회할 수 있습니다.',
-    screenshot: "chat-club-schedule-desktop.png",
-    screenshotMobile: "chat-club-schedule-mobile.png",
-    screenshotAlt: "AI 채팅 — 클럽 모임 일정 조회",
+      '"이번 주 모임 있어?", "내가 신청한 모임 보여줘", "다음 경기 언제야?" — 클럽 모임 일정과 내 참석 현황을 바로 조회할 수 있습니다.',
+    screenshot: "chat-main.png",
+    screenshotAlt: "AI 채팅 — 모임 검색",
   },
 ];
 
+// ─────────────────────────────────────────────
+// 섹션 메타
+// ─────────────────────────────────────────────
 const SECTIONS = [
   {
+    id: "tournament",
     label: "대회 참가",
-    description: "대회 검색부터 신청·대진표 확인까지",
-    icon: "🎾",
+    index: "01",
     slides: TOURNAMENT_SLIDES,
     accentColor: "#ccff00",
     accentBorder: "rgba(204,255,0,0.2)",
-    accentBg: "rgba(204,255,0,0.08)",
+    cta: { label: "대회 목록 보기", href: "/tournaments" },
+    ctaStyle: { backgroundColor: "#ccff00", color: "#09090b" } as React.CSSProperties,
   },
   {
+    id: "club",
     label: "클럽 이용",
-    description: "클럽 탐색·가입·모임 참여 전 과정",
-    icon: "🏅",
+    index: "02",
     slides: CLUB_SLIDES,
-    accentColor: "rgba(255,255,255,0.85)",
-    accentBorder: "rgba(255,255,255,0.12)",
-    accentBg: "rgba(255,255,255,0.04)",
+    accentColor: "rgba(255,255,255,0.75)",
+    accentBorder: "rgba(255,255,255,0.1)",
+    cta: { label: "클럽 찾기", href: "/clubs" },
+    ctaStyle: {
+      backgroundColor: "transparent",
+      color: "var(--text-primary)",
+      border: "2px solid rgba(255,255,255,0.2)",
+    } as React.CSSProperties,
   },
   {
+    id: "chat",
     label: "AI 채팅",
-    description: "자연어로 대회·클럽 정보 즉시 조회",
-    icon: "💬",
+    index: "03",
     slides: CHAT_SLIDES,
     accentColor: "#3B82F6",
     accentBorder: "rgba(59,130,246,0.2)",
-    accentBg: "rgba(59,130,246,0.08)",
+    cta: { label: "AI 채팅 시작", href: "/" },
+    ctaStyle: { backgroundColor: "#3B82F6", color: "#fff" } as React.CSSProperties,
   },
-];
+] as const;
 
 // ─────────────────────────────────────────────
-// 모달 컴포넌트
+// Page
 // ─────────────────────────────────────────────
-const DRAG_CLOSE_THRESHOLD = 150; // 이 거리 이상 내리면 닫힘
-
-export function GuideOnboardingModal() {
-  const [visible, setVisible] = useState(false);
-  const [dragY, setDragY] = useState(0);
-  const [isClosing, setIsClosing] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const dragStartY = useRef<number | null>(null);
-  const dragYRef = useRef(0); // 최신 dragY를 document 핸들러에서 읽기 위한 ref
-  const isDragging = useRef(false);
-
-  useEffect(() => {
-    const dismissed = localStorage.getItem(STORAGE_KEY);
-    if (!dismissed) setVisible(true);
-  }, []);
-
-  useEffect(() => {
-    if (visible) dialogRef.current?.focus();
-  }, [visible]);
-
-  useEffect(() => {
-    document.body.style.overflow = visible ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [visible]);
-
-  const closeWithAnimation = () => {
-    setIsClosing(true);
-    setDragY(window.innerHeight);
-    setTimeout(() => setVisible(false), 350);
-  };
-
-  const handleClose = () => closeWithAnimation();
-  const handleDismissPermanently = () => {
-    localStorage.setItem(STORAGE_KEY, "true");
-    closeWithAnimation();
-  };
-
-  // ── 터치 드래그 핸들러 ──
-  const onTouchDragMove = (clientY: number) => {
-    if (!isDragging.current || dragStartY.current === null) return;
-    const delta = Math.max(0, clientY - dragStartY.current);
-    dragYRef.current = delta;
-    setDragY(delta);
-  };
-
-  const onTouchDragEnd = useCallback(() => {
-    if (!isDragging.current) return;
-    isDragging.current = false;
-    dragStartY.current = null;
-    if (dragYRef.current >= DRAG_CLOSE_THRESHOLD) {
-      closeWithAnimation();
-    } else {
-      dragYRef.current = 0;
-      setDragY(0);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // ── 마우스 드래그 — document 레벨 처리 (핸들 영역 밖으로 이동해도 유지) ──
-  const onMouseDragStart = useCallback((clientY: number) => {
-    dragStartY.current = clientY;
-    isDragging.current = true;
-    dragYRef.current = 0;
-
-    const handleMove = (e: MouseEvent) => {
-      if (!isDragging.current || dragStartY.current === null) return;
-      const delta = Math.max(0, e.clientY - dragStartY.current);
-      dragYRef.current = delta;
-      setDragY(delta);
-    };
-
-    const handleUp = () => {
-      isDragging.current = false;
-      document.removeEventListener("mousemove", handleMove);
-      document.removeEventListener("mouseup", handleUp);
-      dragStartY.current = null;
-      if (dragYRef.current >= DRAG_CLOSE_THRESHOLD) {
-        closeWithAnimation();
-      } else {
-        dragYRef.current = 0;
-        setDragY(0);
-      }
-    };
-
-    document.addEventListener("mousemove", handleMove);
-    document.addEventListener("mouseup", handleUp);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  if (!visible) return null;
-
-  const isSnapping = !isDragging.current && dragY === 0 && !isClosing;
-
+export default function GuidePage() {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      {/* 딤 배경 — 드래그 거리에 따라 투명도 변화 */}
-      <div
-        className="absolute inset-0"
-        style={{
-          backgroundColor: `rgba(0,0,0,${Math.max(0.1, 0.6 - dragY / (DRAG_CLOSE_THRESHOLD * 2))})`,
-          transition: isSnapping || isClosing ? "background-color 0.35s ease" : "none",
-        }}
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-
-      {/* 바텀 시트 */}
-      <div
-        ref={dialogRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="서비스 이용 안내"
-        tabIndex={-1}
-        className="relative flex flex-col outline-none rounded-t-3xl"
-        style={{
-          height: "90vh",
-          backgroundColor: "var(--bg-primary)",
-          border: "1px solid var(--border-color)",
-          borderBottom: "none",
-          transform: `translateY(${dragY}px)`,
-          transition: isSnapping || isClosing ? "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)" : "none",
-          willChange: "transform",
-        }}
-      >
-        {/* ── 드래그 핸들 영역 ── */}
-        <div
-          className="flex flex-col items-center shrink-0 select-none"
-          style={{
-            cursor: isDragging.current ? "grabbing" : "grab",
-            touchAction: "none",
-            paddingTop: "10px",
-            paddingBottom: "10px",
-          }}
-          onMouseDown={(e) => onMouseDragStart(e.clientY)}
-          onTouchStart={(e) => {
-            dragStartY.current = e.touches[0].clientY;
-            isDragging.current = true;
-            dragYRef.current = 0;
-          }}
-          onTouchMove={(e) => onTouchDragMove(e.touches[0].clientY)}
-          onTouchEnd={onTouchDragEnd}
-          aria-hidden="true"
-        >
-          {/* 아이폰 홈 인디케이터 스타일 핸들 바 */}
-          <div
-            className="rounded-full"
-            style={{
-              width: dragY > 20 ? "60px" : "48px",
-              height: "6px",
-              backgroundColor: dragY > 20
-                ? "rgba(128,128,128,0.8)"
-                : "rgba(128,128,128,0.45)",
-              transition: "width 0.2s ease, background-color 0.2s ease",
-            }}
-          />
-        </div>
-
-        {/* ── 3개 섹션 전체 표시 (스크롤) ── */}
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl md:max-w-screen-xl mx-auto px-4 py-10 space-y-0">
-            {SECTIONS.map((section, idx) => (
-              <div key={section.label} className="pb-16">
-                {idx > 0 && (
-                  <div
-                    className="h-px mb-16"
-                    style={{ backgroundColor: "var(--border-color)" }}
-                  />
-                )}
-                <GuideCarousel
-                  slides={section.slides}
-                  accentColor={section.accentColor}
-                  accentBorder={section.accentBorder}
-                />
+    <div
+      className="min-h-screen"
+      style={{ backgroundColor: "var(--bg-primary)" }}
+    >
+      <div className="max-w-3xl md:max-w-5xl mx-auto px-4 py-10 space-y-20">
+        {SECTIONS.map((section) => (
+          <section
+            key={section.id}
+            id={section.id}
+            aria-labelledby={`${section.id}-title`}
+            className="scroll-mt-20"
+          >
+            {/* 섹션 헤더 */}
+            <div className="flex items-end justify-between mb-7 px-2">
+              <div>
+                <p
+                  className="text-xs font-bold tracking-[0.2em] uppercase mb-1.5"
+                  style={{ color: section.accentColor, opacity: 0.7 }}
+                >
+                  {section.index}
+                </p>
+                <h2
+                  id={`${section.id}-title`}
+                  className="font-black italic leading-none"
+                  style={{
+                    fontFamily: "Paperlogy, sans-serif",
+                    fontSize: "clamp(26px, 4vw, 36px)",
+                    color: "var(--text-primary)",
+                    letterSpacing: "-0.02em",
+                  }}
+                >
+                  {section.label}
+                </h2>
               </div>
-            ))}
-          </div>
-        </div>
 
-        {/* ── 하단 푸터 ── */}
-        <div
-          className="flex items-center justify-between px-5 py-4 shrink-0 border-t"
-          style={{ borderColor: "var(--border-color)" }}
-        >
-          <button
-            type="button"
-            onClick={handleDismissPermanently}
-            className="text-sm transition-colors hover:text-white"
-            style={{ color: "var(--text-muted)" }}
-          >
-            다시 보지 않기
-          </button>
-          <button
-            type="button"
-            onClick={handleClose}
-            className="flex items-center gap-1.5 text-sm font-medium transition-colors hover:text-white"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            <X size={14} aria-hidden="true" />
-            닫기
-          </button>
-        </div>
+              {/* CTA */}
+              <Link
+                href={section.cta.href}
+                className="group hidden sm:flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-bold transition-all hover:opacity-80 shrink-0"
+                style={section.ctaStyle}
+              >
+                {section.cta.label}
+                <ChevronRight
+                  size={14}
+                  className="transition-transform group-hover:translate-x-0.5"
+                  aria-hidden="true"
+                />
+              </Link>
+            </div>
+
+            {/* 캐루셀 */}
+            <GuideCarousel
+              slides={section.slides}
+              accentColor={section.accentColor}
+              accentBorder={section.accentBorder}
+            />
+
+            {/* 모바일 CTA */}
+            <div className="sm:hidden mt-5 px-2">
+              <Link
+                href={section.cta.href}
+                className="flex items-center justify-center gap-1.5 w-full py-3 rounded-xl text-sm font-bold transition-all hover:opacity-80"
+                style={section.ctaStyle}
+              >
+                {section.cta.label}
+                <ChevronRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
+          </section>
+        ))}
       </div>
     </div>
   );
