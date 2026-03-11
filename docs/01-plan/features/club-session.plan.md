@@ -26,13 +26,14 @@
 
 #### 세션 관리
 - [x] `club_sessions` 테이블 (코트장, 코트번호 배열, 날짜, 시간, 최대인원, 메모, RSVP 마감)
-- [x] 관리자: 세션 생성/수정(OPEN 상태만)/취소/삭제
+- [x] 관리자: 세션 생성/수정(OPEN 상태만)/취소/삭제(OPEN 상태만)
 - [x] 회원: 세션 목록 조회 (예정/완료 탭)
 - [x] 세션 상태 전환: `OPEN → CLOSED → COMPLETED` / `CANCELLED`
 
 #### 참석 응답
 - [x] `club_session_attendances` 테이블 (member_id, ATTENDING/NOT_ATTENDING/UNDECIDED, 가용 시간대)
 - [x] 회원: 참석/불참/미정 응답 + 시간 선택 (available_from/until)
+- [x] 응답 취소: `cancelAttendance()` — 레코드 완전 삭제 (상태 변경 아님)
 - [x] 관리자: 참석자 명단 확인 (응답/미응답 상태 구분)
 - [x] 마감 기능: `closeSessionRsvp()` → 이후 회원 응답 수정 불가
 
@@ -57,11 +58,20 @@
 #### 통계 및 순위
 - [x] `club_member_stats` 테이블 (시즌별 wins/losses/win_rate/sessions_attended, GENERATED 컬럼)
 - [x] 클럽 내 순위표 (`getClubRankings`: win_rate 기반)
-- [x] **기간별 순위** (`getClubRankingsByPeriod`): from/to 날짜 필터
-- [x] 클럽 기본 순위 기간 설정 저장/조회
+- [x] **기간별 순위** (`getClubRankingsByPeriod`): `RankingPeriod` 기반 (all / this_month / last_month / this_year / last_year / custom)
+- [x] 클럽 기본 순위 기간 설정 저장/조회 (Club 테이블 컬럼으로 저장)
 - [x] 내 통계 조회 (`getMyClubStats`)
-- [x] 멤버 게임 결과 목록 (`getMemberGameResults`)
+- [x] 멤버 게임 결과 목록 (`getMemberGameResults`): RankingPeriod 필터 지원
 - [x] 모임 완료 시 `sessions_attended` 자동 갱신
+
+#### 댓글 기능 (플랜 대비 추가 구현)
+- [x] `club_session_comments` 테이블 (`30_club_session_comments.sql`)
+  - `session_id`, `author_id`, `content` (1~1000자 CHECK 제약)
+  - RLS: 본인 또는 임원만 DELETE, ACTIVE 멤버 SELECT
+- [x] `getSessionComments(sessionId)` — 댓글 목록 조회 (author JOIN)
+- [x] `createSessionComment(sessionId, content)` — 댓글 작성 (ACTIVE 멤버)
+- [x] `deleteSessionComment(commentId, sessionId)` — 본인 또는 임원만 삭제
+- [x] `SessionCommentSection` 컴포넌트 (세션 상세 페이지 하단)
 
 ### Should Have (Phase 2)
 
@@ -142,6 +152,19 @@
 | dispute_resolved_by | uuid? | FK profiles |
 | dispute_resolved_at | timestamptz? | |
 
+### `club_session_comments`
+| 컬럼 | 타입 | 설명 |
+|------|------|------|
+| id | uuid | PK |
+| session_id | uuid | FK club_sessions ON DELETE CASCADE |
+| author_id | uuid | FK profiles |
+| content | text | 댓글 내용 (1~1000자 CHECK) |
+| created_at / updated_at | timestamptz | |
+
+**RLS**: ACTIVE 멤버 SELECT, 본인/임원만 DELETE
+
+**마이그레이션**: `supabase/migrations/30_club_session_comments.sql`
+
 ### `club_member_stats`
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
@@ -155,7 +178,9 @@
 | last_played_at | timestamptz | |
 | UNIQUE | — | (club_id, club_member_id, season) |
 
-**마이그레이션**: `supabase/migrations/19_club_sessions.sql`
+**마이그레이션**:
+- `supabase/migrations/19_club_sessions.sql` — 핵심 4개 테이블
+- `supabase/migrations/30_club_session_comments.sql` — 댓글 테이블
 
 ---
 
@@ -173,7 +198,10 @@ src/
 │
 ├── lib/clubs/
 │   ├── types.ts                          # 전체 타입 정의
-│   ├── session-actions.ts                # 세션 Server Actions (~1900줄)
+│   │   └─ ClubSession, SessionAttendanceDetail, ClubMatchResult
+│   │      ClubSessionGuest, SchedulePlayer, ClubSessionComment
+│   │      RankingPeriod, ClubMemberStat, CreateMatchInput ...
+│   ├── session-actions.ts                # 세션 Server Actions (30+ 함수)
 │   └── actions.ts                        # 클럽 관리 Server Actions
 │
 └── components/clubs/sessions/
@@ -187,7 +215,8 @@ src/
     ├── BracketEditor.tsx                 # 대진표 수동/자동 편성
     ├── MatchBoard.tsx                    # 경기 결과 보드
     ├── MatchResultForm.tsx               # 점수 입력 / 분쟁 해결
-    ├── RankingsTab.tsx                   # 순위표
+    ├── SessionCommentSection.tsx         # 댓글 CRUD
+    ├── RankingsTab.tsx                   # 순위표 (RankingPeriod 필터)
     └── YearMonthPicker.tsx               # 년월 필터
 ```
 
@@ -267,11 +296,18 @@ src/
 |------|------|------|
 | `completeSession(sessionId)` | OWNER/ADMIN/MATCH_DIRECTOR | CLOSED → COMPLETED + stats 갱신 |
 | `getClubRankings(clubId, season)` | ACTIVE 멤버 | 시즌별 순위 |
-| `getClubRankingsByPeriod(clubId, from, to)` | ACTIVE 멤버 | 기간별 순위 |
+| `getClubRankingsByPeriod(clubId, period, customFrom?, customTo?)` | ACTIVE 멤버 | RankingPeriod 기반 순위 |
 | `getClubDefaultRankingPeriod(clubId)` | — | 기본 순위 기간 조회 |
-| `updateClubDefaultRankingPeriod(clubId, input)` | OWNER/ADMIN/MATCH_DIRECTOR | 기본 기간 저장 |
+| `updateClubDefaultRankingPeriod(clubId, period, customFrom?, customTo?)` | OWNER/ADMIN/MATCH_DIRECTOR | 기본 기간 저장 |
 | `getMyClubStats(memberId, clubId, season)` | 본인 | 내 통계 |
-| `getMemberGameResults(memberId, clubId)` | 본인 / 임원 | 멤버 게임 결과 |
+| `getMemberGameResults(memberId, options)` | 본인 / 임원 | RankingPeriod 필터 지원 |
+
+### 댓글
+| 함수 | 권한 | 설명 |
+|------|------|------|
+| `getSessionComments(sessionId)` | ACTIVE 멤버 | 댓글 목록 (author JOIN) |
+| `createSessionComment(sessionId, content)` | ACTIVE 멤버 | 댓글 작성 (1000자 이내) |
+| `deleteSessionComment(commentId, sessionId)` | 본인 / 임원 | 댓글 삭제 |
 
 ---
 
@@ -328,9 +364,11 @@ src/
 
 /clubs/[id]/sessions/[sessionId]     # 일반 뷰
 ├── 모임 헤더 (제목, 상태 배지, 날짜/시간/장소/정원)
+├── 임원 버튼 (수정, 관리, 삭제 — OPEN만 삭제 가능)
 ├── AttendanceForm (OPEN 상태 + 미응답/수정 모드)
 ├── AttendanceList (참석자 현황, 임원: 게스트 추가/삭제)
-└── MatchBoard (CLOSED 이후 표시, 경기 결과 입력)
+├── MatchBoard (CLOSED 이후 표시, 경기 결과 입력)
+└── SessionCommentSection (댓글, 하단)
 
 /clubs/[id]/sessions/[sessionId]/manage   # 임원 전용
 ├── 상태 변경 버튼 (응답 마감 / 모임 완료 / 취소)
@@ -341,7 +379,7 @@ src/
 ### 클럽 상세 탭: "순위"
 ```
 /clubs/[id] → "순위" 탭
-├── 기간 선택 (YearMonthPicker)
+├── 기간 선택 (RankingPeriod: 전체/이번달/지난달/이번년/지난년/커스텀)
 ├── 순위표 (순위, 회원명, 게임수, 승/패, 승률, 참석 세션수)
 └── 내 순위 강조 표시
 ```
@@ -401,3 +439,4 @@ src/
 | 싱글스 자동 대진 | 현재 복식만 지원, 싱글스 모드 추가 |
 | 결과 이의 기간 설정 | 확정 후 N시간 이내 이의 가능 |
 | 포인트 시스템 | win_rate 외 포인트 기반 랭킹 (현재 컬럼 존재, 미활용) |
+| 댓글 반응(좋아요) | 댓글에 이모지 반응 추가 |
