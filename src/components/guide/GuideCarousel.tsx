@@ -19,6 +19,7 @@ interface Props {
 
 export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
   const [current, setCurrent] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   const touchStartX = useRef(0);
   const touchStartY = useRef(0);
   const mouseStartX = useRef(0);
@@ -48,17 +49,54 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
     return () => window.removeEventListener("keydown", handler);
   }, [goNext, goPrev]);
 
+  // 가로 스와이프 중 세로 스크롤 차단 (passive: false 필요)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const onTouchMove = (e: TouchEvent) => {
+      if (isHorizontalSwipe.current) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => el.removeEventListener("touchmove", onTouchMove);
+  }, []);
+
   // 터치
+  const isHorizontalSwipe = useRef<boolean | null>(null); // null=미결정, true=가로, false=세로
+
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
+    isHorizontalSwipe.current = null;
   };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const dx = e.touches[0].clientX - touchStartX.current;
+    const dy = e.touches[0].clientY - touchStartY.current;
+
+    // 첫 움직임에서 방향 결정
+    if (isHorizontalSwipe.current === null) {
+      if (Math.abs(dx) > Math.abs(dy)) {
+        isHorizontalSwipe.current = true;
+      } else {
+        isHorizontalSwipe.current = false;
+      }
+    }
+
+    // 가로 스와이프로 판단되면 세로 스크롤 막기
+    if (isHorizontalSwipe.current) {
+      e.preventDefault();
+    }
+  };
+
   const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!isHorizontalSwipe.current) return;
     const dx = e.changedTouches[0].clientX - touchStartX.current;
-    const dy = e.changedTouches[0].clientY - touchStartY.current;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 50) {
+    if (Math.abs(dx) > 50) {
       dx < 0 ? goNext() : goPrev();
     }
+    isHorizontalSwipe.current = null;
   };
 
   // 마우스 드래그
@@ -82,9 +120,11 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
 
   return (
     <div
+      ref={containerRef}
       className="select-none"
       style={{ cursor: "grab" }}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       onMouseDown={handleMouseDown}
       onMouseMove={handleMouseMove}
