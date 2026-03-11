@@ -19,6 +19,27 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko" data-scroll-behavior="smooth">
+      <head>
+        {/* 테마 깜빡임 방지: React 로드 전에 테마 미리 적용 */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              (function() {
+                try {
+                  var saved = localStorage.getItem('theme');
+                  var theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+                  document.documentElement.setAttribute('data-theme', theme);
+                  if (theme === 'dark') document.documentElement.classList.add('dark');
+                  else document.documentElement.classList.remove('dark');
+                } catch(e) {
+                  document.documentElement.setAttribute('data-theme', 'dark');
+                  document.documentElement.classList.add('dark');
+                }
+              })();
+            `,
+          }}
+        />
+      </head>
       <body className="font-body antialiased min-h-screen flex flex-col">
         <ThemeProvider>
           <FontSizeProvider>
