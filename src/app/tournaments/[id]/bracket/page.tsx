@@ -46,7 +46,9 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
     notFound()
   }
 
-  const divisions = sortDivisions(tournament.tournament_divisions || [])
+  const divisions = sortDivisions(
+    (tournament.tournament_divisions || []) as Array<{ id: string; name: string; max_teams: number | null }>
+  )
 
   // 로그인 유저의 참가 entry_ids 조회 (본인 경기 하이라이트용)
   const { entryIds } = await getPlayerEntryIds(id)
