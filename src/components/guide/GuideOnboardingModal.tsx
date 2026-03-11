@@ -11,25 +11,52 @@ const STORAGE_KEY = "guide_onboarding_dismissed";
 // ─────────────────────────────────────────────
 const TOURNAMENT_SLIDES: GuideSlide[] = [
   {
-    title: "대회 목록 확인",
+    title: "대회 목록 한눈에",
     description:
-      "상단 내비게이션의 대회를 클릭하면 전체 목록이 나타납니다. 상태 배지(접수중 · 예정 · 마감 · 진행중)로 지금 신청 가능한 대회를 바로 파악하세요.",
-    screenshot: "tournament-list.png",
-    screenshotAlt: "대회 목록 화면",
+      "상단 내비게이션의 대회를 클릭하면 전체 목록이 나타납니다. 상태 배지(모집 중 · 접수 예정 · 마감 · 진행 중)로 지금 신청 가능한 대회를 바로 파악하세요.",
+    screenshot: "tournament-flow/list-desktop.png",
+    screenshotMobile: "tournament-flow/list-mobile.png",
+    screenshotAlt: "대회 목록 화면 — 카드 그리드",
   },
   {
-    title: "대회 상세 확인",
+    title: "대회 상세 정보 확인",
     description:
-      "대회 카드를 클릭하면 일시 · 장소 · 참가비 · 부서 정보 · 요강을 확인할 수 있습니다. 포스터와 지도도 함께 제공됩니다.",
-    screenshot: "tournament-detail.png",
-    screenshotAlt: "대회 상세 화면",
+      "대회 카드를 클릭하면 일시 · 장소 · 참가비 · 부서별 참가 현황을 한눈에 확인할 수 있습니다. 우측 패널의 신청 버튼으로 바로 참가 신청이 가능합니다.",
+    screenshot: "tournament-flow/detail-desktop.png",
+    screenshotMobile: "tournament-flow/detail-mobile.png",
+    screenshotAlt: "대회 상세 화면 — 정보와 신청 패널",
   },
   {
-    title: "참가 신청 & 결제",
+    title: "부서 선택 & 정보 입력",
     description:
-      "우측 참가 신청 버튼 → 부서 선택 → 정보 입력 순으로 진행합니다. 참가비가 있는 경우 카드 결제 또는 계좌이체 후 주최측 확인을 기다리세요.",
-    screenshot: "tournament-apply.png",
-    screenshotAlt: "참가 신청 버튼 위치",
+      "참가할 부서를 선택하고 이름 · 연락처 · 소속 클럽을 입력합니다. 가입 프로필이 있으면 정보가 자동으로 채워져 빠르게 진행할 수 있습니다.",
+    screenshot: "tournament-flow/apply-desktop.png",
+    screenshotMobile: "tournament-flow/apply-mobile.png",
+    screenshotAlt: "참가 신청 폼 — 부서 선택과 정보 입력",
+  },
+  {
+    title: "참가비 계좌이체 안내",
+    description:
+      "신청 완료 후 계좌번호와 입금 기한이 표시됩니다. 입금자명을 신청자 이름과 동일하게 입력하면 주최측이 자동으로 매칭해 확인합니다.",
+    screenshot: "tournament-flow/payment-desktop.png",
+    screenshotMobile: "tournament-flow/payment-mobile.png",
+    screenshotAlt: "참가비 계좌이체 안내 화면",
+  },
+  {
+    title: "입금 확인 대기",
+    description:
+      "입금 후 주최측이 확인하면 최종 승인 완료 문자가 발송됩니다. 진행 상태(신청 완료 → 입금 확인 중 → 승인)를 실시간으로 확인할 수 있습니다.",
+    screenshot: "tournament-flow/pending-desktop.png",
+    screenshotMobile: "tournament-flow/pending-mobile.png",
+    screenshotAlt: "입금 확인 대기 — 타임라인 상태 화면",
+  },
+  {
+    title: "내 신청 내역 관리",
+    description:
+      "상단 내 정보 → 신청 내역에서 모든 대회 신청 현황을 확인합니다. 상태별 필터로 대기 중 · 승인 · 진행 중을 구분하고 필요 시 신청을 취소할 수 있습니다.",
+    screenshot: "tournament-flow/my-entries-desktop.png",
+    screenshotMobile: "tournament-flow/my-entries-mobile.png",
+    screenshotAlt: "내 신청 내역 화면 — 상태 필터",
   },
 ];
 
@@ -207,9 +234,15 @@ const SECTIONS = [
 // ─────────────────────────────────────────────
 // 모달 컴포넌트
 // ─────────────────────────────────────────────
+const DRAG_CLOSE_THRESHOLD = 150; // 이 거리 이상 내리면 닫힘
+
 export function GuideOnboardingModal() {
   const [visible, setVisible] = useState(false);
+  const [dragY, setDragY] = useState(0);
+  const [isClosing, setIsClosing] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const dragStartY = useRef<number | null>(null);
+  const isDragging = useRef(false);
 
   useEffect(() => {
     const dismissed = localStorage.getItem(STORAGE_KEY);
@@ -225,20 +258,55 @@ export function GuideOnboardingModal() {
     return () => { document.body.style.overflow = ""; };
   }, [visible]);
 
-  const handleClose = () => setVisible(false);
+  const closeWithAnimation = () => {
+    setIsClosing(true);
+    setDragY(window.innerHeight);
+    setTimeout(() => setVisible(false), 350);
+  };
+
+  const handleClose = () => closeWithAnimation();
   const handleDismissPermanently = () => {
     localStorage.setItem(STORAGE_KEY, "true");
-    setVisible(false);
+    closeWithAnimation();
+  };
+
+  // ── 드래그 핸들러 (터치 + 마우스 공통) ──
+  const onDragStart = (clientY: number) => {
+    dragStartY.current = clientY;
+    isDragging.current = true;
+  };
+
+  const onDragMove = (clientY: number) => {
+    if (!isDragging.current || dragStartY.current === null) return;
+    const delta = clientY - dragStartY.current;
+    setDragY(Math.max(0, delta)); // 위로는 안 올라감
+  };
+
+  const onDragEnd = () => {
+    if (!isDragging.current) return;
+    isDragging.current = false;
+    if (dragY >= DRAG_CLOSE_THRESHOLD) {
+      closeWithAnimation();
+    } else {
+      // 스냅백
+      setDragY(0);
+    }
+    dragStartY.current = null;
   };
 
   if (!visible) return null;
 
+  const isSnapping = !isDragging.current && dragY === 0 && !isClosing;
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col justify-end">
-      {/* 딤 배경 */}
+      {/* 딤 배경 — 드래그 거리에 따라 투명도 변화 */}
       <div
         className="absolute inset-0"
-        style={{ backgroundColor: "rgba(0,0,0,0.6)" }}
+        style={{
+          backgroundColor: `rgba(0,0,0,${Math.max(0.1, 0.6 - dragY / (DRAG_CLOSE_THRESHOLD * 2))})`,
+          transition: isSnapping || isClosing ? "background-color 0.35s ease" : "none",
+        }}
         onClick={handleClose}
         aria-hidden="true"
       />
@@ -256,20 +324,46 @@ export function GuideOnboardingModal() {
           backgroundColor: "var(--bg-primary)",
           border: "1px solid var(--border-color)",
           borderBottom: "none",
+          transform: `translateY(${dragY}px)`,
+          transition: isSnapping || isClosing ? "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)" : "none",
+          willChange: "transform",
         }}
       >
-        {/* 드래그 핸들 */}
-        <div className="flex justify-center pt-3 pb-1 shrink-0">
+        {/* ── 드래그 핸들 영역 ── */}
+        <div
+          className="flex flex-col items-center shrink-0 select-none"
+          style={{
+            cursor: isDragging.current ? "grabbing" : "grab",
+            touchAction: "none",
+            paddingTop: "10px",
+            paddingBottom: "10px",
+          }}
+          onMouseDown={(e) => onDragStart(e.clientY)}
+          onMouseMove={(e) => { if (isDragging.current) onDragMove(e.clientY); }}
+          onMouseUp={onDragEnd}
+          onMouseLeave={onDragEnd}
+          onTouchStart={(e) => onDragStart(e.touches[0].clientY)}
+          onTouchMove={(e) => onDragMove(e.touches[0].clientY)}
+          onTouchEnd={onDragEnd}
+          aria-hidden="true"
+        >
+          {/* 아이폰 홈 인디케이터 스타일 핸들 바 */}
           <div
-            className="w-10 h-1 rounded-full"
-            style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
-            aria-hidden="true"
+            className="rounded-full"
+            style={{
+              width: dragY > 20 ? "52px" : "40px",
+              height: "4px",
+              backgroundColor: dragY > 20
+                ? "rgba(255,255,255,0.55)"
+                : "rgba(255,255,255,0.22)",
+              transition: "width 0.2s ease, background-color 0.2s ease",
+            }}
           />
         </div>
 
         {/* ── 3개 섹션 전체 표시 (스크롤) ── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="max-w-2xl md:max-w-4xl mx-auto px-4 py-8 space-y-14">
+          <div className="max-w-2xl md:max-w-4xl mx-auto px-4 py-6 space-y-14">
             {SECTIONS.map((section) => (
               <div key={section.label}>
                 <GuideCarousel
