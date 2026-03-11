@@ -153,9 +153,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder, cta, ctaStyle
                 {/* 스크린샷 영역 */}
                 <div
                   className="relative overflow-hidden"
-                  style={{
-                    borderBottom: `1px solid ${accentBorder}`,
-                  }}
+                  style={{ borderBottom: `1px solid ${accentBorder}` }}
                 >
                   {/* 브라우저 크롬 바 */}
                   <div
@@ -177,39 +175,39 @@ export function GuideCarousel({ slides, accentColor, accentBorder, cta, ctaStyle
                     </span>
                   </div>
 
-                  {/* 이미지 */}
-                  <div style={{ maxHeight: "clamp(200px, 50vw, 600px)", overflow: "hidden" }}>
+                  {/* 데스크탑 이미지: 16:10 비율, md 이상에서 표시 */}
+                  <div
+                    className={s.screenshotMobile ? "hidden md:block" : "block"}
+                    style={{ aspectRatio: "16 / 10", position: "relative", overflow: "hidden" }}
+                  >
                     <Image
                       src={`/guide/screenshots/${s.screenshot}`}
                       alt={s.screenshotAlt}
-                      width={1280}
-                      height={800}
-                      className={`w-full h-auto${s.screenshotMobile ? " hidden md:block" : " block"}`}
-                      style={{
-                        maxHeight: "clamp(200px, 50vw, 600px)",
-                        objectFit: "cover",
-                        objectPosition: "top",
-                      }}
+                      fill
+                      sizes="(min-width: 768px) 80vw, 0px"
+                      style={{ objectFit: "cover", objectPosition: "top" }}
                       priority={i === 0}
                       draggable={false}
                     />
-                    {s.screenshotMobile && (
+                  </div>
+
+                  {/* 모바일 이미지: 9:19 비율(세로 스크린샷), md 미만에서 표시 */}
+                  {s.screenshotMobile && (
+                    <div
+                      className="block md:hidden"
+                      style={{ aspectRatio: "9 / 19", position: "relative", overflow: "hidden" }}
+                    >
                       <Image
                         src={`/guide/screenshots/${s.screenshotMobile}`}
                         alt={s.screenshotAlt}
-                        width={390}
-                        height={844}
-                        className="w-full h-auto block md:hidden"
-                        style={{
-                          maxHeight: "clamp(200px, 50vw, 600px)",
-                          objectFit: "cover",
-                          objectPosition: "top",
-                        }}
+                        fill
+                        sizes="(max-width: 767px) 82vw, 0px"
+                        style={{ objectFit: "cover", objectPosition: "top" }}
                         priority={i === 0}
                         draggable={false}
                       />
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 텍스트 + 버튼 영역 */}
