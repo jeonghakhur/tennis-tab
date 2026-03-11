@@ -35,32 +35,108 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
 
 const CLUB_SLIDES: GuideSlide[] = [
   {
-    title: "클럽 찾기",
+    title: "클럽 탐색",
     description:
-      "상단 내비게이션의 클럽을 클릭합니다. 이름 검색 또는 지역 필터로 원하는 클럽을 탐색하세요.",
-    screenshot: "club-list.png",
+      "상단 내비게이션의 클럽을 클릭하면 전체 클럽 목록이 나타납니다. 지역·협회별 클럽을 한눈에 탐색하고 관심 있는 클럽을 찾아보세요.",
+    screenshot: "club-flow/01-club-list-desktop.png",
+    screenshotMobile: "club-flow/01-club-list-mobile.png",
     screenshotAlt: "클럽 목록 화면",
   },
   {
-    title: "클럽 가입",
+    title: "클럽 이름으로 검색",
     description:
-      "클럽 카드를 클릭해 상세 페이지로 이동합니다. 가입 유형(자유 · 승인제 · 초대 전용)을 확인하고 가입 버튼을 누르세요.",
-    screenshot: "club-detail.png",
-    screenshotAlt: "클럽 상세 화면",
+      "검색창에 클럽 이름을 입력하면 즉시 필터링됩니다. 원하는 클럽을 빠르게 찾을 수 있습니다.",
+    screenshot: "club-flow/02-club-search-desktop.png",
+    screenshotMobile: "club-flow/02-club-search-mobile.png",
+    screenshotAlt: "클럽 검색 화면",
   },
   {
-    title: "모임 참석 응답",
+    title: "모임 일정 한눈에 확인",
     description:
-      "클럽 상세의 모임 탭에서 예정된 모임을 선택하고 참석 / 불참 / 가능 시간을 응답해두세요.",
-    screenshot: "club-session.png",
-    screenshotAlt: "클럽 모임 탭 화면",
+      "클럽 상세의 모임 탭에서 예정된 정기모임 전체를 확인하세요. 상태 배지(모집중·마감)와 참석·불참·미정 현황이 카드마다 실시간으로 표시됩니다.",
+    screenshot: "club-flow/sessions-01-list-desktop.png",
+    screenshotMobile: "club-flow/sessions-01-list-mobile.png",
+    screenshotAlt: "클럽 모임 탭 목록 화면",
   },
   {
-    title: "순위 확인",
+    title: "모임 카드 선택",
     description:
-      "클럽 상세의 순위 탭에서 클럽 내 종합 순위를 확인합니다. 기간과 경기 방식별로 필터링할 수 있습니다.",
-    screenshot: "club-ranking.png",
+      "날짜·시간·장소·참석 인원이 카드에 모두 담겨 있습니다. 원하는 모임 카드를 클릭해 상세 정보로 이동하세요.",
+    screenshot: "club-flow/sessions-02-card-hover-desktop.png",
+    screenshotMobile: "club-flow/sessions-02-card-hover-mobile.png",
+    screenshotAlt: "모임 카드 선택 화면",
+  },
+  {
+    title: "모임 상세 페이지",
+    description:
+      "모임 상세 페이지에서 일정·장소·참석자 현황을 한눈에 확인하세요. 임원은 수정·삭제·모임 관리 기능도 함께 사용할 수 있습니다.",
+    screenshot: "club-flow/sessions-03-detail-desktop.png",
+    screenshotMobile: "club-flow/sessions-03-detail-mobile.png",
+    screenshotAlt: "모임 상세 페이지 화면",
+  },
+  {
+    title: "참석 현황 & 멤버 확인",
+    description:
+      "참석 예정인 멤버 목록이 이름과 함께 표시됩니다. 내 참석 여부는 강조되어 쉽게 구분되고, 마감 전까지 언제든 변경할 수 있습니다.",
+    screenshot: "club-flow/sessions-04-detail-top-desktop.png",
+    screenshotMobile: "club-flow/sessions-04-detail-top-mobile.png",
+    screenshotAlt: "모임 참석 현황 화면",
+  },
+  {
+    title: "경기 대진표 & 댓글",
+    description:
+      "모임 하단에서 당일 경기 대진표를 확인하고 결과를 입력할 수 있습니다. 댓글로 준비물·코트 상황·카풀 등 실용적인 정보를 멤버끼리 공유하세요.",
+    screenshot: "club-flow/sessions-08-comments-desktop.png",
+    screenshotMobile: "club-flow/sessions-08-comments-mobile.png",
+    screenshotAlt: "경기 대진표 및 댓글 화면",
+  },
+  {
+    title: "클럽 종합 순위",
+    description:
+      "순위 탭에서 클럽 멤버 전체의 성적을 비교하세요. 경기 수·승·패·득실점·승률·승점이 한 화면에 모두 표시됩니다.",
+    screenshot: "club-flow/rankings-01-default-desktop.png",
+    screenshotMobile: "club-flow/rankings-01-default-mobile.png",
     screenshotAlt: "클럽 순위 탭 화면",
+  },
+  {
+    title: "승률 기준 정렬",
+    description:
+      "승률 컬럼을 클릭하면 승률 순으로 랭킹이 재정렬됩니다. 다시 클릭하면 오름차순·내림차순으로 자유롭게 전환할 수 있습니다.",
+    screenshot: "club-flow/rankings-03-sort-winrate-desktop.png",
+    screenshotMobile: "club-flow/rankings-03-sort-winrate-mobile.png",
+    screenshotAlt: "승률 정렬 화면",
+  },
+  {
+    title: "정렬 방향 전환",
+    description:
+      "컬럼 헤더를 반복 클릭해 오름차순·내림차순을 즉시 전환할 수 있습니다. 승률이 낮은 멤버부터 보고 싶을 때도 손쉽게 바꿔보세요.",
+    screenshot: "club-flow/rankings-04-sort-winrate-desc-desktop.png",
+    screenshotMobile: "club-flow/rankings-04-sort-winrate-desc-mobile.png",
+    screenshotAlt: "정렬 방향 전환 화면",
+  },
+  {
+    title: "승점 기준 정렬",
+    description:
+      "승점 컬럼으로 정렬하면 적립된 승점 순으로 순위가 바뀝니다. 승률과는 다른 관점에서 멤버 성적을 확인해보세요.",
+    screenshot: "club-flow/rankings-05-sort-winpoints-desktop.png",
+    screenshotMobile: "club-flow/rankings-05-sort-winpoints-mobile.png",
+    screenshotAlt: "승점 정렬 화면",
+  },
+  {
+    title: "기간 직접 설정",
+    description:
+      "'직접 설정' 버튼으로 원하는 날짜 범위를 지정할 수 있습니다. 특정 시즌이나 대회 기간의 성적만 골라서 비교해보세요.",
+    screenshot: "club-flow/rankings-06-custom-period-desktop.png",
+    screenshotMobile: "club-flow/rankings-06-custom-period-mobile.png",
+    screenshotAlt: "기간 직접 설정 화면",
+  },
+  {
+    title: "개인 상세 전적 조회",
+    description:
+      "순위표에서 이름을 클릭하면 상대별 전적과 경기별 스코어가 담긴 상세 모달이 열립니다. 기간 필터를 바꾸며 성장 추이를 추적하세요.",
+    screenshot: "club-flow/rankings-07-member-modal-desktop.png",
+    screenshotMobile: "club-flow/rankings-07-member-modal-mobile.png",
+    screenshotAlt: "개인 상세 전적 모달 화면",
   },
 ];
 
@@ -72,6 +148,14 @@ const CHAT_SLIDES: GuideSlide[] = [
     screenshot: "chat-tournament-search-desktop.png",
     screenshotMobile: "chat-tournament-search-mobile.png",
     screenshotAlt: "AI 채팅 — 대회 검색 결과",
+  },
+  {
+    title: "대화로 간편하게 참가 신청",
+    description:
+      '"○○대회 신청하고 싶어"라고 입력하면 AI가 단계별로 안내합니다. 부서 선택 → 신청 확인 순으로 진행되며 "취소"를 입력하면 언제든 중단할 수 있습니다.',
+    screenshot: "chat-tournament-registration-desktop.png",
+    screenshotMobile: "chat-tournament-registration-mobile.png",
+    screenshotAlt: "AI 채팅 — 대회 참가 신청 플로우",
   },
   {
     title: "나의 참가 신청 확인",
@@ -96,14 +180,6 @@ const CHAT_SLIDES: GuideSlide[] = [
     screenshot: "chat-club-schedule-desktop.png",
     screenshotMobile: "chat-club-schedule-mobile.png",
     screenshotAlt: "AI 채팅 — 클럽 모임 일정 조회",
-  },
-  {
-    title: "대화로 간편하게 참가 신청",
-    description:
-      '"○○대회 신청하고 싶어"라고 입력하면 AI가 단계별로 안내합니다. 부서 선택 → 신청 확인 순으로 진행되며 "취소"를 입력하면 언제든 중단할 수 있습니다.',
-    screenshot: "chat-tournament-registration-desktop.png",
-    screenshotMobile: "chat-tournament-registration-mobile.png",
-    screenshotAlt: "AI 채팅 — 대회 참가 신청 플로우",
   },
 ];
 
@@ -176,7 +252,7 @@ export function GuideOnboardingModal() {
         tabIndex={-1}
         className="relative flex flex-col outline-none rounded-t-3xl"
         style={{
-          height: "75vh",
+          height: "90vh",
           backgroundColor: "var(--bg-primary)",
           border: "1px solid var(--border-color)",
           borderBottom: "none",
