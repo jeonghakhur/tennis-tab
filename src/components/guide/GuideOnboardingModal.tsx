@@ -351,11 +351,11 @@ export function GuideOnboardingModal() {
           <div
             className="rounded-full"
             style={{
-              width: dragY > 20 ? "52px" : "40px",
-              height: "4px",
+              width: dragY > 20 ? "60px" : "48px",
+              height: "6px",
               backgroundColor: dragY > 20
-                ? "rgba(255,255,255,0.55)"
-                : "rgba(255,255,255,0.22)",
+                ? "rgba(128,128,128,0.8)"
+                : "rgba(128,128,128,0.45)",
               transition: "width 0.2s ease, background-color 0.2s ease",
             }}
           />

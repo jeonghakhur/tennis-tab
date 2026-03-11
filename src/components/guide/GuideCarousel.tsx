@@ -91,29 +91,6 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* 도트 인디케이터 — 상단 */}
-      {total > 1 && (
-        <div className="flex justify-center gap-2 mb-5">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => goTo(i)}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: i === current ? "24px" : "8px",
-                height: "8px",
-                backgroundColor:
-                  i === current ? "var(--text-primary)" : "var(--text-muted)",
-                opacity: i === current ? 0.8 : 0.4,
-              }}
-              aria-label={`${i + 1}번째 슬라이드`}
-              aria-current={i === current ? "true" : undefined}
-            />
-          ))}
-        </div>
-      )}
-
       {/* 슬라이드 트랙 */}
       <div className="overflow-hidden">
         <div
@@ -155,7 +132,6 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                 className="mx-auto rounded-2xl overflow-hidden"
                 style={{
                   border: `1px solid ${accentBorder}`,
-                  boxShadow: `0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px ${accentBorder}`,
                 }}
               >
                 {/* 브라우저 크롬 */}
@@ -177,7 +153,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                   </span>
                 </div>
                 {/* 이미지 — 데스크탑/모바일 반응형 */}
-                <div className="overflow-hidden" style={{ maxHeight: "420px" }}>
+                <div className="overflow-hidden" style={{ maxHeight: "clamp(300px, 50vw, 560px)" }}>
                   {/* 데스크탑 이미지 (md 이상) */}
                   <Image
                     src={`/guide/screenshots/${s.screenshot}`}
@@ -185,7 +161,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                     width={1280}
                     height={800}
                     className={`w-full h-auto${s.screenshotMobile ? " hidden md:block" : " block"}`}
-                    style={{ maxHeight: "420px", objectFit: "cover", objectPosition: "top" }}
+                    style={{ maxHeight: "clamp(300px, 50vw, 560px)", objectFit: "cover", objectPosition: "top" }}
                     priority={i === 0}
                     draggable={false}
                   />
@@ -197,7 +173,7 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
                       width={390}
                       height={844}
                       className="w-full h-auto block md:hidden"
-                      style={{ maxHeight: "420px", objectFit: "cover", objectPosition: "top" }}
+                      style={{ maxHeight: "clamp(300px, 50vw, 560px)", objectFit: "cover", objectPosition: "top" }}
                       priority={i === 0}
                       draggable={false}
                     />
@@ -209,6 +185,28 @@ export function GuideCarousel({ slides, accentColor, accentBorder }: Props) {
         </div>
       </div>
 
+      {/* 도트 인디케이터 — 이미지 하단 */}
+      {total > 1 && (
+        <div className="flex justify-center gap-2 mt-5">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => goTo(i)}
+              className="rounded-full transition-all duration-300"
+              style={{
+                width: i === current ? "24px" : "8px",
+                height: "8px",
+                backgroundColor:
+                  i === current ? "var(--text-primary)" : "var(--text-muted)",
+                opacity: i === current ? 0.8 : 0.4,
+              }}
+              aria-label={`${i + 1}번째 슬라이드`}
+              aria-current={i === current ? "true" : undefined}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

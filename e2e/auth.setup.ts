@@ -30,7 +30,7 @@ setup('이메일 로그인 후 세션 저장', async ({ page }) => {
   await page.goto('/auth/login')
   await page.getByLabel('이메일').fill(email)
   await page.getByLabel('비밀번호').fill(password)
-  await page.getByRole('button', { name: '로그인' }).click()
+  await page.getByRole('button', { name: '로그인', exact: true }).click()
 
   // 로그인 성공 시 홈으로 리다이렉트 대기
   await page.waitForURL('/', { timeout: 10_000 })
