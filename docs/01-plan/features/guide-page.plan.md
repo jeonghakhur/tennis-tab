@@ -32,6 +32,12 @@ Tennis Tab은 대회 참가, 클럽 활동, 자연어 AI 채팅이라는 세 가
 - 영상/GIF 튜토리얼
 - 다국어 지원
 
+**이미지 캡처 요구사항:**
+- 각 단계별 실제 화면 이미지는 Playwright E2E 테스트를 통해 캡처한 스크린샷을 사용
+- 텍스트 설명만으로 부족한 주요 UI 포인트(버튼 위치, 폼 입력 등)에 캡처 이미지 삽입
+- 이미지 경로: `public/guide/screenshots/` 디렉토리에 저장
+- 캡처 스크립트: `scripts/capture-guide-screenshots.ts` (Playwright 기반)
+
 ---
 
 ## 2. 현재 서비스 구조 (분석 결과)

@@ -8,6 +8,7 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import AttendanceForm from '@/components/clubs/sessions/AttendanceForm'
 import AttendanceList from '@/components/clubs/sessions/AttendanceList'
 import MatchBoard from '@/components/clubs/sessions/MatchBoard'
+import SessionCommentSection from '@/components/clubs/sessions/SessionCommentSection'
 import { getSessionPageData } from '@/lib/clubs/session-actions'
 import type {
   ClubSessionDetail,
@@ -41,13 +42,13 @@ export default function SessionDetailPage() {
   const [deleting, setDeleting] = useState(false)
   const [editAttendance, setEditAttendance] = useState(false)
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     const { session, myMemberId, myRole } = await getSessionPageData(sessionId, clubId)
     setSession(session)
     setMyMemberId(myMemberId)
     setMyRole(myRole)
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [sessionId, clubId])
 
   useEffect(() => {
@@ -152,15 +153,15 @@ export default function SessionDetailPage() {
 
             <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>
               <div className="flex items-center gap-2">
-                <span>📅</span>
+                <span className="text-sm font-semibold w-8 shrink-0" style={{ color: 'var(--text-secondary)' }}>날짜</span>
                 <span>{formattedDate}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>🕐</span>
+                <span className="text-sm font-semibold w-8 shrink-0" style={{ color: 'var(--text-secondary)' }}>시간</span>
                 <span>{timeRange}</span>
               </div>
               <div className="flex items-center gap-2">
-                <span>📍</span>
+                <span className="text-sm font-semibold w-8 shrink-0" style={{ color: 'var(--text-secondary)' }}>장소</span>
                 <span>{session.venue_name}</span>
                 {session.court_numbers.length > 0 && (
                   <span style={{ color: 'var(--text-muted)' }}>
@@ -170,15 +171,15 @@ export default function SessionDetailPage() {
               </div>
               {session.max_attendees && (
                 <div className="flex items-center gap-2">
-                  <span>👥</span>
-                  <span>정원 {session.max_attendees}명</span>
+                  <span className="text-sm font-semibold w-8 shrink-0" style={{ color: 'var(--text-secondary)' }}>정원</span>
+                  <span>{session.max_attendees}명</span>
                 </div>
               )}
               {session.rsvp_deadline && (
                 <div className="flex items-center gap-2">
-                  <span>⏰</span>
+                  <span className="text-sm font-semibold w-8 shrink-0" style={{ color: 'var(--text-secondary)' }}>마감</span>
                   <span>
-                    마감: {new Date(session.rsvp_deadline).toLocaleString('ko-KR', {
+                    {new Date(session.rsvp_deadline).toLocaleString('ko-KR', {
                       month: 'long',
                       day: 'numeric',
                       hour: '2-digit',
@@ -243,7 +244,7 @@ export default function SessionDetailPage() {
               sessionStartTime={session?.start_time}
               sessionEndTime={session?.end_time}
               isEditMode={editAttendance}
-              onResponded={() => { setEditAttendance(false); fetchData() }}
+              onResponded={() => { setEditAttendance(false); fetchData(true) }}
             />
           )}
 
@@ -258,7 +259,7 @@ export default function SessionDetailPage() {
             canRespond={!!canRespond && !editAttendance}
             isOfficer={!!isOfficer}
             onEdit={() => setEditAttendance(true)}
-            onGuestsChange={fetchData}
+            onGuestsChange={() => fetchData(true)}
           />
 
           {/* 대진표 — 모집중(OPEN)에는 숨김 */}
@@ -268,9 +269,16 @@ export default function SessionDetailPage() {
               myMemberId={myMemberId || undefined}
               canInputScore={canInputScore}
               isOfficer={!!isOfficer}
-              onRefresh={fetchData}
+              onRefresh={() => fetchData(true)}
             />
           )}
+
+          {/* 댓글 */}
+          <SessionCommentSection
+            sessionId={sessionId}
+            currentUserId={user?.id}
+            isOfficer={!!isOfficer}
+          />
         </div>
       </div>
       {/* 수정 폼 */}
@@ -279,7 +287,7 @@ export default function SessionDetailPage() {
           clubId={clubId}
           isOpen={editOpen}
           onClose={() => setEditOpen(false)}
-          onCreated={() => { setEditOpen(false); fetchData() }}
+          onCreated={() => { setEditOpen(false); fetchData(true) }}
           session={session as unknown as import('@/lib/clubs/types').ClubSession}
         />
       )}

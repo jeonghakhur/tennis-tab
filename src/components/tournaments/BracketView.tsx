@@ -400,16 +400,7 @@ function PreliminaryView({
   isMatchInProgress?: (match: BracketMatch) => boolean
   matchType?: MatchType | null
 }) {
-  if (groups.length === 0) {
-    return (
-      <div className="glass-card rounded-xl p-8 text-center">
-        <Users className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
-        <p className="text-(--text-secondary)">예선 조 편성이 없습니다.</p>
-      </div>
-    )
-  }
-
-  // 내 조를 맨 위로 정렬
+  // 내 조를 맨 위로 정렬 (early return 전에 위치해야 Rules of Hooks 위반 방지)
   const sortedGroups = useMemo(() => {
     if (!currentUserEntryIds || currentUserEntryIds.length === 0) return groups
     return [...groups].sort((a, b) => {
@@ -420,6 +411,15 @@ function PreliminaryView({
       return 0
     })
   }, [groups, currentUserEntryIds])
+
+  if (groups.length === 0) {
+    return (
+      <div className="glass-card rounded-xl p-8 text-center">
+        <Users className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+        <p className="text-(--text-secondary)">예선 조 편성이 없습니다.</p>
+      </div>
+    )
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -629,16 +629,7 @@ function MainBracketView({
     }
   }, [visiblePhases, selectedPhase, myPhase, currentPhase])
 
-  if (matches.length === 0) {
-    return (
-      <div className="glass-card rounded-xl p-8 text-center">
-        <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
-        <p className="text-(--text-secondary)">본선 대진표가 아직 생성되지 않았습니다.</p>
-      </div>
-    )
-  }
-
-  // 내 경기를 맨 위로 정렬
+  // 내 경기를 맨 위로 정렬 (early return 전에 위치해야 Rules of Hooks 위반 방지)
   const selectedMatches = useMemo(() => {
     const raw = selectedPhase ? (matchesByPhase[selectedPhase] || []) : []
     if (!currentUserEntryIds || currentUserEntryIds.length === 0) return raw
@@ -650,6 +641,15 @@ function MainBracketView({
       return 0
     })
   }, [selectedPhase, matchesByPhase, currentUserEntryIds])
+
+  if (matches.length === 0) {
+    return (
+      <div className="glass-card rounded-xl p-8 text-center">
+        <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+        <p className="text-(--text-secondary)">본선 대진표가 아직 생성되지 않았습니다.</p>
+      </div>
+    )
+  }
 
   // 다음 미개방 라운드 이름 (표시용)
   const nextLockedPhase = activePhases.find((phase) => !visiblePhases.includes(phase))
@@ -679,7 +679,7 @@ function MainBracketView({
                 color: isSelected
                   ? 'var(--text-primary)'
                   : s.allDone
-                  ? '#34d399'
+                  ? 'var(--text-secondary)'
                   : 'var(--text-muted)',
                 borderBottom: isSelected
                   ? '2px solid var(--accent-color)'
@@ -691,6 +691,9 @@ function MainBracketView({
                 {phaseLabels[phase]}
                 {isCurrent && (
                   <span className="w-1.5 h-1.5 rounded-full bg-(--accent-color) animate-pulse" />
+                )}
+                {s.allDone && !isCurrent && (
+                  <span className="text-[10px] opacity-60">✓</span>
                 )}
               </span>
               <span
@@ -805,14 +808,14 @@ function MatchCard({
   const team1Color = team1IsMe
     ? 'text-(--accent-color) font-bold'
     : team1IsWinner
-      ? 'text-emerald-400 font-bold'
-      : 'text-(--text-primary)'
+      ? 'text-(--text-primary) font-bold'
+      : 'text-(--text-secondary)'
 
   const team2Color = team2IsMe
     ? 'text-(--accent-color) font-bold'
     : team2IsWinner
-      ? 'text-emerald-400 font-bold'
-      : 'text-(--text-primary)'
+      ? 'text-(--text-primary) font-bold'
+      : 'text-(--text-secondary)'
 
   return (
     <div
@@ -820,7 +823,7 @@ function MatchCard({
         isMyMatch
           ? 'border-2 border-(--accent-color) bg-(--accent-color)/5'
           : isCompleted
-            ? 'bg-emerald-500/5 border border-emerald-500/20'
+            ? 'bg-(--bg-secondary) border border-(--border-color) opacity-80'
             : 'bg-(--bg-secondary) border border-(--border-color)'
       }`}
     >
@@ -834,7 +837,7 @@ function MatchCard({
             {team1Text}
           </span>
           <span className={`font-mono text-base tabular-nums shrink-0 ${
-            team1IsWinner ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
+            team1IsWinner ? 'font-bold text-(--text-primary)' : 'text-(--text-muted)'
           }`}>
             {match.team1_score ?? '-'}
           </span>
@@ -846,7 +849,7 @@ function MatchCard({
             {team2Text}
           </span>
           <span className={`font-mono text-base tabular-nums shrink-0 ${
-            team2IsWinner ? 'font-bold text-emerald-400' : 'text-(--text-primary)'
+            team2IsWinner ? 'font-bold text-(--text-primary)' : 'text-(--text-muted)'
           }`}>
             {match.team2_score ?? '-'}
           </span>

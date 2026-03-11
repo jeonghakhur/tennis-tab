@@ -260,15 +260,15 @@ export default function RankingsTab({ clubId, myMemberId, isOfficer }: RankingsT
               const rank = index + 1
               const marginSign = stat.margin > 0 ? '+' : ''
               const marginColor = stat.margin > 0
-                ? 'text-emerald-400'
-                : stat.margin < 0 ? 'text-rose-400' : 'text-(--text-muted)'
+                ? 'text-(--color-success)'
+                : stat.margin < 0 ? 'text-(--color-danger)' : 'text-(--text-muted)'
 
               return (
                 <button
                   key={stat.member.id}
                   onClick={() => handleMemberClick(stat.member.id, stat.member.name, stat.member.rating)}
                   className={`w-full flex items-center gap-3 px-4 py-3 border-b border-(--border-color) last:border-0 hover:bg-(--bg-card-hover) transition-colors text-left ${
-                    isMe ? 'bg-emerald-500/10' : ''
+                    isMe ? 'bg-(--color-success-subtle)' : ''
                   }`}
                 >
                   {/* 순위 */}
@@ -288,8 +288,8 @@ export default function RankingsTab({ clubId, myMemberId, isOfficer }: RankingsT
                     {/* 모바일 전용 서브 통계 */}
                     <div className="flex md:hidden items-center gap-2 mt-0.5 text-sm text-(--text-muted)">
                       <span>{stat.total}경기</span>
-                      <span className="text-emerald-400">{stat.wins}승</span>
-                      <span className="text-rose-400">{stat.losses}패</span>
+                      <span className="text-(--color-success)">{stat.wins}승</span>
+                      <span className="text-(--color-danger)">{stat.losses}패</span>
                       <span className="text-(--border-color)">·</span>
                       <span>득{stat.points_for} 실{stat.points_against}</span>
                       <span className={`font-medium ${marginColor}`}>{marginSign}{stat.margin}</span>
@@ -298,8 +298,8 @@ export default function RankingsTab({ clubId, myMemberId, isOfficer }: RankingsT
 
                   {/* 데스크탑 전용 개별 컬럼 */}
                   <span className="hidden md:block w-14 text-center text-base text-(--text-secondary)">{stat.total}</span>
-                  <span className="hidden md:block w-10 text-center text-base text-emerald-400 font-medium">{stat.wins}</span>
-                  <span className="hidden md:block w-10 text-center text-base text-rose-400 font-medium">{stat.losses}</span>
+                  <span className="hidden md:block w-10 text-center text-base text-(--color-success) font-medium">{stat.wins}</span>
+                  <span className="hidden md:block w-10 text-center text-base text-(--color-danger) font-medium">{stat.losses}</span>
                   <span className="hidden md:block w-12 text-center text-base text-(--text-secondary)">{stat.points_for}</span>
                   <span className="hidden md:block w-12 text-center text-base text-(--text-secondary)">{stat.points_against}</span>
                   <span className={`hidden md:block w-14 text-center text-base font-semibold ${marginColor}`}>{marginSign}{stat.margin}</span>

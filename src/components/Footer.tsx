@@ -29,6 +29,7 @@ export function Footer() {
             <Link href="/clubs" className="hover:text-(--text-primary) transition-colors">클럽</Link>
             <Link href="/community" className="hover:text-(--text-primary) transition-colors">커뮤니티</Link>
             <Link href="/support" className="hover:text-(--text-primary) transition-colors">고객센터</Link>
+            <Link href="/guide" className="hover:text-(--text-primary) transition-colors">이용 안내</Link>
             <Link href="/terms" className="hover:text-(--text-primary) transition-colors">이용약관</Link>
             <Link href="/privacy" className="hover:text-(--text-primary) transition-colors">개인정보처리방침</Link>
           </div>

@@ -103,13 +103,10 @@ export default function AttendanceList({
               {a.member.name}
               {isMe && <span className="text-xs text-(--text-muted) ml-1">(나)</span>}
             </span>
-            {a.member.rating && (
-              <span className="text-xs text-(--text-muted)">{a.member.rating}</span>
-            )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {a.status === 'ATTENDING' && (a.available_from || a.available_until) && (
-              <span className="text-xs text-(--text-muted)">
+              <span className="text-sm font-medium text-(--text-secondary)">
                 {a.available_from?.slice(0, 5) || '?'} ~ {a.available_until?.slice(0, 5) || '?'}
               </span>
             )}
@@ -138,10 +135,10 @@ export default function AttendanceList({
     <div className="glass-card rounded-xl p-4">
       <div className="flex items-center gap-3 mb-3">
         <h3 className="text-sm font-semibold text-(--text-primary)">참석 현황</h3>
-        <div className="flex gap-2 text-xs">
-          <span className="text-emerald-400">참석 {attending.length}</span>
-          <span className="text-gray-400">불참 {notAttending.length}</span>
-          {undecided.length > 0 && <span className="text-amber-400">미정 {undecided.length}</span>}
+        <div className="flex gap-3 text-sm font-medium">
+          <span className="text-(--color-success)">참석 {attending.length}</span>
+          <span className="text-(--text-secondary)">불참 {notAttending.length}</span>
+          {undecided.length > 0 && <span className="text-(--color-warning)">미정 {undecided.length}</span>}
         </div>
       </div>
 
@@ -171,7 +168,7 @@ export default function AttendanceList({
             {!showAddGuest && (
               <button
                 onClick={() => setShowAddGuest(true)}
-                className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                className="text-sm px-4 py-2 rounded-lg font-semibold transition-colors"
                 style={{
                   backgroundColor: 'var(--color-success-subtle)',
                   color: 'var(--color-success)',
@@ -191,20 +188,24 @@ export default function AttendanceList({
                 <Badge variant="warning">게스트</Badge>
                 <span className="text-sm font-medium text-(--text-primary)">{g.name}</span>
                 {g.gender && (
-                  <span className="text-xs text-(--text-muted)">
+                  <span className="text-sm font-semibold text-(--text-secondary)">
                     {g.gender === 'MALE' ? '남' : '여'}
                   </span>
                 )}
                 {(g.available_from || g.available_until) && (
-                  <span className="text-xs text-(--text-muted)">
+                  <span className="text-sm font-medium text-(--text-secondary)">
                     {g.available_from?.slice(0, 5) || '?'} ~ {g.available_until?.slice(0, 5) || '?'}
                   </span>
                 )}
               </div>
               <button
                 onClick={() => handleRemoveGuest(g.id)}
-                className="text-xs px-2 py-1"
-                style={{ color: 'var(--color-danger)' }}
+                className="text-sm px-3 py-1.5 rounded-lg font-medium border transition-colors"
+                style={{
+                  borderColor: 'var(--color-danger-border)',
+                  color: 'var(--color-danger)',
+                  backgroundColor: 'var(--color-danger-subtle)',
+                }}
                 aria-label={`${g.name} 게스트 삭제`}
               >
                 삭제

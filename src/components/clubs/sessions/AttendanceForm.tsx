@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useCallback, type ReactNode } from 'react'
-import { CheckCircle, XCircle } from 'lucide-react'
-import { AlertDialog } from '@/components/common/AlertDialog'
+import { useState, useCallback } from 'react'
+import { AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { respondToSession, cancelAttendance } from '@/lib/clubs/session-actions'
 import type { AttendanceStatus } from '@/lib/clubs/types'
 import SessionTimePicker from './SessionTimePicker'
@@ -20,9 +19,22 @@ interface AttendanceFormProps {
   onResponded: () => void
 }
 
-const STATUS_OPTIONS: { value: AttendanceStatus; label: string; icon: ReactNode; activeClass: string }[] = [
-  { value: 'ATTENDING', label: '참석', icon: <CheckCircle className="w-4 h-4" aria-hidden="true" />, activeClass: 'bg-emerald-500/20 border-emerald-500 text-emerald-400' },
-  { value: 'NOT_ATTENDING', label: '불참', icon: <XCircle className="w-4 h-4" aria-hidden="true" />, activeClass: 'bg-gray-500/20 border-gray-500 text-gray-400' },
+// Bootstrap outline-success / outline-warning / outline-secondary 패턴 → 프로젝트 CSS 변수 적용
+const STATUS_OPTIONS: { value: AttendanceStatus; label: string; activeClass: string; inactiveClass: string }[] = [
+  {
+    value: 'ATTENDING',
+    label: '참석',
+    // solid success: 강조 배경 + 흰색 텍스트
+    activeClass: 'bg-(--color-success-emphasis) border-(--color-success-emphasis) text-white font-semibold',
+    inactiveClass: 'border-(--color-success-border) text-(--color-success) hover:border-(--color-success) hover:text-(--color-success-emphasis)',
+  },
+  {
+    value: 'NOT_ATTENDING',
+    label: '불참',
+    // outline-secondary: bg subtle gray + secondary border
+    activeClass: 'bg-(--bg-secondary) border-(--border-color) text-(--text-primary) font-semibold',
+    inactiveClass: 'border-(--border-color) text-(--text-muted) hover:border-(--text-secondary) hover:text-(--text-secondary)',
+  },
 ]
 
 export default function AttendanceForm({
@@ -44,6 +56,7 @@ export default function AttendanceForm({
   const [saving, setSaving] = useState(false)
   const [cancelling, setCancelling] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+  const [confirmCancel, setConfirmCancel] = useState(false)
 
   const handleSubmit = useCallback(async () => {
     setSaving(true)
@@ -66,7 +79,6 @@ export default function AttendanceForm({
   }, [sessionId, clubMemberId, status, availableFrom, availableUntil, notes, onResponded])
 
   const handleCancel = async () => {
-    if (!window.confirm('참석 응답을 취소하시겠습니까?')) return
     setCancelling(true)
     const result = await cancelAttendance(sessionId, clubMemberId)
     setCancelling(false)
@@ -91,13 +103,10 @@ export default function AttendanceForm({
             key={opt.value}
             type="button"
             onClick={() => setStatus(opt.value)}
-            className={`flex-1 px-3 py-2.5 rounded-lg border text-sm font-medium transition-all ${
-              status === opt.value
-                ? opt.activeClass
-                : 'border-(--border-color) text-(--text-muted) hover:border-(--text-muted)'
+            className={`flex-1 px-3 py-2.5 rounded-lg border text-sm transition-all ${
+              status === opt.value ? opt.activeClass : opt.inactiveClass
             }`}
           >
-            <span className="mr-1.5">{opt.icon}</span>
             {opt.label}
           </button>
         ))}
@@ -129,7 +138,7 @@ export default function AttendanceForm({
 
       {/* 메모 */}
       <div>
-        <label htmlFor="att-notes" className="block text-sm text-(--text-muted) mb-1">
+        <label htmlFor="att-notes" className="block text-sm text-(--text-secondary) mb-1">
           메모 (선택)
         </label>
         <input
@@ -146,10 +155,10 @@ export default function AttendanceForm({
         {isEditMode && (
           <button
             type="button"
-            onClick={handleCancel}
+            onClick={() => setConfirmCancel(true)}
             disabled={cancelling || saving}
             className="flex-1 px-4 py-2 rounded-lg text-sm font-semibold border disabled:opacity-50"
-            style={{ borderColor: 'var(--border-danger, #ef4444)', color: 'var(--color-danger, #ef4444)' }}
+            style={{ borderColor: 'var(--color-danger)', color: 'var(--color-danger)' }}
           >
             {cancelling ? '취소 중...' : '응답 삭제'}
           </button>
@@ -169,6 +178,13 @@ export default function AttendanceForm({
         onClose={() => setAlert({ ...alert, isOpen: false })}
         message={alert.message}
         type={alert.type}
+      />
+      <ConfirmDialog
+        isOpen={confirmCancel}
+        onClose={() => setConfirmCancel(false)}
+        onConfirm={() => { setConfirmCancel(false); handleCancel() }}
+        message="참석 응답을 삭제하시겠습니까?"
+        type="warning"
       />
     </div>
   )

@@ -293,3 +293,16 @@ export interface ResolveDisputeInput {
   player1_score: number
   player2_score: number
 }
+
+// ─── 모임 댓글 ────────────────────────────────────────────────────────────────
+
+export interface ClubSessionComment {
+  id: string
+  session_id: string
+  author_id: string
+  content: string
+  created_at: string
+  updated_at: string
+  // JOIN
+  author?: { name: string }
+}

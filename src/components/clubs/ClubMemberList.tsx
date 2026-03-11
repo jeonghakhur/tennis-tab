@@ -348,7 +348,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pt-2">
       {/* 승인 대기 회원 */}
       {pendingMembers.length > 0 && (
         <div className="glass-card rounded-xl p-4 space-y-2">

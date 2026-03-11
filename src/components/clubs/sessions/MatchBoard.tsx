@@ -102,45 +102,45 @@ export default function MatchBoard({ matches, myMemberId, canInputScore = false,
                 key={match.id}
                 className={`p-3 rounded-lg border transition-colors ${
                   isMyMatch
-                    ? 'bg-emerald-500/10 border-emerald-500/30'
+                    ? 'bg-(--color-success-subtle) border-(--color-success-border)'
                     : 'border-(--border-color)'
                 }`}
               >
                 {/* 매치 타입 배지 + 코트 */}
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs text-(--text-muted) bg-(--bg-secondary) px-1.5 py-0.5 rounded">
+                <div className="flex items-center gap-2 mb-2.5">
+                  <span className="text-sm font-semibold text-(--text-secondary) bg-(--bg-secondary) px-2 py-0.5 rounded">
                     {matchTypeBadge[type] ?? '경기'}
                   </span>
                   {hasGuest && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 font-medium">
+                    <span className="text-sm px-2 py-0.5 rounded font-semibold" style={{ backgroundColor: 'var(--color-warning-subtle)', color: 'var(--color-warning)' }}>
                       게스트
                     </span>
                   )}
                   {match.court_number && (
-                    <span className="text-xs text-(--text-muted)">{match.court_number}</span>
+                    <span className="text-sm text-(--text-secondary)">{match.court_number}</span>
                   )}
                   {match.scheduled_time && (
-                    <span className="text-xs text-(--text-muted)">{match.scheduled_time}</span>
+                    <span className="text-sm font-medium text-(--text-secondary)">{match.scheduled_time}</span>
                   )}
                 </div>
 
                 {/* 대진 표시 */}
                 <div className="flex items-center gap-3">
-                  <span className={`flex-1 text-sm text-right ${team1Won ? 'font-bold text-emerald-400' : 'text-(--text-primary)'}`}>
+                  <span className={`flex-1 text-base text-right font-medium ${team1Won ? 'font-bold text-(--color-success)' : 'text-(--text-primary)'}`}>
                     {team1Name}
                   </span>
 
                   <div className="w-16 text-center shrink-0">
                     {match.status === 'COMPLETED' ? (
-                      <span className="text-sm font-mono font-semibold text-(--text-primary)">
+                      <span className="text-base font-mono font-bold text-(--text-primary)">
                         {match.player1_score} : {match.player2_score}
                       </span>
                     ) : (
-                      <span className="text-xs text-(--text-muted)">VS</span>
+                      <span className="text-sm font-semibold text-(--text-secondary)">VS</span>
                     )}
                   </div>
 
-                  <span className={`flex-1 text-sm ${team2Won ? 'font-bold text-emerald-400' : 'text-(--text-primary)'}`}>
+                  <span className={`flex-1 text-base font-medium ${team2Won ? 'font-bold text-(--color-success)' : 'text-(--text-primary)'}`}>
                     {team2Name}
                   </span>
 
@@ -152,7 +152,7 @@ export default function MatchBoard({ matches, myMemberId, canInputScore = false,
                           // 게스트 포함 경기는 항상 임원 모드로 열림
                           setOfficerOverride(isOfficer || hasGuest)
                         }}
-                        className="px-2 py-1 text-xs rounded-md bg-(--accent-color) text-(--bg-primary) font-semibold"
+                        className="px-3 py-1.5 text-sm rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold"
                       >
                         {isOfficer && match.status === 'COMPLETED' ? '점수 수정' : '결과 입력'}
                       </button>

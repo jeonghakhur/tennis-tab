@@ -68,13 +68,11 @@ export default function SessionCard({ session, onClick, onEdit, isOfficer }: Ses
       {/* 날짜, 시간, 장소 */}
       <div className="space-y-1 text-sm text-(--text-secondary)">
         <div className="flex items-center gap-2">
-          <span>📅</span>
           <span>{formatted}</span>
           <span className="text-(--text-muted)">|</span>
           <span>{timeRange}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span>📍</span>
           <span className="truncate">{session.venue_name}</span>
           {session.court_numbers.length > 0 && (
             <span className="text-(--text-muted)">
@@ -84,15 +82,15 @@ export default function SessionCard({ session, onClick, onEdit, isOfficer }: Ses
         </div>
       </div>
 
-      {/* 참석 현황 */}
-      <div className="flex items-center gap-3 mt-3 text-xs">
-        <span className="text-emerald-400">
+      {/* 참석 현황 — Bootstrap success/secondary/warning 색상 적용 */}
+      <div className="flex items-center gap-3 mt-3 text-sm">
+        <span className="text-(--color-success) font-medium">
           참석 {session._attending_count ?? 0}
         </span>
-        <span className="text-gray-400">
+        <span className="text-(--text-secondary) font-medium">
           불참 {session._not_attending_count ?? 0}
         </span>
-        <span className="text-amber-400">
+        <span className="text-(--color-warning) font-medium">
           미정 {session._undecided_count ?? 0}
         </span>
         {session.max_attendees && (

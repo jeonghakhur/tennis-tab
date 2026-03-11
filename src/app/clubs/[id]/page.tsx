@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub } from '@/lib/clubs/actions'
-import { createClient } from '@/lib/supabase/client'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub, getMyMembershipInClub } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
@@ -17,6 +16,14 @@ import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy, Calendar, BarChart3 } from 'lucide-react'
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 모듈 레벨 캐시: 뒤로가기 시 컴포넌트 remount 후에도 스켈레톤 없이 즉시 렌더링
+// ──────────────────────────────────────────────────────────────────────────────
+type ClubCacheEntry = { club: Club; memberCount: number }
+type MembershipCacheEntry = { isMember: boolean; membership: PublicMember | null }
+const clubCache = new Map<string, ClubCacheEntry>()
+const membershipCache = new Map<string, MembershipCacheEntry>()
 
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
@@ -55,18 +62,22 @@ export default function ClubDetailPage() {
   const searchParams = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
 
-  const [club, setClub] = useState<Club | null>(null)
+  // 캐시에서 초기값 읽기 → 뒤로가기 시 스켈레톤 없이 즉시 렌더링
+  const cachedClub = clubCache.get(id)
+  const cachedMembership = !authLoading ? membershipCache.get(`${id}:${user?.id ?? 'guest'}`) : undefined
+
+  const [club, setClub] = useState<Club | null>(cachedClub?.club ?? null)
   const [members, setMembers] = useState<PublicMember[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [awardsLoading, setAwardsLoading] = useState(false)
   const [fullMembersLoading, setFullMembersLoading] = useState(false)
   const [fullMembersLoaded, setFullMembersLoaded] = useState(false)
-  const [memberCount, setMemberCount] = useState(0)
-  const [loading, setLoading] = useState(true)
+  const [memberCount, setMemberCount] = useState(cachedClub?.memberCount ?? 0)
+  const [loading, setLoading] = useState(!cachedClub)  // 캐시 있으면 스켈레톤 스킵
   const [actionLoading, setActionLoading] = useState(false)
-  const [isMember, setIsMember] = useState(false)
-  const [membershipChecked, setMembershipChecked] = useState(false)
-  const [myMembership, setMyMembership] = useState<PublicMember | null>(null)
+  const [isMember, setIsMember] = useState(cachedMembership?.isMember ?? false)
+  const [membershipChecked, setMembershipChecked] = useState(!!cachedMembership)
+  const [myMembership, setMyMembership] = useState<PublicMember | null>(cachedMembership?.membership ?? null)
 
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
   const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
@@ -80,6 +91,19 @@ export default function ClubDetailPage() {
   const [sessionFormOpen, setSessionFormOpen] = useState(false)
   const [clubAwards, setClubAwards] = useState<import('@/lib/supabase/types').Database['public']['Tables']['tournament_awards']['Row'][]>([])
 
+  // 탭 lazy mount: 최초 방문한 탭만 DOM에 마운트 (이후 hidden으로 유지 → 재조회 없음)
+  const [mountedTabs, setMountedTabs] = useState<Set<ActiveTab>>(new Set([initialTab]))
+  // sessions만 targeted refresh (loadClubData 전체 재조회 없이)
+  const [sessionRefreshKey, setSessionRefreshKey] = useState(0)
+
+  const handleTabChange = (tab: ActiveTab) => {
+    setActiveTab(tab)
+    setMountedTabs((prev) => {
+      if (prev.has(tab)) return prev
+      return new Set([...prev, tab])
+    })
+  }
+
   const [joinModalOpen, setJoinModalOpen] = useState(false)
   const [introduction, setIntroduction] = useState('')
 
@@ -88,9 +112,10 @@ export default function ClubDetailPage() {
   const [confirmLeave, setConfirmLeave] = useState(false)
 
   // 클럽 기본 데이터 + 멤버십 병렬 로드
+  // 캐시가 있으면 silent(백그라운드 갱신), 없으면 스켈레톤 표시
   useEffect(() => {
     if (!id) return
-    loadClubData()
+    loadClubData(!!clubCache.get(id))
   }, [id])
 
   useEffect(() => {
@@ -100,18 +125,28 @@ export default function ClubDetailPage() {
       setMembershipChecked(true)
       return
     }
+    // 캐시 없으면 스켈레톤, 있으면 silent 갱신 (race condition 방지용 리셋은 캐시 없을 때만)
+    if (!membershipCache.get(`${id}:${user?.id}`)) setMembershipChecked(false)
     checkMembership()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, user?.id, id])
 
-  const loadClubData = async () => {
-    setLoading(true)
-    const [clubResult, count] = await Promise.all([
-      getClub(id),
-      getClubMemberCount(id),
-    ])
-    if (clubResult.data) setClub(clubResult.data)
-    setMemberCount(count)
-    setLoading(false)
+  const loadClubData = async (silent = false) => {
+    if (!silent) setLoading(true)
+    try {
+      const [clubResult, count] = await Promise.all([
+        getClub(id),
+        getClubMemberCount(id),
+      ])
+      // 실패해도 기존 club 데이터 유지 (null로 덮어쓰지 않음)
+      if (clubResult.data) {
+        setClub(clubResult.data)
+        clubCache.set(id, { club: clubResult.data, memberCount: count })
+      }
+      setMemberCount(count)
+    } finally {
+      setLoading(false)
+    }
   }
 
   // 회원 목록: 해당 탭 클릭 시 지연 로드
@@ -128,28 +163,17 @@ export default function ClubDetailPage() {
   const checkMembership = async () => {
     if (!id) return
     try {
-      const supabase = createClient()
-      const { data } = user?.id
-        ? await supabase
-            .from('club_members')
-            .select('id, name, role, is_registered')
-            .eq('club_id', id)
-            .eq('user_id', user.id)
-            .eq('status', 'ACTIVE')
-            .maybeSingle()
-        : { data: null }
-
+      // admin 클라이언트 기반 서버 액션 사용 → 브라우저 Supabase 세션과 무관하게 안정적
+      const { data } = await getMyMembershipInClub(id)
+      const cacheKey = `${id}:${user?.id ?? 'guest'}`
       if (data) {
         setIsMember(true)
-        setMyMembership({
-          id: data.id,
-          name: data.name,
-          role: data.role as ClubMemberRole,
-          is_registered: data.is_registered,
-        })
+        setMyMembership(data)
+        membershipCache.set(cacheKey, { isMember: true, membership: data })
       } else {
         setIsMember(false)
         setMyMembership(null)
+        membershipCache.set(cacheKey, { isMember: false, membership: null })
       }
     } catch {
       setIsMember(false)
@@ -211,7 +235,7 @@ export default function ClubDetailPage() {
       : '가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.'
     setToast({ isOpen: true, message, type: 'success' })
     setIntroduction('')
-    loadClubData()
+    loadClubData(true)   // silent: 스켈레톤 플래시 방지
     checkMembership()
   }
 
@@ -229,10 +253,11 @@ export default function ClubDetailPage() {
     setToast({ isOpen: true, message: '클럽에서 탈퇴했습니다.', type: 'success' })
     setIsMember(false)
     setMyMembership(null)
-    loadClubData()
+    membershipCache.delete(`${id}:${user?.id ?? 'guest'}`)
+    loadClubData(true)   // silent: 스켈레톤 플래시 방지
   }
 
-  if (loading || authLoading || !membershipChecked) {
+  if (loading || !membershipChecked) {
     return (
       <>
         <div className="" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -469,11 +494,11 @@ export default function ClubDetailPage() {
                     {tabs.map((tab) => (
                       <button
                         key={tab.key}
-                        onClick={() => setActiveTab(tab.key as typeof activeTab)}
-                        className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 text-xs font-medium transition-colors relative ${
+                        onClick={() => handleTabChange(tab.key as ActiveTab)}
+                        className={`flex-1 flex flex-row items-center justify-center gap-1.5 py-2.5 text-sm font-bold transition-colors relative ${
                           activeTab === tab.key
                             ? 'text-(--accent-color)'
-                            : 'text-(--text-muted) hover:text-(--text-primary)'
+                            : 'text-(--text-secondary) hover:text-(--text-primary)'
                         }`}
                       >
                         {tab.icon}
@@ -487,48 +512,111 @@ export default function ClubDetailPage() {
                 )
               })()}
 
-              {/* 탭 콘텐츠 */}
-              {isOfficer && activeTab === 'manage' ? (
-                fullMembersLoading ? (
-                  <div className="mt-4 space-y-2 animate-pulse">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="h-11 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-                    ))}
-                  </div>
-                ) : (
-                  // fullMembersLoaded 후 마운트 → useState(initialMembers)가 정확한 데이터로 초기화됨
-                  <ClubMemberList
-                    key="manage"
-                    clubId={id}
-                    initialMembers={fullMembers}
-                    isSystemAdmin={false}
-                  />
-                )
-              ) : activeTab === 'sessions' ? (
-                <div className="mt-4">
-                  <SessionList
-                    clubId={id}
-                    isOfficer={!!isOfficer}
-                    onCreateSession={() => setSessionFormOpen(true)}
-                  />
-                  <SessionForm
-                    clubId={id}
-                    isOpen={sessionFormOpen}
-                    onClose={() => setSessionFormOpen(false)}
-                    onCreated={loadClubData}
-                  />
-                </div>
-              ) : activeTab === 'rankings' ? (
-                <div className="mt-4">
+              {/* 탭 콘텐츠 — lazy mount + hidden 방식 (unmount 없으므로 탭 전환 시 재조회 없음) */}
+
+              {/* 모임 탭 */}
+              <div className={`mt-4${activeTab !== 'sessions' ? ' hidden' : ''}`}>
+                {mountedTabs.has('sessions') && (
+                  <>
+                    <SessionList
+                      clubId={id}
+                      isOfficer={!!isOfficer}
+                      onCreateSession={() => setSessionFormOpen(true)}
+                      refreshKey={sessionRefreshKey}
+                    />
+                    <SessionForm
+                      clubId={id}
+                      isOpen={sessionFormOpen}
+                      onClose={() => setSessionFormOpen(false)}
+                      onCreated={() => setSessionRefreshKey((k) => k + 1)}
+                    />
+                  </>
+                )}
+              </div>
+
+              {/* 순위 탭 */}
+              <div className={`mt-4${activeTab !== 'rankings' ? ' hidden' : ''}`}>
+                {mountedTabs.has('rankings') && (
                   <RankingsTab
                     clubId={id}
                     myMemberId={myMembership?.id}
                     isOfficer={!!isOfficer}
                   />
-                </div>
-              ) : activeTab === 'awards' ? (
-                <div className="mt-4">
-                  {awardsLoading ? (
+                )}
+              </div>
+
+              {/* 회원 탭 */}
+              <div className={`${activeTab !== 'info' ? 'hidden' : ''}`}>
+                {mountedTabs.has('info') && (
+                  <div className="glass-card rounded-xl p-6">
+                    <h2
+                      className="font-display text-lg mb-4"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      회원 목록 ({memberCount}명)
+                    </h2>
+
+                    {membersLoading ? (
+                      <div className="space-y-2 animate-pulse">
+                        {Array.from({ length: 4 }).map((_, i) => (
+                          <div key={i} className="h-11 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+                        ))}
+                      </div>
+                    ) : members.length === 0 ? (
+                      <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
+                        아직 회원이 없습니다.
+                      </p>
+                    ) : (
+                      <div className="space-y-2">
+                        {members.map((member) => (
+                          <div
+                            key={member.id}
+                            className="flex items-center justify-between py-2.5 px-3 rounded-lg"
+                            style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                          >
+                            <div className="flex items-center gap-3">
+                              <div
+                                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
+                                style={{
+                                  backgroundColor: ROLE_COLOR[member.role],
+                                  color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
+                                }}
+                              >
+                                {member.name.charAt(0)}
+                              </div>
+                              <div>
+                                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                                  {member.name}
+                                </span>
+                                {!member.is_registered && (
+                                  <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                    (비가입)
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <span
+                              className="text-xs px-2 py-0.5 rounded-full font-medium"
+                              style={{
+                                backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
+                                color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
+                                border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
+                              }}
+                            >
+                              {ROLE_LABEL[member.role]}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* 입상 탭 */}
+              <div className={`mt-4${activeTab !== 'awards' ? ' hidden' : ''}`}>
+                {mountedTabs.has('awards') && (
+                  awardsLoading ? (
                     <div className="space-y-3 animate-pulse">
                       {Array.from({ length: 3 }).map((_, i) => (
                         <div key={i} className="h-24 rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
@@ -536,70 +624,29 @@ export default function ClubDetailPage() {
                     </div>
                   ) : (
                     <ClubAwards awards={clubAwards} />
-                  )}
-                </div>
-              ) : (
-                /* 회원 목록 */
-                <div className="glass-card rounded-xl p-6">
-                  <h2
-                    className="font-display text-lg mb-4"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    회원 목록 ({memberCount}명)
-                  </h2>
+                  )
+                )}
+              </div>
 
-                  {membersLoading ? (
-                    <div className="space-y-2 animate-pulse">
-                      {Array.from({ length: 4 }).map((_, i) => (
-                        <div key={i} className="h-11 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-                      ))}
-                    </div>
-                  ) : members.length === 0 ? (
-                    <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
-                      아직 회원이 없습니다.
-                    </p>
-                  ) : (
-                    <div className="space-y-2">
-                      {members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between py-2.5 px-3 rounded-lg"
-                          style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                        >
-                          <div className="flex items-center gap-3">
-                            <div
-                              className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold"
-                              style={{
-                                backgroundColor: ROLE_COLOR[member.role],
-                                color: member.role === 'MEMBER' ? 'var(--text-primary)' : 'var(--bg-primary)',
-                              }}
-                            >
-                              {member.name.charAt(0)}
-                            </div>
-                            <div>
-                              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                {member.name}
-                              </span>
-                              {!member.is_registered && (
-                                <span className="ml-1.5 text-xs" style={{ color: 'var(--text-muted)' }}>
-                                  (비가입)
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <span
-                            className="text-xs px-2 py-0.5 rounded-full font-medium"
-                            style={{
-                              backgroundColor: member.role === 'OWNER' ? 'var(--accent-color)' : 'transparent',
-                              color: member.role === 'OWNER' ? 'var(--bg-primary)' : 'var(--text-muted)',
-                              border: member.role !== 'OWNER' ? '1px solid var(--border-color)' : 'none',
-                            }}
-                          >
-                            {ROLE_LABEL[member.role]}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
+              {/* 관리 탭 (임원 전용) */}
+              {isOfficer && (
+                <div className={`mt-4${activeTab !== 'manage' ? ' hidden' : ''}`}>
+                  {mountedTabs.has('manage') && (
+                    fullMembersLoading ? (
+                      <div className="space-y-2 animate-pulse">
+                        {Array.from({ length: 5 }).map((_, i) => (
+                          <div key={i} className="h-11 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+                        ))}
+                      </div>
+                    ) : (
+                      // fullMembersLoaded 후 마운트 → useState(initialMembers)가 정확한 데이터로 초기화됨
+                      <ClubMemberList
+                        key="manage"
+                        clubId={id}
+                        initialMembers={fullMembers}
+                        isSystemAdmin={false}
+                      />
+                    )
                   )}
                 </div>
               )}

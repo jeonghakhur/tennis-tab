@@ -311,7 +311,8 @@ export default function BracketEditor({
           {guests.map((g) => (
             <span
               key={g.id}
-              className="px-3 py-1.5 rounded-md bg-amber-500/10 text-sm text-amber-300"
+              className="px-3 py-1.5 rounded-md text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-warning-subtle)', color: 'var(--color-warning)' }}
             >
               {g.name}
               {g.gender === 'MALE'
@@ -319,7 +320,7 @@ export default function BracketEditor({
                 : g.gender === 'FEMALE'
                 ? <span className="inline-block w-2 h-2 rounded-full bg-rose-400 ml-1 align-middle" aria-label="여성" />
                 : null}
-              <span className="text-xs ml-1 opacity-70">게스트</span>
+              <span className="text-xs ml-1.5 font-semibold">게스트</span>
             </span>
           ))}
         </div>
@@ -507,7 +508,8 @@ export default function BracketEditor({
             <h3 className="text-base font-semibold text-(--text-primary)">생성된 경기 ({matches.length}건)</h3>
             <button
               onClick={() => setDeleteAllConfirm(true)}
-              className="text-sm text-rose-400 hover:text-rose-300 border border-rose-400/30 px-2.5 py-1 rounded"
+              className="text-sm font-medium px-2.5 py-1 rounded border transition-colors"
+              style={{ borderColor: 'var(--color-danger-border)', color: 'var(--color-danger)', backgroundColor: 'var(--color-danger-subtle)' }}
             >
               전체 삭제
             </button>
@@ -523,16 +525,24 @@ export default function BracketEditor({
               return (
                 <div key={m.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-(--bg-card-hover)">
                   <span className="text-base text-(--text-primary)">
-                    <span className="text-xs font-semibold mr-1 px-1.5 py-0.5 rounded bg-(--bg-secondary)">{typeBadge}</span>
-                    {hasGuest && <span className="text-xs mr-1.5 px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400">게스트</span>}
+                    <span className="text-xs font-semibold mr-1 px-1.5 py-0.5 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>{typeBadge}</span>
+                    {hasGuest && <span className="text-xs mr-1.5 px-1.5 py-0.5 rounded font-semibold" style={{ backgroundColor: 'var(--color-warning-subtle)', color: 'var(--color-warning)' }}>게스트</span>}
                     {p1n}{p1bn ? ` / ${p1bn}` : ''} vs {p2n}{p2bn ? ` / ${p2bn}` : ''}
-                    {m.court_number && <span className="text-sm text-(--text-muted) ml-2">[{m.court_number}]</span>}
-                    {m.scheduled_time && <span className="text-sm text-(--text-muted) ml-1">{m.scheduled_time}</span>}
+                    {m.court_number && <span className="text-sm text-(--text-secondary) ml-2">[{m.court_number}]</span>}
+                    {m.scheduled_time && <span className="text-sm text-(--text-secondary) ml-1">{m.scheduled_time}</span>}
                   </span>
                   {m.status !== 'COMPLETED' && (
                     <div className="flex gap-2 ml-2 shrink-0">
-                      <button onClick={() => handleEditMatch(m)} className="text-sm text-blue-400 hover:text-blue-300">수정</button>
-                      <button onClick={() => setDeleteTarget(m.id)} className="text-sm text-rose-400 hover:text-rose-300">삭제</button>
+                      <button
+                        onClick={() => handleEditMatch(m)}
+                        className="text-sm font-medium px-2.5 py-1 rounded border transition-colors"
+                        style={{ borderColor: 'var(--border-color)', color: 'var(--text-secondary)' }}
+                      >수정</button>
+                      <button
+                        onClick={() => setDeleteTarget(m.id)}
+                        className="text-sm font-medium px-2.5 py-1 rounded border transition-colors"
+                        style={{ borderColor: 'var(--color-danger-border)', color: 'var(--color-danger)', backgroundColor: 'var(--color-danger-subtle)' }}
+                      >삭제</button>
                     </div>
                   )}
                 </div>

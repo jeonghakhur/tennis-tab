@@ -1392,6 +1392,27 @@ export async function getClubMemberCount(clubId: string): Promise<number> {
   return count || 0
 }
 
+/** 특정 클럽에서 내 멤버십 조회 — admin 클라이언트 사용으로 브라우저 세션 무관하게 안정적 */
+export async function getMyMembershipInClub(clubId: string): Promise<{
+  data: { id: string; name: string; role: ClubMemberRole; is_registered: boolean } | null
+  error?: string
+}> {
+  const user = await getCurrentUser()
+  if (!user) return { data: null }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('club_members')
+    .select('id, name, role, is_registered')
+    .eq('club_id', clubId)
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+    .maybeSingle()
+
+  if (error) return { data: null, error: error.message }
+  return { data: data as { id: string; name: string; role: ClubMemberRole; is_registered: boolean } | null }
+}
+
 /** 여러 클럽의 활성 회원 수를 단일 쿼리로 일괄 조회 */
 export async function getClubMemberCountsBatch(
   clubIds: string[]

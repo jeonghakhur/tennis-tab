@@ -97,8 +97,8 @@ export default function MemberResultsClient({ clubId, memberId, initialResults, 
       <div className="grid grid-cols-4 gap-3">
         {[
           { label: '총 경기', value: stats.total, color: 'text-(--text-primary)' },
-          { label: '승', value: stats.wins, color: 'text-emerald-400' },
-          { label: '패', value: stats.losses, color: 'text-rose-400' },
+          { label: '승', value: stats.wins, color: 'text-(--color-success)' },
+          { label: '패', value: stats.losses, color: 'text-(--color-danger)' },
           { label: '승률', value: `${stats.win_rate}%`, color: 'text-(--accent-color)' },
         ].map((s) => (
           <div key={s.label} className="glass-card rounded-xl p-3 text-center">
@@ -117,9 +117,9 @@ export default function MemberResultsClient({ clubId, memberId, initialResults, 
               <div key={o.id} className="flex items-center justify-between">
                 <span className="text-sm text-(--text-primary)">{o.name}</span>
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-emerald-400 font-semibold">{o.wins}승</span>
+                  <span className="text-(--color-success) font-semibold">{o.wins}승</span>
                   <span className="text-(--text-muted)">/</span>
-                  <span className="text-rose-400 font-semibold">{o.losses}패</span>
+                  <span className="text-(--color-danger) font-semibold">{o.losses}패</span>
                   <span className="text-(--text-muted)">({o.total}전)</span>
                 </div>
               </div>
@@ -160,7 +160,7 @@ export default function MemberResultsClient({ clubId, memberId, initialResults, 
                     <div
                       key={match.id}
                       className={`flex items-center justify-between p-2 rounded-lg ${
-                        match.is_win ? 'bg-emerald-500/10' : match.is_win === false ? 'bg-rose-500/10' : 'bg-(--bg-secondary)'
+                        match.is_win ? 'bg-(--color-success-subtle)' : match.is_win === false ? 'bg-(--color-danger-subtle)' : 'bg-(--bg-secondary)'
                       }`}
                     >
                       <div>
@@ -176,9 +176,9 @@ export default function MemberResultsClient({ clubId, memberId, initialResults, 
                         </span>
                         <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
                           match.is_win
-                            ? 'bg-emerald-500/20 text-emerald-400'
+                            ? 'bg-(--color-success-subtle) text-(--color-success)'
                             : match.is_win === false
-                              ? 'bg-rose-500/20 text-rose-400'
+                              ? 'bg-(--color-danger-subtle) text-(--color-danger)'
                               : 'bg-(--bg-secondary) text-(--text-muted)'
                         }`}>
                           {match.is_win ? '승' : match.is_win === false ? '패' : '-'}

@@ -12,8 +12,27 @@ src/app/guide/
 
 src/components/guide/
 ├── GuideSection.tsx                # 섹션 래퍼 (제목 + 소개 + CTA)
-├── GuideStep.tsx                   # 단계 아이템 (번호 + 아이콘 + 제목 + 설명)
+├── GuideStep.tsx                   # 단계 아이템 (번호 + 아이콘 + 제목 + 설명 + 선택적 스크린샷)
 └── GuideExamples.tsx               # AI 채팅 예시 질문 카드 그리드
+
+scripts/
+└── capture-guide-screenshots.ts    # Playwright 기반 스크린샷 캡처 스크립트
+
+public/guide/screenshots/           # 캡처된 스크린샷 저장 경로
+├── tournament-list.png
+├── tournament-detail.png
+├── tournament-apply.png
+├── tournament-payment.png
+├── tournament-bracket.png
+├── club-list.png
+├── club-join.png
+├── club-session.png
+├── club-result.png
+├── club-ranking.png
+├── chat-main.png
+├── chat-search.png
+├── chat-apply.png
+└── ...
 ```
 
 변경 파일:
@@ -108,6 +127,10 @@ interface GuideStepProps {
   children: React.ReactNode
   /** 배경 강조 (짝수 행 구분) — 기본 false */
   alt?: boolean
+  /** Playwright로 캡처한 실제 화면 스크린샷 경로 (public/ 기준) */
+  screenshot?: string
+  /** 스크린샷 alt 텍스트 */
+  screenshotAlt?: string
 }
 
 export function GuideStep({ step, icon, title, children, alt = false }: GuideStepProps) {
@@ -536,7 +559,45 @@ export default function GuidePage() {
 
 ---
 
-## 5. 구현 순서
+## 5. 스크린샷 캡처 워크플로우
+
+### 5.1 캡처 스크립트
+
+`scripts/capture-guide-screenshots.ts` — Playwright로 실제 앱을 구동하고 각 단계별 화면을 캡처.
+
+```ts
+// 실행: npx ts-node scripts/capture-guide-screenshots.ts
+// 또는: npm run capture:guide-screenshots
+```
+
+**캡처 대상 및 순서:**
+
+| 파일명 | 경로 | 캡처 포인트 |
+|--------|------|------------|
+| `tournament-list.png` | `/tournaments` | 대회 목록 + 상태 배지 |
+| `tournament-detail.png` | `/tournaments/[id]` | 대회 상세 (일시·장소·참가비) |
+| `tournament-apply.png` | `/tournaments/[id]` | 참가 신청 버튼 강조 |
+| `tournament-payment.png` | 결제 화면 | 결제 수단 선택 화면 |
+| `tournament-bracket.png` | `/tournaments/[id]/bracket` | 대진표 화면 |
+| `club-list.png` | `/clubs` | 클럽 목록 + 검색 필터 |
+| `club-join.png` | `/clubs/[id]` | 가입 유형 배지 + 가입 버튼 |
+| `club-session.png` | `/clubs/[id]` | 모임 탭 + 참석 응답 |
+| `club-result.png` | `/clubs/[id]/sessions/[sid]` | 모임 대진표 결과 |
+| `club-ranking.png` | `/clubs/[id]` | 순위 탭 |
+| `chat-main.png` | `/` | 메인 채팅 인터페이스 |
+| `chat-search.png` | `/` | AI 대회 검색 응답 예시 |
+| `chat-apply.png` | `/` | AI 신청 플로우 중간 단계 |
+
+### 5.2 스크린샷 적용 원칙
+
+- 스텝당 1개 이하 (필요한 경우에만)
+- 텍스트 설명으로 충분한 단계는 이미지 생략
+- 이미지 크기: 최대 너비 800px, WebP 포맷 권장
+- 스크린샷이 없는 경우 컴포넌트는 텍스트만 렌더링 (screenshot prop 선택적)
+
+---
+
+## 6. 구현 순서
 
 | # | 작업 | 파일 | 비고 |
 |---|------|------|------|
@@ -545,10 +606,12 @@ export default function GuidePage() {
 | 3 | GuideExamples 컴포넌트 | `src/components/guide/GuideExamples.tsx` | 의존성 없음 |
 | 4 | 가이드 페이지 | `src/app/guide/page.tsx` | #1, #2, #3 필요 |
 | 5 | Footer 링크 추가 | `src/components/Footer.tsx` | #4 완료 후 |
+| 6 | Playwright 캡처 스크립트 | `scripts/capture-guide-screenshots.ts` | 앱 실행 상태에서 실행 |
+| 7 | 스크린샷 적용 | `src/app/guide/page.tsx` 수정 | #6 캡처 완료 후 |
 
 ---
 
-## 6. 설계 결정
+## 7. 설계 결정
 
 ### 6.1 Server Component (Static)
 

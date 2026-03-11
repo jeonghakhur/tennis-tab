@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Badge } from '@/components/common/Badge'
+import { Lock, CheckCircle, XCircle, RotateCcw } from 'lucide-react'
 import { AlertDialog, ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import AttendanceList from '@/components/clubs/sessions/AttendanceList'
@@ -36,13 +37,13 @@ export default function SessionManagePage() {
     action: () => Promise<void>
   }>({ isOpen: false, message: '', action: async () => {} })
 
-  const fetchData = useCallback(async () => {
-    setLoading(true)
+  const fetchData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true)
     const { session, myMemberId, myRole } = await getSessionPageData(sessionId, clubId)
     setSession(session)
     setMyMemberId(myMemberId)
     setMyRole(myRole)
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [sessionId, clubId])
 
   useEffect(() => {
@@ -213,34 +214,41 @@ export default function SessionManagePage() {
               {session.status !== 'OPEN' && (
                 <button
                   onClick={() => handleStatusChange('OPEN')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-emerald-500 text-white hover:bg-emerald-600 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-success-border)', color: 'var(--color-success)', backgroundColor: 'var(--color-success-subtle)' }}
                 >
-                  ↩ 모집중으로
+                  <RotateCcw className="w-4 h-4" />
+                  모집중으로
                 </button>
               )}
               {session.status === 'OPEN' && (
                 <button
                   onClick={handleCloseRsvp}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-amber-500 text-white hover:bg-amber-600 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-warning-border)', color: 'var(--color-warning)', backgroundColor: 'var(--color-warning-subtle)' }}
                 >
-                  🔒 응답 마감
+                  <Lock className="w-4 h-4" />
+                  응답 마감
                 </button>
               )}
               {session.status !== 'COMPLETED' && (
                 <button
                   onClick={() => handleStatusChange('COMPLETED')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold hover:opacity-80 transition-opacity"
-                  style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-success-border)', color: 'var(--color-success)', backgroundColor: 'var(--color-success-subtle)' }}
                 >
-                  ✅ 모임 완료
+                  <CheckCircle className="w-4 h-4" />
+                  모임 완료
                 </button>
               )}
               {session.status !== 'CANCELLED' && (
                 <button
                   onClick={() => handleStatusChange('CANCELLED')}
-                  className="px-4 py-2 rounded-lg text-sm font-semibold bg-rose-500 text-white hover:bg-rose-600 transition-colors"
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold border transition-colors hover:opacity-80"
+                  style={{ borderColor: 'var(--color-danger-border)', color: 'var(--color-danger)', backgroundColor: 'var(--color-danger-subtle)' }}
                 >
-                  ✖ 모임 취소
+                  <XCircle className="w-4 h-4" />
+                  모임 취소
                 </button>
               )}
             </div>
@@ -255,7 +263,7 @@ export default function SessionManagePage() {
             sessionEndTime={session.end_time}
             myMemberId={myMemberId || undefined}
             isOfficer={!!isOfficer}
-            onGuestsChange={fetchData}
+            onGuestsChange={() => fetchData(true)}
           />
 
           {/* 대진 편성 (CLOSED 또는 OPEN 상태) */}
@@ -266,7 +274,7 @@ export default function SessionManagePage() {
               guests={session.guests}
               matches={session.matches}
               courtNumbers={session.court_numbers}
-              onRefresh={fetchData}
+              onRefresh={() => fetchData(true)}
             />
           )}
         </div>

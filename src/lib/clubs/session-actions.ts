@@ -22,6 +22,7 @@ import type {
   MatchType,
   ClubSessionGuest,
   SchedulePlayer,
+  ClubSessionComment,
 } from './types'
 
 // ============================================================================
@@ -620,6 +621,21 @@ export async function removeSessionGuest(
     .maybeSingle()
   if (completedMatch) {
     return { error: '완료된 경기에 참여한 게스트는 삭제할 수 없습니다.' }
+  }
+
+  // 미완료 대진에 배정된 게스트는 대진 삭제 후 제거 가능
+  const { data: scheduledMatch } = await admin
+    .from('club_match_results')
+    .select('id')
+    .or(
+      `player1_guest_id.eq.${guestId},player2_guest_id.eq.${guestId},` +
+      `player1b_guest_id.eq.${guestId},player2b_guest_id.eq.${guestId}`
+    )
+    .neq('status', 'COMPLETED')
+    .limit(1)
+    .maybeSingle()
+  if (scheduledMatch) {
+    return { error: '대진표에 배정된 게스트입니다. 대진표를 먼저 삭제한 후 게스트를 삭제해주세요.' }
   }
 
   const { error } = await admin
@@ -1919,4 +1935,95 @@ export async function updateClubDefaultRankingPeriod(
     })
     .eq('id', clubId)
   return { error: error?.message }
+}
+
+// ============================================================================
+// 모임 댓글
+// ============================================================================
+
+/** 모임 댓글 목록 조회 */
+export async function getSessionComments(
+  sessionId: string
+): Promise<{ data: ClubSessionComment[]; error?: string }> {
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('club_session_comments')
+    .select('id, session_id, author_id, content, created_at, updated_at, author:profiles!author_id(name)')
+    .eq('session_id', sessionId)
+    .order('created_at', { ascending: true })
+
+  if (error) return { data: [], error: error.message }
+  // Supabase JOIN 결과 배열을 객체로 정규화
+  const normalized = (data ?? []).map((row) => ({
+    ...row,
+    author: Array.isArray(row.author) ? row.author[0] : row.author,
+  })) as ClubSessionComment[]
+  return { data: normalized }
+}
+
+/** 모임 댓글 작성 (클럽 멤버만) */
+export async function createSessionComment(
+  sessionId: string,
+  content: string
+): Promise<{ error?: string }> {
+  const idError = validateId(sessionId, '모임')
+  if (idError) return { error: idError }
+
+  const trimmed = sanitizeInput(content.trim())
+  if (!trimmed) return { error: '댓글 내용을 입력해주세요.' }
+  if (trimmed.length > 1000) return { error: '댓글은 1000자 이내로 입력해주세요.' }
+
+  const admin = createAdminClient()
+
+  // 세션의 club_id 조회
+  const { data: session } = await admin
+    .from('club_sessions')
+    .select('club_id')
+    .eq('id', sessionId)
+    .single()
+  if (!session) return { error: '모임을 찾을 수 없습니다.' }
+
+  const { error: authError, user } = await checkClubMemberAuth(session.club_id)
+  if (authError || !user) return { error: authError ?? '권한이 없습니다.' }
+
+  const { error } = await admin
+    .from('club_session_comments')
+    .insert({ session_id: sessionId, author_id: user.id, content: trimmed })
+
+  if (error) return { error: `댓글 등록 실패: ${error.message}` }
+  return {}
+}
+
+/** 모임 댓글 삭제 (본인 또는 임원) */
+export async function deleteSessionComment(
+  commentId: string,
+  sessionId: string
+): Promise<{ error?: string }> {
+  const admin = createAdminClient()
+
+  const { data: comment } = await admin
+    .from('club_session_comments')
+    .select('author_id, session_id, club_sessions!inner(club_id)')
+    .eq('id', commentId)
+    .single()
+  if (!comment) return { error: '댓글을 찾을 수 없습니다.' }
+
+  const clubId = extractClubId((comment as Record<string, unknown>).club_sessions)
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  // 본인 댓글이 아니면 임원 권한 확인
+  if (comment.author_id !== user.id) {
+    const { error: authError } = await checkSessionOfficerAuth(clubId)
+    if (authError) return { error: '삭제 권한이 없습니다.' }
+  }
+
+  const { error } = await admin
+    .from('club_session_comments')
+    .delete()
+    .eq('id', commentId)
+
+  if (error) return { error: `댓글 삭제 실패: ${error.message}` }
+  revalidatePath(`/clubs/${clubId}/sessions/${sessionId}`)
+  return {}
 }
