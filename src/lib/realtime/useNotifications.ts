@@ -17,6 +17,11 @@ interface UseNotificationsReturn {
   latestNotification: Notification | null
   /** 미읽음 수 직접 설정 (전체 읽음 처리 등) */
   setUnreadCount: (count: number) => void
+  /**
+   * 낙관적 읽음 처리: 즉시 unreadCount-- 하고 realtime UPDATE 중복 감소 방지
+   * NotificationList에서 개별 알림 읽음 처리 시 사용
+   */
+  markOptimisticRead: (id: string) => void
 }
 
 /**
@@ -37,6 +42,9 @@ export function useNotifications({
   // ref로 최신 unreadCount 참조 (콜백 내 stale closure 방지)
   const unreadCountRef = useRef(unreadCount)
   unreadCountRef.current = unreadCount
+
+  // 낙관적 읽음 처리 중인 알림 ID → realtime UPDATE 중복 감소 방지
+  const optimisticReadIdsRef = useRef<Set<string>>(new Set())
 
   const handleSetUnreadCount = useCallback((count: number) => {
     setUnreadCount(count)
@@ -86,7 +94,12 @@ export function useNotifications({
           const old = payload.old as Partial<Notification>
           // is_read가 false→true로 변경된 경우만 카운트 감소
           if (updated.is_read && !old.is_read) {
-            setUnreadCount((prev) => Math.max(0, prev - 1))
+            // 이미 낙관적으로 처리된 ID는 skip (중복 감소 방지)
+            if (optimisticReadIdsRef.current.has(updated.id)) {
+              optimisticReadIdsRef.current.delete(updated.id)
+            } else {
+              setUnreadCount((prev) => Math.max(0, prev - 1))
+            }
           }
         }
       )
@@ -115,9 +128,21 @@ export function useNotifications({
     return () => window.removeEventListener('notifications:unreadCount', handler)
   }, [])
 
+  const markOptimisticRead = useCallback((id: string) => {
+    optimisticReadIdsRef.current.add(id)
+    setUnreadCount((prev) => Math.max(0, prev - 1))
+    // 다른 인스턴스(NotificationBell)에도 동기화
+    window.dispatchEvent(
+      new CustomEvent('notifications:unreadCount', {
+        detail: Math.max(0, unreadCountRef.current - 1),
+      })
+    )
+  }, [])
+
   return {
     unreadCount,
     latestNotification,
     setUnreadCount: handleSetUnreadCount,
+    markOptimisticRead,
   }
 }

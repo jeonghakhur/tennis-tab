@@ -112,6 +112,29 @@ export async function markAllAsRead(): Promise<{ error?: string }> {
   }
 }
 
+/** 알림 삭제 (본인 알림만) */
+export async function deleteNotification(
+  notificationId: string
+): Promise<{ error?: string }> {
+  try {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { error: '로그인이 필요합니다.' }
+
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', notificationId)
+      .eq('user_id', user.id)
+
+    if (error) return { error: error.message }
+    return {}
+  } catch (err) {
+    console.error('deleteNotification error:', err)
+    return { error: '알림 삭제에 실패했습니다.' }
+  }
+}
+
 /**
  * 알림 생성 (내부용 — admin client로 INSERT)
  * 메인 기능을 막지 않도록 호출부에서 try-catch로 감싸서 사용

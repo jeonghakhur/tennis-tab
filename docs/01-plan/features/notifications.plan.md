@@ -19,6 +19,9 @@
 | Navigation + AdminHeader 알림 벨 아이콘 + 미읽음 배지 | 알림 설정 페이지 (타입별 on/off) |
 | `/my/notifications` 알림 목록 페이지 | 대량 알림 배치 처리 (Cron) |
 | 알림 읽음/전체 읽음 처리 | 알림 만료 자동 삭제 |
+| **알림 삭제 기능** (개별 삭제, 즉시 UI 반영) | — |
+| **즉시 카운트 감소** (낙관적 업데이트, 중복 방지) | — |
+| **데스크탑 한 줄 레이아웃** (max-w-4xl 컨테이너, flex row) | — |
 | 10가지 알림 타입 — 사용자 6 + 관리자 4 (아래 참조) | — |
 
 ---
@@ -237,6 +240,9 @@ getNotifications(options?: { limit, offset, unreadOnly })
 markAsRead(notificationId: string)
 markAllAsRead()
 
+// 알림 삭제 (본인 알림만, RLS 적용)
+deleteNotification(notificationId: string)
+
 // 미읽음 수 조회
 getUnreadCount(): Promise<number>
 
@@ -271,6 +277,9 @@ interface UseNotificationsReturn {
   unreadCount: number
   // 새 알림 도착 시 콜백 (Toast 표시 등)
   latestNotification: Notification | null
+  setUnreadCount: (count: number) => void
+  // 낙관적 읽음 처리: 즉시 카운트 감소 + realtime UPDATE 중복 방지
+  markOptimisticRead: (id: string) => void
 }
 
 function useNotifications(userId: string | undefined): UseNotificationsReturn
@@ -278,7 +287,8 @@ function useNotifications(userId: string | undefined): UseNotificationsReturn
 
 - `notifications` 테이블에 `user_id=eq.{userId}` 필터로 구독
 - INSERT → `unreadCount++` + `latestNotification` 업데이트
-- UPDATE (is_read=true) → `unreadCount--`
+- UPDATE (is_read=true) → `unreadCount--` (낙관적 처리된 ID는 skip)
+- **낙관적 읽음 처리**: `markOptimisticRead(id)` 호출 시 즉시 `unreadCount--`, realtime UPDATE 도착 시 중복 감소 방지 (Set으로 ID 추적)
 - 기존 `useMatchesRealtime` 패턴과 동일하게 ref 기반 상태 관리
 
 ### 5.3 UI 컴포넌트
@@ -290,8 +300,13 @@ function useNotifications(userId: string | undefined): UseNotificationsReturn
 - 미읽음 0이면 배지 숨김, 9 초과 시 `9+` 표시
 
 #### NotificationList (알림 목록 페이지)
-- 알림 카드: 아이콘(타입별) + 제목 + 메시지 + 시간 + 읽음 상태
+- 알림 카드: 아이콘(타입별) + 제목 + 메시지 + 시간 + 읽음 상태 + 삭제 버튼
+- **컨테이너**: `max-w-2xl` (모바일) → `max-w-4xl` (데스크탑 md 이상)
+- **레이아웃**: 모바일 세로 스택 / 데스크탑 가로 한 줄 (아이콘 · 제목 · 메시지 · 시간 flex-row)
 - "모두 읽음" 버튼
+- **삭제 버튼**: 모바일 항상 표시, 데스크탑 호버 시 표시 (Trash2 아이콘)
+- **즉시 카운트 감소**: 읽음 처리 시 `markOptimisticRead()` 호출로 UI 즉각 반응
+- **삭제 시 카운트 보정**: 미읽음 알림 삭제 시 unreadCount 직접 감소
 - 무한 스크롤 또는 페이지네이션 (초기: 20개 limit)
 - 빈 상태: "새로운 알림이 없습니다"
 - 알림 클릭 시 `metadata.link`로 이동 + 자동 읽음 처리
@@ -359,11 +374,14 @@ function useNotifications(userId: string | undefined): UseNotificationsReturn
 
 ### 공통
 - [ ] `notifications` 테이블 마이그레이션 성공
-- [ ] RLS: 본인 알림만 SELECT/UPDATE 가능
+- [ ] RLS: 본인 알림만 SELECT/UPDATE/DELETE 가능
 - [ ] Navigation + AdminHeader 벨 아이콘에 미읽음 카운트 실시간 반영
 - [ ] `/my/notifications` 페이지에서 알림 목록 조회 + 읽음 처리
+- [ ] 개별 알림 읽음 처리 시 헤더 미읽음 카운트 즉시 감소 (낙관적 업데이트)
 - [ ] "모두 읽음" 버튼 동작
 - [ ] 알림 클릭 시 `metadata.link` 페이지로 이동
+- [x] 알림 삭제 기능 (Trash2 버튼, 미읽음 삭제 시 카운트 즉시 보정)
+- [x] 데스크탑(md 이상)에서 max-w-4xl 컨테이너 + 한 줄 flex-row 레이아웃
 
 ### 사용자 알림
 - [ ] 참가 신청 승인 시 → 참가자에게 `ENTRY_APPROVED` 알림 생성
