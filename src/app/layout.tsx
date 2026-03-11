@@ -20,6 +20,10 @@ export default function RootLayout({
   return (
     <html lang="ko" data-scroll-behavior="smooth">
       <head>
+        {/* 주요 폰트 preload - FOUT 방지 */}
+        <link rel="preload" href="/font/SUIT-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/font/Paperlogy-7Bold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/font/Paperlogy-6SemiBold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         {/* 테마 깜빡임 방지: React 로드 전에 테마 미리 적용 */}
         <script
           dangerouslySetInnerHTML={{
