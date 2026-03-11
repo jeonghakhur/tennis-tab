@@ -7,6 +7,7 @@ import { TournamentRealtimeRefresher } from '@/components/tournaments/Tournament
 import { getPlayerEntryIds } from '@/lib/bracket/actions'
 import type { MatchType, TournamentStatus } from '@/lib/supabase/types'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import { sortDivisions } from '@/lib/tournaments/divisionSort'
 
 const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant; className?: string }> = {
   DRAFT: { label: '작성 중', variant: 'secondary' },
@@ -45,7 +46,7 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
     notFound()
   }
 
-  const divisions = tournament.tournament_divisions || []
+  const divisions = sortDivisions(tournament.tournament_divisions || [])
 
   // 로그인 유저의 참가 entry_ids 조회 (본인 경기 하이라이트용)
   const { entryIds } = await getPlayerEntryIds(id)

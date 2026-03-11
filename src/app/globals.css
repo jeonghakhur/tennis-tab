@@ -411,6 +411,30 @@ body {
   color: var(--accent-color);
 }
 
+/* 데스크톱 nav 링크 (슬라이딩 인디케이터 버전) */
+.nav-link-enhanced {
+  font-size: 0.9375rem; /* 15px — text-sm(14px)보다 살짝 크게 */
+  transition: color 0.2s ease, font-weight 0.2s ease;
+  position: relative;
+}
+
+.nav-link-enhanced:hover {
+  color: var(--text-primary) !important;
+}
+
+/* 슬라이딩 하단 인디케이터 바 — 링크 컨테이너 기준 absolute */
+/* nav 77px, 컨테이너 44px → 컨테이너 bottom ~ nav border 거리 = (77-44)/2 ≈ 17px */
+.nav-indicator {
+  position: absolute;
+  bottom: -17px;
+  height: 3px;
+  border-radius: 2px 2px 0 0;
+  background-color: var(--accent-color);
+  transition: left 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+  z-index: 1;
+}
+
 /* Court Lines Background */
 .court-line {
   position: absolute;

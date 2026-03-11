@@ -382,11 +382,26 @@ export default function TournamentEntryActions({
       const isActive = !["CANCELLED", "REJECTED"].includes(entry.status);
 
       if (entryFee > 0 && entry.payment_status === "PENDING" && isActive) {
+        const statusBadge = getStatusBadge(entry.status)
+        // statusBadge의 text/bg 스타일을 버튼에 그대로 적용하기 위해 status별 색상 직접 참조
+        const statusColors: Record<string, { bg: string; color: string }> = {
+          PENDING: { bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" },
+          APPROVED: { bg: "rgba(16, 185, 129, 0.15)", color: "#059669" },
+          CONFIRMED: { bg: "rgba(16, 185, 129, 0.15)", color: "#059669" },
+          WAITLISTED: { bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" },
+          REJECTED: { bg: "rgba(239, 68, 68, 0.15)", color: "#dc2626" },
+          CANCELLED: { bg: "var(--bg-card-hover)", color: "var(--text-muted)" },
+        }
+        const sc = statusColors[entry.status] ?? statusColors.PENDING
+        const statusLabel = { PENDING: "승인 대기중", APPROVED: "승인됨", CONFIRMED: "확정", WAITLISTED: "대기자", REJECTED: "거절됨", CANCELLED: "취소됨" }[entry.status] ?? "승인 대기중"
         return (
           <>
-            <span className="text-sm shrink-0" style={{ color: "var(--text-muted)" }}>
-              {getStatusBadge(entry.status)}
-            </span>
+            <div
+              className="flex-1 rounded-xl py-3 font-bold text-center text-sm"
+              style={{ backgroundColor: sc.bg, color: sc.color }}
+            >
+              {statusLabel}
+            </div>
             <button
               onClick={() => handleConfirmPayment(entry.id)}
               disabled={isSubmitting}
@@ -523,7 +538,20 @@ export default function TournamentEntryActions({
                       <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>
                         {teamLabel}
                       </span>
-                      {getStatusBadge(entry.status)}
+                      <div className="flex items-center gap-1.5">
+                        {entry.current_rank != null && (
+                          <span
+                            className="px-3 py-1 rounded-full text-sm font-medium"
+                            style={{
+                              backgroundColor: "rgba(99, 102, 241, 0.15)",
+                              color: "#6366f1",
+                            }}
+                          >
+                            {entry.current_rank}번
+                          </span>
+                        )}
+                        {getStatusBadge(entry.status)}
+                      </div>
                     </div>
 
                     {/* 결제 상태 (참가비 있을 때만) */}

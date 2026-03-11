@@ -943,19 +943,36 @@ export async function getUserTournamentEntries(tournamentId: string) {
             return [];
         }
 
-        const { data: entries, error } = await supabase
-            .from('tournament_entries')
-            .select('*')
-            .eq('tournament_id', tournamentId)
-            .eq('user_id', user.id)
-            .neq('status', 'CANCELLED')
-            .order('created_at', { ascending: true });
+        // 내 entries + 전체 대회 entries(순번 계산용) 병렬 조회
+        const [myResult, allResult] = await Promise.all([
+            supabase
+                .from('tournament_entries')
+                .select('*')
+                .eq('tournament_id', tournamentId)
+                .eq('user_id', user.id)
+                .neq('status', 'CANCELLED')
+                .order('created_at', { ascending: true }),
+            supabase
+                .from('tournament_entries')
+                .select('id, created_at')
+                .eq('tournament_id', tournamentId)
+                .order('created_at', { ascending: true })
+                .order('id', { ascending: true }),
+        ]);
 
-        if (error || !entries) {
+        if (myResult.error || !myResult.data) {
             return [];
         }
 
-        return entries;
+        // 전체 entries ID 순서 맵 (1-based)
+        const allIds = allResult.data?.map((e) => e.id) ?? [];
+        const rankMap = new Map(allIds.map((id, idx) => [id, idx + 1]));
+
+        // 내 entries에 current_rank 추가
+        return myResult.data.map((entry) => ({
+            ...entry,
+            current_rank: rankMap.get(entry.id) ?? null,
+        }));
     } catch (error) {
         console.error('Get user tournament entries error:', error);
         return [];

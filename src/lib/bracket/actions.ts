@@ -927,48 +927,7 @@ async function checkAndCompleteTournament(
     .update({ status: 'COMPLETED' })
     .eq('id', bracketConfigId)
 
-  // tournament_id 역추적: bracket_configs → division → tournament
-  const { data: configData } = await supabaseAdmin
-    .from('bracket_configs')
-    .select('division_id')
-    .eq('id', bracketConfigId)
-    .single()
-  if (!configData) return
-
-  const { data: divisionData } = await supabaseAdmin
-    .from('tournament_divisions')
-    .select('tournament_id')
-    .eq('id', configData.division_id)
-    .single()
-  if (!divisionData) return
-
-  const tournamentId = divisionData.tournament_id
-
-  // 같은 tournament의 모든 부서 조회
-  const { data: allDivisions } = await supabaseAdmin
-    .from('tournament_divisions')
-    .select('id')
-    .eq('tournament_id', tournamentId)
-
-  if (!allDivisions || allDivisions.length === 0) return
-
-  const divisionIds = allDivisions.map(d => d.id)
-
-  // 모든 부서의 bracket_config 조회
-  const { data: allConfigs } = await supabaseAdmin
-    .from('bracket_configs')
-    .select('id, status, division_id')
-    .in('division_id', divisionIds)
-
-  // 모든 부서에 bracket_config가 있고, 전부 COMPLETED여야 대회 완료
-  if (!allConfigs || allConfigs.length < divisionIds.length) return
-  if (!allConfigs.every(c => c.status === 'COMPLETED')) return
-
-  // tournament → COMPLETED
-  await supabaseAdmin
-    .from('tournaments')
-    .update({ status: 'COMPLETED' })
-    .eq('id', tournamentId)
+  // 대회 상태는 관리자가 직접 변경 — 자동 완료 처리 없음
 }
 
 /**
@@ -2680,6 +2639,23 @@ export async function deleteBracketConfig(configId: string) {
       .select('division_id')
       .eq('id', configId)
       .single()
+
+    // 해당 division의 tournament_awards 먼저 삭제
+    if (configRow?.division_id) {
+      const { data: divData } = await supabaseAdmin
+        .from('tournament_divisions')
+        .select('tournament_id')
+        .eq('id', configRow.division_id)
+        .single()
+
+      if (divData?.tournament_id) {
+        await supabaseAdmin
+          .from('tournament_awards')
+          .delete()
+          .eq('tournament_id', divData.tournament_id)
+          .eq('division_id', configRow.division_id)
+      }
+    }
 
     // CASCADE로 관련 데이터 자동 삭제됨
     const { error } = await supabaseAdmin

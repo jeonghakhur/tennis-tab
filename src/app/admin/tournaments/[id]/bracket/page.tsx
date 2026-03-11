@@ -4,6 +4,7 @@ import { canManageTournaments } from '@/lib/auth/roles'
 import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { BracketManager } from '@/components/admin/BracketManager'
+import { sortDivisions } from '@/lib/tournaments/divisionSort'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -74,7 +75,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
       {/* Bracket Manager */}
       <BracketManager
         tournamentId={tournament.id}
-        divisions={tournament.tournament_divisions ?? []}
+        divisions={sortDivisions(tournament.tournament_divisions ?? [])}
         teamMatchCount={tournament.team_match_count ?? null}
         matchType={tournament.match_type ?? null}
         tournamentStatus={tournament.status}

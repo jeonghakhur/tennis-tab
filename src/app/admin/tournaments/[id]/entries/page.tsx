@@ -8,6 +8,8 @@ import { decryptProfile } from '@/lib/crypto/profileCrypto'
 import Link from 'next/link'
 import { ChevronLeft, Calendar, MapPin, Users, ListTree } from 'lucide-react'
 
+import { sortDivisions } from '@/lib/tournaments/divisionSort'
+
 interface PageProps {
   params: Promise<{ id: string }>
 }
@@ -172,7 +174,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
       <EntriesManager
         tournamentId={tournament.id}
         entries={entries}
-        divisions={tournament.tournament_divisions ?? []}
+        divisions={sortDivisions(tournament.tournament_divisions ?? [])}
       />
     </div>
   )

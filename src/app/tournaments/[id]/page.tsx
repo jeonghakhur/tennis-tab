@@ -75,16 +75,30 @@ export default async function TournamentDetailPage({ params }: Props) {
 
     userProfile = profile ? decryptProfile(profile) : null;
 
-    // 취소 제외, 신청일 오름차순 전체 조회 (여러 팀 신청 UI 지원)
-    const { data: entries } = await supabase
-      .from("tournament_entries")
-      .select("*")
-      .eq("tournament_id", id)
-      .eq("user_id", user.id)
-      .neq("status", "CANCELLED")
-      .order("created_at", { ascending: true });
+    // 취소 제외, 신청일 오름차순 전체 조회 (여러 팀 신청 UI 지원) + 순번 계산
+    const [{ data: entries }, { data: allEntryIds }] = await Promise.all([
+      supabase
+        .from("tournament_entries")
+        .select("*")
+        .eq("tournament_id", id)
+        .eq("user_id", user.id)
+        .neq("status", "CANCELLED")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("tournament_entries")
+        .select("id, created_at")
+        .eq("tournament_id", id)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true }),
+    ]);
 
-    myEntries = entries ?? [];
+    const rankMap = new Map(
+      (allEntryIds ?? []).map((e, idx) => [e.id, idx + 1])
+    );
+    myEntries = (entries ?? []).map((entry) => ({
+      ...entry,
+      current_rank: rankMap.get(entry.id) ?? null,
+    }));
   }
 
   const organizerName = tournament.profiles
