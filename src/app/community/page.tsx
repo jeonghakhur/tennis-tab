@@ -14,15 +14,19 @@ import type { UserRole } from '@/lib/supabase/types'
 const isDev = process.env.NODE_ENV === 'development'
 const FEED_LIMIT = 5
 
+// 모듈 레벨 캐시: 뒤로가기 시 재조회 없이 즉시 렌더링 (검색 없는 기본 피드만)
+type FeedCache = { posts: Post[]; nextCursor: string | null }
+let feedCache: FeedCache | null = null
+
 export default function CommunityPage() {
   const { user, profile } = useAuth()
   const canWrite = hasMinimumRole(profile?.role as UserRole, 'MANAGER')
   const isLoggedIn = !!user
 
-  const [posts, setPosts] = useState<Post[]>([])
-  const [loading, setLoading] = useState(true)
+  const [posts, setPosts] = useState<Post[]>(feedCache?.posts ?? [])
+  const [loading, setLoading] = useState(!feedCache)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [nextCursor, setNextCursor] = useState<string | null>(null)
+  const [nextCursor, setNextCursor] = useState<string | null>(feedCache?.nextCursor ?? null)
 
   // 검색 디바운스
   const [searchInput, setSearchInput] = useState('')
@@ -38,11 +42,15 @@ export default function CommunityPage() {
 
   // 초기 로드 (검색어 변경 시에도 재실행)
   const loadInitial = useCallback(async () => {
+    // 검색 없는 기본 피드는 캐시가 있으면 재조회 생략
+    if (!search && feedCache) return
     setLoading(true)
     const result = await getPostsFeed({ limit: FEED_LIMIT, search: search || undefined })
     if (!result.error) {
       setPosts(result.data)
       setNextCursor(result.nextCursor)
+      // 검색 없는 기본 피드만 캐시 저장
+      if (!search) feedCache = { posts: result.data, nextCursor: result.nextCursor }
     }
     setLoading(false)
   }, [search])

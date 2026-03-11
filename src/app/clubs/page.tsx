@@ -10,6 +10,10 @@ import { Search, MapPin, Building2, Check } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 
+// 모듈 레벨 캐시: 뒤로가기 시 재조회 없이 즉시 렌더링
+type ClubsListCache = { clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; search: string; cityFilter: string }
+let clubsListCache: ClubsListCache | null = null
+
 const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: '자유 가입',
   APPROVAL: '승인제',
@@ -41,14 +45,21 @@ const CITY_OPTIONS = [
 
 export default function ClubsPage() {
   const router = useRouter()
-  const [clubs, setClubs] = useState<Club[]>([])
-  const [loading, setLoading] = useState(true)
+
+  // 캐시에서 초기값 읽기 (검색/필터 없는 기본 상태만 캐시 적용)
+  const isCacheValid = clubsListCache && clubsListCache.search === '' && clubsListCache.cityFilter === ''
+  const [clubs, setClubs] = useState<Club[]>(isCacheValid ? clubsListCache!.clubs : [])
+  const [loading, setLoading] = useState(!isCacheValid)
   const [search, setSearch] = useState('')
   const [cityFilter, setCityFilter] = useState('')
   // 내 클럽 멤버십 맵 (clubId → role)
-  const [myClubRoles, setMyClubRoles] = useState<Map<string, ClubMemberRole>>(new Map())
+  const [myClubRoles, setMyClubRoles] = useState<Map<string, ClubMemberRole>>(
+    isCacheValid ? clubsListCache!.myClubRoles : new Map()
+  )
 
   const loadClubs = useCallback(async () => {
+    // 캐시가 유효하고 검색/필터 없으면 재조회 생략
+    if (clubsListCache && clubsListCache.search === search && clubsListCache.cityFilter === cityFilter) return
     setLoading(true)
     const { getClubsWithMyRoles } = await import('@/lib/clubs/actions')
     const { clubs: data, myClubRoles: roles } = await getClubsWithMyRoles({
@@ -58,6 +69,10 @@ export default function ClubsPage() {
     setClubs(data)
     setMyClubRoles(roles)
     setLoading(false)
+    // 기본 상태(검색/필터 없음)만 캐시 저장
+    if (!search && !cityFilter) {
+      clubsListCache = { clubs: data, myClubRoles: roles, search: '', cityFilter: '' }
+    }
   }, [search, cityFilter])
 
   useEffect(() => {
