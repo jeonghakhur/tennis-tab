@@ -46,7 +46,7 @@ export function ChatSection({ isLoggedIn }: ChatSectionProps) {
   const isEmpty = messages.length === 0 && !loading
 
   return (
-    <div className="flex flex-col overflow-hidden pt-8" style={{ height: 'calc(100dvh - 5rem)' }}>
+    <div className="flex flex-col overflow-hidden pt-4 h-full">
       {isEmpty ? (
         /* 빈 상태: 웰컴 + 예시 프롬프트 */
         <div className="flex-1 flex items-center justify-center">

@@ -1,0 +1,55 @@
+{
+  "대회목록": [],
+  "대회상세": [
+    {
+      "text": "\"로그인하기\"",
+      "color": "rgba(255, 255, 255, 0.6)",
+      "bg": "rgba(255, 255, 255, 0.05)",
+      "ratio": 1,
+      "selector": "button.w-full"
+    }
+  ],
+  "대진표": [],
+  "클럽목록": [],
+  "클럽상세": [],
+  "커뮤니티": [
+    {
+      "text": "\"더보기\"",
+      "color": "rgba(255, 255, 255, 0.55)",
+      "bg": "rgba(255, 255, 255, 0.02)",
+      "ratio": 1,
+      "selector": "button.text-sm"
+    },
+    {
+      "text": "\"0\"",
+      "color": "rgba(255, 255, 255, 0.55)",
+      "bg": "rgba(255, 255, 255, 0.02)",
+      "ratio": 1,
+      "selector": "button.flex"
+    },
+    {
+      "text": "\"3\"",
+      "color": "rgba(255, 255, 255, 0.55)",
+      "bg": "rgba(255, 255, 255, 0.02)",
+      "ratio": 1,
+      "selector": "button.flex"
+    },
+    {
+      "text": "\"1\"",
+      "color": "rgba(255, 255, 255, 0.55)",
+      "bg": "rgba(255, 255, 255, 0.02)",
+      "ratio": 1,
+      "selector": "button.flex"
+    },
+    {
+      "text": "\"4\"",
+      "color": "rgba(255, 255, 255, 0.55)",
+      "bg": "rgba(255, 255, 255, 0.02)",
+      "ratio": 1,
+      "selector": "button.flex"
+    }
+  ],
+  "수상내역": [],
+  "FAQ": [],
+  "로그인": []
+}

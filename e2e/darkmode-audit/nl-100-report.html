@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>자연어 NL 100문항 테스트 리포트</title>
+<style>
+  body { font-family: -apple-system, sans-serif; background: #0a0a0a; color: #f5f5f5; margin: 0; padding: 24px; }
+  h1 { color: #ccff00; font-size: 22px; }
+  .summary { display: flex; gap: 16px; margin: 20px 0; flex-wrap: wrap; }
+  .stat { background: #111; border-radius: 12px; padding: 16px 24px; text-align: center; }
+  .stat .num { font-size: 36px; font-weight: 700; }
+  .stat .label { font-size: 12px; color: #888; margin-top: 4px; }
+  .pass .num { color: #4ade80; }
+  .warn .num { color: #fbbf24; }
+  .fail .num { color: #f87171; }
+  .total .num { color: #ccff00; }
+  .cat-section { margin: 24px 0; }
+  .cat-title { font-size: 14px; font-weight: 700; color: #ccff00; margin-bottom: 8px; background: #111; padding: 8px 12px; border-radius: 8px; display: flex; justify-content: space-between; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { background: #1a1a1a; padding: 8px 10px; text-align: left; color: #888; font-weight: 500; }
+  td { padding: 8px 10px; border-bottom: 1px solid #222; vertical-align: top; }
+  tr:hover td { background: #111; }
+  .q { color: #e0e0e0; max-width: 200px; }
+  .res { color: #aaa; max-width: 360px; font-size: 12px; line-height: 1.5; }
+  .PASS { color: #4ade80; font-weight: 700; }
+  .WARN { color: #fbbf24; font-weight: 700; }
+  .FAIL { color: #f87171; font-weight: 700; }
+  .reason { color: #888; font-size: 11px; }
+  .ms { color: #555; font-size: 11px; }
+  .bar { height: 6px; border-radius: 3px; background: #222; margin: 4px 0; }
+  .bar-inner { height: 100%; border-radius: 3px; }
+</style>
+</head>
+<body>
+<h1>🤖 자연어 NL 100문항 테스트 리포트</h1>
+<p style="color:#888;font-size:13px;">생성: 2026. 3. 10. AM 11:13:24 | 테스트 계정: e2e.admin@mapo-tennis-test.dev</p>
+
+<div class="summary">
+  <div class="stat total"><div class="num">100</div><div class="label">총 문항</div></div>
+  <div class="stat pass"><div class="num">99</div><div class="label">PASS ✅</div></div>
+  <div class="stat warn"><div class="num">0</div><div class="label">WARN ⚠️</div></div>
+  <div class="stat fail"><div class="num">1</div><div class="label">FAIL ❌</div></div>
+  <div class="stat total"><div class="num">99%</div><div class="label">통과율</div></div>
+  <div class="stat total"><div class="num">6883ms</div><div class="label">평균 응답</div></div>
+</div>
+
+
+<div class="cat-section">
+  <div class="cat-title">
+    <span>대회목록 (10문항)</span>
+    <span>✅10 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">1</td>
+      <td class="q">대회 있어?</td>
+      <td class="res">제37회 구협회장기 테니스대회(진행중), 제8회 마포구체육회장기 테니스대회(모집중)가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4934</td>
+    </tr>
+    <tr>
+      <td style="color:#555">2</td>
+      <td class="q">요즘 테니스 대회 뭐 있어?</td>
+      <td class="res">현재 진행 중인 제37회 구협회장기 테니스대회와 모집 중인 제8회 마포구체육회장기 테니스대회가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4107</td>
+    </tr>
+    <tr>
+      <td style="color:#555">3</td>
+      <td class="q">대회 목록 보여줘</td>
+      <td class="res">현재 진행 중인 제37회 구협회장기 테니스대회와 모집 중인 제8회 마포구체육회장기 테니스대회가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4157</td>
+    </tr>
+    <tr>
+      <td style="color:#555">4</td>
+      <td class="q">마포구 대회 있냐</td>
+      <td class="res">마포구에서 진행되는 대회는 총 2개입니다. 제37회 구협회장기 테니스대회는 진행 중이며, 제8회 마포구체육회장기 테니스대회는 모집 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5253</td>
+    </tr>
+    <tr>
+      <td style="color:#555">5</td>
+      <td class="q">이번 달 대회 알려줘</td>
+      <td class="res">이번 달에 해당하는 대회 정보가 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4187</td>
+    </tr>
+    <tr>
+      <td style="color:#555">6</td>
+      <td class="q">다음 달에 대회 있어?</td>
+      <td class="res">다음 달에 열리는 대회는 '제37회 구협회장기 테니스대회'이며, 망원나들목 테니스장 외 보조 경기장에서 진행됩니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4338</td>
+    </tr>
+    <tr>
+      <td style="color:#555">7</td>
+      <td class="q">봄에 열리는 대회 있어?</td>
+      <td class="res">제37회 구협회장기 테니스대회가 진행 중입니다. 4월 25일부터 망원나들목 테니스장에서 열립니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4367</td>
+    </tr>
+    <tr>
+      <td style="color:#555">8</td>
+      <td class="q">서울 대회 찾아줘</td>
+      <td class="res">서울에서 진행되는 대회는 현재 진행 중인 제37회 구협회장기 테니스대회와 모집 중인 제8회 마포구체육회장기 테니스대회가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4436</td>
+    </tr>
+    <tr>
+      <td style="color:#555">9</td>
+      <td class="q">상반기 대회 일정</td>
+      <td class="res">상반기에 진행/모집 중인 대회는 다음과 같습니다.
+
+- 제37회 구협회장기 테니스대회 (2026-04-25~2026-04-26, 망원나들목 테니스장), 현재 진행 중
+- 제8회 마포구체육회장기 테니스대회 (2026-…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5295</td>
+    </tr>
+    <tr>
+      <td style="color:#555">10</td>
+      <td class="q">대회 리스트 보고 싶어</td>
+      <td class="res">현재 진행 중인 제37회 구협회장기 테니스대회와 모집 중인 제8회 마포구체육회장기 테니스대회가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3919</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>모집중대회 (5문항)</span>
+    <span>✅5 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">11</td>
+      <td class="q">신청 가능한 대회 있어?</td>
+      <td class="res">제8회 마포구체육회장기 테니스대회가 모집 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4128</td>
+    </tr>
+    <tr>
+      <td style="color:#555">12</td>
+      <td class="q">지금 접수 중인 대회 뭐야?</td>
+      <td class="res">현재 모집 중인 대회는 제8회 마포구체육회장기 테니스대회입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4171</td>
+    </tr>
+    <tr>
+      <td style="color:#555">13</td>
+      <td class="q">모집 중인 대회 알려줘</td>
+      <td class="res">제8회 마포구체육회장기 테니스대회가 모집 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4233</td>
+    </tr>
+    <tr>
+      <td style="color:#555">14</td>
+      <td class="q">지금 신청할 수 있는 대회 있어?</td>
+      <td class="res">현재 신청 가능한 대회는 제8회 마포구체육회장기 테니스대회입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3928</td>
+    </tr>
+    <tr>
+      <td style="color:#555">15</td>
+      <td class="q">참가 신청 받는 대회 있냐</td>
+      <td class="res">제8회 마포구체육회장기 테니스대회가 모집 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3777</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>진행중대회 (3문항)</span>
+    <span>✅3 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">16</td>
+      <td class="q">지금 진행 중인 대회 있어?</td>
+      <td class="res">현재 진행 중인 대회는 제37회 구협회장기 테니스대회입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3867</td>
+    </tr>
+    <tr>
+      <td style="color:#555">17</td>
+      <td class="q">현재 진행 중인 테니스 대회</td>
+      <td class="res">현재 진행 중인 대회는 제37회 구협회장기 테니스대회입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4102</td>
+    </tr>
+    <tr>
+      <td style="color:#555">18</td>
+      <td class="q">요즘 뭔 대회 하고 있어?</td>
+      <td class="res">현재 진행 중인 대회는 제37회 구협회장기 테니스대회, 모집 중인 대회는 제8회 마포구체육회장기 테니스대회입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4337</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>대회상세 (9문항)</span>
+    <span>✅9 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">19</td>
+      <td class="q">구협회장기 대회 참가비 얼마야?</td>
+      <td class="res">구협회장기 테니스대회 참가비는 50,000원입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4514</td>
+    </tr>
+    <tr>
+      <td style="color:#555">20</td>
+      <td class="q">마포구청장기 요강 알려줘</td>
+      <td class="res">제38회 마포구청장기 테니스대회 요강입니다. 참가비는 50000원이며, 퓨처스부, 마스터부, 챌린저부 등의 부서가 있습니다. 자세한 내용은 상세 정보에 기재되어 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4362</td>
+    </tr>
+    <tr>
+      <td style="color:#555">21</td>
+      <td class="q">구협회장기 부서가 뭐 있어?</td>
+      <td class="res">구협회장기 테니스대회는 마스터부, 챌린저부, 퓨처스부로 나누어 진행됩니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4493</td>
+    </tr>
+    <tr>
+      <td style="color:#555">22</td>
+      <td class="q">구협회장기 언제 어디서 해?</td>
+      <td class="res">제37회 구협회장기 테니스대회는 2026년 4월 25일부터 4월 26일까지 망원나들목 테니스장 외 보조 경기장에서 진행됩니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5931</td>
+    </tr>
+    <tr>
+      <td style="color:#555">23</td>
+      <td class="q">마포구청장기 접수 기간이 어떻게 돼?</td>
+      <td class="res">마포구청장기 대회는 현재 등록된 정보가 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3946</td>
+    </tr>
+    <tr>
+      <td style="color:#555">24</td>
+      <td class="q">구협회장기 상금 얼마야?</td>
+      <td class="res">제37회 구협회장기 테니스대회 마스터부, 챌린저부 우승 상금은 500000원, 퓨처스부 우승 상금은 300000원입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4666</td>
+    </tr>
+    <tr>
+      <td style="color:#555">25</td>
+      <td class="q">구협회장기 신청 마감이 언제야?</td>
+      <td class="res">구협회장기 테니스대회 신청 마감일은 2026년 4월 19일 15시입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4093</td>
+    </tr>
+    <tr>
+      <td style="color:#555">26</td>
+      <td class="q">마포구청장기 자세히 알려줘</td>
+      <td class="res">대회명: 제38회 마포구청장기 테니스대회
+장소: 망원나들목 테니스장 외 보조 경기장
+참가비: 50000원
+부서: 퓨처스부, 마스터부, 챌린저부
+대회 요강:
+경기 규정 (개인전·단체전 공동 적용)
+1. 선수 출전 및 …</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">13781</td>
+    </tr>
+    <tr>
+      <td style="color:#555">27</td>
+      <td class="q">구협회장기 제한 나이 있어?</td>
+      <td class="res">구협회장기 대회는 2026년 1월 31일 기준으로 마포구테니스협회 등록 클럽 소속 동호인만 참가 가능합니다. 자세한 내용은 상세 요강을 참고해주세요.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4798</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>내신청 (5문항)</span>
+    <span>✅5 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">28</td>
+      <td class="q">내가 신청한 대회 있어?</td>
+      <td class="res">총 10개의 대회에 참가 신청하셨습니다. 모두 제37회 구협회장기 테니스대회이며, 챌린저부로 확정 상태입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4401</td>
+    </tr>
+    <tr>
+      <td style="color:#555">29</td>
+      <td class="q">내 신청 내역 보여줘</td>
+      <td class="res">총 10건의 신청 내역이 있습니다. 모두 제37회 구협회장기 테니스대회이고, 챌린저부로 확정되었으며, 참가비는 무료입니다. 대회는 2026년 4월 25일에 시작될 예정입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4200</td>
+    </tr>
+    <tr>
+      <td style="color:#555">30</td>
+      <td class="q">내가 참가 신청한 거 뭐 있어?</td>
+      <td class="res">총 10건의 대회 참가 신청 내역이 있습니다. 모두 제37회 구협회장기 테니스대회이고, 챌린저부로 확정되었으며, 참가비는 무료입니다. 대회는 2026년 4월 25일에 시작하며, 현재 진행 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4661</td>
+    </tr>
+    <tr>
+      <td style="color:#555">31</td>
+      <td class="q">내 등록 현황 알려줘</td>
+      <td class="res">총 10건의 대회 참가 신청 내역이 있습니다. 모든 대회는 제37회 구협회장기 테니스대회이며, 4월 25일에 시작하고, 상태는 '진행중', 참가 상태는 '확정', 결제 상태는 '무료'입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4625</td>
+    </tr>
+    <tr>
+      <td style="color:#555">32</td>
+      <td class="q">내가 신청한 대회 목록</td>
+      <td class="res">총 10건의 대회 참가 신청 내역이 있습니다. 모두 제37회 구협회장기 테니스대회이고, 신청 상태는 확정, 결제 상태는 무료입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3931</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>내일정 (4문항)</span>
+    <span>✅4 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">33</td>
+      <td class="q">다음 경기 언제야?</td>
+      <td class="res">제37회 구협회장기 테니스대회에서 황재영님과의 3번 경기, 오준혁님과의 6번 경기 등이 예정되어 있습니다. 코트 정보는 등록되어 있지 않습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4202</td>
+    </tr>
+    <tr>
+      <td style="color:#555">34</td>
+      <td class="q">내 다음 경기 알려줘</td>
+      <td class="res">제37회 구협회장기 테니스대회에서 황재영, 오준혁, 정승우, 권성훈, 한재원, 최민혁, 조형준 님과 경기가 예정되어 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4258</td>
+    </tr>
+    <tr>
+      <td style="color:#555">35</td>
+      <td class="q">내 경기 일정 뭐야?</td>
+      <td class="res">제37회 구협회장기 테니스대회에서 여러 경기가 예정되어 있습니다. 상대는 황재영, 오준혁, 정승우, 권성훈, 한재원, 최민혁, 조형준 선수입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4757</td>
+    </tr>
+    <tr>
+      <td style="color:#555">36</td>
+      <td class="q">나 언제 경기야?</td>
+      <td class="res">제37회 구협회장기 테니스대회에서 황재영, 오준혁, 정승우, 권성훈, 한재원, 최민혁, 조형준 님과 경기가 예정되어 있습니다. 코트 정보는 등록되어 있지 않습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">6900</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>내전적 (4문항)</span>
+    <span>✅4 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">37</td>
+      <td class="q">내 전적 알려줘</td>
+      <td class="res">1승 1패입니다. 장태현님에게 승리했고, 잘될꺼야 율님에게 패배했습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">7956</td>
+    </tr>
+    <tr>
+      <td style="color:#555">38</td>
+      <td class="q">나 몇 승 몇 패야?</td>
+      <td class="res">1승 1패입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5482</td>
+    </tr>
+    <tr>
+      <td style="color:#555">39</td>
+      <td class="q">내 경기 결과 보여줘</td>
+      <td class="res">1승 1패입니다. 장태현님과의 경기에서 승리하셨고, 잘될꺼야 율님과의 경기에서 패배하셨습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4391</td>
+    </tr>
+    <tr>
+      <td style="color:#555">40</td>
+      <td class="q">내가 이긴 경기 몇 개야?</td>
+      <td class="res">1승 1패입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4534</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>대진표 (4문항)</span>
+    <span>✅4 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">41</td>
+      <td class="q">구협회장기 대진표 보여줘</td>
+      <td class="res">구협회장기 대진표는 현재 진행 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5174</td>
+    </tr>
+    <tr>
+      <td style="color:#555">42</td>
+      <td class="q">마포구청장기 대진 어떻게 돼?</td>
+      <td class="res">"제38회 마포구청장기 테니스대회" 대진표가 아직 생성되지 않았습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4742</td>
+    </tr>
+    <tr>
+      <td style="color:#555">43</td>
+      <td class="q">구협회장기 마스터부 대진표</td>
+      <td class="res">구협회장기 테니스대회는 현재 진행 중이며, 대진표는 아직 준비 중입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4811</td>
+    </tr>
+    <tr>
+      <td style="color:#555">44</td>
+      <td class="q">대진표 조회해줘</td>
+      <td class="res">어떤 대회의 대진표를 보시겠어요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2965</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>경기결과 (3문항)</span>
+    <span>✅3 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">45</td>
+      <td class="q">구협회장기 결과 어떻게 됐어?</td>
+      <td class="res">구협회장기 테니스대회 경기 결과입니다. 1번 경기 김태양 vs 장태현, 스코어 1:2로 장태현 승리. 4번 경기 잘될꺼야 율 vs 이서준, 스코어 2:0으로 잘될꺼야 율 승리.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4939</td>
+    </tr>
+    <tr>
+      <td style="color:#555">46</td>
+      <td class="q">마포구청장기 경기 결과 알려줘</td>
+      <td class="res">"제38회 마포구청장기 테니스대회" 경기 기록이 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4613</td>
+    </tr>
+    <tr>
+      <td style="color:#555">47</td>
+      <td class="q">최근 경기 결과 보여줘</td>
+      <td class="res">1승 1패입니다. 장태현님과의 경기에서 승리했고, 잘될꺼야 율님과의 경기에서 패배했습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4409</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>입상기록 (5문항)</span>
+    <span>✅5 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">48</td>
+      <td class="q">최근 우승자 누구야?</td>
+      <td class="res">최근 우승자는 다음과 같습니다. 
+- 2026년 제8회 마포구체육회장기 테니스대회 마스터부: 허정학, 잘될꺼야 율 (리액트 클럽)
+- 2025년 제36회마포구협회장배 챌린저부 단체전: 도승남, 김용진, 정태호, 최혜…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5090</td>
+    </tr>
+    <tr>
+      <td style="color:#555">49</td>
+      <td class="q">입상 기록 보여줘</td>
+      <td class="res">입상 기록입니다. 2026년에는 제8회 마포구체육회장기 테니스대회 마스터부에서 리액트 클럽의 허정학, 잘될꺼야 율님이 우승, 건우회 클럽의 김성수, 이헌님이 준우승, 한우리 클럽의 이재호, 황미숙님이 3위를 차지했습…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5055</td>
+    </tr>
+    <tr>
+      <td style="color:#555">50</td>
+      <td class="q">마포구 테니스 명예의 전당</td>
+      <td class="res">마포구 테니스 명예의 전당 입상 기록입니다.
+
+2026년 제8회 마포구체육회장기 테니스대회 마스터부:
+- 우승: 허정학, 잘될꺼야 율 (리액트)
+- 준우승: 김성수, 이헌 (건우회)
+- 3위: 이재호, 황미숙 (한우…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5321</td>
+    </tr>
+    <tr>
+      <td style="color:#555">51</td>
+      <td class="q">구협회장기 역대 우승자 알려줘</td>
+      <td class="res">구협회장기 역대 우승 기록입니다.
+
+2026년 제8회 마포구체육회장기 테니스대회 마스터부: 우승 - 허정학, 잘될꺼야 율 (리액트), 준우승 - 김성수, 이헌 (건우회), 3위 - 이재호, 황미숙 (한우리)
+2025…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5301</td>
+    </tr>
+    <tr>
+      <td style="color:#555">52</td>
+      <td class="q">올해 입상자 누구야?</td>
+      <td class="res">2026년 입상 기록입니다. 제8회 마포구체육회장기 테니스대회 마스터부 우승은 리액트 클럽의 허정학, 잘될꺼야 율, 준우승은 건우회 클럽의 김성수, 이헌, 3위는 한우리 클럽의 이재호, 황미숙 입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4520</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>신청플로우 (3문항)</span>
+    <span>✅2 ⚠️0 ❌1</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">53</td>
+      <td class="q">대회 신청하고 싶어</td>
+      <td class="res">제8회 마포구체육회장기 테니스대회
+참가 가능한 부서:
+1. 마스터부 (30/30팀) - 참가비 30,000원
+2. 챌린저부 (50/50팀) - 참가비 30,000원
+3. 개나리부 (50/50팀) - 참가비 30,00…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3295</td>
+    </tr>
+    <tr>
+      <td style="color:#555">54</td>
+      <td class="q">구협회장기 신청할게</td>
+      <td class="res">ERROR: 현재 서비스가 일시적으로 불안정합니다. 잠시 후 다시 시도해주세요.</td>
+      <td><span class="FAIL">FAIL</span></td>
+      <td class="reason">에러 응답</td>
+      <td class="ms">190047</td>
+    </tr>
+    <tr>
+      <td style="color:#555">55</td>
+      <td class="q">대회 참가 신청 해줘</td>
+      <td class="res">제8회 마포구체육회장기 테니스대회
+참가 가능한 부서:
+1. 마스터부 (30/30팀) - 참가비 30,000원
+2. 챌린저부 (50/50팀) - 참가비 30,000원
+3. 개나리부 (50/50팀) - 참가비 30,00…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">82127</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>취소플로우 (2문항)</span>
+    <span>✅2 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">56</td>
+      <td class="q">신청 취소하고 싶어</td>
+      <td class="res">취소 가능한 신청 내역:
+1. 제37회 구협회장기 테니스대회 (챌린저부) — 상태: 확정 | 결제: FREE
+2. 제37회 구협회장기 테니스대회 (챌린저부) — 상태: 확정 | 결제: FREE
+3. 제37회 구협회장…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3747</td>
+    </tr>
+    <tr>
+      <td style="color:#555">57</td>
+      <td class="q">대회 참가 취소할게</td>
+      <td class="res">취소 가능한 신청 내역:
+1. 제37회 구협회장기 테니스대회 (챌린저부) — 상태: 확정 | 결제: FREE
+2. 제37회 구협회장기 테니스대회 (챌린저부) — 상태: 확정 | 결제: FREE
+3. 제37회 구협회장…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3658</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>복합검색 (5문항)</span>
+    <span>✅5 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">58</td>
+      <td class="q">마포구에서 이번 달에 열리는 대회 있어?</td>
+      <td class="res">이번 달 마포구에서 열리는 대회는 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4358</td>
+    </tr>
+    <tr>
+      <td style="color:#555">59</td>
+      <td class="q">참가비 10만원 이하 대회 있어?</td>
+      <td class="res">참가비 10만원 이하 대회는 제37회 구협회장기 테니스대회(진행중), 제8회 마포구체육회장기 테니스대회(모집중)가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4698</td>
+    </tr>
+    <tr>
+      <td style="color:#555">60</td>
+      <td class="q">서울에서 신청 가능한 대회 알려줘</td>
+      <td class="res">서울에서 신청 가능한 대회는 제8회 마포구체육회장기 테니스대회입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4008</td>
+    </tr>
+    <tr>
+      <td style="color:#555">61</td>
+      <td class="q">4월에 마포구 대회 있어?</td>
+      <td class="res">4월 마포구에서 진행 중인 제37회 구협회장기 테니스대회가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4565</td>
+    </tr>
+    <tr>
+      <td style="color:#555">62</td>
+      <td class="q">무료 대회 있어?</td>
+      <td class="res">무료 대회는 현재 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3658</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>잡담 (5문항)</span>
+    <span>✅5 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">63</td>
+      <td class="q">안녕</td>
+      <td class="res">무엇을 도와드릴까요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2452</td>
+    </tr>
+    <tr>
+      <td style="color:#555">64</td>
+      <td class="q">뭐 할 수 있어?</td>
+      <td class="res">테니스 대회 정보를 찾아드리거나, 대회 신청/취소, 경기 일정 확인, 전적 조회 등을 도와드릴 수 있습니다. 어떤 것을 원하시나요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2827</td>
+    </tr>
+    <tr>
+      <td style="color:#555">65</td>
+      <td class="q">도움말</td>
+      <td class="res">어떤 도움이 필요하신가요? 테니스 대회 관련 질문이나, 특정 기능에 대한 안내를 원하시면 말씀해주세요.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2995</td>
+    </tr>
+    <tr>
+      <td style="color:#555">66</td>
+      <td class="q">테니스 잘 치려면 어떻게 해야 해?</td>
+      <td class="res">테니스 실력 향상에 대한 조언은 드릴 수 없습니다. 저는 테니스 대회 정보를 제공하는 AI 어시스턴트입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2935</td>
+    </tr>
+    <tr>
+      <td style="color:#555">67</td>
+      <td class="q">날씨 어때?</td>
+      <td class="res">저는 테니스 대회 정보를 제공하는 AI 어시스턴트입니다. 날씨 정보는 알 수 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3028</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>오타 (4문항)</span>
+    <span>✅4 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">68</td>
+      <td class="q">대회 있엉?</td>
+      <td class="res">제37회 구협회장기 테니스대회(진행중), 제8회 마포구체육회장기 테니스대회(모집중)가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3811</td>
+    </tr>
+    <tr>
+      <td style="color:#555">69</td>
+      <td class="q">구협장기 알려줘</td>
+      <td class="res">구협장기 대회를 찾을 수 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4288</td>
+    </tr>
+    <tr>
+      <td style="color:#555">70</td>
+      <td class="q">신청된 대회 있음?</td>
+      <td class="res">총 10건의 대회 참가 신청 내역이 있습니다. 모두 제37회 구협회장기 테니스대회이고, 상태는 확정, 결제 상태는 무료입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4384</td>
+    </tr>
+    <tr>
+      <td style="color:#555">71</td>
+      <td class="q">대지표 보여줘</td>
+      <td class="res">어떤 대회의 대진표를 보고 싶으신가요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2639</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>영어질문 (3문항)</span>
+    <span>✅3 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">72</td>
+      <td class="q">What tournaments are available?</td>
+      <td class="res">제37회 구협회장기 테니스대회 (진행중), 제8회 마포구체육회장기 테니스대회 (모집중)가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4428</td>
+    </tr>
+    <tr>
+      <td style="color:#555">73</td>
+      <td class="q">Show me my entries</td>
+      <td class="res">총 10건의 대회 참가 신청 내역이 있습니다. 모두 제37회 구협회장기 테니스대회이고, 챌린저부, 참가 확정 상태입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4168</td>
+    </tr>
+    <tr>
+      <td style="color:#555">74</td>
+      <td class="q">How do I register for a tournament?</td>
+      <td class="res">제8회 마포구체육회장기 테니스대회
+참가 가능한 부서:
+1. 마스터부 (30/30팀) - 참가비 30,000원
+2. 챌린저부 (50/50팀) - 참가비 30,000원
+3. 개나리부 (50/50팀) - 참가비 30,00…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3966</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>엣지케이스 (4문항)</span>
+    <span>✅4 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">75</td>
+      <td class="q">강남구 테니스 대회 있어?</td>
+      <td class="res">강남구에서 열리는 테니스 대회는 현재 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4136</td>
+    </tr>
+    <tr>
+      <td style="color:#555">76</td>
+      <td class="q">부산 대회 알려줘</td>
+      <td class="res">부산에서 열리는 대회는 현재 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4358</td>
+    </tr>
+    <tr>
+      <td style="color:#555">77</td>
+      <td class="q">없는대회 요강 알려줘</td>
+      <td class="res">존재하지 않는 대회는 요강을 안내해 드릴 수 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2445</td>
+    </tr>
+    <tr>
+      <td style="color:#555">78</td>
+      <td class="q">100년 전 대회 결과 알려줘</td>
+      <td class="res">get_awards 도구는 연도별 입상 기록을 제공하지만, 100년 전은 지원하지 않습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2975</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>클럽 (3문항)</span>
+    <span>✅3 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">79</td>
+      <td class="q">건승회 클럽 정보 알려줘</td>
+      <td class="res">건승회의 예정된 모임이 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4054</td>
+    </tr>
+    <tr>
+      <td style="color:#555">80</td>
+      <td class="q">마포구 테니스 클럽 있어?</td>
+      <td class="res">마포구에서 진행되는 테니스 클럽은 현재 진행 중인 '제37회 구협회장기 테니스대회'와 모집 중인 '제8회 마포구체육회장기 테니스대회'가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4624</td>
+    </tr>
+    <tr>
+      <td style="color:#555">81</td>
+      <td class="q">건승회 가입하려면 어떻게 해?</td>
+      <td class="res">죄송합니다. 건승회 가입 방법은 현재 Tennis Tab에서 제공하지 않는 정보입니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2826</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>FAQ (5문항)</span>
+    <span>✅5 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">82</td>
+      <td class="q">참가비 환불 되나요?</td>
+      <td class="res">참가 신청 취소 플로우를 시작합니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2803</td>
+    </tr>
+    <tr>
+      <td style="color:#555">83</td>
+      <td class="q">참가 신청 방법 알려줘</td>
+      <td class="res">어떤 대회에 참가 신청하고 싶으신가요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2430</td>
+    </tr>
+    <tr>
+      <td style="color:#555">84</td>
+      <td class="q">대회 당일 취소하면 어떻게 돼?</td>
+      <td class="res">대회 요강에 따라 다릅니다. 어떤 대회의 요강을 확인해드릴까요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3403</td>
+    </tr>
+    <tr>
+      <td style="color:#555">85</td>
+      <td class="q">단체전 팀원은 몇 명이야?</td>
+      <td class="res">등록된 정보가 없습니다</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2807</td>
+    </tr>
+    <tr>
+      <td style="color:#555">86</td>
+      <td class="q">신청 확인은 어떻게 해?</td>
+      <td class="res">취소 가능한 신청 내역:
+1. 제37회 구협회장기 테니스대회 (챌린저부) — 상태: 확정 | 결제: FREE
+2. 제37회 구협회장기 테니스대회 (챌린저부) — 상태: 확정 | 결제: FREE
+3. 제37회 구협회장…</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2945</td>
+    </tr>
+  </table>
+</div>
+<div class="cat-section">
+  <div class="cat-title">
+    <span>자연스러운질문 (14문항)</span>
+    <span>✅14 ⚠️0 ❌0</span>
+  </div>
+  <table>
+    <tr><th>#</th><th>질문</th><th>응답</th><th>결과</th><th>사유</th><th>ms</th></tr>
+    
+    <tr>
+      <td style="color:#555">87</td>
+      <td class="q">이번 주말에 뭔 대회 있어?</td>
+      <td class="res">이번 주말에 열리는 대회는 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4272</td>
+    </tr>
+    <tr>
+      <td style="color:#555">88</td>
+      <td class="q">참가비 제일 저렴한 대회가 뭐야?</td>
+      <td class="res">최대 참가비는 얼마까지 생각하고 계신가요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2987</td>
+    </tr>
+    <tr>
+      <td style="color:#555">89</td>
+      <td class="q">구협회장기 몇 명이나 참가했어?</td>
+      <td class="res">구협회장기 테니스대회에는 최대 400명까지 참가 가능합니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4455</td>
+    </tr>
+    <tr>
+      <td style="color:#555">90</td>
+      <td class="q">내가 우승한 대회 있어?</td>
+      <td class="res">입상 기록이 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">3851</td>
+    </tr>
+    <tr>
+      <td style="color:#555">91</td>
+      <td class="q">3월에 있는 대회 다 알려줘</td>
+      <td class="res">3월에 열리는 대회는 현재 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4195</td>
+    </tr>
+    <tr>
+      <td style="color:#555">92</td>
+      <td class="q">복식 대회 있어?</td>
+      <td class="res">제37회 구협회장기 테니스대회(진행중), 제8회 마포구체육회장기 테니스대회(모집중)가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4255</td>
+    </tr>
+    <tr>
+      <td style="color:#555">93</td>
+      <td class="q">단체전 대회 언제야?</td>
+      <td class="res">단체전 대회는 현재 예정된 것이 없습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">5251</td>
+    </tr>
+    <tr>
+      <td style="color:#555">94</td>
+      <td class="q">60세 이상 대회 있어?</td>
+      <td class="res">전체 대회 목록입니다.
+
+*   제37회 구협회장기 테니스대회 (진행중)
+*   제8회 마포구체육회장기 테니스대회 (모집중)</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4296</td>
+    </tr>
+    <tr>
+      <td style="color:#555">95</td>
+      <td class="q">여성부 대회 있어?</td>
+      <td class="res">제37회 구협회장기 테니스대회 (진행중), 제8회 마포구체육회장기 테니스대회 (모집중)가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4184</td>
+    </tr>
+    <tr>
+      <td style="color:#555">96</td>
+      <td class="q">마포구 협회 대회 일정 알려줘</td>
+      <td class="res">마포구에서 진행되는 대회는 2026-04-25부터 진행 중인 '제37회 구협회장기 테니스대회'와 2026-06-12부터 모집 중인 '제8회 마포구체육회장기 테니스대회'가 있습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">4450</td>
+    </tr>
+    <tr>
+      <td style="color:#555">97</td>
+      <td class="q">내 경기 이겼어 결과 어떻게 입력해?</td>
+      <td class="res">죄송합니다. 경기 결과를 입력하는 기능은 아직 지원하지 않습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2672</td>
+    </tr>
+    <tr>
+      <td style="color:#555">98</td>
+      <td class="q">대회 등록 마감이 언제야?</td>
+      <td class="res">어떤 대회의 등록 마감일을 알고 싶으신가요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2544</td>
+    </tr>
+    <tr>
+      <td style="color:#555">99</td>
+      <td class="q">예선전이 있는 대회 알려줘</td>
+      <td class="res">죄송합니다. 예선전 유무로 검색하는 기능은 아직 지원하지 않습니다.</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2781</td>
+    </tr>
+    <tr>
+      <td style="color:#555">100</td>
+      <td class="q">우리 클럽 이번 달 모임 언제야?</td>
+      <td class="res">어느 클럽의 모임을 찾으시나요?</td>
+      <td><span class="PASS">PASS</span></td>
+      <td class="reason">정상</td>
+      <td class="ms">2873</td>
+    </tr>
+  </table>
+</div>
+</body>
+</html>

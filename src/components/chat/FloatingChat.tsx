@@ -2,14 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import { MessageCircle, X } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 import { ChatSection } from './ChatSection'
 
 interface FloatingChatProps {
   isLoggedIn: boolean
 }
 
-export function FloatingChat({ isLoggedIn }: FloatingChatProps) {
+export function FloatingChat({ isLoggedIn: initialLoggedIn }: FloatingChatProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(initialLoggedIn)
+
+  // 클라이언트에서 실시간 세션 확인 (서버 SSR 불일치 보정)
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getSession().then(({ data }) => {
+      setIsLoggedIn(!!data.session)
+    })
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session)
+    })
+    return () => subscription.unsubscribe()
+  }, [])
 
   // ESC 키로 닫기
   useEffect(() => {
@@ -90,7 +104,7 @@ export function FloatingChat({ isLoggedIn }: FloatingChatProps) {
         </div>
 
         {/* ChatSection */}
-        <div className="flex-1 overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
+        <div className="flex-1 min-h-0 overflow-hidden" style={{ backgroundColor: 'var(--bg-primary)' }}>
           <ChatSection isLoggedIn={isLoggedIn} />
         </div>
       </div>
