@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useState, useRef, useLayoutEffect, useCallback } from 'react'
 import { usePathname } from 'next/navigation'
 import { ThemeToggle } from './ThemeToggle'
@@ -61,12 +62,13 @@ export function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
       <div className="max-w-content mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <span
-            className="font-display text-lg md:text-2xl tracking-wider"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            TENNIS TAB
-          </span>
+          <Image
+            src="/img/logo_mate.jpeg"
+            alt="마포구테니스협회"
+            width={40}
+            height={40}
+            className="rounded-full object-cover ring-2 ring-(--border-primary) group-hover:ring-(--color-primary) transition-all"
+          />
         </Link>
 
         {/* 데스크톱 메뉴 — containerRef 기준으로 indicator 위치 계산 */}

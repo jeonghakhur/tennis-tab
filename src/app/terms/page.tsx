@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '이용약관 | Tennis Tab',
-  description: 'Tennis Tab 서비스 이용약관',
+  title: '이용약관 | 마포구테니스협회',
+  description: '마포구테니스협회 서비스 이용약관',
 }
 
 export default function TermsPage() {
@@ -36,7 +36,7 @@ export default function TermsPage() {
                   제1조 (목적)
                 </h3>
                 <p>
-                  본 약관은 Tennis Tab(이하 "서비스")이 제공하는 테니스 대회 관리 플랫폼의
+                  본 약관은 마포구테니스협회(이하 "서비스")이 제공하는 테니스 대회 관리 플랫폼의
                   이용자가 서비스를 이용함에 있어 필요한 제반 사항과 상호간의 권리, 의무,
                   책임사항을 규정함을 목적으로 합니다.
                 </p>
@@ -47,8 +47,8 @@ export default function TermsPage() {
                   제2조 (용어의 정의)
                 </h3>
                 <ul className="space-y-1.5 pl-4">
-                  <li>① <strong style={{ color: 'var(--text-primary)' }}>Tennis Tab</strong>: 운영자가 제공하는 테니스 대회 관리, 클럽 운영, 커뮤니티 서비스 플랫폼</li>
-                  <li>② <strong style={{ color: 'var(--text-primary)' }}>운영자</strong>: Tennis Tab 서비스를 기획, 개발, 운영하는 주체</li>
+                  <li>① <strong style={{ color: 'var(--text-primary)' }}>마포구테니스협회</strong>: 운영자가 제공하는 테니스 대회 관리, 클럽 운영, 커뮤니티 서비스 플랫폼</li>
+                  <li>② <strong style={{ color: 'var(--text-primary)' }}>운영자</strong>: 마포구테니스협회 서비스를 기획, 개발, 운영하는 주체</li>
                   <li>③ <strong style={{ color: 'var(--text-primary)' }}>회원</strong>: 약관에 동의하고 서비스 이용 계약을 체결한 자</li>
                   <li>④ <strong style={{ color: 'var(--text-primary)' }}>대회 주최자</strong>: 서비스를 통해 테니스 대회를 생성·관리하는 회원</li>
                   <li>⑤ <strong style={{ color: 'var(--text-primary)' }}>참가자</strong>: 대회에 참가 신청한 회원</li>

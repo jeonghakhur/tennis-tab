@@ -154,7 +154,7 @@ function ResetPasswordContent() {
                 className="font-display text-3xl tracking-wider"
                 style={{ color: 'var(--text-primary)' }}
               >
-                TENNIS TAB
+                마포구테니스협회
               </span>
             </Link>
             <h1

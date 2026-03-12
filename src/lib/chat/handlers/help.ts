@@ -7,7 +7,7 @@ export async function handleHelp(
 ): Promise<HandlerResult> {
   return {
     success: true,
-    message: `Tennis Tab에서 할 수 있는 것들이에요:
+    message: `마포구테니스협회에서 할 수 있는 것들이에요:
 
 ━━ 대회 정보 (누구나) ━━━━━━━━
 

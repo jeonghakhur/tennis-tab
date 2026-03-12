@@ -22,7 +22,7 @@ const CLUB_ROLE_VARIANT: Record<string, 'warning' | 'info' | 'success'> = {
 const OFFICER_ROLES: ClubMemberRole[] = ['OWNER', 'ADMIN', 'MATCH_DIRECTOR']
 
 export const metadata = {
-  title: '내 클럽 관리 | Tennis Tab',
+  title: '내 클럽 관리 | 마포구테니스협회',
   description: '소속 클럽을 관리합니다.',
 }
 

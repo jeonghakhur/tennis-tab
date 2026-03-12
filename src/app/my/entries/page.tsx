@@ -4,7 +4,7 @@ import { getMyEntries } from '@/lib/data/user'
 import { MyEntriesClient } from './MyEntriesClient'
 
 export const metadata = {
-  title: '내 신청 관리 | Tennis Tab',
+  title: '내 신청 관리 | 마포구테니스협회',
   description: '참가 신청한 대회 목록을 확인하고 관리합니다.',
 }
 

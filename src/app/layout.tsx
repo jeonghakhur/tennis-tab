@@ -7,7 +7,7 @@ import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Tennis Tab | 테니스 대회의 새로운 기준",
+  title: "마포구테니스협회 | 테니스 대회의 새로운 기준",
   description:
     "대회 생성부터 참가 신청, 클럽 관리까지. 테니스 커뮤니티를 위한 올인원 플랫폼",
 };

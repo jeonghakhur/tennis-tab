@@ -110,7 +110,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
           <div className="flex items-center justify-between p-6 border-b border-(--border-color)">
             <Link href="/admin" className="flex items-center gap-2">
               <span className="font-display text-xl font-bold text-(--accent-color)">
-                Tennis Tab
+                마포구테니스협회
               </span>
               <span className="text-xs px-2 py-0.5 rounded bg-(--accent-color) text-(--bg-primary) font-medium">
                 Admin
