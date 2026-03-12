@@ -117,15 +117,15 @@ export function Modal({
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90vh] overflow-x-hidden overflow-y-auto rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
+        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90dvh] flex flex-col rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}
         aria-describedby={description ? "modal-description" : undefined}
       >
-        {/* 헤더 */}
+        {/* 헤더 — shrink-0으로 높이 고정 */}
         {(title || description || showCloseButton) && (
-          <div className="sticky top-0 z-10 flex items-start justify-between p-5 border-b border-(--border-color) bg-(--bg-secondary) rounded-t-2xl">
+          <div className="shrink-0 flex items-start justify-between p-5 border-b border-(--border-color) bg-(--bg-secondary) rounded-t-2xl">
             <div className="flex-1">
               {title && (
                 <h2
@@ -156,7 +156,7 @@ export function Modal({
           </div>
         )}
 
-        {/* 본문 */}
+        {/* 본문 — flex-1로 남은 공간 차지, 독립 스크롤 */}
         {children}
       </div>
     </div>,
@@ -166,7 +166,11 @@ export function Modal({
 
 // 서브 컴포넌트
 Modal.Body = function ModalBody({ children }: { children: React.ReactNode }) {
-  return <div className="p-5 overflow-x-hidden">{children}</div>;
+  return (
+    <div className="flex-1 overflow-y-auto overflow-x-hidden p-5 min-h-0">
+      {children}
+    </div>
+  );
 };
 
 Modal.Footer = function ModalFooter({
@@ -175,7 +179,10 @@ Modal.Footer = function ModalFooter({
   children: React.ReactNode;
 }) {
   return (
-    <div className="sticky bottom-0 flex gap-3 p-5 border-t border-(--border-color) bg-(--bg-secondary) rounded-b-2xl">
+    <div
+      className="shrink-0 flex gap-3 p-5 border-t border-(--border-color) bg-(--bg-secondary) rounded-b-2xl"
+      style={{ paddingBottom: "calc(1.25rem + env(safe-area-inset-bottom))" }}
+    >
       {children}
     </div>
   );
