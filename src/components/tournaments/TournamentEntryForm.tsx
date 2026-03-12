@@ -139,6 +139,13 @@ export default function TournamentEntryForm({
   const [partnerSearchResults, setPartnerSearchResults] = useState<PartnerSearchResult[]>([]);
   const [isSearchingPartner, setIsSearchingPartner] = useState(false);
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
+  // 검색 결과가 있었는데 선택하지 않고 "직접 입력"을 명시적으로 눌렀는지
+  const [partnerManualConfirmed, setPartnerManualConfirmed] = useState(
+    // 초기값: 기존 데이터에 파트너 이름은 있으나 연동 안 된 경우 true (수정 모드 호환)
+    !!(initialData?.partnerData?.name && !initialData?.partnerUserId),
+  );
+  // 검색 결과가 한 번이라도 나왔는지 (연동 검증용)
+  const [partnerSearchHadResults, setPartnerSearchHadResults] = useState(false);
   const partnerSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partnerDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -155,10 +162,13 @@ export default function TournamentEntryForm({
       return;
     }
     setIsSearchingPartner(true);
+    // 이름 변경 시 수동 확인/검색 플래그 리셋
+    setPartnerManualConfirmed(false);
     partnerSearchRef.current = setTimeout(async () => {
       const results = await searchPartnerByName(value);
       setPartnerSearchResults(results);
       setShowPartnerDropdown(results.length > 0);
+      if (results.length > 0) setPartnerSearchHadResults(true);
       setIsSearchingPartner(false);
     }, 300);
   };
@@ -169,11 +179,27 @@ export default function TournamentEntryForm({
     setPartnerClub(partner.club ?? "");
     setPartnerRating(partner.rating ?? null);
     setPartnerUserId(partner.id);
+    setPartnerManualConfirmed(false);
     setShowPartnerDropdown(false);
     setPartnerSearchResults([]);
   };
 
-  // 파트너 드롭다운 외부 클릭 시 닫기
+  // 파트너 입력 포커스 아웃 시 자동 연동 시도
+  // 검색 결과 중 이름이 정확히 일치하는 사용자가 1명이면 자동 선택
+  const handlePartnerBlur = () => {
+    if (partnerUserId) return; // 이미 연동됨
+    const trimmed = partnerName.trim();
+    if (!trimmed) return;
+
+    const exactMatches = partnerSearchResults.filter(
+      (p) => p.name === trimmed
+    );
+    if (exactMatches.length === 1) {
+      handleSelectPartner(exactMatches[0]);
+    }
+  };
+
+  // 파트너 드롭다운 외부 클릭 시 닫기 + 자동 연동 시도
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (partnerDropdownRef.current && !partnerDropdownRef.current.contains(e.target as Node)) {
@@ -401,6 +427,17 @@ export default function TournamentEntryForm({
           isOpen: true,
           title: "입력 필요",
           message: "파트너 정보를 모두 입력해주세요.",
+          type: "warning",
+        });
+        return;
+      }
+      // 검색 결과가 있었는데 선택도 안 하고 "직접 입력"도 누르지 않은 경우 차단
+      if (!partnerUserId && partnerSearchHadResults && !partnerManualConfirmed) {
+        setShowPartnerDropdown(true);
+        setAlertDialog({
+          isOpen: true,
+          title: "파트너 확인 필요",
+          message: "동명의 회원이 검색되었습니다. 목록에서 파트너를 선택하거나, 회원이 아닌 경우 '직접 입력'을 눌러주세요.",
           type: "warning",
         });
         return;
@@ -639,6 +676,7 @@ export default function TournamentEntryForm({
                     value={partnerName}
                     onChange={(e) => handlePartnerNameChange(e.target.value)}
                     onFocus={() => partnerSearchResults.length > 0 && setShowPartnerDropdown(true)}
+                    onBlur={handlePartnerBlur}
                     className={inputClass}
                     placeholder="이름 입력 후 검색"
                     autoComplete="off"
@@ -670,21 +708,34 @@ export default function TournamentEntryForm({
                         </button>
                       </li>
                     ))}
-                    <li>
+                    <li className="border-t" style={{ borderColor: 'var(--border-color)' }}>
                       <button
                         type="button"
-                        onClick={() => setShowPartnerDropdown(false)}
-                        className="w-full text-left px-4 py-2 text-sm text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                        onClick={() => {
+                          setShowPartnerDropdown(false);
+                          setPartnerManualConfirmed(true);
+                        }}
+                        className="w-full text-left px-4 py-3 font-medium text-(--text-secondary) hover:bg-gray-50 dark:hover:bg-gray-700/50"
                       >
-                        직접 입력
+                        직접 입력 (회원이 아닌 경우)
                       </button>
                     </li>
                   </ul>
                 )}
                 {!partnerUserId && partnerName && (
-                  <p className="text-xs text-gray-400 mt-1">
-                    * 시스템에 등록된 회원이면 이름 입력 후 목록에서 선택하세요
-                  </p>
+                  partnerManualConfirmed ? (
+                    <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 font-semibold border border-blue-200 dark:border-blue-700">
+                      ✓ 직접 입력 — 파트너가 시스템 회원이 아닌 경우
+                    </p>
+                  ) : partnerSearchHadResults ? (
+                    <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-700">
+                      ⚠ 동명의 회원이 검색되었습니다. 목록에서 선택하거나 &quot;직접 입력&quot;을 눌러주세요.
+                    </p>
+                  ) : (
+                    <p className="text-sm mt-2 text-(--text-muted)">
+                      * 시스템에 등록된 회원이면 이름 입력 후 목록에서 선택하세요
+                    </p>
+                  )
                 )}
               </div>
 

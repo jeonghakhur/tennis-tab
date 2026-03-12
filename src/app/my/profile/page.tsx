@@ -6,7 +6,7 @@ import { useFontSize } from "@/components/FontSizeProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
-import { getUserStats, getMyTournaments, getMyMatches } from "@/lib/data/user";
+import { getUserStats, getMyTournaments, getMyMatches, getMyInvitedEntries } from "@/lib/data/user";
 import { getMyClubMemberships } from "@/lib/clubs/actions";
 import type { Club, ClubMember } from "@/lib/clubs/types";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
@@ -209,6 +209,8 @@ export default function MyProfilePage() {
   type MyAward = Database['public']['Tables']['tournament_awards']['Row'];
   const [stats, setStats] = useState<UserStats | null>(null);
   const [tournaments, setTournaments] = useState<TournamentEntry[]>([]);
+  const [invitedEntries, setInvitedEntries] = useState<TournamentEntry[]>([]);
+  const [invitedLoading, setInvitedLoading] = useState(true);
   const [matches, setMatches] = useState<BracketMatch[]>([]);
   const [awards, setAwards] = useState<MyAward[]>([]);
   const [myAwardIds, setMyAwardIds] = useState<string[]>([]);
@@ -230,6 +232,7 @@ export default function MyProfilePage() {
     if (user && profile) {
       loadStats();
       loadTournaments();
+      loadInvitedEntries();
       loadMatches();
       loadAwards();
       getMyClubMemberships().then((r) => setClubMemberships(r.data || []));
@@ -254,20 +257,23 @@ export default function MyProfilePage() {
     setTournamentsLoading(false);
   };
 
+  const loadInvitedEntries = async () => {
+    setInvitedLoading(true);
+    const result = await getMyInvitedEntries();
+    if (!result.error && result.entries) {
+      setInvitedEntries(result.entries as TournamentEntry[]);
+    }
+    setInvitedLoading(false);
+  };
+
   // 참가 대회 ID 목록 (Realtime 구독용)
   const tournamentIds = useMemo(
-    () => tournaments.map((e) => e.tournament.id),
-    [tournaments],
+    () => [...tournaments.map((e) => e.tournament.id), ...invitedEntries.map((e) => e.tournament.id)],
+    [tournaments, invitedEntries],
   );
 
   // 신청 현황: 내가 직접 신청한 전체 목록
   const applicationEntries = tournaments;
-
-  // 참가 대회: 다른 사람이 나를 파트너로 등록한 목록 (TODO: 별도 쿼리 필요)
-  const participatedEntries = useMemo(
-    () => [] as TournamentEntry[],
-    [],
-  );
 
   // 대회 상태 변경 실시간 감지 → 내 대회 탭 즉시 반영
   const handleTournamentStatusChange = useCallback(
@@ -642,7 +648,7 @@ export default function MyProfilePage() {
                     : "var(--text-muted)",
               }}
             >
-              참가 대회 {!tournamentsLoading && `(${participatedEntries.length})`}
+              초대된 대회 {!invitedLoading && `(${invitedEntries.length})`}
             </button>
             <button
               onClick={() => setActiveTab("matches")}
@@ -905,8 +911,21 @@ export default function MyProfilePage() {
                       </p>
                     </div>
 
-                    {/* 배지 행: 부서 · 신청 상태 · 결제 상태 · 순번(마지막) */}
+                    {/* 배지 행: 대회 상태 · 부서 · 신청 상태 · 결제 상태 · 순번(마지막) */}
                     <div className="flex items-center gap-1.5 flex-wrap px-4 pb-3">
+                      <Badge
+                        variant={
+                          entry.tournament.status === "OPEN" ? "success"
+                          : entry.tournament.status === "IN_PROGRESS" ? "purple"
+                          : entry.tournament.status === "COMPLETED" ? "secondary"
+                          : entry.tournament.status === "CLOSED" ? "orange"
+                          : entry.tournament.status === "CANCELLED" ? "danger"
+                          : "secondary"
+                        }
+                        className="font-display tracking-wider"
+                      >
+                        {tournamentStatusLabels[entry.tournament.status] ?? entry.tournament.status}
+                      </Badge>
                       {entry.division && (
                         <Badge variant="info" className="font-display tracking-wider">
                           {entry.division.name}
@@ -1035,6 +1054,19 @@ export default function MyProfilePage() {
                             참가 취소
                           </button>
                         )}
+                        {/* 대진표 보기 버튼 */}
+                        {entry.hasBracket && entry.status === "CONFIRMED" && (
+                          <Link
+                            href={`/tournaments/${entry.tournament.id}/bracket${entry.division ? `?divisionId=${entry.division.id}` : ''}`}
+                            className="text-sm font-display tracking-wider px-3 py-1.5 rounded-lg transition-colors"
+                            style={{
+                              backgroundColor: "var(--accent-color)",
+                              color: "var(--bg-primary)",
+                            }}
+                          >
+                            대진표 보기
+                          </Link>
+                        )}
                         <Link
                           href={`/tournaments/${entry.tournament.id}`}
                           className="text-sm font-display tracking-wider hover:underline"
@@ -1051,17 +1083,17 @@ export default function MyProfilePage() {
             )
           )}
 
-          {/* 참가 대회 탭 */}
+          {/* 초대된 대회 탭 */}
           {activeTab === "tournaments" && (
-            tournamentsLoading ? (
+            invitedLoading ? (
               <TournamentListSkeleton />
-            ) : participatedEntries.length === 0 ? (
+            ) : invitedEntries.length === 0 ? (
               <div className="glass-card p-12 text-center">
                 <p
                   className="text-lg mb-4"
                   style={{ color: "var(--text-muted)" }}
                 >
-                  아직 참가한 대회가 없습니다
+                  다른 사람이 파트너로 등록한 대회가 없습니다
                 </p>
                 <Link
                   href="/tournaments"
@@ -1076,7 +1108,7 @@ export default function MyProfilePage() {
               </div>
             ) : (
               <div className="space-y-4">
-                {participatedEntries.map((entry) => (
+                {invitedEntries.map((entry) => (
                   <div key={entry.id} className="glass-card p-6">
                     <div className="flex items-start justify-between mb-4">
                       <div>
@@ -1125,8 +1157,7 @@ export default function MyProfilePage() {
                           className="text-sm"
                           style={{ color: "var(--text-muted)" }}
                         >
-                          신청일:{" "}
-                          {/* suppressHydrationWarning */ new Date(entry.created_at).toLocaleDateString("ko-KR")}
+                          신청자: {entry.player_name}
                         </span>
                         <span
                           className="text-sm"

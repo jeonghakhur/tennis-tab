@@ -43,6 +43,10 @@ interface CurrentEntry {
   team_members: Array<{ name: string; rating: number }> | null;
   current_rank?: number;
   payment_status?: string;
+  refund_bank?: string | null;
+  refund_account?: string | null;
+  refund_holder?: string | null;
+  partner_user_id?: string | null;
 }
 
 interface TournamentEntryActionsProps {
@@ -979,6 +983,10 @@ export default function TournamentEntryActions({
             teamOrder: activeEntry.team_order,
             partnerData: activeEntry.partner_data,
             teamMembers: activeEntry.team_members,
+            refundBank: activeEntry.refund_bank || "",
+            refundAccount: activeEntry.refund_account || "",
+            refundHolder: activeEntry.refund_holder || "",
+            partnerUserId: activeEntry.partner_user_id || null,
           }}
         />
       )}

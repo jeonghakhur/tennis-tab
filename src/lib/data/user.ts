@@ -405,6 +405,56 @@ export async function getUserStats() {
 }
 
 /**
+ * 다른 사람이 나를 파트너로 등록한 대회 목록 조회
+ */
+export async function getMyInvitedEntries() {
+  const supabase = await createClient()
+  const user = await getCurrentUser()
+
+  if (!user) {
+    return { error: '로그인이 필요합니다.' }
+  }
+
+  const { data: entries, error } = await supabase
+    .from('tournament_entries')
+    .select(`
+      *,
+      tournament:tournaments(*),
+      division:tournament_divisions(id, name)
+    `)
+    .eq('partner_user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  // 대진표 존재 여부 확인
+  const divisionIds = entries
+    .map((e) => (e.division as { id: string } | null)?.id)
+    .filter((id): id is string => Boolean(id))
+
+  const bracketDivisionSet = new Set<string>()
+  if (divisionIds.length > 0) {
+    const { data: bracketRows } = await supabase
+      .from('bracket_configs')
+      .select('division_id, bracket_matches!inner(id)')
+      .in('division_id', divisionIds)
+    bracketRows?.forEach((r) => bracketDivisionSet.add(r.division_id))
+  }
+
+  const enrichedEntries = entries.map((e) => ({
+    ...e,
+    hasBracket: (e.division as { id: string } | null)?.id
+      ? bracketDivisionSet.has((e.division as { id: string }).id)
+      : false,
+    current_rank: null,
+  }))
+
+  return { entries: enrichedEntries }
+}
+
+/**
  * 다른 사용자의 프로필 조회
  */
 export async function getUserProfile(userId: string) {
