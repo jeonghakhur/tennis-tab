@@ -165,6 +165,9 @@ export default function TournamentEntryActions({
       partnerUserId: data.partnerUserId,
       teamMembers: data.teamMembers,
       applicantParticipates: data.applicantParticipates,
+      refundBank: data.refundBank,
+      refundAccount: data.refundAccount,
+      refundHolder: data.refundHolder,
     });
 
     if (result.success) {
@@ -192,6 +195,9 @@ export default function TournamentEntryActions({
       partnerUserId: data.partnerUserId,
       teamMembers: data.teamMembers,
       applicantParticipates: data.applicantParticipates,
+      refundBank: data.refundBank,
+      refundAccount: data.refundAccount,
+      refundHolder: data.refundHolder,
     });
 
     if (result.success) {
