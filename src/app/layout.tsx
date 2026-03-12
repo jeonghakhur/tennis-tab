@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="ko" data-scroll-behavior="smooth">
+    <html lang="ko" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {/* 주요 폰트 preload - FOUT 방지 */}
         <link rel="preload" href="/font/SUIT-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
