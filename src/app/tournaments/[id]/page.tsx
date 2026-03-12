@@ -46,7 +46,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     notFound();
   }
 
-  // 대진표 존재 여부 확인 (bracket_configs는 division_id 기준)
+  // 대진표 존재 여부 확인 (bracket_matches가 1개라도 있는 config만 카운트)
   const divisionIds = (tournament.tournament_divisions || []).map(
     (d: { id: string }) => d.id,
   );
@@ -54,8 +54,9 @@ export default async function TournamentDetailPage({ params }: Props) {
   if (divisionIds.length > 0) {
     const { count } = await supabase
       .from("bracket_configs")
-      .select("id", { count: "exact", head: true })
+      .select("id, bracket_matches!inner(id)", { count: "exact", head: true })
       .in("division_id", divisionIds);
+
     hasBracket = (count ?? 0) > 0;
   }
 
