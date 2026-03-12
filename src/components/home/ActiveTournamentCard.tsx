@@ -64,7 +64,7 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
           )}
 
           {/* 버튼 */}
-          {isInProgress ? (
+          {isInProgress && tournament.hasBracket ? (
             <Link
               href={`/tournaments/${tournament.id}/bracket`}
               className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
