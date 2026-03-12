@@ -90,6 +90,8 @@ export default function TournamentEntryActions({
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   // 취소 확인 모달 대상 entry id
   const [cancelEntryId, setCancelEntryId] = useState<string | null>(null);
+  // 모바일 플로팅 바 — 다중 신청 시 접힘/펼침
+  const [isFloatingExpanded, setIsFloatingExpanded] = useState(true);
   // 참가 신청 완료 후 결제 유도 모달 (entryFee > 0인 경우)
   const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
@@ -754,6 +756,41 @@ export default function TournamentEntryActions({
             paddingTop: "12px",
           }}
         >
+          {/* 세로 탭 핸들 — 2건 이상 신청 시 우측 경계에 붙어서 위로 돌출 */}
+          {isLoggedIn && entries.length >= 2 && (
+            <button
+              type="button"
+              aria-label={isFloatingExpanded ? "신청 목록 접기" : "신청 목록 펼치기"}
+              aria-expanded={isFloatingExpanded}
+              onClick={() => setIsFloatingExpanded((prev) => !prev)}
+              className="absolute flex items-center justify-center rounded-t-xl transition-all active:opacity-70"
+              style={{
+                right: 0,
+                bottom: "100%",
+                width: "68px",
+                height: "24px",
+                marginBottom: "-1px",
+                backgroundColor: "var(--bg-secondary)",
+                borderTop: "1px solid var(--border-color)",
+                borderLeft: "1px solid var(--border-color)",
+                borderRight: "1px solid var(--border-color)",
+                color: "var(--text-muted)",
+                boxShadow: "0 -2px 6px rgba(0,0,0,0.06)",
+              }}
+            >
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 10 10"
+                fill="none"
+                aria-hidden="true"
+                className="transition-transform duration-200"
+                style={{ transform: isFloatingExpanded ? "rotate(270deg)" : "rotate(90deg)" }}
+              >
+                <path d="M2 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          )}
           {isOrganizer && tournamentStatus === "OPEN" ? (
             <div className="flex gap-2">
               {renderMobileFloating()}
