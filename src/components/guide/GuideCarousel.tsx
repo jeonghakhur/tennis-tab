@@ -191,18 +191,23 @@ export function GuideCarousel({ slides, accentColor, accentBorder, cta, ctaStyle
                     />
                   </div>
 
-                  {/* 모바일 이미지: 9:19 비율(세로 스크린샷), md 미만에서 표시 */}
+                  {/* 모바일 이미지: md 미만에서 표시, 상단 nav 영역 스킵 + 높이 캡 */}
                   {s.screenshotMobile && (
                     <div
                       className="block md:hidden"
-                      style={{ aspectRatio: "9 / 19", position: "relative", overflow: "hidden" }}
+                      style={{
+                        width: "100%",
+                        height: "clamp(240px, 45vh, 380px)",
+                        position: "relative",
+                        overflow: "hidden",
+                      }}
                     >
                       <Image
                         src={`/guide/screenshots/${s.screenshotMobile}`}
                         alt={s.screenshotAlt}
                         fill
                         sizes="(max-width: 767px) 82vw, 0px"
-                        style={{ objectFit: "cover", objectPosition: "top" }}
+                        style={{ objectFit: "cover", objectPosition: "0% 15%" }}
                         priority={i === 0}
                         draggable={false}
                       />
