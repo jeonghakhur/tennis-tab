@@ -259,16 +259,13 @@ export default function MyProfilePage() {
     [tournaments],
   );
 
-  // 신청 현황: 아직 시작 전 대회 (DRAFT·UPCOMING·OPEN·CLOSED)
-  const applicationEntries = useMemo(
-    () => tournaments.filter((e) => ['DRAFT', 'UPCOMING', 'OPEN', 'CLOSED'].includes(e.tournament.status)),
-    [tournaments],
-  );
+  // 신청 현황: 내가 직접 신청한 전체 목록
+  const applicationEntries = tournaments;
 
-  // 참가 대회: 진행 중이거나 종료된 대회 (IN_PROGRESS·COMPLETED)
+  // 참가 대회: 다른 사람이 나를 파트너로 등록한 목록 (TODO: 별도 쿼리 필요)
   const participatedEntries = useMemo(
-    () => tournaments.filter((e) => ['IN_PROGRESS', 'COMPLETED'].includes(e.tournament.status)),
-    [tournaments],
+    () => [] as TournamentEntry[],
+    [],
   );
 
   // 대회 상태 변경 실시간 감지 → 내 대회 탭 즉시 반영
