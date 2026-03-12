@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useState, useRef, useLayoutEffect, useCallback } from 'react'
+import { useState, useRef, useLayoutEffect, useCallback, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import { ThemeToggle } from './ThemeToggle'
 import { FontSizeToggle } from './FontSizeToggle'
@@ -27,6 +27,33 @@ export function Navigation() {
   const [indicator, setIndicator] = useState<{ left: number; width: number } | null>(null)
 
   const activeIndex = NAV_LINKS.findIndex(({ href }) => pathname?.startsWith(href))
+
+  // 스크롤 방향에 따라 nav 표시/숨김 (모바일 전용 — 데스크탑은 CSS로 항상 표시)
+  const [isNavVisible, setIsNavVisible] = useState(true)
+  const lastScrollYRef = useRef(0)
+  const SCROLL_THRESHOLD = 8 // jitter 방지: 8px 미만 무시
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentY = window.scrollY
+      const delta = currentY - lastScrollYRef.current
+
+      if (Math.abs(delta) < SCROLL_THRESHOLD) return
+
+      if (currentY <= 0) {
+        setIsNavVisible(true) // 최상단 → 항상 표시
+      } else if (delta > 0 && !menuOpen) {
+        setIsNavVisible(false) // 스크롤 다운 + 메뉴 닫힌 상태 → 숨김
+      } else {
+        setIsNavVisible(true) // 스크롤 업 → 표시
+      }
+
+      lastScrollYRef.current = currentY
+    }
+
+    window.addEventListener('scroll', handleScroll, { passive: true })
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [menuOpen])
 
   // getBoundingClientRect로 컨테이너 기준 상대 좌표 계산
   // el과 container가 같은 레이아웃 컨텍스트에 있으므로 스크롤바 생겨도 차이값은 불변
@@ -58,7 +85,10 @@ export function Navigation() {
   if (pathname?.startsWith('/admin')) return null
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 nav-container">
+    <nav
+      className="fixed top-0 left-0 right-0 z-50 nav-container transition-transform duration-300 ease-in-out md:translate-y-0"
+      style={{ transform: isNavVisible ? 'translateY(0)' : 'translateY(-100%)' }}
+    >
       <div className="max-w-content mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
           <span
