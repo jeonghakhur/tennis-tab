@@ -72,6 +72,14 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
             >
               대진표 보기
             </Link>
+          ) : isInProgress ? (
+            <Link
+              href={`/tournaments/${tournament.id}`}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg transition-all hover:opacity-90"
+              style={{ border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+            >
+              대회 보기
+            </Link>
           ) : (
             <Link
               href={`/tournaments/${tournament.id}`}
