@@ -368,6 +368,7 @@ export default function TournamentEntryActions({
             {entries.map((e, idx) => {
               const isActive = !["CANCELLED", "REJECTED"].includes(e.status);
               const canModify = canAcceptEntry && isActive;
+              const isPendingPayment = entryFee > 0 && e.payment_status === "PENDING" && isActive;
               const divisionName = divisions.find((d) => d.id === e.division_id)?.name;
               return (
                 <div key={e.id} className="flex flex-col gap-1.5 rounded-xl p-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
@@ -386,11 +387,21 @@ export default function TournamentEntryActions({
                   </div>
                   {canModify && (
                     <div className="flex gap-2 pt-1">
+                      {isPendingPayment && (
+                        <button
+                          onClick={() => handleConfirmPayment(e.id)}
+                          disabled={isSubmitting}
+                          className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                          style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                        >
+                          {isSubmitting ? "처리 중..." : "입금 완료"}
+                        </button>
+                      )}
                       <button
                         onClick={() => { setActiveEntryId(e.id); setShowEditForm(true); }}
                         disabled={isSubmitting}
                         className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
-                        style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                        style={{ backgroundColor: isPendingPayment ? "var(--bg-card-hover)" : "var(--accent-color)", color: isPendingPayment ? "var(--text-secondary)" : "var(--bg-primary)" }}
                       >
                         수정하기
                       </button>
