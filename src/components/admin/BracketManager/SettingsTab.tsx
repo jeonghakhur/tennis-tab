@@ -1,5 +1,6 @@
 "use client";
 
+import { Switch } from "@/components/ui/switch";
 import type { BracketConfig } from "./types";
 
 interface SettingsTabProps {
@@ -28,15 +29,13 @@ export function SettingsTab({
       </h3>
 
       <div className="space-y-4">
-        <label className={`flex items-center gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
-          <input
-            type="checkbox"
-            checked={config.has_preliminaries}
-            onChange={(e) => onUpdate?.({ has_preliminaries: e.target.checked })}
-            disabled={readOnly || config.status !== "DRAFT"}
-            className="w-5 h-5 rounded border-(--border-color) text-(--accent-color) focus:ring-(--accent-color)"
-          />
+        <label className={`flex items-center justify-between gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
           <span className="text-(--text-primary)">예선전 진행</span>
+          <Switch
+            checked={config.has_preliminaries}
+            onCheckedChange={(checked) => onUpdate?.({ has_preliminaries: checked })}
+            disabled={readOnly || config.status !== "DRAFT"}
+          />
         </label>
 
         <div className="space-y-2">
@@ -66,15 +65,13 @@ export function SettingsTab({
           </p>
         </div>
 
-        <label className={`flex items-center gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
-          <input
-            type="checkbox"
-            checked={config.third_place_match}
-            onChange={(e) => onUpdate?.({ third_place_match: e.target.checked })}
-            disabled={readOnly || config.status === "COMPLETED"}
-            className="w-5 h-5 rounded border-(--border-color) text-(--accent-color) focus:ring-(--accent-color)"
-          />
+        <label className={`flex items-center justify-between gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
           <span className="text-(--text-primary)">3/4위전 진행</span>
+          <Switch
+            checked={config.third_place_match}
+            onCheckedChange={(checked) => onUpdate?.({ third_place_match: checked })}
+            disabled={readOnly || config.status === "COMPLETED"}
+          />
         </label>
       </div>
 
