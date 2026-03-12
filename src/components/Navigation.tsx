@@ -92,13 +92,15 @@ export function Navigation() {
     >
       <div className="max-w-content mx-auto px-6 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <Image
-            src="/img/logo_mate.jpeg"
-            alt="마포구테니스협회"
-            width={40}
-            height={40}
-            className="rounded-full object-cover ring-2 ring-(--border-primary) group-hover:ring-(--color-primary) transition-all"
-          />
+          <div className="w-10 h-10 rounded-full overflow-hidden ring-2 ring-(--border-primary) group-hover:ring-(--color-primary) transition-all flex-shrink-0">
+            <Image
+              src="/img/logo_mate.jpeg"
+              alt="마포구테니스협회"
+              width={40}
+              height={40}
+              className="object-cover w-full h-full"
+            />
+          </div>
         </Link>
 
         {/* 데스크톱 메뉴 — containerRef 기준으로 indicator 위치 계산 */}
