@@ -873,10 +873,10 @@ export function EntriesManager({
                             <button
                               type="button"
                               onClick={() => setRefundModalEntryId(entry.id)}
-                              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                              className={`w-full mt-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
                                 isRefundDone
-                                  ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                                  : 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                                  ? 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/30'
+                                  : 'bg-orange-500/20 text-orange-700 dark:text-orange-400 hover:bg-orange-500/30'
                               }`}
                             >
                               {isRefundDone ? '환불 완료' : '환불 처리'}
