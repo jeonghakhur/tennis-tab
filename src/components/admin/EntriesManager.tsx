@@ -859,7 +859,7 @@ export function EntriesManager({
                             onValueChange={(v) => handlePaymentChange(entry.id, v as PaymentStatus)}
                             disabled={isProcessing}
                           >
-                            <SelectTrigger className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${paymentStatusConfig[normalizedPayment].className}`}>
+                            <SelectTrigger className={`w-full px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${paymentStatusConfig[normalizedPayment].className}`}>
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
