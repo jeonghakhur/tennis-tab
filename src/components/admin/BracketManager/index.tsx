@@ -926,7 +926,11 @@ export function BracketManager({
                       ? undefined
                       : () => setShowGeneratePrelimConfirm(true)
                   }
-                  onGenerateMainBracket={undefined}
+                  onGenerateMainBracket={
+                    isClosed || config.has_preliminaries
+                      ? undefined
+                      : handleRequestGenerateMainWithSeeds
+                  }
                   onDelete={
                     isClosed
                       ? undefined
