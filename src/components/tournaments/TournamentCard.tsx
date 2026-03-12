@@ -7,6 +7,8 @@ import Image from 'next/image';
 import { MapPin, Copy } from 'lucide-react';
 import { Database } from '@/lib/supabase/types';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
+import { useAuth } from '@/components/AuthProvider';
+import { isAdmin } from '@/lib/auth/roles';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 
@@ -23,7 +25,9 @@ const MATCH_TYPE_LABELS: Record<string, string> = {
 
 export default function TournamentCard({ tournament }: TournamentCardProps) {
   const router = useRouter();
+  const { profile } = useAuth();
   const [imgError, setImgError] = useState(false);
+  const canManage = isAdmin(profile?.role);
 
   const formatDateRange = (startStr: string, endStr: string) => {
     const fmt = (d: string) => d.replace(/-/g, '.').slice(0, 10);
@@ -90,13 +94,17 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             </div>
           )}
           <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
-            <button
-              onClick={handleCopyTemplate}
-              className="bg-(--bg-card)/90 hover:bg-(--bg-card) text-(--text-secondary) p-2 rounded-lg shadow-sm backdrop-blur-sm transition-all hover:scale-110"
-              title="템플릿으로 사용"
-            >
-              <Copy className="w-4 h-4" aria-hidden="true" />
-            </button>
+            {canManage ? (
+              <button
+                onClick={handleCopyTemplate}
+                className="bg-(--bg-card)/90 hover:bg-(--bg-card) text-(--text-secondary) p-2 rounded-lg shadow-sm backdrop-blur-sm transition-all hover:scale-110"
+                title="템플릿으로 사용"
+              >
+                <Copy className="w-4 h-4" aria-hidden="true" />
+              </button>
+            ) : (
+              <span />
+            )}
             {getStatusBadge(tournament.status)}
           </div>
         </div>
