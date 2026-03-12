@@ -38,41 +38,41 @@ export function SettingsTab({
           />
         </label>
 
-        <div className="space-y-2">
-          <label className="text-sm text-(--text-secondary)">조당 팀 수</label>
-          {/* 세그먼트 컨트롤 */}
-          <div
-            className="inline-flex rounded-lg overflow-hidden border"
-            style={{ borderColor: "var(--border-color)" }}
-          >
-            {[2, 3].map((size) => {
-              const isSelected = config.group_size === size;
-              const isDisabled = readOnly || config.status !== "DRAFT";
-              return (
-                <button
-                  key={size}
-                  type="button"
-                  onClick={() => onUpdate?.({ group_size: size })}
-                  disabled={isDisabled}
-                  className="relative px-6 py-2 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-                  style={{
-                    backgroundColor: isSelected ? "var(--accent-color)" : "transparent",
-                    color: isSelected ? "var(--bg-primary)" : "var(--text-secondary)",
-                  }}
-                >
-                  {size}팀
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-sm text-(--text-muted)">
-            {config.group_size === 2
-              ? config.has_preliminaries
+        {config.has_preliminaries && (
+          <div className="space-y-2 pl-1 border-l-2 ml-1" style={{ borderColor: "var(--accent-color)", paddingLeft: "12px" }}>
+            <label className="text-sm text-(--text-secondary)">조당 팀 수</label>
+            {/* 세그먼트 컨트롤 */}
+            <div
+              className="inline-flex rounded-lg overflow-hidden border"
+              style={{ borderColor: "var(--border-color)" }}
+            >
+              {[2, 3].map((size) => {
+                const isSelected = config.group_size === size;
+                const isDisabled = readOnly || config.status !== "DRAFT";
+                return (
+                  <button
+                    key={size}
+                    type="button"
+                    onClick={() => onUpdate?.({ group_size: size })}
+                    disabled={isDisabled}
+                    className="relative px-6 py-2 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                    style={{
+                      backgroundColor: isSelected ? "var(--accent-color)" : "transparent",
+                      color: isSelected ? "var(--bg-primary)" : "var(--text-secondary)",
+                    }}
+                  >
+                    {size}팀
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-sm text-(--text-muted)">
+              {config.group_size === 2
                 ? "각 조 2팀 시딩 경기 진행, 전원 본선 진출 (예선 승패로 본선 시드 결정)"
-                : "각 조 2팀 배치, 조별 대진이 본선 1라운드 매치가 됩니다"
-              : "각 조 3팀 풀리그 진행, 상위 2팀 본선 진출"}
-          </p>
-        </div>
+                : "각 조 3팀 풀리그 진행, 상위 2팀 본선 진출"}
+            </p>
+          </div>
+        )}
 
         <label className={`flex items-center justify-between gap-3 ${readOnly ? '' : 'cursor-pointer'}`}>
           <span className="text-(--text-primary)">3/4위전 진행</span>
