@@ -7,9 +7,9 @@ import {
 } from "@/components/guide/GuideCarousel";
 
 export const metadata: Metadata = {
-  title: "이용 안내 | Tennis Tab",
+  title: "이용 안내 | 마포구테니스협회",
   description:
-    "Tennis Tab 주요 기능 사용 방법 안내: 대회 참가, 클럽 이용, AI 자연어 검색",
+    "마포구테니스협회 주요 기능 사용 방법 안내: 대회 참가, 클럽 이용, AI 자연어 검색",
 };
 
 // ─────────────────────────────────────────────

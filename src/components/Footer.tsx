@@ -18,7 +18,7 @@ export function Footer() {
           <Link href="/" className="hidden md:block">
             <span className="font-display text-base font-black tracking-tight"
               style={{ color: "var(--text-primary)" }}>
-              TENNIS TAB
+              마포구테니스협회
             </span>
           </Link>
 
@@ -37,7 +37,7 @@ export function Footer() {
           {/* 카피라이트 + SNS */}
           <div className="flex items-center justify-between md:justify-end gap-4">
             <p className="text-xs" style={{ color: "var(--text-muted)" }}>
-              © 2026 Tennis Tab
+              © 2026 마포구테니스협회
             </p>
             <div className="flex gap-3">
               <a href="#" aria-label="Instagram"

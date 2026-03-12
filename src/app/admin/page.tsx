@@ -92,7 +92,7 @@ export default async function AdminDashboard() {
           대시보드
         </h1>
         <p className="text-(--text-secondary) mt-1">
-          Tennis Tab 서비스 현황을 한눈에 확인하세요.
+          마포구테니스협회 서비스 현황을 한눈에 확인하세요.
         </p>
       </div>
 
