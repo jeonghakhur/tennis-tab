@@ -7,25 +7,37 @@ import { cn } from "@/lib/utils"
 
 function Switch({
   className,
-  size = "default",
   ...props
-}: React.ComponentProps<typeof SwitchPrimitive.Root> & {
-  size?: "sm" | "default"
-}) {
+}: React.ComponentProps<typeof SwitchPrimitive.Root>) {
   return (
     <SwitchPrimitive.Root
       data-slot="switch"
-      data-size={size}
       className={cn(
-        "peer group/switch inline-flex shrink-0 items-center rounded-full border border-transparent shadow-xs transition-all outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:cursor-not-allowed disabled:opacity-50 data-[size=default]:h-[1.15rem] data-[size=default]:w-8 data-[size=sm]:h-3.5 data-[size=sm]:w-6 data-[state=checked]:bg-primary data-[state=unchecked]:bg-input dark:data-[state=unchecked]:bg-input/80",
+        "peer inline-flex h-6 w-11 shrink-0 items-center rounded-full border-2 transition-colors outline-none",
+        "focus-visible:ring-2 focus-visible:ring-offset-2",
+        "disabled:cursor-not-allowed disabled:opacity-40",
+        // checked: accent 컬러
+        "data-[state=checked]:border-transparent",
+        // unchecked: 뚜렷한 테두리 + 배경
+        "data-[state=unchecked]:border-[var(--border-color)]",
+        "data-[state=unchecked]:bg-[rgba(255,255,255,0.1)]",
         className
       )}
+      style={{
+        backgroundColor: props.checked ? "var(--accent-color)" : undefined,
+      }}
       {...props}
     >
       <SwitchPrimitive.Thumb
         data-slot="switch-thumb"
         className={cn(
-          "pointer-events-none block rounded-full bg-background ring-0 transition-transform group-data-[size=default]/switch:size-4 group-data-[size=sm]/switch:size-3 data-[state=checked]:translate-x-[calc(100%-2px)] data-[state=unchecked]:translate-x-0 dark:data-[state=checked]:bg-primary-foreground dark:data-[state=unchecked]:bg-foreground"
+          "pointer-events-none block h-5 w-5 rounded-full shadow-md transition-transform",
+          "data-[state=checked]:translate-x-5",
+          "data-[state=unchecked]:translate-x-0",
+          // checked: 어두운 썸
+          "data-[state=checked]:bg-[var(--bg-primary)]",
+          // unchecked: 밝은 썸
+          "data-[state=unchecked]:bg-[var(--text-muted)]",
         )}
       />
     </SwitchPrimitive.Root>
