@@ -604,14 +604,15 @@ export default function MyProfilePage() {
           </div>
 
 
-          {/* 탭 메뉴 */}
-          <div
-            className="flex gap-2 mb-6 border-b overflow-x-auto"
-            style={{ borderColor: "var(--border-color)" }}
-          >
+          {/* 탭 메뉴 — 모바일 가로 스크롤 시 우측 페이드로 힌트 */}
+          <div className="relative mb-6">
+            <div
+              className="flex gap-1 md:gap-2 border-b overflow-x-auto scrollbar-none"
+              style={{ borderColor: "var(--border-color)" }}
+            >
             <button
               onClick={() => setActiveTab("applications")}
-              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
+              className={`px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base ${
                 activeTab === "applications" ? "border-b-2" : ""
               }`}
               style={{
@@ -629,7 +630,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("tournaments")}
-              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
+              className={`px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base ${
                 activeTab === "tournaments" ? "border-b-2" : ""
               }`}
               style={{
@@ -647,7 +648,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("matches")}
-              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
+              className={`px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base ${
                 activeTab === "matches" ? "border-b-2" : ""
               }`}
               style={{
@@ -665,7 +666,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("awards")}
-              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
+              className={`px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base ${
                 activeTab === "awards" ? "border-b-2" : ""
               }`}
               style={{
@@ -683,7 +684,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("profile")}
-              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
+              className={`px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base ${
                 activeTab === "profile" ? "border-b-2" : ""
               }`}
               style={{
@@ -699,6 +700,14 @@ export default function MyProfilePage() {
             >
               프로필
             </button>
+            </div>
+            {/* 우측 페이드 — 스크롤 가능 힌트 (모바일) */}
+            <div
+              className="absolute right-0 top-0 bottom-0 w-8 pointer-events-none md:hidden"
+              style={{
+                background: "linear-gradient(to right, transparent, var(--bg-primary))",
+              }}
+            />
           </div>
 
           {/* 입상 기록 탭 */}
