@@ -1,7 +1,7 @@
 'use client'
 
 import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEntriesRealtime } from '@/lib/realtime/useEntriesRealtime'
 import { Search, Users, Phone, Trash2 } from 'lucide-react'
