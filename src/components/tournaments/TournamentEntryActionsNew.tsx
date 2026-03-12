@@ -566,6 +566,8 @@ export default function TournamentEntryActions({
                     : entry.club_name
                   : entry.player_name || "신청";
 
+                const divisionName = divisions.find((d) => d.id === entry.division_id)?.name;
+
                 return (
                   <div
                     key={entry.id}
@@ -574,9 +576,16 @@ export default function TournamentEntryActions({
                   >
                     {/* 팀명 + 신청 상태 */}
                     <div className="flex justify-between items-center">
-                      <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>
-                        {teamLabel}
-                      </span>
+                      <div>
+                        <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>
+                          {teamLabel}
+                        </span>
+                        {divisionName && (
+                          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                            {divisionName}
+                          </p>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1.5">
                         {entry.current_rank != null && (
                           <span
