@@ -185,14 +185,14 @@ export function Navigation() {
       {/* 모바일 드롭다운 메뉴 */}
       {menuOpen && (
         <div className="md:hidden nav-container border-t" style={{ borderColor: 'var(--border-color)' }}>
-          <div className="max-w-content mx-auto px-6 py-1.5 flex flex-col">
+          <div className="max-w-content mx-auto px-6 py-3 flex flex-col gap-1">
             {NAV_LINKS.map(({ href, label }) => {
               const isActive = pathname?.startsWith(href)
               return (
                 <Link
                   key={href}
                   href={href}
-                  className="relative tracking-wide py-1.5 text-sm pl-3 transition-all duration-200 flex items-center"
+                  className="relative tracking-wide py-3 text-sm pl-3 transition-all duration-200 flex items-center"
                   style={{
                     color: isActive ? 'var(--text-primary)' : 'var(--text-secondary)',
                     fontWeight: isActive ? 700 : 500,
