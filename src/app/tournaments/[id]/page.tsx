@@ -3,7 +3,6 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { TournamentPosterImage } from "@/components/tournaments/TournamentPosterImage";
 import { TournamentStatus, MatchType } from "@/lib/supabase/types";
-import TournamentActions from "@/components/tournaments/TournamentActions";
 import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
@@ -266,7 +265,6 @@ export default async function TournamentDetailPage({ params }: Props) {
                 대진표 보기
               </Link>
             )}
-            {isOrganizer && <TournamentActions tournamentId={tournament.id} currentStatus={tournament.status as 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'} />}
           </div>
         </div>
       </div>
@@ -606,7 +604,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               bankAccount={tournament.bank_account}
               entryStartDate={tournament.entry_start_date}
               entryEndDate={tournament.entry_end_date}
-              isOrganizer={!!isOrganizer}
+              isOrganizer={false}
             />
 
             {/* Map */}
