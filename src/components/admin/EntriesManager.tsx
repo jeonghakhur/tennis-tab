@@ -124,8 +124,20 @@ export function EntriesManager({
   divisions,
 }: EntriesManagerProps) {
   const router = useRouter()
-  // 프론트에서 결제 상태 변경 시 자동 갱신
+  // 어드민 자체 뮤테이션 후 suppress — 자기 변경으로 발생한 Realtime 이벤트가
+  // 진행 중인 router.refresh()를 abort하지 않도록 2초간 외부 갱신 차단
+  const suppressRealtimeRef = useRef(false)
+
+  // 어드민 뮤테이션 후 호출 — suppress 설정 후 refresh
+  const refreshPage = useCallback(() => {
+    suppressRealtimeRef.current = true
+    router.refresh()
+    setTimeout(() => { suppressRealtimeRef.current = false }, 2000)
+  }, [router])
+
+  // 외부(프론트) 변경 수신 시 호출 — suppress 중이면 무시
   const handleExternalChange = useCallback(() => {
+    if (suppressRealtimeRef.current) return
     router.refresh()
   }, [router])
   useEntriesRealtime({ tournamentId, onEntryChange: handleExternalChange })
@@ -173,7 +185,7 @@ export function EntriesManager({
           type: 'error',
         })
       } else {
-        router.refresh()
+        refreshPage()
       }
     } catch {
       setAlertDialog({
@@ -200,7 +212,7 @@ export function EntriesManager({
           type: 'error',
         })
       } else {
-        router.refresh()
+        refreshPage()
       }
     } catch {
       setAlertDialog({
@@ -228,7 +240,7 @@ export function EntriesManager({
           type: 'error',
         })
       } else {
-        router.refresh()
+        refreshPage()
         setAlertDialog({
           isOpen: true,
           title: '삭제 완료',
@@ -263,7 +275,7 @@ export function EntriesManager({
           type: 'error',
         })
       } else {
-        router.refresh()
+        refreshPage()
         setSelectedEntries([])
         setAlertDialog({
           isOpen: true,
@@ -298,7 +310,7 @@ export function EntriesManager({
           type: 'error',
         })
       } else {
-        router.refresh()
+        refreshPage()
         setSelectedEntries([])
         setAlertDialog({
           isOpen: true,
@@ -992,7 +1004,7 @@ export function EntriesManager({
                   setProcessing(null)
                   if (res.success) {
                     setRefundModalEntryId(null)
-                    router.refresh()
+                    refreshPage()
                   } else {
                     setAlertDialog({ isOpen: true, title: '오류', message: res.error ?? '처리 실패', type: 'error' })
                   }
