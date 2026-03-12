@@ -259,9 +259,9 @@ export default function MyProfilePage() {
     [tournaments],
   );
 
-  // 신청 현황: 아직 시작 전 대회 (OPEN·CLOSED·DRAFT)
+  // 신청 현황: 아직 시작 전 대회 (DRAFT·UPCOMING·OPEN·CLOSED)
   const applicationEntries = useMemo(
-    () => tournaments.filter((e) => ['OPEN', 'CLOSED', 'DRAFT'].includes(e.tournament.status)),
+    () => tournaments.filter((e) => ['DRAFT', 'UPCOMING', 'OPEN', 'CLOSED'].includes(e.tournament.status)),
     [tournaments],
   );
 
@@ -611,7 +611,7 @@ export default function MyProfilePage() {
           >
             <button
               onClick={() => setActiveTab("applications")}
-              className={`px-6 py-3 font-display tracking-wider shrink-0 ${
+              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
                 activeTab === "applications" ? "border-b-2" : ""
               }`}
               style={{
@@ -629,7 +629,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("tournaments")}
-              className={`px-6 py-3 font-display tracking-wider shrink-0 ${
+              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
                 activeTab === "tournaments" ? "border-b-2" : ""
               }`}
               style={{
@@ -647,7 +647,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("matches")}
-              className={`px-6 py-3 font-display tracking-wider ${
+              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
                 activeTab === "matches" ? "border-b-2" : ""
               }`}
               style={{
@@ -665,7 +665,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("awards")}
-              className={`px-6 py-3 font-display tracking-wider ${
+              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
                 activeTab === "awards" ? "border-b-2" : ""
               }`}
               style={{
@@ -683,7 +683,7 @@ export default function MyProfilePage() {
             </button>
             <button
               onClick={() => setActiveTab("profile")}
-              className={`px-6 py-3 font-display tracking-wider ${
+              className={`px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 ${
                 activeTab === "profile" ? "border-b-2" : ""
               }`}
               style={{
