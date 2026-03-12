@@ -908,7 +908,7 @@ export default function TournamentEntryForm({
                 참가비
               </h3>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {entryFee === 0 ? "무료" : `${entryFee.toLocaleString()}원`}
+                {entryFee === 0 ? "무료" : `${entryFee.toLocaleString('ko-KR')}원`}
               </span>
             </div>
 

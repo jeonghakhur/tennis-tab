@@ -109,7 +109,7 @@ export default function TossPaymentWidget({
         <div className="flex justify-between items-center">
           <span style={{ color: "var(--text-secondary)" }}>참가비</span>
           <span className="text-xl font-bold" style={{ color: "var(--accent-color)" }}>
-            {entryFee.toLocaleString()}원
+            {entryFee.toLocaleString('ko-KR')}원
           </span>
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function TossPaymentWidget({
           color: "var(--bg-primary)",
         }}
       >
-        {isLoading ? "결제 처리 중..." : `${entryFee.toLocaleString()}원 결제하기`}
+        {isLoading ? "결제 처리 중..." : `${entryFee.toLocaleString('ko-KR')}원 결제하기`}
       </button>
     </div>
   );

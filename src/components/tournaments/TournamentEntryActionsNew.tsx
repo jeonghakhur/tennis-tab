@@ -585,7 +585,7 @@ export default function TournamentEntryActions({
                           className="w-full rounded-xl py-2.5 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                           style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
                         >
-                          {isSubmitting ? "처리 중..." : `입금 완료 (${entryFee.toLocaleString()}원)`}
+                          {isSubmitting ? "처리 중..." : `입금 완료 (${entryFee.toLocaleString('ko-KR')}원)`}
                         </button>
                       </div>
                     )}
