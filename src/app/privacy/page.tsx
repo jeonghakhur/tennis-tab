@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: '개인정보처리방침 | 마포구테니스협회',
-  description: '마포구테니스협회 개인정보처리방침',
+  title: '개인정보처리방침 | Tennis Tab',
+  description: 'Tennis Tab 개인정보처리방침',
 }
 
 export default function PrivacyPage() {
@@ -26,7 +26,7 @@ export default function PrivacyPage() {
 
           {/* 도입문 */}
           <p>
-            마포구테니스협회(이하 "서비스")은 「개인정보 보호법」 등 관련 법령에 따라 이용자의
+            Tennis Tab(이하 "서비스")은 「개인정보 보호법」 등 관련 법령에 따라 이용자의
             개인정보를 보호하고, 관련 고충을 신속하고 원활하게 처리할 수 있도록 다음과 같이
             개인정보처리방침을 수립·공개합니다.
           </p>
@@ -290,7 +290,7 @@ export default function PrivacyPage() {
               style={{ backgroundColor: 'var(--bg-card)' }}
             >
               <p><strong style={{ color: 'var(--text-primary)' }}>개인정보 보호 담당</strong></p>
-              <p>서비스명: 마포구테니스협회</p>
+              <p>서비스명: Tennis Tab</p>
               <p>연락처: support@tennis-tab.com</p>
             </div>
             <p className="mt-3">

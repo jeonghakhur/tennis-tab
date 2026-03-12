@@ -6,7 +6,7 @@ import { AwardsAdminBar } from '@/components/awards/AwardsAdminBar'
 import { getAwards, getAwardsFilterOptions, getTournamentsForAwards, getClubsForAwards } from '@/lib/awards/actions'
 import { getCurrentUser } from '@/lib/auth/actions'
 
-export const metadata: Metadata = { title: '명예의 전당 | 마포구테니스협회' }
+export const metadata: Metadata = { title: '명예의 전당 | Tennis Tab' }
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>

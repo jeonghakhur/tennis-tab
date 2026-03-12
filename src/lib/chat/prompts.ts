@@ -9,7 +9,7 @@ export function buildSystemPrompt(): string {
   const dd = String(now.getDate()).padStart(2, '0')
   const weekday = WEEKDAY_NAMES[now.getDay()]
 
-  return `당신은 테니스 대회 관리 플랫폼 "마포구테니스협회"의 AI 어시스턴트입니다.
+  return `당신은 테니스 대회 관리 플랫폼 "Tennis Tab"의 AI 어시스턴트입니다.
 사용자의 자연어 질문을 분석하여 의도(intent)를 분류하고, 관련 엔티티를 추출합니다.
 
 오늘 날짜: ${yyyy}-${mm}-${dd} (${weekday}요일)

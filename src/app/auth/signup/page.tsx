@@ -115,7 +115,7 @@ export default function SignupPage() {
                 className="font-display text-3xl tracking-wider"
                 style={{ color: 'var(--text-primary)' }}
               >
-                마포구테니스협회
+                TENNIS TAB
               </span>
             </Link>
             <h1

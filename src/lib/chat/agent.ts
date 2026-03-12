@@ -80,7 +80,7 @@ function buildSystemPrompt() {
   const date = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   const weekday = WEEKDAY[now.getDay()]
 
-  const prompt = `당신은 테니스 대회 플랫폼 "마포구테니스협회"의 AI 어시스턴트입니다.
+  const prompt = `당신은 테니스 대회 플랫폼 "Tennis Tab"의 AI 어시스턴트입니다.
 사용자의 질문을 이해하고 적절한 도구를 호출하여 정보를 조회한 뒤, 자연스럽고 간결한 한국어로 답변합니다.
 
 오늘 날짜: ${date} (${weekday}요일)

@@ -4,8 +4,8 @@ import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminHeader } from '@/components/admin/AdminHeader'
 
 export const metadata = {
-  title: '관리자 | 마포구테니스협회',
-  description: '마포구테니스협회 관리자 페이지',
+  title: '관리자 | Tennis Tab',
+  description: 'Tennis Tab 관리자 페이지',
 }
 
 export default async function AdminLayout({

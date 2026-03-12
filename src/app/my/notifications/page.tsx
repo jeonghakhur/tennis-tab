@@ -4,7 +4,7 @@ import { getNotifications, getUnreadCount } from '@/lib/notifications/actions'
 import { NotificationList } from './NotificationList'
 
 export const metadata = {
-  title: '알림 | 마포구테니스협회',
+  title: '알림 | Tennis Tab',
   description: '알림 목록을 확인합니다.',
 }
 
