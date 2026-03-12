@@ -146,7 +146,7 @@ export default function TournamentMap({
   return (
     <div
       className="rounded-2xl overflow-hidden"
-      style={{ border: "1px solid var(--border-color)" }}
+      style={{ border: "1px solid var(--border-color)", isolation: "isolate" }}
     >
       <div ref={mapRef} className="w-full h-64" />
       <div
