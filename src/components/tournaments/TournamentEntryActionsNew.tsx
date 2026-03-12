@@ -356,8 +356,10 @@ export default function TournamentEntryActions({
     }
 
     if (entries.length > 0) {
-      // 2건 이상: 건별 수정/취소 버튼 노출
+      // 2건 이상: 탭 핸들로 접힘/펼침 가능
       if (entries.length >= 2) {
+        if (!isFloatingExpanded) return null;
+
         return (
           <div className="flex-1 flex flex-col gap-3">
             <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
@@ -418,74 +420,71 @@ export default function TournamentEntryActions({
         );
       }
 
-      // 1건: 기존 동작
+      // 1건: 카드 UI (이름/부서/상태 + 버튼)
       const entry = entries[0];
       const isActive = !["CANCELLED", "REJECTED"].includes(entry.status);
+      const canModify = canAcceptEntry && isActive;
+      const divisionName = divisions.find((d) => d.id === entry.division_id)?.name;
+      const isPendingPayment = entryFee > 0 && entry.payment_status === "PENDING" && isActive;
 
-      if (entryFee > 0 && entry.payment_status === "PENDING" && isActive) {
-        const statusBadge = getStatusBadge(entry.status)
-        // statusBadge의 text/bg 스타일을 버튼에 그대로 적용하기 위해 status별 색상 직접 참조
-        const statusColors: Record<string, { bg: string; color: string }> = {
-          PENDING: { bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" },
-          APPROVED: { bg: "rgba(16, 185, 129, 0.15)", color: "#059669" },
-          CONFIRMED: { bg: "rgba(16, 185, 129, 0.15)", color: "#059669" },
-          WAITLISTED: { bg: "rgba(245, 158, 11, 0.15)", color: "#d97706" },
-          REJECTED: { bg: "rgba(239, 68, 68, 0.15)", color: "#dc2626" },
-          CANCELLED: { bg: "var(--bg-card-hover)", color: "var(--text-muted)" },
-        }
-        const sc = statusColors[entry.status] ?? statusColors.PENDING
-        const statusLabel = { PENDING: "승인 대기중", APPROVED: "승인됨", CONFIRMED: "확정", WAITLISTED: "대기자", REJECTED: "거절됨", CANCELLED: "취소됨" }[entry.status] ?? "승인 대기중"
-        return (
-          <>
-            <div
-              className="flex-1 rounded-xl py-3 font-bold text-center text-sm"
-              style={{ backgroundColor: sc.bg, color: sc.color }}
-            >
-              {statusLabel}
-            </div>
-            <button
-              onClick={() => handleConfirmPayment(entry.id)}
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-              style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
-            >
-              {isSubmitting ? "처리 중..." : "입금 완료"}
-            </button>
-          </>
-        );
-      }
-
-      if (canAcceptEntry && isActive) {
-        return (
-          <>
-            <button
-              onClick={() => { setActiveEntryId(entry.id); setShowEditForm(true); }}
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 hover:opacity-80"
-              style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
-            >
-              수정하기
-            </button>
-            <button
-              onClick={() => setCancelEntryId(entry.id)}
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl py-3 font-medium transition-all disabled:opacity-50 hover:opacity-80"
-              style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
-            >
-              {isSubmitting ? "처리 중..." : "취소하기"}
-            </button>
-          </>
-        );
-      }
-
-      // 상태만 표시 (수정/취소 불가)
       if (isActive) {
         return (
-          <div className="flex-1 flex items-center justify-center gap-3">
-            {getStatusBadge(entry.status)}
-            <span className="text-sm" style={{ color: "var(--text-muted)" }}>
-              신청 완료
-            </span>
+          <div className="flex-1 flex flex-col gap-2">
+            {/* 이름 + 부서 + 상태 */}
+            <div className="flex items-center gap-2 rounded-xl p-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                  {entry.player_name || "신청"}
+                </p>
+                {divisionName && (
+                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{divisionName}</p>
+                )}
+              </div>
+              {getStatusBadge(entry.status)}
+            </div>
+
+            {/* 버튼 영역 */}
+            {canModify && (
+              <div className="flex gap-2">
+                {isPendingPayment && (
+                  <button
+                    onClick={() => handleConfirmPayment(entry.id)}
+                    disabled={isSubmitting}
+                    className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
+                    style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                  >
+                    {isSubmitting ? "처리 중..." : "입금 완료"}
+                  </button>
+                )}
+                <button
+                  onClick={() => { setActiveEntryId(entry.id); setShowEditForm(true); }}
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
+                  style={{ backgroundColor: isPendingPayment ? "var(--bg-card-hover)" : "var(--accent-color)", color: isPendingPayment ? "var(--text-secondary)" : "var(--bg-primary)" }}
+                >
+                  수정하기
+                </button>
+                <button
+                  onClick={() => setCancelEntryId(entry.id)}
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
+                  style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+                >
+                  취소하기
+                </button>
+              </div>
+            )}
+
+            {/* 추가 팀 신청 */}
+            {canAcceptEntry && (
+              <button
+                onClick={() => setShowEntryForm(true)}
+                className="w-full rounded-xl py-2.5 text-sm font-medium transition-all hover:opacity-80"
+                style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)", border: "1px dashed var(--border-color)" }}
+              >
+                + 추가 팀 신청하기
+              </button>
+            )}
           </div>
         );
       }
