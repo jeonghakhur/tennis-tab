@@ -40,21 +40,30 @@ export function SettingsTab({
 
         <div className="space-y-2">
           <label className="text-sm text-(--text-secondary)">조당 팀 수</label>
-          <div className="flex gap-3">
-            {[2, 3].map((size) => (
-              <button
-                key={size}
-                onClick={() => onUpdate?.({ group_size: size })}
-                disabled={readOnly || config.status !== "DRAFT"}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  config.group_size === size
-                    ? "bg-(--accent-color) text-(--bg-primary)"
-                    : "bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-secondary)/80"
-                } disabled:opacity-50`}
-              >
-                {size}팀
-              </button>
-            ))}
+          {/* 세그먼트 컨트롤 */}
+          <div
+            className="inline-flex rounded-lg overflow-hidden border"
+            style={{ borderColor: "var(--border-color)" }}
+          >
+            {[2, 3].map((size) => {
+              const isSelected = config.group_size === size;
+              const isDisabled = readOnly || config.status !== "DRAFT";
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => onUpdate?.({ group_size: size })}
+                  disabled={isDisabled}
+                  className="relative px-6 py-2 text-sm font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+                  style={{
+                    backgroundColor: isSelected ? "var(--accent-color)" : "transparent",
+                    color: isSelected ? "var(--bg-primary)" : "var(--text-secondary)",
+                  }}
+                >
+                  {size}팀
+                </button>
+              );
+            })}
           </div>
           <p className="text-sm text-(--text-muted)">
             {config.group_size === 2
