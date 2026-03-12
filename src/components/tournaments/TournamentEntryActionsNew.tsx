@@ -14,6 +14,7 @@ import { updateTournamentStatus } from "@/lib/tournaments/actions";
 import TournamentEntryForm, { EntryFormData } from "./TournamentEntryForm";
 import { MatchType } from "@/lib/supabase/types";
 import { AlertDialog } from "@/components/common/AlertDialog";
+import { useEntriesRealtime } from "@/lib/realtime/useEntriesRealtime";
 
 interface Division {
   id: string;
@@ -80,6 +81,8 @@ export default function TournamentEntryActions({
   const router = useRouter();
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // 입금 완료 처리 중인 entry id (카드별 독립 로딩 상태)
+  const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(null);
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
@@ -126,6 +129,13 @@ export default function TournamentEntryActions({
     const list = await getUserTournamentEntries(tournamentId);
     setEntries(list as CurrentEntry[]);
   };
+
+  // 어드민에서 상태/결제 변경 시 실시간으로 entries 갱신
+  useEntriesRealtime({
+    tournamentId,
+    onEntryChange: refreshEntries,
+    enabled: mounted && isLoggedIn,
+  });
 
   // 참가 기간 확인
   const isWithinEntryPeriod = () => {
@@ -221,11 +231,11 @@ export default function TournamentEntryActions({
 
   // 입금 완료 확인 처리 (첫 번째 미결제 entry 기준)
   const handleConfirmPayment = async (entryId: string) => {
-    if (isSubmitting) return;
+    if (submittingPaymentId) return;
 
-    setIsSubmitting(true);
+    setSubmittingPaymentId(entryId);
     const result = await confirmBankTransfer(entryId);
-    setIsSubmitting(false);
+    setSubmittingPaymentId(null);
 
     if (result.success) {
       await refreshEntries();
@@ -390,16 +400,16 @@ export default function TournamentEntryActions({
                       {isPendingPayment && (
                         <button
                           onClick={() => handleConfirmPayment(e.id)}
-                          disabled={isSubmitting}
+                          disabled={submittingPaymentId === e.id}
                           className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
                           style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
                         >
-                          {isSubmitting ? "처리 중..." : "입금 완료"}
+                          {submittingPaymentId === e.id ? "처리 중..." : "입금 완료"}
                         </button>
                       )}
                       <button
                         onClick={() => { setActiveEntryId(e.id); setShowEditForm(true); }}
-                        disabled={isSubmitting}
+                        disabled={submittingPaymentId === e.id || isSubmitting}
                         className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
                         style={{ backgroundColor: isPendingPayment ? "var(--bg-card-hover)" : "var(--accent-color)", color: isPendingPayment ? "var(--text-secondary)" : "var(--bg-primary)" }}
                       >
@@ -407,7 +417,7 @@ export default function TournamentEntryActions({
                       </button>
                       <button
                         onClick={() => setCancelEntryId(e.id)}
-                        disabled={isSubmitting}
+                        disabled={submittingPaymentId === e.id || isSubmitting}
                         className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
                         style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
                       >
@@ -460,11 +470,11 @@ export default function TournamentEntryActions({
                 {isPendingPayment && (
                   <button
                     onClick={() => handleConfirmPayment(entry.id)}
-                    disabled={isSubmitting}
+                    disabled={submittingPaymentId === entry.id}
                     className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
                     style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
                   >
-                    {isSubmitting ? "처리 중..." : "입금 완료"}
+                    {submittingPaymentId === entry.id ? "처리 중..." : "입금 완료"}
                   </button>
                 )}
                 <button
@@ -641,11 +651,11 @@ export default function TournamentEntryActions({
                         )}
                         <button
                           onClick={() => handleConfirmPayment(entry.id)}
-                          disabled={isSubmitting}
+                          disabled={submittingPaymentId === entry.id}
                           className="w-full rounded-xl py-2.5 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                           style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
                         >
-                          {isSubmitting ? "처리 중..." : `입금 완료 (${entryFee.toLocaleString('ko-KR')}원)`}
+                          {submittingPaymentId === entry.id ? "처리 중..." : `입금 완료 (${entryFee.toLocaleString('ko-KR')}원)`}
                         </button>
                       </div>
                     )}

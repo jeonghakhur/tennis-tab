@@ -1,8 +1,9 @@
 'use client'
 
 import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useEntriesRealtime } from '@/lib/realtime/useEntriesRealtime'
 import { Search, Users, Phone, Trash2 } from 'lucide-react'
 import type {
   Database,
@@ -123,6 +124,12 @@ export function EntriesManager({
   divisions,
 }: EntriesManagerProps) {
   const router = useRouter()
+  // 프론트에서 결제 상태 변경 시 자동 갱신
+  const handleExternalChange = useCallback(() => {
+    router.refresh()
+  }, [router])
+  useEntriesRealtime({ tournamentId, onEntryChange: handleExternalChange })
+
   const [searchQuery, setSearchQuery] = useState('')
   const [statusFilter, setStatusFilter] = useState<NormalizedStatus | 'ALL'>('ALL')
   const [paymentFilter, setPaymentFilter] = useState<'PENDING' | 'COMPLETED' | 'ALL'>('ALL')
