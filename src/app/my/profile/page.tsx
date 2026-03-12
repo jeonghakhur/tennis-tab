@@ -45,6 +45,7 @@ interface TournamentEntry {
   id: string;
   status: string;
   payment_status: string;
+  refund_status: string | null;
   created_at: string;
   player_name: string;
   player_rating: number | null;
@@ -923,7 +924,13 @@ export default function MyProfilePage() {
                         {entryStatusLabels[entry.status] ?? entry.status}
                       </Badge>
                       {entry.tournament.entry_fee > 0 && (
-                        entry.payment_status === 'COMPLETED' ? (
+                        entry.status === 'CANCELLED' && entry.payment_status === 'COMPLETED' ? (
+                          entry.refund_status === 'COMPLETED' ? (
+                            <Badge variant="success">환불 완료</Badge>
+                          ) : (
+                            <Badge variant="orange">환불 대기</Badge>
+                          )
+                        ) : entry.payment_status === 'COMPLETED' ? (
                           <Badge variant="success">입금 확인됨</Badge>
                         ) : entry.status !== 'CANCELLED' ? (
                           <Badge variant="warning">입금 대기</Badge>
