@@ -24,9 +24,10 @@ const STATUS_LABELS: Record<TournamentStatus, string> = {
 interface TournamentActionsProps {
     tournamentId: string;
     currentStatus: TournamentStatus;
+    hideStatusChange?: boolean;
 }
 
-export default function TournamentActions({ tournamentId, currentStatus }: TournamentActionsProps) {
+export default function TournamentActions({ tournamentId, currentStatus, hideStatusChange = false }: TournamentActionsProps) {
     const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -90,16 +91,18 @@ export default function TournamentActions({ tournamentId, currentStatus }: Tourn
         <>
             <div className="flex flex-col sm:flex-row gap-3">
                 {/* 상태 변경 셀렉트 */}
-                <Select value={status} onValueChange={(v) => handleStatusChange(v as TournamentStatus)}>
-                    <SelectTrigger className="w-full sm:w-auto px-4 py-2.5 h-auto min-h-0 bg-white hover:bg-(--bg-input) dark:hover:bg-gray-700 border-(--border-color) rounded-xl font-medium text-base shadow-sm text-(--text-primary)">
-                        <SelectValue>{STATUS_LABELS[status]}</SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                        {(Object.entries(STATUS_LABELS) as [TournamentStatus, string][]).map(([val, label]) => (
-                            <SelectItem key={val} value={val}>{label}</SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                {!hideStatusChange && (
+                    <Select value={status} onValueChange={(v) => handleStatusChange(v as TournamentStatus)}>
+                        <SelectTrigger className="w-full sm:w-auto px-4 py-2.5 h-auto min-h-0 bg-white hover:bg-(--bg-input) dark:hover:bg-gray-700 border-(--border-color) rounded-xl font-medium text-base shadow-sm text-(--text-primary)">
+                            <SelectValue>{STATUS_LABELS[status]}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {(Object.entries(STATUS_LABELS) as [TournamentStatus, string][]).map(([val, label]) => (
+                                <SelectItem key={val} value={val}>{label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                )}
 
                 <Link
                     href={`/tournaments/${tournamentId}/edit`}

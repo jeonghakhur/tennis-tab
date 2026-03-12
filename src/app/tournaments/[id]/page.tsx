@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import TournamentActions from "@/components/tournaments/TournamentActions";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { TournamentPosterImage } from "@/components/tournaments/TournamentPosterImage";
@@ -264,6 +265,13 @@ export default async function TournamentDetailPage({ params }: Props) {
                 </svg>
                 대진표 보기
               </Link>
+            )}
+            {isOrganizer && (
+              <TournamentActions
+                tournamentId={tournament.id}
+                currentStatus={tournament.status as 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'}
+                hideStatusChange
+              />
             )}
           </div>
         </div>
