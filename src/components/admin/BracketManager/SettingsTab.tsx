@@ -52,7 +52,13 @@ export function SettingsTab({
 
   const handlePrelimChange = (checked: boolean) => {
     setLocalPrelim(checked);
-    safeUpdate({ has_preliminaries: checked });
+    if (!checked) {
+      // 예선 OFF → 본선 바로 진행 시 조당 2팀 고정
+      setLocalGroupSize(2);
+      safeUpdate({ has_preliminaries: checked, group_size: 2 });
+    } else {
+      safeUpdate({ has_preliminaries: checked });
+    }
   };
 
   const handleGroupSizeChange = (size: number) => {
