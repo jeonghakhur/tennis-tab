@@ -354,26 +354,55 @@ export default function TournamentEntryActions({
     }
 
     if (entries.length > 0) {
-      // 2건 이상: 건수 표시 + 추가 신청 버튼
+      // 2건 이상: 건별 수정/취소 버튼 노출
       if (entries.length >= 2) {
         return (
-          <>
-            <div className="flex-1 flex items-center justify-center gap-2">
-              <span className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-                내 신청 {entries.length}팀
-              </span>
-              {entries.map((e) => getStatusBadge(e.status))}
-            </div>
+          <div className="flex-1 flex flex-col gap-2">
+            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+              내 신청 {entries.length}팀
+            </span>
+            {entries.map((e) => {
+              const isActive = !["CANCELLED", "REJECTED"].includes(e.status);
+              const canModify = canAcceptEntry && isActive;
+              return (
+                <div key={e.id} className="flex items-center gap-2">
+                  <span className="flex-1 text-sm truncate" style={{ color: "var(--text-secondary)" }}>
+                    {e.player_name || `팀 ${entries.indexOf(e) + 1}`}
+                  </span>
+                  {getStatusBadge(e.status)}
+                  {canModify && (
+                    <>
+                      <button
+                        onClick={() => { setActiveEntryId(e.id); setShowEditForm(true); }}
+                        disabled={isSubmitting}
+                        className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50 hover:opacity-80"
+                        style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                      >
+                        수정
+                      </button>
+                      <button
+                        onClick={() => setCancelEntryId(e.id)}
+                        disabled={isSubmitting}
+                        className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium transition-all disabled:opacity-50 hover:opacity-80"
+                        style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+                      >
+                        취소
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
             {canAcceptEntry && (
               <button
                 onClick={() => setShowEntryForm(true)}
-                className="shrink-0 rounded-xl px-4 py-3 font-medium transition-all hover:opacity-80"
-                style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                className="w-full rounded-xl py-2 text-sm font-medium transition-all hover:opacity-80"
+                style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)", border: "1px dashed var(--border-color)" }}
               >
-                추가 신청
+                + 추가 신청
               </button>
             )}
-          </>
+          </div>
         );
       }
 
