@@ -340,13 +340,11 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
           .eq('tournament_id', t.id)
 
         if (divs && divs.length > 0) {
-          const { data: cfg } = await admin
+          const { count } = await admin
             .from('bracket_configs')
-            .select('id')
+            .select('id, bracket_matches!inner(id)', { count: 'exact', head: true })
             .in('division_id', divs.map((d) => d.id))
-            .limit(1)
-            .maybeSingle()
-          hasBracket = !!cfg
+          hasBracket = (count ?? 0) > 0
         }
       }
 
