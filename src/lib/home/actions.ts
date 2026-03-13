@@ -313,11 +313,12 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
   today.setHours(0, 0, 0, 0)
   const todayStr = today.toISOString().slice(0, 10)
 
+  // IN_PROGRESS: entry_end_date 무관하게 포함
+  // OPEN: 마감일 미도래인 것만 포함
   const { data, error } = await admin
     .from('tournaments')
     .select('id, title, location, status, entry_end_date')
-    .in('status', ['OPEN', 'IN_PROGRESS'])
-    .or(`entry_end_date.is.null,entry_end_date.gte.${todayStr}`)
+    .or(`status.eq.IN_PROGRESS,and(status.eq.OPEN,or(entry_end_date.is.null,entry_end_date.gte.${todayStr}))`)
     .order('entry_end_date', { ascending: true, nullsFirst: false })
     .limit(8)
 

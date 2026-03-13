@@ -122,24 +122,26 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
 
     try {
       // 10초 타임아웃: Server Action hang 시 무한 스피너 방지
-      const data = await Promise.race([
-        getBracketData(selectedDivision.id),
-        new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error('timeout')), 10000)
-        ),
-      ])
-      setConfig(data.config)
-      setGroups(data.groups)
-      setMatches(data.matches)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort('bracket_data_timeout'), 10000)
 
-      // 예선이 있으면 예선 탭, 없으면 본선 탭
-      if (data.config?.has_preliminaries && data.config.status === 'PRELIMINARY') {
-        setActiveTab('preliminary')
-      } else {
-        setActiveTab('main')
+      try {
+        const data = await getBracketData(selectedDivision.id)
+        clearTimeout(timeoutId)
+        setConfig(data.config)
+        setGroups(data.groups)
+        setMatches(data.matches)
+
+        // 예선이 있으면 예선 탭, 없으면 본선 탭
+        if (data.config?.has_preliminaries && data.config.status === 'PRELIMINARY') {
+          setActiveTab('preliminary')
+        } else {
+          setActiveTab('main')
+        }
+      } catch {
+        // 데이터 로딩 실패 또는 타임아웃 — 빈 상태 유지
+        clearTimeout(timeoutId)
       }
-    } catch {
-      // 데이터 로딩 실패 또는 타임아웃 — 빈 상태 유지
     } finally {
       setLoading(false)
     }

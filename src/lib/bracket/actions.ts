@@ -352,10 +352,15 @@ export async function getOrCreateBracketConfig(divisionId: string) {
     return { data: existing, error: null }
   }
 
-  // 새로 생성
+  // 새로 생성 — 기본값: 예선전 ON, 3/4위전 ON, 조당 3팀
   const { data, error } = await supabase
     .from('bracket_configs')
-    .insert({ division_id: divisionId })
+    .insert({
+      division_id: divisionId,
+      has_preliminaries: true,
+      third_place_match: true,
+      group_size: 3,
+    })
     .select()
     .single()
 
@@ -2667,23 +2672,8 @@ export async function deleteBracketConfig(configId: string) {
       return { success: false, error: error.message }
     }
 
-    // 대진표가 삭제됐는데 tournament가 IN_PROGRESS이면 CLOSED로 복원
-    // (대진표 없이 "진행 중" 상태는 의미 없음)
-    if (configRow?.division_id) {
-      const { data: division } = await supabaseAdmin
-        .from('tournament_divisions')
-        .select('tournament_id')
-        .eq('id', configRow.division_id)
-        .single()
-
-      if (division?.tournament_id) {
-        await supabaseAdmin
-          .from('tournaments')
-          .update({ status: 'CLOSED' })
-          .eq('id', division.tournament_id)
-          .eq('status', 'IN_PROGRESS')
-      }
-    }
+    // 대회 상태는 크론(auto_transition_tournament_status)이 날짜 기반으로 관리
+    // 대진표 삭제가 대회 상태를 변경하지 않음
 
     revalidatePath('/admin/tournaments')
     return { success: true }

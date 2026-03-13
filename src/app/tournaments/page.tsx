@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserWithTimeout } from "@/lib/supabase/server";
 import TournamentCard from "@/components/tournaments/TournamentCard";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 import { UserRole } from "@/lib/supabase/types";
@@ -11,11 +11,7 @@ export default async function TournamentsPage() {
   const supabase = await createClient();
 
   // 1. 인증 (3초 타임아웃)
-  const authFallback = { data: { user: null } } as const;
-  const { data: { user } } = await Promise.race([
-    supabase.auth.getUser().catch(() => authFallback),
-    new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
-  ]);
+  const { data: { user } } = await getUserWithTimeout(supabase, 3000);
 
   // 2. 프로필 + 대회 목록 병렬 조회
   const tournamentQuery = supabase

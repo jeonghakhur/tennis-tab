@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient } from '@/lib/supabase/server'
+import { createClient, getUserWithTimeout } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -221,10 +221,7 @@ export async function getCurrentUser() {
   const supabase = await createClient()
 
   // 네트워크 오류(fetch failed) 또는 5초 이상 응답 없을 때 미인증으로 처리
-  const authData = await Promise.race([
-    supabase.auth.getUser().catch(() => null),
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
-  ])
+  const authData = await getUserWithTimeout(supabase, 5000)
   if (!authData || authData.error || !authData.data.user) return null
   const user = authData.data.user
 

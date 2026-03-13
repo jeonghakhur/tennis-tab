@@ -30,3 +30,21 @@ export async function createClient() {
     }
   )
 }
+
+/**
+ * getUser()를 타임아웃과 함께 실행합니다.
+ * AbortError를 방지하기 위해 명시적으로 abort reason을 지정합니다.
+ */
+export async function getUserWithTimeout(client: ReturnType<typeof createClient> | Awaited<ReturnType<typeof createClient>>, timeoutMs = 3000) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort('auth_timeout'), timeoutMs)
+
+  try {
+    return await client.auth.getUser()
+  } catch (error) {
+    // 타임아웃 또는 네트워크 오류
+    return { data: { user: null }, error }
+  } finally {
+    clearTimeout(timeoutId)
+  }
+}

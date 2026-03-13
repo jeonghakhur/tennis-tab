@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 /** Vercel Cron이 매시간 호출 — 날짜 기반 대회 상태 자동 전환 */
@@ -32,6 +33,13 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
   if (transitions.length > 0) {
     console.info('[cron/tournament-status] 전환 완료:', transitions)
+
+    // 상태 변경된 대회가 있을 때만 캐시 무효화
+    revalidatePath('/')
+    revalidatePath('/tournaments')
+    for (const t of transitions) {
+      revalidatePath(`/tournaments/${t.id}`)
+    }
   }
 
   return NextResponse.json({

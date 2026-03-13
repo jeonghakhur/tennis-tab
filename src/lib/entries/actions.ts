@@ -1,6 +1,6 @@
 'use server';
 
-import { createClient } from '@/lib/supabase/server';
+import { createClient, getUserWithTimeout } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { EntryStatus } from '@/lib/supabase/types';
@@ -775,14 +775,10 @@ export async function getUserEntry(tournamentId: string) {
     try {
         const supabase = await createClient();
 
-        const authFallback = { data: { user: null }, error: null } as const;
         const {
             data: { user },
             error: authError,
-        } = await Promise.race([
-            supabase.auth.getUser().catch(() => authFallback),
-            new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
-        ]);
+        } = await getUserWithTimeout(supabase, 3000);
 
         if (authError || !user) {
             return null;
@@ -930,14 +926,10 @@ export async function getUserTournamentEntries(tournamentId: string) {
     try {
         const supabase = await createClient();
 
-        const authFallback = { data: { user: null }, error: null } as const;
         const {
             data: { user },
             error: authError,
-        } = await Promise.race([
-            supabase.auth.getUser().catch(() => authFallback),
-            new Promise<typeof authFallback>((resolve) => setTimeout(() => resolve(authFallback), 3000)),
-        ]);
+        } = await getUserWithTimeout(supabase, 3000);
 
         if (authError || !user) {
             return [];

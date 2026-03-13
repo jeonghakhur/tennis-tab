@@ -29,12 +29,14 @@ export async function updateSession(request: NextRequest) {
   )
 
   // 세션 갱신 (만료 체크)
-  // .catch()만으로는 네트워크 지연(hang)을 처리할 수 없으므로 Promise.race + 3초 timeout 사용
-  const fallback = { data: { user: null } } as const
-  const { data: { user } } = await Promise.race([
-    supabase.auth.getUser().catch(() => fallback),
-    new Promise<typeof fallback>((resolve) => setTimeout(() => resolve(fallback), 3000)),
-  ])
+  // Promise.race 대신 명시적 타임아웃 사용 (AbortError 방지)
+  const fallback = { data: { user: null }, error: null } as const
+  const authPromise = supabase.auth.getUser().catch(() => fallback)
+  const timeoutPromise = new Promise<typeof fallback>(resolve =>
+    setTimeout(() => resolve(fallback), 3000)
+  )
+
+  const { data: { user }, error } = await Promise.race([authPromise, timeoutPromise])
 
   // 로그인이 필요한 페이지 보호
   const protectedPaths = ['/my', '/admin']

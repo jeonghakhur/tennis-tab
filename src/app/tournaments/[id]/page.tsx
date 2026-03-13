@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import TournamentActions from "@/components/tournaments/TournamentActions";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getUserWithTimeout } from "@/lib/supabase/server";
 import Link from "next/link";
 import { TournamentPosterImage } from "@/components/tournaments/TournamentPosterImage";
 import { TournamentStatus, MatchType } from "@/lib/supabase/types";
@@ -22,13 +22,9 @@ export default async function TournamentDetailPage({ params }: Props) {
   const supabase = await createClient();
 
   // 현재 사용자 정보 가져오기 (3초 타임아웃: 네트워크 지연 시 hang 방지)
-  const fallback = { data: { user: null } } as const;
   const {
     data: { user },
-  } = await Promise.race([
-    supabase.auth.getUser().catch(() => fallback),
-    new Promise<typeof fallback>((resolve) => setTimeout(() => resolve(fallback), 3000)),
-  ]);
+  } = await getUserWithTimeout(supabase, 3000);
 
   const { data: tournament, error } = await supabase
     .from("tournaments")
