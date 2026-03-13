@@ -359,14 +359,19 @@ export default function MyProfilePage() {
         "postgres_changes",
         { event: "*", schema: "public", table: "bracket_configs" },
         (payload) => {
-          const row = (payload.new ?? payload.old) as { division_id?: string; id?: string };
+          // DELETE 이벤트: payload.new가 없고 payload.old에 데이터
+          const isDelete = payload.eventType === "DELETE";
+          const row = (isDelete ? payload.old : payload.new) as {
+            division_id?: string;
+            id?: string;
+            status?: string;
+          };
           if (!row.division_id || !myDivisionIds.includes(row.division_id)) return;
 
-          // INSERT/UPDATE → bracket_matches 존재 여부 재확인 후 hasBracket 갱신
           const divisionId = row.division_id;
-          const configId = row.id;
-          if (!configId) {
-            // DELETE: 해당 division hasBracket=false
+
+          if (isDelete) {
+            // 대진표 config 삭제 → hasBracket=false
             setTournaments((prev) =>
               prev.map((e) =>
                 e.division?.id === divisionId ? { ...e, hasBracket: false } : e,
@@ -374,19 +379,15 @@ export default function MyProfilePage() {
             );
             return;
           }
-          supabase
-            .from("bracket_matches")
-            .select("id", { count: "exact", head: true })
-            .eq("bracket_config_id", configId)
-            .then(({ count }) => {
-              setTournaments((prev) =>
-                prev.map((e) =>
-                  e.division?.id === divisionId
-                    ? { ...e, hasBracket: (count ?? 0) > 0 }
-                    : e,
-                ),
-              );
-            });
+
+          // INSERT/UPDATE: status가 PRELIMINARY 또는 MAIN이면 hasBracket=true
+          // (match count 조회 시 config 업데이트와 match 삽입 사이 타이밍 문제 발생)
+          const hasBracket = row.status === "PRELIMINARY" || row.status === "MAIN" || row.status === "COMPLETED";
+          setTournaments((prev) =>
+            prev.map((e) =>
+              e.division?.id === divisionId ? { ...e, hasBracket } : e,
+            ),
+          );
         },
       )
       .subscribe();
