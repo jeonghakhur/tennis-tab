@@ -3,7 +3,7 @@
 import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useAuth } from "@/components/AuthProvider";
 import { useFontSize } from "@/components/FontSizeProvider";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getUserStats, getMyTournaments, getMyMatches, getMyInvitedEntries } from "@/lib/data/user";
@@ -11,6 +11,8 @@ import { getMyClubMemberships } from "@/lib/clubs/actions";
 import type { Club, ClubMember } from "@/lib/clubs/types";
 import { useTournamentStatusRealtime } from "@/lib/realtime/useTournamentStatusRealtime";
 import { useBracketConfigRealtime } from "@/lib/realtime/useBracketConfigRealtime";
+import { createClient } from "@/lib/supabase/client";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { ProfileAwards } from "@/components/awards/ProfileAwards";
 import { getMyAwards } from "@/lib/awards/actions";
@@ -330,6 +332,73 @@ export default function MyProfilePage() {
     onStatusChange: handleTournamentStatusChange,
     enabled: !tournamentsLoading && tournaments.length > 0,
   });
+
+  // 대진표 생성/삭제 감지 → hasBracket 즉시 반영
+  const myDivisionIds = useMemo(
+    () => tournaments.map((e) => e.division?.id).filter((id): id is string => Boolean(id)),
+    [tournaments],
+  );
+  const bracketDivChannelRef = useRef<RealtimeChannel | null>(null);
+  const bracketDivIdsKeyRef = useRef("");
+
+  useEffect(() => {
+    if (myDivisionIds.length === 0) return;
+
+    const key = [...myDivisionIds].sort().join(",");
+    if (key === bracketDivIdsKeyRef.current) return;
+    bracketDivIdsKeyRef.current = key;
+
+    const supabase = createClient();
+    if (bracketDivChannelRef.current) {
+      supabase.removeChannel(bracketDivChannelRef.current);
+    }
+
+    const channel = supabase
+      .channel(`bracket-div-${key.slice(0, 8)}`)
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "bracket_configs" },
+        (payload) => {
+          const row = (payload.new ?? payload.old) as { division_id?: string; id?: string };
+          if (!row.division_id || !myDivisionIds.includes(row.division_id)) return;
+
+          // INSERT/UPDATE → bracket_matches 존재 여부 재확인 후 hasBracket 갱신
+          const divisionId = row.division_id;
+          const configId = row.id;
+          if (!configId) {
+            // DELETE: 해당 division hasBracket=false
+            setTournaments((prev) =>
+              prev.map((e) =>
+                e.division?.id === divisionId ? { ...e, hasBracket: false } : e,
+              ),
+            );
+            return;
+          }
+          supabase
+            .from("bracket_matches")
+            .select("id", { count: "exact", head: true })
+            .eq("bracket_config_id", configId)
+            .then(({ count }) => {
+              setTournaments((prev) =>
+                prev.map((e) =>
+                  e.division?.id === divisionId
+                    ? { ...e, hasBracket: (count ?? 0) > 0 }
+                    : e,
+                ),
+              );
+            });
+        },
+      )
+      .subscribe();
+
+    bracketDivChannelRef.current = channel;
+
+    return () => {
+      supabase.removeChannel(channel);
+      bracketDivChannelRef.current = null;
+      bracketDivIdsKeyRef.current = "";
+    };
+  }, [myDivisionIds]);
 
   const loadMatches = async () => {
     setMatchesLoading(true);
