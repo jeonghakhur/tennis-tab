@@ -139,7 +139,9 @@ export function Navigation() {
           {loading ? (
             <AvatarSkeleton size={40} />
           ) : user && profile ? (
-            <UserAvatar />
+            <span onClick={() => setMenuOpen(false)}>
+              <UserAvatar />
+            </span>
           ) : (
             <Link
               href="/auth/login"

@@ -178,7 +178,10 @@ export default async function TournamentDetailPage({ params }: Props) {
   return (
     <div className="max-w-content mx-auto px-4 py-8 pb-24 lg:pb-8">
       {/* 대회 상태 변경 실시간 감지 */}
-      <TournamentRealtimeRefresher tournamentIds={[tournament.id]} />
+      <TournamentRealtimeRefresher
+        tournamentIds={[tournament.id]}
+        divisionIds={divisionIds}
+      />
       {/* 결제 완료 토스트 (?paid=1 쿼리 감지) */}
       <PaymentSuccessToast />
 
