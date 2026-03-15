@@ -144,37 +144,62 @@ export function GuideCarousel({ slides, accentColor, accentBorder, cta, ctaStyle
                   backgroundColor: "var(--bg-secondary, #18181b)",
                   transform: isActive ? "scale(1)" : "scale(0.96)",
                   opacity: isActive ? 1 : 0.5,
-                  boxShadow: isActive
-                    ? `0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px ${accentBorder}`
-                    : "none",
-                  transition: "transform 0.4s ease, opacity 0.4s ease, box-shadow 0.4s ease",
+                  transition: "transform 0.4s ease, opacity 0.4s ease",
                 }}
               >
+                {/* 텍스트 영역 (상단) */}
+                <div className="px-5 py-4">
+                  <h3
+                    className="font-black mb-2 leading-tight"
+                    style={{
+                      fontFamily: "Paperlogy, sans-serif",
+                      fontSize: "clamp(18px, 3vw, 22px)",
+                      color: "var(--text-primary)",
+                      letterSpacing: "-0.02em",
+                    }}
+                  >
+                    {s.title}
+                  </h3>
+                  <p
+                    className="leading-relaxed mb-4"
+                    style={{
+                      color: "var(--text-muted)",
+                      fontSize: "clamp(14px, 2.2vw, 16px)",
+                    }}
+                  >
+                    {s.description}
+                  </p>
+
+                  {/* 슬라이드 카운터 + 진행 바 */}
+                  <div className="flex items-center gap-3">
+                    <span
+                      className="text-xs font-bold tabular-nums"
+                      style={{ color: "var(--text-primary)" }}
+                    >
+                      {String(i + 1).padStart(2, "0")}{" "}
+                      <span style={{ color: "var(--text-muted)" }}>/ {String(total).padStart(2, "0")}</span>
+                    </span>
+                    {/* 프로그레스 바 */}
+                    <div
+                      className="flex-1 h-1.5 rounded-full overflow-hidden"
+                      style={{ backgroundColor: "var(--border-color)" }}
+                    >
+                      <div
+                        className="h-full rounded-full transition-all duration-400"
+                        style={{
+                          width: `${((i + 1) / total) * 100}%`,
+                          backgroundColor: "var(--text-secondary)",
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
                 {/* 스크린샷 영역 */}
                 <div
                   className="relative overflow-hidden"
-                  style={{ borderBottom: `1px solid ${accentBorder}` }}
+                  style={{ borderTop: `1px solid ${accentBorder}` }}
                 >
-                  {/* 브라우저 크롬 바 */}
-                  <div
-                    className="flex items-center gap-1.5 px-3 py-2"
-                    style={{ backgroundColor: "rgba(20,20,22,0.98)" }}
-                  >
-                    <span className="w-2.5 h-2.5 rounded-full bg-red-500/60" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-yellow-400/60" />
-                    <span className="w-2.5 h-2.5 rounded-full bg-green-500/60" />
-                    <span
-                      className="ml-2 text-xs px-2 py-0.5 rounded flex-1 max-w-[160px] text-center truncate"
-                      style={{
-                        backgroundColor: "rgba(255,255,255,0.05)",
-                        color: "rgba(255,255,255,0.2)",
-                        fontSize: "10px",
-                      }}
-                    >
-                      tennistab.com
-                    </span>
-                  </div>
-
                   {/* 데스크탑 이미지: 16:10 비율, md 이상에서 표시 */}
                   <div
                     className={s.screenshotMobile ? "hidden md:block" : "block"}
@@ -191,77 +216,21 @@ export function GuideCarousel({ slides, accentColor, accentBorder, cta, ctaStyle
                     />
                   </div>
 
-                  {/* 모바일 이미지: md 미만에서 표시, 상단 nav 영역 스킵 + 높이 캡 */}
+                  {/* 모바일 이미지: md 미만에서 원본 비율 그대로 표시 */}
                   {s.screenshotMobile && (
-                    <div
-                      className="block md:hidden"
-                      style={{
-                        width: "100%",
-                        height: "clamp(240px, 45vh, 380px)",
-                        position: "relative",
-                        overflow: "hidden",
-                      }}
-                    >
+                    <div className="block md:hidden">
                       <Image
                         src={`/guide/screenshots/${s.screenshotMobile}`}
                         alt={s.screenshotAlt}
-                        fill
+                        width={750}
+                        height={1334}
                         sizes="(max-width: 767px) 82vw, 0px"
-                        style={{ objectFit: "cover", objectPosition: "0% 15%" }}
+                        style={{ width: "100%", height: "auto" }}
                         priority={i === 0}
                         draggable={false}
                       />
                     </div>
                   )}
-                </div>
-
-                {/* 텍스트 + 버튼 영역 */}
-                <div className="px-5 py-4">
-                  <h3
-                    className="font-black mb-1.5 leading-tight"
-                    style={{
-                      fontFamily: "Paperlogy, sans-serif",
-                      fontSize: "clamp(15px, 2.5vw, 18px)",
-                      color: "var(--text-primary)",
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
-                    {s.title}
-                  </h3>
-                  <p
-                    className="text-sm leading-relaxed mb-4"
-                    style={{
-                      color: "var(--text-muted)",
-                      fontSize: "clamp(12px, 1.8vw, 13px)",
-                    }}
-                  >
-                    {s.description}
-                  </p>
-
-                  {/* 슬라이드 카운터 + 진행 바 */}
-                  <div className="flex items-center gap-3">
-                    <span
-                      className="text-xs font-bold tabular-nums"
-                      style={{ color: accentColor, opacity: 0.8 }}
-                    >
-                      {String(i + 1).padStart(2, "0")}{" "}
-                      <span style={{ opacity: 0.4 }}>/ {String(total).padStart(2, "0")}</span>
-                    </span>
-                    {/* 얇은 프로그레스 바 */}
-                    <div
-                      className="flex-1 h-0.5 rounded-full overflow-hidden"
-                      style={{ backgroundColor: "rgba(255,255,255,0.08)" }}
-                    >
-                      <div
-                        className="h-full rounded-full transition-all duration-400"
-                        style={{
-                          width: `${((i + 1) / total) * 100}%`,
-                          backgroundColor: accentColor,
-                          opacity: isActive ? 0.7 : 0.3,
-                        }}
-                      />
-                    </div>
-                  </div>
                 </div>
               </div>
             );
@@ -269,26 +238,6 @@ export function GuideCarousel({ slides, accentColor, accentBorder, cta, ctaStyle
         </div>
       </div>
 
-      {/* 도트 인디케이터 */}
-      {total > 1 && (
-        <div className="flex justify-center gap-1.5 mt-4">
-          {slides.map((_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => goTo(i)}
-              className="rounded-full transition-all duration-300"
-              style={{
-                width: i === current ? "20px" : "6px",
-                height: "6px",
-                backgroundColor: i === current ? accentColor : "rgba(255,255,255,0.2)",
-              }}
-              aria-label={`${i + 1}번째 슬라이드`}
-              aria-current={i === current ? "true" : undefined}
-            />
-          ))}
-        </div>
-      )}
     </div>
   );
 }

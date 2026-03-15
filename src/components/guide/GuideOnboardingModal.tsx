@@ -13,9 +13,9 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
   {
     title: "대회 목록 확인",
     description:
-      "상단 내비게이션의 대회를 클릭하면 전체 목록이 나타납니다. 상태 배지(접수중 · 예정 · 마감 · 진행중)로 지금 신청 가능한 대회를 바로 파악하세요.",
+      "상단 내비게이션의 대회를 클릭하면 전체 목록이 나타납니다. 상태 배지(모집중 · 예정 · 마감 · 진행중)로 지금 신청 가능한 대회를 바로 파악하세요.",
     screenshot: "tournament-flow/01-list-desktop.png",
-    screenshotMobile: "tournament-flow/01-list-mobile.png",
+    screenshotMobile: "t_01.jpg",
     screenshotAlt: "대회 목록 화면",
   },
   {
@@ -23,6 +23,7 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     description:
       "대회 카드를 클릭하면 일시 · 장소 · 참가비를 한눈에 확인할 수 있습니다. 로그인 후 우측 패널에서 참가 신청 버튼을 바로 사용할 수 있습니다.",
     screenshot: "tournament-flow/04-apply-btn-desktop.png",
+    screenshotMobile: "t_02.jpg",
     screenshotAlt: "대회 상세 화면 (로그인 후)",
   },
   {
@@ -30,42 +31,40 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     description:
       "참가 신청 버튼을 클릭하면 신청 폼이 열립니다. 부서 선택 · 파트너 정보 · 환불 계좌를 입력하고 제출하면 즉시 신청이 완료됩니다.",
     screenshot: "tournament-flow/05-apply-form-desktop.png",
+    screenshotMobile: "t_03.jpg",
     screenshotAlt: "참가 신청 폼 화면",
   },
   {
     title: "신청 완료 후 대회 상세",
     description:
-      "신청이 완료되면 대회 상세 페이지에서 내 신청 현황(확정 · 대기)을 바로 확인할 수 있습니다. 대진표 보기 버튼으로 경기 일정에 바로 이동하세요.",
+      "신청이 완료되면 대회 상세 페이지에서 내 신청 현황(확정 · 대기)을 바로 확인할 수 있습니다. 참가비를 납부하셨다면 반드시 입금 완료 버튼을 눌러주세요.",
     screenshot: "tournament-flow/02-detail-loggedin-desktop.png",
+    screenshotMobile: "t_04.jpg",
     screenshotAlt: "신청 완료 후 대회 상세 화면",
   },
   {
-    title: "대진표 & 결과 입력",
+    title: "마이페이지로 이동",
     description:
-      "경기가 시작되면 대진표에서 내 매치의 결과 입력 버튼이 활성화됩니다. 버튼을 클릭하면 바로 점수를 입력할 수 있습니다.",
-    screenshot: "tournament-flow/17-bracket-score-entry-desktop.png",
-    screenshotAlt: "대진표 결과 입력 버튼 화면",
-  },
-  {
-    title: "점수 입력",
-    description:
-      "결과 입력 버튼을 클릭하면 점수 입력 창이 열립니다. 양 팀 점수를 입력하고 저장하면 승자가 자동으로 다음 라운드로 진출하며 대진표가 실시간으로 업데이트됩니다.",
-    screenshot: "tournament-flow/18-score-input-frontend-desktop.png",
-    screenshotAlt: "점수 입력 모달 화면",
+      "우측 상단 프로필을 클릭하면 마이페이지로 바로 이동할 수 있습니다. 마이페이지에서 내 신청 현황 · 경기 기록 · 입상 내역을 한눈에 확인하세요.",
+    screenshot: "tournament-flow/02-detail-loggedin-desktop.png",
+    screenshotMobile: "t_05.jpg",
+    screenshotAlt: "프로필 메뉴에서 마이페이지 이동 화면",
   },
   {
     title: "내 신청 관리",
     description:
-      "프로필 페이지 → 참가 대회 탭에서 신청한 모든 대회 현황을 확인합니다. 승인 상태 · 시합일 · 부서 정보와 함께 대진표 바로가기도 제공됩니다.",
+      "마이페이지 → 신청 현황 탭에서 신청한 모든 대회를 한눈에 확인하세요. 승인 상태 · 입금 확인 · 부서 정보와 함께 대진표 보기 · 대회 보기 바로가기를 제공합니다.",
     screenshot: "tournament-flow/15-profile-entries-desktop.png",
-    screenshotAlt: "프로필 참가 대회 탭 화면",
+    screenshotMobile: "t_06.jpg",
+    screenshotAlt: "마이페이지 신청 현황 탭 화면",
   },
   {
-    title: "내 경기 결과",
+    title: "대진표 & 결과 입력",
     description:
-      "프로필 페이지 → 내 경기 탭에서 총 경기 수 · 승/패 · 승률 통계와 경기별 상세 결과를 확인하세요. 진행 중인 경기는 결과 입력 버튼이 표시됩니다.",
-    screenshot: "tournament-flow/16-profile-matches-desktop.png",
-    screenshotAlt: "프로필 내 경기 탭 화면",
+      "대진표에서 내 경기의 결과 입력 버튼을 클릭해 직접 점수를 입력할 수 있습니다. 조별 순위와 승 · 패 · 득실점 정보도 함께 확인하세요.",
+    screenshot: "tournament-flow/17-bracket-score-entry-desktop.png",
+    screenshotMobile: "t_07.jpg",
+    screenshotAlt: "대진표 예선 조별 순위 및 결과 입력 화면",
   },
 ];
 
