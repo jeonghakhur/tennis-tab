@@ -173,6 +173,43 @@ export async function updateProgramStatus(
   return { error: null }
 }
 
+/** 전체 공개 레슨 프로그램 목록 조회 (OPEN 상태만, 클럽 정보 포함) */
+export async function getAllOpenLessonPrograms(): Promise<{
+  error: string | null
+  data: (LessonProgram & { club: { id: string; name: string } | null })[]
+}> {
+  const admin = createAdminClient()
+
+  const { data: programs, error } = await admin
+    .from('lesson_programs')
+    .select('*, coach:coaches(*), club:clubs(id, name)')
+    .eq('status', 'OPEN')
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: '레슨 목록 조회에 실패했습니다.', data: [] }
+  if (!programs || programs.length === 0) return { error: null, data: [] }
+
+  const programIds = programs.map((p) => p.id)
+  const { data: counts } = await admin
+    .from('lesson_enrollments')
+    .select('program_id')
+    .in('program_id', programIds)
+    .in('status', ['CONFIRMED', 'PENDING'])
+
+  const countMap = new Map<string, number>()
+  for (const c of counts || []) {
+    countMap.set(c.program_id, (countMap.get(c.program_id) || 0) + 1)
+  }
+
+  return {
+    error: null,
+    data: programs.map((p) => ({
+      ...p,
+      _enrollment_count: countMap.get(p.id) || 0,
+    })),
+  }
+}
+
 /** 클럽 레슨 프로그램 목록 조회 */
 export async function getLessonPrograms(
   clubId: string

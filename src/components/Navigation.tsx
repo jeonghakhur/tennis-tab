@@ -14,6 +14,7 @@ import { NotificationBell } from './notifications/NotificationBell'
 const NAV_LINKS = [
   { href: '/tournaments', label: '대회' },
   { href: '/clubs', label: '클럽' },
+  { href: '/lessons', label: '레슨문의' },
   { href: '/awards', label: '명예의 전당' },
   { href: '/community', label: '커뮤니티' },
 ]
