@@ -120,10 +120,16 @@ export default async function AdminClubsPage() {
             {isSystemAdmin ? '모든 클럽을 관리할 수 있습니다.' : '나의 클럽을 관리할 수 있습니다.'}
           </p>
         </div>
-        <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1 whitespace-nowrap">
-          <Plus className="w-4 h-4" />
-          클럽 생성
-        </Link>
+        <div className="flex gap-2">
+          <Link href="/admin/clubs/members" className="btn-secondary btn-sm flex items-center gap-1 whitespace-nowrap">
+            <Users className="w-4 h-4" />
+            전체 회원 검색
+          </Link>
+          <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1 whitespace-nowrap">
+            <Plus className="w-4 h-4" />
+            클럽 생성
+          </Link>
+        </div>
       </div>
 
       <ClubList clubs={list} />
