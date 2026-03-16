@@ -13,6 +13,7 @@ import type {
   LessonInquiry,
   LessonPayment,
   LessonProgramStatus,
+  LessonSessionStatus,
   LessonInquiryStatus,
   AttendanceLessonStatus,
   CreateProgramInput,
@@ -111,6 +112,7 @@ export async function updateLessonProgram(
   if (data.fee_weekday_2 !== undefined) updateData.fee_weekday_2 = data.fee_weekday_2
   if (data.fee_weekend_1 !== undefined) updateData.fee_weekend_1 = data.fee_weekend_1
   if (data.fee_weekend_2 !== undefined) updateData.fee_weekend_2 = data.fee_weekend_2
+  if (data.is_visible !== undefined) updateData.is_visible = data.is_visible
 
   const admin = createAdminClient()
   const { error } = await admin
@@ -158,6 +160,7 @@ export async function getAllOpenLessonPrograms(): Promise<{
     .from('lesson_programs')
     .select('*, coach:coaches(*)')
     .eq('status', 'OPEN')
+    .eq('is_visible', true)
     .order('created_at', { ascending: false })
 
   if (error) return { error: '레슨 목록 조회에 실패했습니다.', data: [] }
@@ -307,6 +310,38 @@ export async function updateSessionStatus(
 
   revalidatePath('/lessons')
   return { error: null }
+}
+
+/** 전체 프로그램 세션 목록 (관리자용 — 날짜 범위 필터) */
+export async function getAllLessonSessions(options?: {
+  from?: string  // YYYY-MM-DD
+  to?: string
+  status?: LessonSessionStatus
+}): Promise<{ error: string | null; data: (LessonSession & { program_title: string; coach_name: string | null })[] }> {
+  const admin = createAdminClient()
+
+  let query = admin
+    .from('lesson_sessions')
+    .select('*, program:lesson_programs(title, coach:coaches(name))')
+    .order('session_date', { ascending: true })
+    .order('start_time', { ascending: true })
+
+  if (options?.from) query = query.gte('session_date', options.from)
+  if (options?.to) query = query.lte('session_date', options.to)
+  if (options?.status) query = query.eq('status', options.status)
+
+  const { data, error } = await query
+
+  if (error) return { error: '세션 목록 조회에 실패했습니다.', data: [] }
+
+  return {
+    error: null,
+    data: (data || []).map((s) => ({
+      ...s,
+      program_title: (s.program as unknown as { title: string } | null)?.title ?? '알 수 없음',
+      coach_name: (s.program as unknown as { coach: { name: string } | null } | null)?.coach?.name ?? null,
+    })),
+  }
 }
 
 // ============================================================================

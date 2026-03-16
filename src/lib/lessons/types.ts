@@ -63,6 +63,8 @@ export interface LessonProgram {
   fee_weekend_1: number | null
   /** 수강료: 주말 2회 월 요금 */
   fee_weekend_2: number | null
+  /** 프론트 노출 여부 */
+  is_visible: boolean
   status: LessonProgramStatus
   created_by: string
   created_at: string
@@ -96,6 +98,7 @@ export interface UpdateProgramInput {
   fee_weekday_2?: number | null
   fee_weekend_1?: number | null
   fee_weekend_2?: number | null
+  is_visible?: boolean
 }
 
 // ─── 레슨 세션 ───────────────────────────────────────────────────────────────
