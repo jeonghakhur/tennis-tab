@@ -39,14 +39,13 @@ interface AdminProgramTabProps {
   onRefresh: () => void
 }
 
-const DURATION_OPTIONS = [20, 30, 45, 60, 90] as const
+const DURATION_OPTIONS = [20, 30, 60] as const
 type DurationOption = typeof DURATION_OPTIONS[number]
 
 interface ProgramFormData {
   coach_id: string
   title: string
   description: string
-  target_level: string
   max_participants: number
   session_duration_minutes: DurationOption
   fee_weekday_1: string
@@ -59,7 +58,6 @@ const EMPTY_FORM: ProgramFormData = {
   coach_id: '',
   title: '',
   description: '',
-  target_level: '전체',
   max_participants: 1,
   session_duration_minutes: 20,
   fee_weekday_1: '',
@@ -68,7 +66,6 @@ const EMPTY_FORM: ProgramFormData = {
   fee_weekend_2: '',
 }
 
-const TARGET_LEVELS = ['입문', '초급', '중급', '고급', '전체']
 
 export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTabProps) {
   const [coaches, setCoaches] = useState<Coach[]>([])
@@ -96,7 +93,6 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
       coach_id: program.coach_id,
       title: program.title,
       description: program.description || '',
-      target_level: program.target_level,
       max_participants: program.max_participants,
       session_duration_minutes: (DURATION_OPTIONS.includes(program.session_duration_minutes as DurationOption)
         ? program.session_duration_minutes
@@ -133,7 +129,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         coach_id: formData.coach_id,
         title: formData.title,
         description: formData.description || undefined,
-        target_level: formData.target_level,
+        target_level: '전체',
         max_participants: formData.max_participants,
         session_duration_minutes: formData.session_duration_minutes,
         fee_weekday_1: feeWeekday1 ?? null,
@@ -147,7 +143,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         coach_id: formData.coach_id,
         title: formData.title,
         description: formData.description || undefined,
-        target_level: formData.target_level,
+        target_level: '전체',
         max_participants: formData.max_participants,
         session_duration_minutes: formData.session_duration_minutes,
         fee_weekday_1: feeWeekday1,
@@ -229,7 +225,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
                     </div>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      코치: {program.coach?.name || '-'} · 대상: {program.target_level} · 정원: {program.max_participants}명 · {program.session_duration_minutes}분
+                      코치: {program.coach?.name || '-'} · 정원: {program.max_participants}명 · {program.session_duration_minutes}분
                     </p>
                     <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
                       {[
@@ -312,37 +308,21 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                 />
               </div>
 
-              {/* 대상 + 정원 */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label htmlFor="prog-level" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                    대상
-                  </label>
-                  <select
-                    id="prog-level"
-                    value={formData.target_level}
-                    onChange={(e) => setFormData({ ...formData, target_level: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg text-sm"
-                    style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                  >
-                    {TARGET_LEVELS.map((l) => <option key={l} value={l}>{l}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="prog-max" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                    정원
-                  </label>
-                  <input
-                    id="prog-max"
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={formData.max_participants}
-                    onChange={(e) => setFormData({ ...formData, max_participants: Number(e.target.value) })}
-                    className="w-full px-3 py-2 rounded-lg text-sm"
-                    style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                  />
-                </div>
+              {/* 정원 */}
+              <div>
+                <label htmlFor="prog-max" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  정원
+                </label>
+                <input
+                  id="prog-max"
+                  type="number"
+                  min={1}
+                  max={100}
+                  value={formData.max_participants}
+                  onChange={(e) => setFormData({ ...formData, max_participants: Number(e.target.value) })}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                />
               </div>
 
               {/* 레슨 시간 */}
