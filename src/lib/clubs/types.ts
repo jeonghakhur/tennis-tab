@@ -19,6 +19,7 @@ export interface Club {
   association_id: string | null
   max_members: number | null
   is_active: boolean
+  is_recruiting: boolean
   created_by: string
   created_at: string
   updated_at: string
@@ -82,6 +83,7 @@ export interface UpdateClubInput {
   max_members?: number | null
   association_id?: string | null
   association_name?: string  // 직접 입력 시 이름으로 협회 찾기/생성
+  is_recruiting?: boolean
 }
 
 export interface UnregisteredMemberInput {
