@@ -144,28 +144,36 @@ export async function getPublicCoaches(): Promise<{
 }> {
   const admin = createAdminClient()
 
-  // OPEN + is_visible 프로그램과 코치 JOIN
+  // 코치 기준으로 조회 (프로그램 없어도 표시)
+  const { data: coaches, error: coachError } = await admin
+    .from('coaches')
+    .select('id, name, bio, certifications, profile_image_url, is_active')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
+
+  if (coachError) return { error: '코치 목록 조회에 실패했습니다.', data: [] }
+  if (!coaches || coaches.length === 0) return { error: null, data: [] }
+
+  // 각 코치의 대표 프로그램 조회
   const { data: programs, error } = await admin
     .from('lesson_programs')
-    .select('*, coach:coaches(id, name, bio, certifications, profile_image_url, is_active)')
-    .eq('status', 'OPEN')
-    .eq('is_visible', true)
+    .select('*')
+    .in('coach_id', coaches.map(c => c.id))
     .order('created_at', { ascending: false })
 
   if (error) return { error: '코치 목록 조회에 실패했습니다.', data: [] }
-  if (!programs || programs.length === 0) return { error: null, data: [] }
 
-  // 코치별 대표 프로그램 그룹핑
-  const coachMap = new Map<string, typeof programs[number]>()
-  for (const p of programs) {
-    const coach = Array.isArray(p.coach) ? p.coach[0] : p.coach
-    if (!coach?.is_active) continue
-    if (!coachMap.has(p.coach_id)) {
-      coachMap.set(p.coach_id, p)
+  // 코치별 대표 프로그램 매핑
+  const coachProgramMap = new Map<string, typeof programs[number]>()
+  for (const p of programs || []) {
+    if (!coachProgramMap.has(p.coach_id)) {
+      coachProgramMap.set(p.coach_id, p)
     }
   }
 
-  const representativePrograms = [...coachMap.values()]
+  const representativePrograms = coaches
+    .map(c => coachProgramMap.get(c.id))
+    .filter(Boolean) as typeof programs
   const programIds = representativePrograms.map((p) => p.id)
 
   // OPEN 슬롯 수 집계
@@ -191,34 +199,36 @@ export async function getPublicCoaches(): Promise<{
     { key: 'fee_mixed_2', label: '혼합 2회' },
   ]
 
-  const cards: PublicCoachCard[] = representativePrograms.map((p) => {
-    const coach = Array.isArray(p.coach) ? p.coach[0] : p.coach
+  const cards: PublicCoachCard[] = coaches.map((coach) => {
+    const p = coachProgramMap.get(coach.id)
 
     // 최저가 요약
     let feeSummary: string | null = null
-    let minAmount = Infinity
-    let minLabel = ''
-    for (const { key, label } of FEE_FIELDS) {
-      const amount = (p as Record<string, unknown>)[key]
-      if (typeof amount === 'number' && amount > 0 && amount < minAmount) {
-        minAmount = amount
-        minLabel = label
+    if (p) {
+      let minAmount = Infinity
+      let minLabel = ''
+      for (const { key, label } of FEE_FIELDS) {
+        const amount = (p as Record<string, unknown>)[key]
+        if (typeof amount === 'number' && amount > 0 && amount < minAmount) {
+          minAmount = amount
+          minLabel = label
+        }
       }
-    }
-    if (minAmount < Infinity) {
-      feeSummary = `${minLabel} ${minAmount.toLocaleString()}원~`
+      if (minAmount < Infinity) {
+        feeSummary = `${minLabel} ${minAmount.toLocaleString()}원~`
+      }
     }
 
     return {
-      id: coach?.id || p.coach_id,
-      name: coach?.name || '미정',
-      bio: coach?.bio || null,
-      certifications: coach?.certifications || [],
-      profileImageUrl: coach?.profile_image_url || null,
-      programId: p.id,
-      sessionDurationMinutes: p.session_duration_minutes,
+      id: coach.id,
+      name: coach.name || '미정',
+      bio: coach.bio || null,
+      certifications: coach.certifications || [],
+      profileImageUrl: coach.profile_image_url || null,
+      programId: p?.id || null,
+      sessionDurationMinutes: p?.session_duration_minutes || null,
       feeSummary,
-      openSlotCount: slotCountMap.get(p.id) || 0,
+      openSlotCount: p ? (slotCountMap.get(p.id) || 0) : 0,
     }
   })
 
