@@ -7,7 +7,6 @@ import { useAuth } from '@/components/AuthProvider'
 import { joinClubAsRegistered } from '@/lib/clubs/actions'
 import type { Club, ClubMemberRole } from '@/lib/clubs/types'
 import { Search, MapPin, Users, Check, MessageCircle } from 'lucide-react'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 
@@ -24,14 +23,6 @@ const ROLE_LABEL: Record<string, string> = {
   MEMBER: '회원',
 }
 
-// 한국 시도 데이터
-const CITY_OPTIONS = [
-  '서울특별시', '부산광역시', '대구광역시', '인천광역시',
-  '광주광역시', '대전광역시', '울산광역시', '세종특별자치시',
-  '경기도', '강원도', '충청북도', '충청남도',
-  '전라북도', '전라남도', '경상북도', '경상남도', '제주특별자치도',
-]
-
 export default function ClubsPage() {
   const router = useRouter()
   const { user } = useAuth()
@@ -41,7 +32,7 @@ export default function ClubsPage() {
   const [clubs, setClubs] = useState<Club[]>(isCacheValid ? clubsListCache!.clubs : [])
   const [loading, setLoading] = useState(!isCacheValid)
   const [search, setSearch] = useState('')
-  const [cityFilter, setCityFilter] = useState('')
+  const cityFilter = ''
   // 내 클럽 멤버십 맵 (clubId → role)
   const [myClubRoles, setMyClubRoles] = useState<Map<string, ClubMemberRole>>(
     isCacheValid ? clubsListCache!.myClubRoles : new Map()
@@ -149,32 +140,19 @@ export default function ClubsPage() {
             </p>
           </div>
 
-          {/* 검색 + 필터 */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-8">
-            <div className="relative flex-1">
-              <Search
-                className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
-                style={{ color: 'var(--text-muted)' }}
-              />
-              <input
-                type="text"
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                placeholder="클럽 이름으로 검색..."
-                className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
-              />
-            </div>
-            <Select value={cityFilter || '__all__'} onValueChange={(v) => setCityFilter(v === '__all__' ? '' : v)}>
-              <SelectTrigger className="px-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color)">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__all__">전체 지역</SelectItem>
-                {CITY_OPTIONS.map((city) => (
-                  <SelectItem key={city} value={city}>{city}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          {/* 검색 */}
+          <div className="relative mb-8">
+            <Search
+              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4"
+              style={{ color: 'var(--text-muted)' }}
+            />
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="클럽 이름으로 검색..."
+              className="w-full pl-10 pr-3 py-2.5 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none"
+            />
           </div>
 
           {/* 클럽 목록 */}
