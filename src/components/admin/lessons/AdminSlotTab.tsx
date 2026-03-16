@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Plus, CalendarX, RefreshCw } from 'lucide-react'
 import {
   getLessonProgramDetail,
+  getAllLessonSessions,
   updateSessionStatus,
   createRecurringSessions,
 } from '@/lib/lessons/actions'
@@ -13,6 +14,10 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { LessonProgram, LessonSession, LessonSessionStatus, CreateSessionInput } from '@/lib/lessons/types'
+
+type AllViewSession = LessonSession & { program_title: string; coach_name: string | null }
+
+const ALL_PROGRAMS_VALUE = '__all__'
 
 const SESSION_STATUS_CONFIG: Record<LessonSessionStatus, { label: string; variant: BadgeVariant }> = {
   SCHEDULED: { label: '예정', variant: 'info' },
@@ -137,7 +142,7 @@ function addMinutesToTime(time: string, minutes: number): string {
 
 export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [selectedProgramId, setSelectedProgramId] = useState<string>('')
-  const [sessions, setSessions] = useState<LessonSession[]>([])
+  const [sessions, setSessions] = useState<(LessonSession | AllViewSession)[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [slotFormOpen, setSlotFormOpen] = useState(false)
   const [pattern, setPattern] = useState<SlotPattern>(EMPTY_PATTERN)
@@ -148,14 +153,23 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
   const selectedProgram = programs.find((p) => p.id === selectedProgramId) ?? null
+  const isAllView = selectedProgramId === ALL_PROGRAMS_VALUE
 
   useEffect(() => {
     if (!selectedProgramId) { setSessions([]); return }
     setSessionsLoading(true)
-    getLessonProgramDetail(selectedProgramId).then(({ data }) => {
-      setSessions(data?.sessions || [])
-      setSessionsLoading(false)
-    })
+    if (isAllView) {
+      const today = new Date().toISOString().substring(0, 10)
+      getAllLessonSessions({ from: today }).then(({ data }) => {
+        setSessions(data)
+        setSessionsLoading(false)
+      })
+    } else {
+      getLessonProgramDetail(selectedProgramId).then(({ data }) => {
+        setSessions(data?.sessions || [])
+        setSessionsLoading(false)
+      })
+    }
   }, [selectedProgramId])
 
   useEffect(() => {
@@ -182,8 +196,14 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const refreshSessions = async () => {
     if (!selectedProgramId) return
     setSessionsLoading(true)
-    const { data } = await getLessonProgramDetail(selectedProgramId)
-    setSessions(data?.sessions || [])
+    if (isAllView) {
+      const today = new Date().toISOString().substring(0, 10)
+      const { data } = await getAllLessonSessions({ from: today })
+      setSessions(data)
+    } else {
+      const { data } = await getLessonProgramDetail(selectedProgramId)
+      setSessions(data?.sessions || [])
+    }
     setSessionsLoading(false)
   }
 
@@ -265,6 +285,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
             style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
           >
             <option value="">프로그램을 선택하세요</option>
+            <option value={ALL_PROGRAMS_VALUE}>📋 전체 일정 보기 (오늘 이후)</option>
             {programs.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title} ({p.coach?.name || '코치 미배정'})
@@ -276,16 +297,18 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
       {selectedProgramId && (
         <>
-          <div className="flex justify-end mb-4">
-            <button
-              onClick={() => setSlotFormOpen(true)}
-              className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium"
-              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
-            >
-              <Plus className="w-4 h-4" />
-              반복 슬롯 등록
-            </button>
-          </div>
+          {!isAllView && (
+            <div className="flex justify-end mb-4">
+              <button
+                onClick={() => setSlotFormOpen(true)}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium"
+                style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+              >
+                <Plus className="w-4 h-4" />
+                반복 슬롯 등록
+              </button>
+            </div>
+          )}
 
           {sessionsLoading ? (
             <div className="space-y-2 animate-pulse">
@@ -302,6 +325,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
             <div className="space-y-2">
               {sessions.map((session) => {
                 const conf = SESSION_STATUS_CONFIG[session.status]
+                const allViewSession = isAllView ? (session as AllViewSession) : null
                 return (
                   <div
                     key={session.id}
@@ -309,6 +333,12 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                     style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
                   >
                     <div>
+                      {allViewSession && (
+                        <p className="text-xs font-medium mb-0.5" style={{ color: 'var(--accent-color)' }}>
+                          {allViewSession.program_title}
+                          {allViewSession.coach_name && ` · ${allViewSession.coach_name}`}
+                        </p>
+                      )}
                       <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {formatDate(session.session_date)}
                       </p>

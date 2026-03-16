@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Plus } from 'lucide-react'
+import { Plus, Eye, EyeOff } from 'lucide-react'
 import {
   createLessonProgram,
   updateLessonProgram,
@@ -236,7 +236,31 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       ].filter(Boolean).join(' / ') || '요금 미설정'}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1.5 shrink-0">
+                  <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                    {/* 노출 토글 */}
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const result = await updateLessonProgram(program.id, { is_visible: !program.is_visible })
+                        if (result.error) {
+                          setAlert({ isOpen: true, message: result.error, type: 'error' })
+                        } else {
+                          setToast({ isOpen: true, message: program.is_visible ? '프론트에서 숨겼습니다.' : '프론트에 노출했습니다.', type: 'success' })
+                          onRefresh()
+                        }
+                      }}
+                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md"
+                      style={{
+                        backgroundColor: program.is_visible ? 'var(--bg-card-hover)' : 'var(--color-warning-subtle, #fef3c7)',
+                        color: program.is_visible ? 'var(--accent-color)' : 'var(--color-warning)',
+                      }}
+                      title={program.is_visible ? '클릭하면 프론트에서 숨김' : '클릭하면 프론트에 노출'}
+                    >
+                      {program.is_visible
+                        ? <><Eye className="w-3 h-3" /> 노출 중</>
+                        : <><EyeOff className="w-3 h-3" /> 숨김</>
+                      }
+                    </button>
                     <button
                       onClick={() => openEdit(program)}
                       className="text-xs px-2 py-1 rounded-md"
