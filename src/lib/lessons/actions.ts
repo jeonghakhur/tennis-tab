@@ -171,6 +171,99 @@ export async function deleteLessonProgram(programId: string): Promise<{ error: s
 }
 
 /** 전체 공개 레슨 프로그램 목록 (OPEN 상태) */
+/** 코치별 레슨 카드 데이터 (공개 페이지용) */
+export interface CoachLessonCard {
+  coachId: string
+  coachName: string
+  profileImageUrl: string | null
+  /** 대표 프로그램 ID (가장 최신 OPEN) */
+  programId: string
+  sessionDurationMinutes: number
+  /** 설정된 요금만 포함 */
+  fees: Array<{ label: string; amount: number }>
+  /** 오늘 이후 OPEN 슬롯 수 */
+  openSlotCount: number
+}
+
+/** 코치 단위로 그룹핑된 레슨 카드 목록 조회 (공개) */
+export async function getCoachLessonCards(): Promise<{
+  error: string | null
+  data: CoachLessonCard[]
+}> {
+  const admin = createAdminClient()
+
+  // OPEN + is_visible 프로그램만 → 코치별 최신 1개 대표
+  const { data: programs, error } = await admin
+    .from('lesson_programs')
+    .select('*, coach:coaches(id, name, profile_image_url)')
+    .eq('status', 'OPEN')
+    .eq('is_visible', true)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: '레슨 목록 조회에 실패했습니다.', data: [] }
+  if (!programs || programs.length === 0) return { error: null, data: [] }
+
+  // 코치별 최신 프로그램 그룹핑
+  const coachMap = new Map<string, typeof programs[number]>()
+  for (const p of programs) {
+    const coachId = p.coach_id
+    if (!coachMap.has(coachId)) {
+      coachMap.set(coachId, p)
+    }
+  }
+
+  const representativePrograms = [...coachMap.values()]
+  const programIds = representativePrograms.map((p) => p.id)
+
+  // OPEN 슬롯 수 집계 (오늘 이후)
+  const today = new Date().toISOString().substring(0, 10)
+  const { data: slots } = await admin
+    .from('lesson_slots')
+    .select('program_id')
+    .in('program_id', programIds)
+    .eq('status', 'OPEN')
+    .gte('slot_date', today)
+
+  const slotCountMap = new Map<string, number>()
+  for (const s of slots || []) {
+    slotCountMap.set(s.program_id, (slotCountMap.get(s.program_id) || 0) + 1)
+  }
+
+  // 요금 라벨 생성
+  const FEE_LABELS: Array<{ key: keyof LessonProgram; label: string }> = [
+    { key: 'fee_weekday_1', label: '주중 1회' },
+    { key: 'fee_weekday_2', label: '주중 2회' },
+    { key: 'fee_weekend_1', label: '주말 1회' },
+    { key: 'fee_weekend_2', label: '주말 2회' },
+    { key: 'fee_mixed_2', label: '혼합 2회' },
+  ]
+
+  const cards: CoachLessonCard[] = representativePrograms.map((p) => {
+    const coachRaw = p.coach
+    const coach = Array.isArray(coachRaw) ? coachRaw[0] : coachRaw
+
+    const fees: CoachLessonCard['fees'] = []
+    for (const { key, label } of FEE_LABELS) {
+      const amount = p[key as keyof typeof p]
+      if (typeof amount === 'number' && amount > 0) {
+        fees.push({ label, amount })
+      }
+    }
+
+    return {
+      coachId: p.coach_id,
+      coachName: coach?.name || '미정',
+      profileImageUrl: coach?.profile_image_url || null,
+      programId: p.id,
+      sessionDurationMinutes: p.session_duration_minutes,
+      fees,
+      openSlotCount: slotCountMap.get(p.id) || 0,
+    }
+  })
+
+  return { error: null, data: cards }
+}
+
 export async function getAllOpenLessonPrograms(): Promise<{
   error: string | null
   data: LessonProgram[]

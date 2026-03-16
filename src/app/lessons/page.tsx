@@ -1,27 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { User, Users, ChevronRight, BookOpen } from 'lucide-react'
-import { getAllOpenLessonPrograms } from '@/lib/lessons/actions'
-import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import type { LessonProgram } from '@/lib/lessons/types'
-
-const LEVEL_VARIANTS: Record<string, BadgeVariant> = {
-  입문: 'info',
-  초급: 'success',
-  중급: 'warning',
-  고급: 'orange',
-  전체: 'secondary',
-}
+import { useRouter } from 'next/navigation'
+import { User, Clock, Calendar, BookOpen } from 'lucide-react'
+import { getCoachLessonCards, type CoachLessonCard } from '@/lib/lessons/actions'
 
 export default function LessonsPage() {
-  const [programs, setPrograms] = useState<LessonProgram[]>([])
+  const [cards, setCards] = useState<CoachLessonCard[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getAllOpenLessonPrograms().then(({ data }) => {
-      setPrograms(data)
+    getCoachLessonCards().then(({ data }) => {
+      setCards(data)
       setLoading(false)
     })
   }, [])
@@ -33,31 +23,35 @@ export default function LessonsPage() {
           <div className="flex items-center gap-2 mb-1">
             <BookOpen className="w-5 h-5" style={{ color: 'var(--accent-color)' }} />
             <h1 className="text-2xl font-display" style={{ color: 'var(--text-primary)' }}>
-              레슨 문의
+              레슨 신청
             </h1>
           </div>
           <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-            현재 모집 중인 레슨 프로그램을 확인하고 문의하세요.
+            코치를 선택하고 원하는 시간에 레슨을 신청하세요.
           </p>
         </div>
 
         {loading ? (
-          <div className="space-y-3 animate-pulse">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="h-28 rounded-xl" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {Array.from({ length: 2 }).map((_, i) => (
+              <div
+                key={i}
+                className="h-52 rounded-xl animate-pulse"
+                style={{ backgroundColor: 'var(--bg-card-hover)' }}
+              />
             ))}
           </div>
-        ) : programs.length === 0 ? (
+        ) : cards.length === 0 ? (
           <div className="text-center py-20">
             <BookOpen className="w-10 h-10 mx-auto mb-3" style={{ color: 'var(--text-muted)' }} />
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-              현재 모집 중인 레슨 프로그램이 없습니다.
+              현재 모집 중인 레슨이 없습니다.
             </p>
           </div>
         ) : (
-          <div className="space-y-3">
-            {programs.map((program) => (
-              <ProgramCard key={program.id} program={program} />
+          <div className="grid gap-4 sm:grid-cols-2">
+            {cards.map((card) => (
+              <CoachCard key={card.coachId} card={card} />
             ))}
           </div>
         )}
@@ -66,70 +60,85 @@ export default function LessonsPage() {
   )
 }
 
-function ProgramCard({ program }: { program: LessonProgram }) {
-  const enrollCount = program._enrollment_count || 0
-  const ratio = Math.min(enrollCount / program.max_participants, 1)
-  const levelVariant = LEVEL_VARIANTS[program.target_level] ?? 'secondary'
+function CoachCard({ card }: { card: CoachLessonCard }) {
+  const router = useRouter()
 
   return (
-    <Link
-      href={`/lessons/${program.id}`}
-      className="block rounded-xl p-4 transition-colors hover:opacity-90"
+    <div
+      className="rounded-xl p-5 flex flex-col gap-4"
       style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
     >
-      <div className="flex items-start gap-3">
+      {/* 코치 프로필 */}
+      <div className="flex items-center gap-3">
         <div
-          className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+          className="w-12 h-12 rounded-full flex items-center justify-center shrink-0 overflow-hidden"
           style={{ backgroundColor: 'var(--bg-card-hover)' }}
         >
-          {program.coach?.profile_image_url ? (
-            <img src={program.coach.profile_image_url} alt="" className="w-10 h-10 rounded-full object-cover" />
+          {card.profileImageUrl ? (
+            <img
+              src={card.profileImageUrl}
+              alt={`${card.coachName} 코치 프로필`}
+              className="w-12 h-12 rounded-full object-cover"
+            />
           ) : (
-            <User className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+            <User className="w-6 h-6" style={{ color: 'var(--text-muted)' }} />
           )}
         </div>
-
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <h3 className="font-medium text-sm truncate" style={{ color: 'var(--text-primary)' }}>
-              {program.title}
-            </h3>
-            <Badge variant={levelVariant}>{program.target_level}</Badge>
-          </div>
-
-          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            코치: {program.coach?.name || '미정'}
-          </p>
-
-          <div className="flex items-center gap-2 mt-2">
-            <Users className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
-            <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--bg-card-hover)' }}>
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${ratio * 100}%`,
-                  backgroundColor: ratio >= 1 ? 'var(--color-danger)' : 'var(--accent-color)',
-                }}
-              />
-            </div>
-            <span className="text-xs shrink-0" style={{ color: 'var(--text-secondary)' }}>
-              {enrollCount}/{program.max_participants}명
+        <div>
+          <h3 className="font-semibold text-base" style={{ color: 'var(--text-primary)' }}>
+            {card.coachName} 코치
+          </h3>
+          <div className="flex items-center gap-1 mt-0.5">
+            <Clock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+            <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+              {card.sessionDurationMinutes}분 레슨
             </span>
           </div>
-
-          {(program.fee_weekday_1 || program.fee_weekend_1) && (
-            <p className="text-xs mt-1.5 line-clamp-1" style={{ color: 'var(--text-secondary)' }}>
-              {[
-                program.fee_weekday_1 ? `주중 ${program.fee_weekday_1.toLocaleString()}원` : null,
-                program.fee_weekend_1 ? `주말 ${program.fee_weekend_1.toLocaleString()}원` : null,
-              ].filter(Boolean).join(' / ')}
-              {' '}· {program.session_duration_minutes}분
-            </p>
-          )}
         </div>
-
-        <ChevronRight className="w-4 h-4 shrink-0 mt-1" style={{ color: 'var(--text-muted)' }} />
       </div>
-    </Link>
+
+      {/* 요금 정보 */}
+      {card.fees.length > 0 && (
+        <div
+          className="rounded-lg px-3.5 py-2.5 space-y-1"
+          style={{ backgroundColor: 'var(--bg-card-hover)' }}
+        >
+          {card.fees.map((fee) => (
+            <div key={fee.label} className="flex justify-between items-center">
+              <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                {fee.label}
+              </span>
+              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                {fee.amount.toLocaleString()}원
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 빈 슬롯 + 신청 버튼 */}
+      <div className="flex items-center justify-between mt-auto pt-1">
+        <div className="flex items-center gap-1.5">
+          <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+          <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            {card.openSlotCount > 0
+              ? `빈 슬롯 ${card.openSlotCount}개`
+              : '빈 슬롯 없음'}
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push(`/lessons/${card.programId}`)}
+          disabled={card.openSlotCount === 0}
+          className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          style={{
+            backgroundColor: card.openSlotCount > 0 ? 'var(--accent-color)' : 'var(--bg-card-hover)',
+            color: card.openSlotCount > 0 ? '#fff' : 'var(--text-muted)',
+          }}
+        >
+          신청하기
+        </button>
+      </div>
+    </div>
   )
 }
