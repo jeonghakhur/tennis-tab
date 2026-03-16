@@ -18,6 +18,7 @@ export interface Coach {
   bio: string | null
   experience: string | null
   certifications: string[]
+  certification_files: string[]  // 자격증 첨부 파일 URL 목록
   profile_image_url: string | null
   is_active: boolean
   created_by: string
@@ -30,6 +31,7 @@ export interface CreateCoachInput {
   bio?: string
   experience?: string
   certifications?: string[]
+  certification_files?: string[]
   profile_image_url?: string
 }
 
@@ -38,6 +40,7 @@ export interface UpdateCoachInput {
   bio?: string
   experience?: string
   certifications?: string[]
+  certification_files?: string[]
   profile_image_url?: string
 }
 
@@ -183,6 +186,36 @@ export const ATTENDANCE_STATUS_LABEL: Record<AttendanceLessonStatus, string> = {
   PRESENT: '출석',
   ABSENT: '결석',
   LATE: '지각',
+}
+
+// ─── 레슨 결제 ───────────────────────────────────────────────────────────────
+
+export type PaymentMethod = 'BANK_TRANSFER' | 'CASH' | 'OTHER'
+
+export interface LessonPayment {
+  id: string
+  enrollment_id: string
+  amount: number
+  paid_at: string        // 'YYYY-MM-DD'
+  method: PaymentMethod
+  period: string         // 'YYYY-MM'
+  note: string | null
+  recorded_by: string
+  created_at: string
+}
+
+export interface CreatePaymentInput {
+  amount: number
+  paid_at: string
+  method: PaymentMethod
+  period: string
+  note?: string
+}
+
+export const PAYMENT_METHOD_LABEL: Record<PaymentMethod, string> = {
+  BANK_TRANSFER: '계좌이체',
+  CASH: '현금',
+  OTHER: '기타',
 }
 
 // ─── 레슨 문의 ───────────────────────────────────────────────────────────────

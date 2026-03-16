@@ -72,6 +72,7 @@ export async function createCoach(
       bio: sanitized.bio || null,
       experience: sanitized.experience || null,
       certifications: sanitized.certifications || [],
+      certification_files: data.certification_files || [],
       profile_image_url: sanitized.profile_image_url || null,
       created_by: user.id,
     })
@@ -101,6 +102,7 @@ export async function updateCoach(
   if (sanitized.bio !== undefined) updateData.bio = sanitized.bio || null
   if (sanitized.experience !== undefined) updateData.experience = sanitized.experience || null
   if (sanitized.certifications !== undefined) updateData.certifications = sanitized.certifications
+  if (data.certification_files !== undefined) updateData.certification_files = data.certification_files
   if (sanitized.profile_image_url !== undefined) updateData.profile_image_url = sanitized.profile_image_url || null
 
   const admin = createAdminClient()

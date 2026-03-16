@@ -4,11 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { revalidatePath } from 'next/cache'
 import { sanitizeObject } from '@/lib/utils/validation'
+import { createNotification } from '@/lib/notifications/actions'
 import type { RescheduleRequest, RescheduleRequestInput } from './types'
-
-// ============================================================================
-// 검증 헬퍼
-// ============================================================================
 
 function validateId(id: string, fieldName: string): string | null {
   if (!id || typeof id !== 'string' || id.trim().length === 0) {
@@ -17,23 +14,20 @@ function validateId(id: string, fieldName: string): string | null {
   return null
 }
 
-/** 세션의 클럽 ID 조회 */
-async function getClubIdFromSession(admin: ReturnType<typeof createAdminClient>, sessionId: string) {
-  const { data: session } = await admin
-    .from('lesson_sessions')
-    .select('program_id, lesson_programs(club_id)')
-    .eq('id', sessionId)
-    .single()
-
-  if (!session) return null
-  return (session as unknown as { lesson_programs: { club_id: string } }).lesson_programs.club_id
+async function checkAdminAuth() {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', user: null }
+  if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
+    return { error: '관리자 권한이 필요합니다.', user: null }
+  }
+  return { error: null, user }
 }
 
 // ============================================================================
 // 일정 변경 요청
 // ============================================================================
 
-/** 일정 변경 요청 생성 */
+/** 수강생이 일정 변경 요청 */
 export async function requestReschedule(
   sessionId: string,
   data: RescheduleRequestInput
@@ -53,25 +47,23 @@ export async function requestReschedule(
   // 원본 세션 조회
   const { data: session } = await admin
     .from('lesson_sessions')
-    .select('session_date, start_time, end_time, program_id, lesson_programs(club_id)')
+    .select('session_date, start_time, end_time, program_id')
     .eq('id', sessionId)
     .single()
 
   if (!session) return { error: '세션을 찾을 수 없습니다.' }
 
-  const clubId = (session as unknown as { lesson_programs: { club_id: string } }).lesson_programs.club_id
+  // 수강생 본인 확인 (enrollment_id 제공 시)
+  if (data.enrollment_id) {
+    const { data: enrollment } = await admin
+      .from('lesson_enrollments')
+      .select('user_id')
+      .eq('id', data.enrollment_id)
+      .single()
 
-  // 요청자 유형 판별 (어드민 or 회원)
-  const { data: adminMember } = await admin
-    .from('club_members')
-    .select('role')
-    .eq('club_id', clubId)
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-    .single()
-
-  const isClubAdmin = adminMember && ['OWNER', 'ADMIN'].includes(adminMember.role)
-  const requesterType = isClubAdmin ? 'ADMIN' : 'MEMBER'
+    if (!enrollment) return { error: '수강 정보를 찾을 수 없습니다.' }
+    if (enrollment.user_id !== user.id) return { error: '본인의 수강 일정만 변경 요청할 수 있습니다.' }
+  }
 
   const sanitized = sanitizeObject(data)
 
@@ -81,7 +73,7 @@ export async function requestReschedule(
       session_id: sessionId,
       enrollment_id: sanitized.enrollment_id || null,
       requested_by: user.id,
-      requester_type: requesterType,
+      requester_type: 'MEMBER',
       original_date: session.session_date,
       original_start_time: session.start_time,
       original_end_time: session.end_time,
@@ -93,47 +85,124 @@ export async function requestReschedule(
 
   if (error) return { error: '일정 변경 요청에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${clubId}`)
+  // SUPER_ADMIN/ADMIN에게 알림
+  try {
+    const { data: admins } = await admin
+      .from('profiles')
+      .select('id')
+      .in('role', ['SUPER_ADMIN', 'ADMIN'])
+
+    if (admins) {
+      for (const adm of admins) {
+        await createNotification({
+          user_id: adm.id,
+          type: 'LESSON_INQUIRY',
+          title: '레슨 일정 변경 요청',
+          message: `수강생이 ${session.session_date} 세션 일정 변경을 요청했습니다.`,
+          metadata: { session_id: sessionId },
+        })
+      }
+    }
+  } catch {
+    // 알림 실패 무시
+  }
+
+  revalidatePath('/my/lessons')
   return { error: null }
 }
 
-/** 일정 변경 수락 */
+/** 관리자가 일정 변경 요청 (코치 대리) */
+export async function requestRescheduleByAdmin(
+  sessionId: string,
+  data: RescheduleRequestInput
+): Promise<{ error: string | null }> {
+  const idErr = validateId(sessionId, '세션 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr, user } = await checkAdminAuth()
+  if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
+
+  if (!data.requested_date || !data.requested_start_time || !data.requested_end_time) {
+    return { error: '변경할 날짜와 시간을 모두 입력해주세요.' }
+  }
+
+  const admin = createAdminClient()
+
+  const { data: session } = await admin
+    .from('lesson_sessions')
+    .select('session_date, start_time, end_time')
+    .eq('id', sessionId)
+    .single()
+
+  if (!session) return { error: '세션을 찾을 수 없습니다.' }
+
+  const sanitized = sanitizeObject(data)
+
+  const { error } = await admin
+    .from('lesson_reschedule_requests')
+    .insert({
+      session_id: sessionId,
+      enrollment_id: sanitized.enrollment_id || null,
+      requested_by: user.id,
+      requester_type: 'ADMIN',
+      original_date: session.session_date,
+      original_start_time: session.start_time,
+      original_end_time: session.end_time,
+      requested_date: sanitized.requested_date,
+      requested_start_time: sanitized.requested_start_time,
+      requested_end_time: sanitized.requested_end_time,
+      reason: sanitized.reason || null,
+    })
+
+  if (error) return { error: '일정 변경 요청에 실패했습니다.' }
+
+  // 해당 수강생에게 알림
+  if (data.enrollment_id) {
+    try {
+      const { data: enrollment } = await admin
+        .from('lesson_enrollments')
+        .select('user_id')
+        .eq('id', data.enrollment_id)
+        .single()
+
+      if (enrollment) {
+        await createNotification({
+          user_id: enrollment.user_id,
+          type: 'LESSON_INQUIRY',
+          title: '레슨 일정 변경 안내',
+          message: `${session.session_date} 세션 일정이 변경될 예정입니다. 확인해주세요.`,
+          metadata: { session_id: sessionId },
+        })
+      }
+    } catch {
+      // 알림 실패 무시
+    }
+  }
+
+  revalidatePath('/lessons')
+  return { error: null }
+}
+
+/** 일정 변경 수락 (관리자) */
 export async function approveReschedule(
   requestId: string
 ): Promise<{ error: string | null }> {
   const idErr = validateId(requestId, '요청 ID')
   if (idErr) return { error: idErr }
 
-  const user = await getCurrentUser()
-  if (!user) return { error: '로그인이 필요합니다.' }
+  const { error: authErr, user } = await checkAdminAuth()
+  if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
 
   const admin = createAdminClient()
 
   const { data: request } = await admin
     .from('lesson_reschedule_requests')
-    .select('*, session:lesson_sessions(id, program_id)')
+    .select('*')
     .eq('id', requestId)
     .eq('status', 'PENDING')
     .single()
 
   if (!request) return { error: '대기 중인 요청을 찾을 수 없습니다.' }
-
-  const sessionData = request.session as unknown as { id: string; program_id: string }
-  const clubId = await getClubIdFromSession(admin, sessionData.id)
-  if (!clubId) return { error: '세션을 찾을 수 없습니다.' }
-
-  // 어드민 권한 확인
-  const { data: adminMember } = await admin
-    .from('club_members')
-    .select('role')
-    .eq('club_id', clubId)
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-    .single()
-
-  if (!adminMember || !['OWNER', 'ADMIN'].includes(adminMember.role)) {
-    return { error: '클럽 관리 권한이 없습니다.' }
-  }
 
   // 요청 승인
   const { error: updateErr } = await admin
@@ -155,50 +224,48 @@ export async function approveReschedule(
       start_time: request.requested_start_time,
       end_time: request.requested_end_time,
     })
-    .eq('id', sessionData.id)
+    .eq('id', request.session_id)
 
   if (sessionErr) return { error: '세션 일정 변경에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${clubId}`)
+  // 요청자에게 알림
+  try {
+    await createNotification({
+      user_id: request.requested_by,
+      type: 'LESSON_INQUIRY',
+      title: '레슨 일정 변경 수락',
+      message: `${request.requested_date} ${request.requested_start_time.slice(0, 5)} 일정 변경이 확정되었습니다.`,
+      metadata: { request_id: requestId },
+    })
+  } catch {
+    // 알림 실패 무시
+  }
+
+  revalidatePath('/lessons')
+  revalidatePath('/my/lessons')
   return { error: null }
 }
 
-/** 일정 변경 거절 */
+/** 일정 변경 거절 (관리자) */
 export async function rejectReschedule(
   requestId: string
 ): Promise<{ error: string | null }> {
   const idErr = validateId(requestId, '요청 ID')
   if (idErr) return { error: idErr }
 
-  const user = await getCurrentUser()
-  if (!user) return { error: '로그인이 필요합니다.' }
+  const { error: authErr, user } = await checkAdminAuth()
+  if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
 
   const admin = createAdminClient()
 
   const { data: request } = await admin
     .from('lesson_reschedule_requests')
-    .select('session_id')
+    .select('requested_by, original_date, original_start_time')
     .eq('id', requestId)
     .eq('status', 'PENDING')
     .single()
 
   if (!request) return { error: '대기 중인 요청을 찾을 수 없습니다.' }
-
-  const clubId = await getClubIdFromSession(admin, request.session_id)
-  if (!clubId) return { error: '세션을 찾을 수 없습니다.' }
-
-  // 어드민 권한 확인
-  const { data: adminMember } = await admin
-    .from('club_members')
-    .select('role')
-    .eq('club_id', clubId)
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-    .single()
-
-  if (!adminMember || !['OWNER', 'ADMIN'].includes(adminMember.role)) {
-    return { error: '클럽 관리 권한이 없습니다.' }
-  }
 
   const { error } = await admin
     .from('lesson_reschedule_requests')
@@ -211,7 +278,21 @@ export async function rejectReschedule(
 
   if (error) return { error: '요청 거절에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${clubId}`)
+  // 요청자에게 알림
+  try {
+    await createNotification({
+      user_id: request.requested_by,
+      type: 'LESSON_INQUIRY',
+      title: '레슨 일정 변경 거절',
+      message: `${request.original_date} 일정 변경 요청이 거절되었습니다. 원래 일정으로 진행됩니다.`,
+      metadata: { request_id: requestId },
+    })
+  } catch {
+    // 알림 실패 무시
+  }
+
+  revalidatePath('/lessons')
+  revalidatePath('/my/lessons')
   return { error: null }
 }
 
@@ -224,7 +305,6 @@ export async function recalculateMonthlyCount(
 
   const admin = createAdminClient()
 
-  // 해당 수강의 모든 출석 기록 조회 (PRESENT + LATE)
   const { data: attendances, error: attendErr } = await admin
     .from('lesson_attendances')
     .select('session_id, status, session:lesson_sessions(session_date)')
@@ -233,12 +313,10 @@ export async function recalculateMonthlyCount(
 
   if (attendErr) return { error: '출석 기록 조회에 실패했습니다.' }
 
-  // 월별 카운트 집계
   const monthlyCounts: Record<string, number> = {}
   for (const a of attendances || []) {
     const sessionData = a.session as unknown as { session_date: string }
     if (sessionData?.session_date) {
-      // "2026-03-18" → "2026-03"
       const month = sessionData.session_date.substring(0, 7)
       monthlyCounts[month] = (monthlyCounts[month] || 0) + 1
     }
@@ -250,7 +328,6 @@ export async function recalculateMonthlyCount(
     .eq('id', enrollmentId)
 
   if (error) return { error: '월별 횟수 업데이트에 실패했습니다.' }
-
   return { error: null }
 }
 
@@ -270,6 +347,29 @@ export async function getRescheduleRequests(
     .order('created_at', { ascending: false })
 
   if (error) return { error: '변경 요청 조회에 실패했습니다.', data: [] }
-
   return { error: null, data: data || [] }
+}
+
+export interface RescheduleRequestWithSession extends RescheduleRequest {
+  session: { session_date: string; start_time: string; end_time: string } | null
+}
+
+/** 내 일정 변경 요청 목록 조회 (수강생) */
+export async function getMyRescheduleRequests(): Promise<{
+  error: string | null
+  data: RescheduleRequestWithSession[]
+}> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', data: [] }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('lesson_reschedule_requests')
+    .select('*, session:lesson_sessions(session_date, start_time, end_time)')
+    .eq('requested_by', user.id)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  if (error) return { error: '변경 요청 조회에 실패했습니다.', data: [] }
+  return { error: null, data: (data || []) as unknown as RescheduleRequestWithSession[] }
 }

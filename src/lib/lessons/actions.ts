@@ -11,12 +11,14 @@ import type {
   LessonEnrollment,
   LessonAttendance,
   LessonInquiry,
+  LessonPayment,
   LessonProgramStatus,
   LessonInquiryStatus,
   AttendanceLessonStatus,
   CreateProgramInput,
   UpdateProgramInput,
   CreateSessionInput,
+  CreatePaymentInput,
 } from './types'
 
 // ============================================================================
@@ -617,4 +619,199 @@ export async function updateInquiryStatus(
 
   if (error) return { error: '상태 변경에 실패했습니다.' }
   return { error: null }
+}
+
+// ============================================================================
+// 레슨 결제 관리
+// ============================================================================
+
+/** 결제 기록 등록 (관리자) */
+export async function createLessonPayment(
+  enrollmentId: string,
+  data: CreatePaymentInput
+): Promise<{ error: string | null; data?: LessonPayment }> {
+  const idErr = validateId(enrollmentId, '수강 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr, user } = await checkAdminAuth()
+  if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
+
+  if (!data.amount || data.amount <= 0) return { error: '금액을 올바르게 입력해주세요.' }
+  if (!data.paid_at) return { error: '입금 날짜를 입력해주세요.' }
+  if (!data.period || !/^\d{4}-\d{2}$/.test(data.period)) {
+    return { error: '납부 월을 올바르게 입력해주세요. (예: 2026-03)' }
+  }
+
+  const admin = createAdminClient()
+  const { data: payment, error } = await admin
+    .from('lesson_payments')
+    .insert({
+      enrollment_id: enrollmentId,
+      amount: data.amount,
+      paid_at: data.paid_at,
+      method: data.method,
+      period: data.period,
+      note: data.note || null,
+      recorded_by: user.id,
+    })
+    .select()
+    .single()
+
+  if (error) return { error: '결제 기록 등록에 실패했습니다.' }
+  revalidatePath('/my/lessons')
+  return { error: null, data: payment }
+}
+
+/** 수강 결제 목록 조회 */
+export async function getEnrollmentPayments(
+  enrollmentId: string
+): Promise<{ error: string | null; data: LessonPayment[] }> {
+  const idErr = validateId(enrollmentId, '수강 ID')
+  if (idErr) return { error: idErr, data: [] }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('lesson_payments')
+    .select('*')
+    .eq('enrollment_id', enrollmentId)
+    .order('period', { ascending: false })
+
+  if (error) return { error: '결제 목록 조회에 실패했습니다.', data: [] }
+  return { error: null, data: data || [] }
+}
+
+/** 결제 삭제 (관리자) */
+export async function deleteLessonPayment(
+  paymentId: string
+): Promise<{ error: string | null }> {
+  const idErr = validateId(paymentId, '결제 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('lesson_payments')
+    .delete()
+    .eq('id', paymentId)
+
+  if (error) return { error: '결제 기록 삭제에 실패했습니다.' }
+  revalidatePath('/my/lessons')
+  return { error: null }
+}
+
+// ============================================================================
+// 나의 레슨 상세 (수강생용)
+// ============================================================================
+
+export interface MyLessonDetail {
+  enrollment: LessonEnrollment & {
+    program: LessonProgram & { coach: { name: string; profile_image_url: string | null } | null }
+  }
+  upcomingSessions: LessonSession[]
+  payments: LessonPayment[]
+  totalAttendances: number
+  thisMonthAttendances: number
+}
+
+/** 내 레슨 상세 (결제/세션/출석 포함) */
+export async function getMyLessonDetails(): Promise<{
+  error: string | null
+  data: MyLessonDetail[]
+}> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', data: [] }
+
+  const admin = createAdminClient()
+
+  // 확정된 내 수강 목록
+  const { data: enrollments, error: enrollErr } = await admin
+    .from('lesson_enrollments')
+    .select('*, program:lesson_programs(*, coach:coaches(name, profile_image_url))')
+    .eq('user_id', user.id)
+    .in('status', ['CONFIRMED', 'PENDING'])
+    .order('enrolled_at', { ascending: false })
+
+  if (enrollErr) return { error: '수강 목록 조회에 실패했습니다.', data: [] }
+  if (!enrollments || enrollments.length === 0) return { error: null, data: [] }
+
+  const now = new Date().toISOString().substring(0, 10)
+  const thisMonth = new Date().toISOString().substring(0, 7)
+
+  const details: MyLessonDetail[] = []
+
+  for (const enrollment of enrollments) {
+    // 다가오는 세션
+    const { data: sessions } = await admin
+      .from('lesson_sessions')
+      .select('*')
+      .eq('program_id', enrollment.program_id)
+      .eq('status', 'SCHEDULED')
+      .gte('session_date', now)
+      .order('session_date', { ascending: true })
+      .limit(5)
+
+    // 결제 기록
+    const { data: payments } = await admin
+      .from('lesson_payments')
+      .select('*')
+      .eq('enrollment_id', enrollment.id)
+      .order('period', { ascending: false })
+
+    // 출석 집계
+    const { count: totalAttendances } = await admin
+      .from('lesson_attendances')
+      .select('id', { count: 'exact', head: true })
+      .eq('enrollment_id', enrollment.id)
+      .in('status', ['PRESENT', 'LATE'])
+
+    // 이번 달 출석
+    const monthlyCount = (enrollment.monthly_session_count as Record<string, number>)?.[thisMonth] || 0
+
+    details.push({
+      enrollment: enrollment as unknown as MyLessonDetail['enrollment'],
+      upcomingSessions: sessions || [],
+      payments: payments || [],
+      totalAttendances: totalAttendances || 0,
+      thisMonthAttendances: monthlyCount,
+    })
+  }
+
+  return { error: null, data: details }
+}
+
+/** 일괄 세션 생성 (반복 패턴) */
+export async function createRecurringSessions(
+  programId: string,
+  slots: CreateSessionInput[]
+): Promise<{ error: string | null; count: number }> {
+  const idErr = validateId(programId, '프로그램 ID')
+  if (idErr) return { error: idErr, count: 0 }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, count: 0 }
+
+  if (slots.length === 0) return { error: '생성할 슬롯이 없습니다.', count: 0 }
+  if (slots.length > 100) return { error: '한 번에 최대 100개까지 생성 가능합니다.', count: 0 }
+
+  const admin = createAdminClient()
+  const rows = slots.map((s) => ({
+    program_id: programId,
+    session_date: s.session_date,
+    start_time: s.start_time,
+    end_time: s.end_time,
+    location: s.location || null,
+    notes: s.notes || null,
+  }))
+
+  const { data, error } = await admin
+    .from('lesson_sessions')
+    .insert(rows)
+    .select('id')
+
+  if (error) return { error: '세션 일괄 생성에 실패했습니다.', count: 0 }
+
+  revalidatePath('/lessons')
+  return { error: null, count: data?.length || 0 }
 }
