@@ -575,8 +575,10 @@ export async function getProgramCoaches(
 
   if (!program?.coach) return { error: null, data: [] }
 
-  const coach = program.coach as { id: string; name: string; profile_image_url: string | null }
-  return { error: null, data: [coach] }
+  const coachRaw = program.coach
+  const coach = Array.isArray(coachRaw) ? coachRaw[0] : coachRaw
+  if (!coach) return { error: null, data: [] }
+  return { error: null, data: [coach as { id: string; name: string; profile_image_url: string | null }] }
 }
 
 /** 프로그램 정보 조회 (요금 포함, 공개) */
