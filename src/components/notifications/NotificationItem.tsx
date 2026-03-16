@@ -16,6 +16,7 @@ import {
   DollarSign,
   UserCheck,
   Trash2,
+  MessageSquare,
 } from 'lucide-react'
 import { NotificationType, type Notification } from '@/lib/notifications/types'
 import { markAsRead, deleteNotification } from '@/lib/notifications/actions'
@@ -40,6 +41,7 @@ const NOTIFICATION_ICON_MAP: Record<
   [NotificationType.ENTRY_CANCELLED]: { icon: Ban, color: 'text-orange-500' },
   [NotificationType.PAYMENT_COMPLETED]: { icon: CreditCard, color: 'text-emerald-500' },
   [NotificationType.CLUB_JOIN_REQUESTED]: { icon: Users, color: 'text-amber-500' },
+  [NotificationType.LESSON_INQUIRY]: { icon: MessageSquare, color: 'text-teal-500' },
 }
 
 interface NotificationItemProps {
