@@ -373,3 +373,47 @@ export async function getMyRescheduleRequests(): Promise<{
   if (error) return { error: '변경 요청 조회에 실패했습니다.', data: [] }
   return { error: null, data: (data || []) as unknown as RescheduleRequestWithSession[] }
 }
+
+export interface AdminRescheduleRequest extends RescheduleRequest {
+  session: { session_date: string; start_time: string; end_time: string } | null
+  requester_name: string
+  program_title: string
+}
+
+/** 전체 일정 변경 요청 목록 조회 (관리자) */
+export async function getAdminRescheduleRequests(status?: 'PENDING' | 'APPROVED' | 'REJECTED'): Promise<{
+  error: string | null
+  data: AdminRescheduleRequest[]
+}> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, data: [] }
+
+  const admin = createAdminClient()
+
+  let query = admin
+    .from('lesson_reschedule_requests')
+    .select(`
+      *,
+      session:lesson_sessions(session_date, start_time, end_time),
+      requester:profiles!requested_by(name),
+      enrollment:lesson_enrollments(program:lesson_programs(title))
+    `)
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  if (status) query = query.eq('status', status)
+
+  const { data, error } = await query
+
+  if (error) return { error: '변경 요청 조회에 실패했습니다.', data: [] }
+
+  return {
+    error: null,
+    data: (data || []).map((r) => ({
+      ...r,
+      session: (r.session as unknown as { session_date: string; start_time: string; end_time: string } | null),
+      requester_name: (r.requester as unknown as { name: string } | null)?.name ?? '알 수 없음',
+      program_title: (r.enrollment as unknown as { program: { title: string } | null } | null)?.program?.title ?? '알 수 없음',
+    })),
+  }
+}

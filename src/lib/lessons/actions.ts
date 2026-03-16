@@ -15,6 +15,7 @@ import type {
   LessonProgramStatus,
   LessonSessionStatus,
   LessonInquiryStatus,
+  EnrollmentStatus,
   AttendanceLessonStatus,
   CreateProgramInput,
   UpdateProgramInput,
@@ -509,6 +510,64 @@ export async function cancelEnrollment(
   }
 
   revalidatePath('/lessons')
+  revalidatePath('/my/lessons')
+  return { error: null }
+}
+
+/** 수강 신청 목록 조회 (관리자) */
+export async function getAdminEnrollments(programId?: string): Promise<{
+  error: string | null
+  data: (LessonEnrollment & { user_name: string; user_email: string | null })[]
+}> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, data: [] }
+
+  const admin = createAdminClient()
+
+  let query = admin
+    .from('lesson_enrollments')
+    .select('*, user:profiles(id, name, email)')
+    .order('enrolled_at', { ascending: false })
+
+  if (programId) query = query.eq('program_id', programId)
+
+  const { data, error } = await query
+
+  if (error) return { error: '수강 목록 조회에 실패했습니다.', data: [] }
+
+  return {
+    error: null,
+    data: (data || []).map((e) => ({
+      ...e,
+      user_name: (e.user as unknown as { name: string } | null)?.name ?? '알 수 없음',
+      user_email: (e.user as unknown as { email: string } | null)?.email ?? null,
+    })),
+  }
+}
+
+/** 수강 상태 변경 (관리자) */
+export async function updateEnrollmentStatus(
+  enrollmentId: string,
+  status: EnrollmentStatus
+): Promise<{ error: string | null }> {
+  const idErr = validateId(enrollmentId, '수강 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+
+  const updateData: Record<string, unknown> = { status }
+  if (status === 'CANCELLED') updateData.cancelled_at = new Date().toISOString()
+
+  const { error } = await admin
+    .from('lesson_enrollments')
+    .update(updateData)
+    .eq('id', enrollmentId)
+
+  if (error) return { error: '수강 상태 변경에 실패했습니다.' }
+
   revalidatePath('/my/lessons')
   return { error: null }
 }

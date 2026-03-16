@@ -1,20 +1,22 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Users, BookOpen, Calendar, MessageSquare } from 'lucide-react'
+import { Users, BookOpen, Calendar, MessageSquare, GraduationCap } from 'lucide-react'
 import { CoachList } from '@/components/clubs/coaches/CoachList'
 import { AdminProgramTab } from '@/components/admin/lessons/AdminProgramTab'
 import { AdminSlotTab } from '@/components/admin/lessons/AdminSlotTab'
 import { AdminInquiryTab } from '@/components/admin/lessons/AdminInquiryTab'
+import { AdminEnrollmentTab } from '@/components/admin/lessons/AdminEnrollmentTab'
 import { getAllLessonPrograms } from '@/lib/lessons/actions'
 import type { LessonProgram } from '@/lib/lessons/types'
 
-type Tab = 'coaches' | 'programs' | 'slots' | 'inquiries'
+type Tab = 'coaches' | 'programs' | 'slots' | 'enrollments' | 'inquiries'
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
   { key: 'coaches', label: '코치 관리', icon: Users },
   { key: 'programs', label: '프로그램 관리', icon: BookOpen },
   { key: 'slots', label: '슬롯 관리', icon: Calendar },
+  { key: 'enrollments', label: '수강생 관리', icon: GraduationCap },
   { key: 'inquiries', label: '문의 관리', icon: MessageSquare },
 ]
 
@@ -94,6 +96,15 @@ export default function AdminLessonsPage() {
       <div id="tabpanel-slots" role="tabpanel" hidden={tab !== 'slots'}>
         {tab === 'slots' && (
           <AdminSlotTab
+            programs={programs}
+            programsLoading={programsLoading}
+          />
+        )}
+      </div>
+
+      <div id="tabpanel-enrollments" role="tabpanel" hidden={tab !== 'enrollments'}>
+        {tab === 'enrollments' && (
+          <AdminEnrollmentTab
             programs={programs}
             programsLoading={programsLoading}
           />
