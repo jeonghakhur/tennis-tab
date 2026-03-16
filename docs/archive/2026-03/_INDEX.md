@@ -4,3 +4,4 @@
 |---------|-----------|-----------|------|
 | tournament-awards | 91% | 2026-03-04 | [tournament-awards/](./tournament-awards/) |
 | player-bracket-view | 93% | 2026-03-04 | [player-bracket-view/](./player-bracket-view/) |
+| members-search | 98% | 2026-03-16 | [members-search/](./members-search/) |
