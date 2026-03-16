@@ -6,6 +6,7 @@ import {
   getLessonProgramDetail,
   getAllLessonSessions,
   updateSessionStatus,
+  deleteLessonSession,
   createRecurringSessions,
 } from '@/lib/lessons/actions'
 import SessionDatePicker from '@/components/clubs/sessions/SessionDatePicker'
@@ -148,7 +149,8 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [pattern, setPattern] = useState<SlotPattern>(EMPTY_PATTERN)
   const [preview, setPreview] = useState<string[]>([])
   const [submitting, setSubmitting] = useState(false)
-  const [cancelTarget, setCancelTarget] = useState<LessonSession | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LessonSession | null>(null)
+  const [statusTarget, setStatusTarget] = useState<{ session: LessonSession; newStatus: 'COMPLETED' | 'CANCELLED' } | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
@@ -241,15 +243,29 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
     await refreshSessions()
   }
 
-  const handleCancelSlot = async () => {
-    if (!cancelTarget) return
-    const result = await updateSessionStatus(cancelTarget.id, 'CANCELLED')
-    setCancelTarget(null)
+  const handleDeleteSlot = async () => {
+    if (!deleteTarget) return
+    const result = await deleteLessonSession(deleteTarget.id)
+    setDeleteTarget(null)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
       return
     }
-    setToast({ isOpen: true, message: '슬롯이 취소되었습니다.', type: 'success' })
+    setToast({ isOpen: true, message: '슬롯이 삭제되었습니다.', type: 'success' })
+    await refreshSessions()
+  }
+
+  const handleStatusChange = async () => {
+    if (!statusTarget) return
+    const { session, newStatus } = statusTarget
+    const result = await updateSessionStatus(session.id, newStatus)
+    setStatusTarget(null)
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+    const label = newStatus === 'COMPLETED' ? '완료' : '취소'
+    setToast({ isOpen: true, message: `슬롯이 ${label} 처리되었습니다.`, type: 'success' })
     await refreshSessions()
   }
 
@@ -348,16 +364,30 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                       </p>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* 상태 변경 select */}
+                      <select
+                        value={session.status}
+                        onChange={(e) => {
+                          const newStatus = e.target.value as 'COMPLETED' | 'CANCELLED'
+                          setStatusTarget({ session, newStatus })
+                        }}
+                        className="text-xs px-2 py-1 rounded-md"
+                        style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
+                        aria-label="세션 상태 변경"
+                      >
+                        <option value="SCHEDULED">예정</option>
+                        <option value="COMPLETED">완료</option>
+                        <option value="CANCELLED">취소</option>
+                      </select>
                       <Badge variant={conf.variant}>{conf.label}</Badge>
-                      {session.status === 'SCHEDULED' && (
-                        <button
-                          onClick={() => setCancelTarget(session)}
-                          className="text-xs px-2 py-1 rounded-md"
-                          style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
-                        >
-                          취소
-                        </button>
-                      )}
+                      <button
+                        onClick={() => setDeleteTarget(session)}
+                        className="text-xs px-2 py-1 rounded-md"
+                        style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
+                        aria-label="슬롯 삭제"
+                      >
+                        삭제
+                      </button>
                     </div>
                   </div>
                 )
@@ -571,12 +601,25 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
         </form>
       </Modal>
 
+      {/* 삭제 확인 */}
       <ConfirmDialog
-        isOpen={!!cancelTarget}
-        onClose={() => setCancelTarget(null)}
-        onConfirm={handleCancelSlot}
-        title="슬롯 취소"
-        message={cancelTarget ? `${formatDate(cancelTarget.session_date)} 슬롯을 취소하시겠습니까?` : ''}
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDeleteSlot}
+        title="슬롯 삭제"
+        message={deleteTarget ? `${formatDate(deleteTarget.session_date)} 슬롯을 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.` : ''}
+        type="error"
+      />
+
+      {/* 상태 변경 확인 */}
+      <ConfirmDialog
+        isOpen={!!statusTarget}
+        onClose={() => setStatusTarget(null)}
+        onConfirm={handleStatusChange}
+        title="상태 변경"
+        message={statusTarget
+          ? `${formatDate(statusTarget.session.session_date)} 슬롯을 '${statusTarget.newStatus === 'COMPLETED' ? '완료' : '취소'}' 상태로 변경하시겠습니까?`
+          : ''}
         type="warning"
       />
 

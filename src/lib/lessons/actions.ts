@@ -312,6 +312,26 @@ export async function updateSessionStatus(
   return { error: null }
 }
 
+/** 레슨 세션 삭제 (관리자 전용) */
+export async function deleteLessonSession(sessionId: string): Promise<{ error: string | null }> {
+  const idErr = validateId(sessionId, '세션 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('lesson_sessions')
+    .delete()
+    .eq('id', sessionId)
+
+  if (error) return { error: '세션 삭제에 실패했습니다.' }
+
+  revalidatePath('/lessons')
+  return { error: null }
+}
+
 /** 전체 프로그램 세션 목록 (관리자용 — 날짜 범위 필터) */
 export async function getAllLessonSessions(options?: {
   from?: string  // YYYY-MM-DD
