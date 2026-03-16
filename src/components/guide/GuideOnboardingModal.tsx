@@ -46,7 +46,7 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     title: "마이페이지로 이동",
     description:
       "우측 상단 프로필을 클릭하면 마이페이지로 바로 이동할 수 있습니다. 마이페이지에서 내 신청 현황 · 경기 기록 · 입상 내역을 한눈에 확인하세요.",
-    screenshot: "tournament-flow/02-detail-loggedin-desktop.png",
+    screenshot: "tournament-flow/02-detail-loggedin-desktop.jpg",
     screenshotMobile: "t_05.jpg",
     screenshotAlt: "프로필 메뉴에서 마이페이지 이동 화면",
   },
@@ -54,7 +54,7 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     title: "내 신청 관리",
     description:
       "마이페이지 → 신청 현황 탭에서 신청한 모든 대회를 한눈에 확인하세요. 승인 상태 · 입금 확인 · 부서 정보와 함께 대진표 보기 · 대회 보기 바로가기를 제공합니다.",
-    screenshot: "tournament-flow/15-profile-entries-desktop.png",
+    screenshot: "tournament-flow/15-profile-entries-desktop.jpg",
     screenshotMobile: "t_06.jpg",
     screenshotAlt: "마이페이지 신청 현황 탭 화면",
   },
@@ -62,7 +62,7 @@ const TOURNAMENT_SLIDES: GuideSlide[] = [
     title: "대진표 & 결과 입력",
     description:
       "대진표에서 내 경기의 결과 입력 버튼을 클릭해 직접 점수를 입력할 수 있습니다. 조별 순위와 승 · 패 · 득실점 정보도 함께 확인하세요.",
-    screenshot: "tournament-flow/17-bracket-score-entry-desktop.png",
+    screenshot: "tournament-flow/17-bracket-score-entry-desktop.jpg",
     screenshotMobile: "t_07.jpg",
     screenshotAlt: "대진표 예선 조별 순위 및 결과 입력 화면",
   },
@@ -110,14 +110,6 @@ const CLUB_SLIDES: GuideSlide[] = [
     screenshotAlt: "모임 상세 페이지 화면",
   },
   {
-    title: "참석 현황 & 멤버 확인",
-    description:
-      "참석 예정인 멤버 목록이 이름과 함께 표시됩니다. 내 참석 여부는 강조되어 쉽게 구분되고, 마감 전까지 언제든 변경할 수 있습니다.",
-    screenshot: "club-flow/sessions-04-detail-top-desktop.png",
-    screenshotMobile: "club-flow/sessions-04-detail-top-mobile.png",
-    screenshotAlt: "모임 참석 현황 화면",
-  },
-  {
     title: "경기 대진표 & 댓글",
     description:
       "모임 하단에서 당일 경기 대진표를 확인하고 결과를 입력할 수 있습니다. 댓글로 준비물·코트 상황·카풀 등 실용적인 정보를 멤버끼리 공유하세요.",
@@ -140,30 +132,6 @@ const CLUB_SLIDES: GuideSlide[] = [
     screenshot: "club-flow/rankings-03-sort-winrate-desktop.png",
     screenshotMobile: "club-flow/rankings-03-sort-winrate-mobile.png",
     screenshotAlt: "승률 정렬 화면",
-  },
-  {
-    title: "정렬 방향 전환",
-    description:
-      "컬럼 헤더를 반복 클릭해 오름차순·내림차순을 즉시 전환할 수 있습니다. 승률이 낮은 멤버부터 보고 싶을 때도 손쉽게 바꿔보세요.",
-    screenshot: "club-flow/rankings-04-sort-winrate-desc-desktop.png",
-    screenshotMobile: "club-flow/rankings-04-sort-winrate-desc-mobile.png",
-    screenshotAlt: "정렬 방향 전환 화면",
-  },
-  {
-    title: "승점 기준 정렬",
-    description:
-      "승점 컬럼으로 정렬하면 적립된 승점 순으로 순위가 바뀝니다. 승률과는 다른 관점에서 멤버 성적을 확인해보세요.",
-    screenshot: "club-flow/rankings-05-sort-winpoints-desktop.png",
-    screenshotMobile: "club-flow/rankings-05-sort-winpoints-mobile.png",
-    screenshotAlt: "승점 정렬 화면",
-  },
-  {
-    title: "기간 직접 설정",
-    description:
-      "'직접 설정' 버튼으로 원하는 날짜 범위를 지정할 수 있습니다. 특정 시즌이나 대회 기간의 성적만 골라서 비교해보세요.",
-    screenshot: "club-flow/rankings-06-custom-period-desktop.png",
-    screenshotMobile: "club-flow/rankings-06-custom-period-mobile.png",
-    screenshotAlt: "기간 직접 설정 화면",
   },
   {
     title: "개인 상세 전적 조회",
@@ -273,7 +241,9 @@ export function GuideOnboardingModal() {
 
   useEffect(() => {
     document.body.style.overflow = visible ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [visible]);
 
   const closeWithAnimation = () => {
@@ -306,7 +276,7 @@ export function GuideOnboardingModal() {
       dragYRef.current = 0;
       setDragY(0);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ── 마우스 드래그 — document 레벨 처리 (핸들 영역 밖으로 이동해도 유지) ──
@@ -337,7 +307,7 @@ export function GuideOnboardingModal() {
 
     document.addEventListener("mousemove", handleMove);
     document.addEventListener("mouseup", handleUp);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!visible) return null;
@@ -351,7 +321,8 @@ export function GuideOnboardingModal() {
         className="absolute inset-0"
         style={{
           backgroundColor: `rgba(0,0,0,${Math.max(0.1, 0.6 - dragY / (DRAG_CLOSE_THRESHOLD * 2))})`,
-          transition: isSnapping || isClosing ? "background-color 0.35s ease" : "none",
+          transition:
+            isSnapping || isClosing ? "background-color 0.35s ease" : "none",
         }}
         onClick={handleClose}
         aria-hidden="true"
@@ -371,7 +342,10 @@ export function GuideOnboardingModal() {
           border: "1px solid var(--border-color)",
           borderBottom: "none",
           transform: `translateY(${dragY}px)`,
-          transition: isSnapping || isClosing ? "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)" : "none",
+          transition:
+            isSnapping || isClosing
+              ? "transform 0.35s cubic-bezier(0.32, 0.72, 0, 1)"
+              : "none",
           willChange: "transform",
         }}
       >
@@ -400,9 +374,8 @@ export function GuideOnboardingModal() {
             style={{
               width: dragY > 20 ? "60px" : "48px",
               height: "6px",
-              backgroundColor: dragY > 20
-                ? "rgba(128,128,128,0.8)"
-                : "rgba(128,128,128,0.45)",
+              backgroundColor:
+                dragY > 20 ? "rgba(128,128,128,0.8)" : "rgba(128,128,128,0.45)",
               transition: "width 0.2s ease, background-color 0.2s ease",
             }}
           />
