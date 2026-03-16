@@ -4,12 +4,11 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, User, Users, Award, BookOpen, DollarSign } from 'lucide-react'
 import { getLessonProgramDetail } from '@/lib/lessons/actions'
-import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { AlertDialog } from '@/components/common/AlertDialog'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import { LessonEnrollButton } from './LessonEnrollButton'
 import { LessonSessionList } from './LessonSessionList'
 import { LessonInquiryForm } from './LessonInquiryForm'
-import type { LessonProgram, LessonSession, LessonEnrollment, LessonProgramStatus } from '@/lib/lessons/types'
+import type { LessonProgram, LessonSession, LessonProgramStatus } from '@/lib/lessons/types'
 
 const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: BadgeVariant }> = {
   DRAFT: { label: '준비 중', variant: 'secondary' },
@@ -20,16 +19,11 @@ const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: Badge
 
 interface LessonProgramDetailProps {
   programId: string
-  /** 현재 로그인 사용자의 profile ID */
-  myUserId?: string
-  /** 로그인 여부 */
-  isLoggedIn: boolean
 }
 
-export function LessonProgramDetail({ programId, myUserId, isLoggedIn }: LessonProgramDetailProps) {
-  const [program, setProgram] = useState<(LessonProgram & { sessions: LessonSession[]; enrollments: LessonEnrollment[] }) | null>(null)
+export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
+  const [program, setProgram] = useState<(LessonProgram & { sessions: LessonSession[] }) | null>(null)
   const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
   useEffect(() => {
@@ -48,10 +42,7 @@ export function LessonProgramDetail({ programId, myUserId, isLoggedIn }: LessonP
     setLoading(false)
   }
 
-  // 내 수강 신청 정보
-  const myEnrollment = program?.enrollments.find((e) => e.user_id === myUserId)
   const enrollCount = program?._enrollment_count || 0
-  const isFull = enrollCount >= (program?.max_participants || 0)
 
   if (loading) {
     return (
@@ -242,35 +233,9 @@ export function LessonProgramDetail({ programId, myUserId, isLoggedIn }: LessonP
           <LessonSessionList sessions={program.sessions} />
         </section>
 
-        {/* 수강 신청 버튼 — 비로그인도 표시 (로그인 유도) */}
-        <div className="mb-6">
-          <LessonEnrollButton
-            programId={programId}
-            programStatus={program.status}
-            enrollmentId={myEnrollment?.id}
-            enrollmentStatus={myEnrollment?.status}
-            isFull={isFull}
-            isLoggedIn={isLoggedIn}
-            onResult={({ error, message }) => {
-              if (error) {
-                setAlert({ isOpen: true, message: error, type: 'error' })
-              } else if (message) {
-                setToast({ isOpen: true, message, type: 'success' })
-                loadDetail()
-              }
-            }}
-          />
-        </div>
+        {/* 레슨 문의하기 — 슬롯 선택 포함, 비회원도 가능 */}
+        <LessonInquiryForm programId={programId} availableSessions={program.sessions} />
 
-        {/* 레슨 문의하기 — 비회원 포함 누구나 가능 */}
-        <LessonInquiryForm programId={programId} />
-
-        <Toast
-          isOpen={toast.isOpen}
-          onClose={() => setToast({ ...toast, isOpen: false })}
-          message={toast.message}
-          type={toast.type}
-        />
         <AlertDialog
           isOpen={alert.isOpen}
           onClose={() => setAlert({ ...alert, isOpen: false })}

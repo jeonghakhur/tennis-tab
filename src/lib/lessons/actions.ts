@@ -10,7 +10,9 @@ import type {
   LessonSession,
   LessonEnrollment,
   LessonAttendance,
+  LessonInquiry,
   LessonProgramStatus,
+  LessonInquiryStatus,
   AttendanceLessonStatus,
   CreateProgramInput,
   UpdateProgramInput,
@@ -509,6 +511,7 @@ interface LessonInquiryInput {
   name: string
   phone: string
   message: string
+  preferred_session_id?: string | null
 }
 
 /** 레슨 문의 제출 — 비로그인도 가능 */
@@ -538,7 +541,13 @@ export async function submitLessonInquiry(
 
   const { error } = await admin
     .from('lesson_inquiries')
-    .insert({ program_id: programId, name: sanitized.name, phone: sanitized.phone, message: sanitized.message })
+    .insert({
+      program_id: programId,
+      name: sanitized.name,
+      phone: sanitized.phone,
+      message: sanitized.message,
+      preferred_session_id: data.preferred_session_id || null,
+    })
 
   if (error) return { error: '문의 등록에 실패했습니다.' }
 
@@ -564,5 +573,48 @@ export async function submitLessonInquiry(
     // 알림 실패는 무시
   }
 
+  return { error: null }
+}
+
+/** 레슨 문의 목록 조회 (관리자) */
+export async function getAdminLessonInquiries(): Promise<{
+  error: string | null
+  data: LessonInquiry[]
+}> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, data: [] }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('lesson_inquiries')
+    .select('*, program:lesson_programs(id, title, coach:coaches(name)), preferred_session:lesson_sessions(id, session_date, start_time, end_time)')
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: '문의 목록 조회에 실패했습니다.', data: [] }
+  return { error: null, data: data || [] }
+}
+
+/** 레슨 문의 상태 변경 (관리자) */
+export async function updateInquiryStatus(
+  inquiryId: string,
+  status: LessonInquiryStatus,
+  adminNote?: string
+): Promise<{ error: string | null }> {
+  const idErr = validateId(inquiryId, '문의 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+  const updateData: Record<string, unknown> = { status }
+  if (adminNote !== undefined) updateData.admin_note = adminNote || null
+
+  const { error } = await admin
+    .from('lesson_inquiries')
+    .update(updateData)
+    .eq('id', inquiryId)
+
+  if (error) return { error: '상태 변경에 실패했습니다.' }
   return { error: null }
 }

@@ -184,3 +184,27 @@ export const ATTENDANCE_STATUS_LABEL: Record<AttendanceLessonStatus, string> = {
   ABSENT: '결석',
   LATE: '지각',
 }
+
+// ─── 레슨 문의 ───────────────────────────────────────────────────────────────
+
+export type LessonInquiryStatus = 'PENDING' | 'RESPONDED' | 'CLOSED'
+
+export interface LessonInquiry {
+  id: string
+  program_id: string
+  name: string
+  phone: string
+  message: string
+  preferred_session_id: string | null
+  status: LessonInquiryStatus
+  admin_note: string | null
+  created_at: string
+  // JOIN 결과
+  program?: { id: string; title: string; coach?: { name: string } | null } | null
+  preferred_session?: {
+    id: string
+    session_date: string
+    start_time: string
+    end_time: string
+  } | null
+}
