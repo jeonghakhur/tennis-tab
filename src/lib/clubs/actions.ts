@@ -701,6 +701,78 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
   return {}
 }
 
+/** 비로그인 사용자 가입 신청 (이름+연락처 입력 → PENDING) */
+export async function joinClubAsGuest(
+  clubId: string,
+  guestName: string,
+  guestPhone: string,
+  introduction?: string,
+): Promise<{ error?: string }> {
+  const idError = validateId(clubId, '클럽 ID')
+  if (idError) return { error: idError }
+
+  const sanitizedName = sanitizeInput(guestName.trim())
+  const sanitizedPhone = sanitizeInput(guestPhone.trim())
+  if (!sanitizedName) return { error: '이름을 입력해주세요.' }
+  if (!sanitizedPhone) return { error: '연락처를 입력해주세요.' }
+  if (sanitizedName.length > 50) return { error: '이름은 50자 이내로 입력해주세요.' }
+  if (!/^[0-9+\-\s]{7,20}$/.test(sanitizedPhone)) return { error: '유효한 연락처를 입력해주세요.' }
+
+  let sanitizedIntro: string | null = null
+  if (introduction && introduction.trim()) {
+    sanitizedIntro = sanitizeInput(introduction.trim())
+    if (sanitizedIntro.length > 500) return { error: '소개는 500자 이내로 입력해주세요.' }
+  }
+
+  const admin = createAdminClient()
+
+  const { data: club } = await admin
+    .from('clubs')
+    .select('id, name, join_type, is_active')
+    .eq('id', clubId)
+    .single()
+
+  if (!club) return { error: '클럽을 찾을 수 없습니다.' }
+  if (!club.is_active) return { error: '비활성화된 클럽입니다.' }
+  if (club.join_type === 'INVITE_ONLY') return { error: '이 클럽은 초대로만 가입할 수 있습니다.' }
+
+  const { error } = await admin.from('club_members').insert({
+    club_id: clubId,
+    user_id: null,
+    is_registered: false,
+    name: sanitizedName,
+    phone: sanitizedPhone,
+    role: 'MEMBER',
+    status: 'PENDING',
+    introduction: sanitizedIntro,
+  })
+
+  if (error) return { error: '가입 신청에 실패했습니다.' }
+
+  // 클럽 OWNER/ADMIN에게 가입 신청 알림
+  try {
+    const { data: admins } = await admin
+      .from('club_members')
+      .select('user_id')
+      .eq('club_id', clubId)
+      .in('role', ['OWNER', 'ADMIN'])
+      .eq('status', 'ACTIVE')
+    const adminUserIds = (admins ?? []).map(a => a.user_id).filter(Boolean) as string[]
+    if (adminUserIds.length > 0) {
+      await createBulkNotifications({
+        user_ids: adminUserIds,
+        type: NotificationType.CLUB_JOIN_REQUESTED,
+        title: '클럽 가입 신청',
+        message: `${sanitizedName}님이 클럽 가입을 신청했습니다.`,
+        club_id: clubId,
+        metadata: { link: `/admin/clubs/${clubId}` },
+      })
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+
+  return {}
+}
+
 /** 가입 회원 초대 (owner/admin) */
 export async function inviteMember(clubId: string, userId: string): Promise<{ error?: string }> {
   const idError = validateId(clubId, '클럽 ID') || validateId(userId, '사용자 ID')

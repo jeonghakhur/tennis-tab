@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter, useSearchParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, joinClubAsRegistered, leaveClub, getMyMembershipInClub } from '@/lib/clubs/actions'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, leaveClub, getMyMembershipInClub } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
@@ -13,7 +13,6 @@ import SessionForm from '@/components/clubs/sessions/SessionForm'
 import RankingsTab from '@/components/clubs/sessions/RankingsTab'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
-import { Modal } from '@/components/common/Modal'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy, Calendar, BarChart3 } from 'lucide-react'
 
@@ -58,7 +57,6 @@ type PublicMember = {
 
 export default function ClubDetailPage() {
   const { id } = useParams<{ id: string }>()
-  const router = useRouter()
   const searchParams = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
 
@@ -103,9 +101,6 @@ export default function ClubDetailPage() {
       return new Set([...prev, tab])
     })
   }
-
-  const [joinModalOpen, setJoinModalOpen] = useState(false)
-  const [introduction, setIntroduction] = useState('')
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
@@ -204,40 +199,6 @@ export default function ClubDetailPage() {
         .catch(() => setAwardsLoading(false))
     )
   }, [activeTab, id, club])
-
-  const handleJoin = () => {
-    if (!user) {
-      router.push('/auth/login')
-      return
-    }
-
-    // APPROVAL 클럽: 자기소개 모달 열기 / OPEN 클럽: 즉시 가입
-    if (club?.join_type === 'APPROVAL') {
-      setJoinModalOpen(true)
-    } else {
-      submitJoin()
-    }
-  }
-
-  const submitJoin = async (intro?: string) => {
-    setJoinModalOpen(false)
-    setActionLoading(true)
-    const result = await joinClubAsRegistered(id, intro || undefined)
-    setActionLoading(false)
-
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
-
-    const message = club?.join_type === 'OPEN'
-      ? '클럽에 가입되었습니다!'
-      : '가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.'
-    setToast({ isOpen: true, message, type: 'success' })
-    setIntroduction('')
-    loadClubData(true)   // silent: 스켈레톤 플래시 방지
-    checkMembership()
-  }
 
   const handleLeave = async () => {
     setConfirmLeave(false)
@@ -355,23 +316,14 @@ export default function ClubDetailPage() {
               {/* 가입 안내 */}
               <div className="mt-6 pt-4 border-t text-center space-y-3" style={{ borderColor: 'var(--border-color)' }}>
                 <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  클럽에 가입하면 회원 목록과 상세 정보를 볼 수 있습니다.
+                  클럽 상세 정보는 가입 후 이용할 수 있습니다.
                 </p>
-                {club.join_type !== 'INVITE_ONLY' ? (
-                  <button
-                    onClick={handleJoin}
-                    className="btn-primary btn-sm"
-                  >
-                    {club.join_type === 'OPEN' ? '가입하기' : '가입 신청'}
-                  </button>
-                ) : (
-                  <span
-                    className="inline-block text-xs px-3 py-1 rounded-full"
-                    style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-muted)' }}
-                  >
-                    초대 전용 클럽입니다
-                  </span>
-                )}
+                <Link
+                  href="/clubs"
+                  className="inline-block btn-primary btn-sm"
+                >
+                  클럽 목록에서 가입 신청하기
+                </Link>
               </div>
             </div>
           ) : (
@@ -677,62 +629,6 @@ export default function ClubDetailPage() {
         type="warning"
       />
 
-      {/* 가입 신청 모달 (APPROVAL 클럽) */}
-      <Modal
-        isOpen={joinModalOpen}
-        onClose={() => setJoinModalOpen(false)}
-        title="클럽 가입 신청"
-        description={`${club.name}에 가입 신청합니다.`}
-        size="md"
-      >
-        <Modal.Body>
-          <div>
-            <label
-              htmlFor="join-introduction"
-              className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}
-            >
-              자기소개 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
-            </label>
-            <textarea
-              id="join-introduction"
-              value={introduction}
-              onChange={(e) => setIntroduction(e.target.value)}
-              maxLength={500}
-              rows={4}
-              placeholder="테니스 경력, 활동 가능 시간 등을 간단히 소개해주세요."
-              className="w-full px-3 py-2.5 rounded-lg text-sm resize-none"
-              style={{
-                backgroundColor: 'var(--bg-input)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-              }}
-            />
-            <p
-              className="text-xs mt-1 text-right"
-              style={{ color: 'var(--text-muted)' }}
-              aria-live="polite"
-            >
-              {introduction.length} / 500
-            </p>
-          </div>
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            onClick={() => setJoinModalOpen(false)}
-            className="flex-1 px-4 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-          >
-            취소
-          </button>
-          <button
-            onClick={() => submitJoin(introduction)}
-            className="flex-1 btn-primary btn-sm"
-          >
-            가입 신청
-          </button>
-        </Modal.Footer>
-      </Modal>
     </>
   )
 }
