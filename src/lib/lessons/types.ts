@@ -1,4 +1,5 @@
 // 레슨 시스템 타입 정의
+// 코치/레슨은 클럽과 독립 운영
 
 // ─── ENUM 타입 ───────────────────────────────────────────────────────────────
 
@@ -13,7 +14,6 @@ export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED'
 
 export interface Coach {
   id: string
-  club_id: string
   name: string
   bio: string | null
   experience: string | null
@@ -45,7 +45,6 @@ export interface UpdateCoachInput {
 
 export interface LessonProgram {
   id: string
-  club_id: string
   coach_id: string
   title: string
   description: string | null
@@ -106,14 +105,14 @@ export interface CreateSessionInput {
 export interface LessonEnrollment {
   id: string
   program_id: string
-  member_id: string
+  user_id: string
   status: EnrollmentStatus
   monthly_session_count: Record<string, number>
   enrolled_at: string
   cancelled_at: string | null
   // JOIN 결과
-  member?: { id: string; name: string; phone: string | null } | null
-  program?: { id: string; title: string; club_id: string } | null
+  user?: { id: string; name: string } | null
+  program?: { id: string; title: string; coach: { name: string } | null } | null
 }
 
 // ─── 출석 ────────────────────────────────────────────────────────────────────
@@ -127,7 +126,7 @@ export interface LessonAttendance {
   // JOIN 결과
   enrollment?: {
     id: string
-    member?: { id: string; name: string } | null
+    user?: { id: string; name: string } | null
   } | null
 }
 

@@ -1,6 +1,7 @@
 -- ============================================================================
 -- 테니스 레슨 시스템 (coaches, lesson_programs, lesson_sessions,
 --   lesson_enrollments, lesson_attendances, lesson_reschedule_requests)
+-- 코치/레슨은 클럽과 독립된 개인사업자 단위로 운영
 -- ============================================================================
 
 -- ENUM 타입
@@ -12,9 +13,9 @@ CREATE TYPE reschedule_requester    AS ENUM ('ADMIN', 'MEMBER');
 CREATE TYPE reschedule_status       AS ENUM ('PENDING', 'APPROVED', 'REJECTED');
 
 -- ─── coaches ─────────────────────────────────────────────────────────────────
+-- 코치는 클럽 소속이 아닌 독립 개인사업자
 CREATE TABLE coaches (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  club_id             UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
   name                TEXT NOT NULL,
   bio                 TEXT,
   experience          TEXT,
@@ -26,24 +27,21 @@ CREATE TABLE coaches (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_coaches_club_id ON coaches(club_id);
-
 ALTER TABLE coaches ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "coaches_select" ON coaches FOR SELECT USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = coaches.club_id AND user_id = auth.uid() AND status = 'ACTIVE')
+-- 공개 조회 (활성 코치만)
+CREATE POLICY "coaches_public_select" ON coaches FOR SELECT USING (is_active = true);
+-- 시스템 관리자만 등록/수정
+CREATE POLICY "coaches_admin_insert" ON coaches FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
-CREATE POLICY "coaches_insert" ON coaches FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = coaches.club_id AND user_id = auth.uid() AND role IN ('OWNER', 'ADMIN') AND status = 'ACTIVE')
-);
-CREATE POLICY "coaches_update" ON coaches FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = coaches.club_id AND user_id = auth.uid() AND role IN ('OWNER', 'ADMIN') AND status = 'ACTIVE')
+CREATE POLICY "coaches_admin_update" ON coaches FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 
 -- ─── lesson_programs ─────────────────────────────────────────────────────────
 CREATE TABLE lesson_programs (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  club_id             UUID NOT NULL REFERENCES clubs(id) ON DELETE CASCADE,
   coach_id            UUID NOT NULL REFERENCES coaches(id),
   title               TEXT NOT NULL,
   description         TEXT,
@@ -56,22 +54,22 @@ CREATE TABLE lesson_programs (
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_lesson_programs_club_id ON lesson_programs(club_id);
 CREATE INDEX idx_lesson_programs_coach_id ON lesson_programs(coach_id);
+CREATE INDEX idx_lesson_programs_status ON lesson_programs(status);
 
 ALTER TABLE lesson_programs ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "lesson_programs_select" ON lesson_programs FOR SELECT USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = lesson_programs.club_id AND user_id = auth.uid() AND status = 'ACTIVE')
+-- DRAFT 제외 공개 조회
+CREATE POLICY "lesson_programs_public_select" ON lesson_programs FOR SELECT USING (status != 'DRAFT');
+-- 시스템 관리자만 CRUD
+CREATE POLICY "lesson_programs_admin_insert" ON lesson_programs FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
-CREATE POLICY "lesson_programs_insert" ON lesson_programs FOR INSERT WITH CHECK (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = lesson_programs.club_id AND user_id = auth.uid() AND role IN ('OWNER', 'ADMIN') AND status = 'ACTIVE')
+CREATE POLICY "lesson_programs_admin_update" ON lesson_programs FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
-CREATE POLICY "lesson_programs_update" ON lesson_programs FOR UPDATE USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = lesson_programs.club_id AND user_id = auth.uid() AND role IN ('OWNER', 'ADMIN') AND status = 'ACTIVE')
-);
-CREATE POLICY "lesson_programs_delete" ON lesson_programs FOR DELETE USING (
-  EXISTS (SELECT 1 FROM club_members WHERE club_id = lesson_programs.club_id AND user_id = auth.uid() AND role IN ('OWNER', 'ADMIN') AND status = 'ACTIVE')
+CREATE POLICY "lesson_programs_admin_delete" ON lesson_programs FOR DELETE USING (
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 
 -- ─── lesson_sessions ─────────────────────────────────────────────────────────
@@ -94,59 +92,43 @@ CREATE INDEX idx_lesson_sessions_date ON lesson_sessions(session_date);
 
 ALTER TABLE lesson_sessions ENABLE ROW LEVEL SECURITY;
 
--- lesson_sessions는 program → club 조인 필요
-CREATE POLICY "lesson_sessions_select" ON lesson_sessions FOR SELECT USING (
-  EXISTS (
-    SELECT 1 FROM lesson_programs lp
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE lp.id = lesson_sessions.program_id AND cm.user_id = auth.uid() AND cm.status = 'ACTIVE'
-  )
+CREATE POLICY "lesson_sessions_public_select" ON lesson_sessions FOR SELECT USING (
+  EXISTS (SELECT 1 FROM lesson_programs lp WHERE lp.id = lesson_sessions.program_id AND lp.status != 'DRAFT')
 );
 CREATE POLICY "lesson_sessions_admin_write" ON lesson_sessions FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM lesson_programs lp
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE lp.id = lesson_sessions.program_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-  )
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 
 -- ─── lesson_enrollments ──────────────────────────────────────────────────────
+-- 클럽 회원이 아닌 서비스 가입 사용자(profiles)가 직접 신청
 CREATE TABLE lesson_enrollments (
   id                    UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   program_id            UUID NOT NULL REFERENCES lesson_programs(id) ON DELETE CASCADE,
-  member_id             UUID NOT NULL REFERENCES club_members(id) ON DELETE CASCADE,
+  user_id               UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
   status                enrollment_status NOT NULL DEFAULT 'PENDING',
   monthly_session_count JSONB NOT NULL DEFAULT '{}',
   enrolled_at           TIMESTAMPTZ NOT NULL DEFAULT now(),
   cancelled_at          TIMESTAMPTZ,
 
-  UNIQUE(program_id, member_id)
+  UNIQUE(program_id, user_id)
 );
 
 CREATE INDEX idx_lesson_enrollments_program_id ON lesson_enrollments(program_id);
-CREATE INDEX idx_lesson_enrollments_member_id ON lesson_enrollments(member_id);
+CREATE INDEX idx_lesson_enrollments_user_id ON lesson_enrollments(user_id);
 
 ALTER TABLE lesson_enrollments ENABLE ROW LEVEL SECURITY;
 
--- 본인 or 어드민만 접근
+-- 본인 or 관리자
 CREATE POLICY "enrollments_select" ON lesson_enrollments FOR SELECT USING (
-  member_id IN (SELECT id FROM club_members WHERE user_id = auth.uid())
-  OR EXISTS (
-    SELECT 1 FROM lesson_programs lp
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE lp.id = lesson_enrollments.program_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-  )
+  user_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 CREATE POLICY "enrollments_insert" ON lesson_enrollments FOR INSERT WITH CHECK (
-  member_id IN (SELECT id FROM club_members WHERE user_id = auth.uid() AND status = 'ACTIVE')
+  user_id = auth.uid()
 );
 CREATE POLICY "enrollments_update" ON lesson_enrollments FOR UPDATE USING (
-  member_id IN (SELECT id FROM club_members WHERE user_id = auth.uid())
-  OR EXISTS (
-    SELECT 1 FROM lesson_programs lp
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE lp.id = lesson_enrollments.program_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-  )
+  user_id = auth.uid()
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 
 -- ─── lesson_attendances ──────────────────────────────────────────────────────
@@ -167,24 +149,12 @@ ALTER TABLE lesson_attendances ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "attendances_select" ON lesson_attendances FOR SELECT USING (
   EXISTS (
     SELECT 1 FROM lesson_enrollments le
-    WHERE le.id = lesson_attendances.enrollment_id
-    AND (
-      le.member_id IN (SELECT id FROM club_members WHERE user_id = auth.uid())
-      OR EXISTS (
-        SELECT 1 FROM lesson_programs lp
-        JOIN club_members cm ON cm.club_id = lp.club_id
-        WHERE lp.id = le.program_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-      )
-    )
+    WHERE le.id = lesson_attendances.enrollment_id AND le.user_id = auth.uid()
   )
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 CREATE POLICY "attendances_admin_write" ON lesson_attendances FOR ALL USING (
-  EXISTS (
-    SELECT 1 FROM lesson_enrollments le
-    JOIN lesson_programs lp ON lp.id = le.program_id
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE le.id = lesson_attendances.enrollment_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-  )
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 
 -- ─── lesson_reschedule_requests ──────────────────────────────────────────────
@@ -213,21 +183,11 @@ ALTER TABLE lesson_reschedule_requests ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "reschedule_select" ON lesson_reschedule_requests FOR SELECT USING (
   requested_by = auth.uid()
-  OR EXISTS (
-    SELECT 1 FROM lesson_sessions ls
-    JOIN lesson_programs lp ON lp.id = ls.program_id
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE ls.id = lesson_reschedule_requests.session_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-  )
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );
 CREATE POLICY "reschedule_insert" ON lesson_reschedule_requests FOR INSERT WITH CHECK (
   requested_by = auth.uid()
 );
 CREATE POLICY "reschedule_update" ON lesson_reschedule_requests FOR UPDATE USING (
-  EXISTS (
-    SELECT 1 FROM lesson_sessions ls
-    JOIN lesson_programs lp ON lp.id = ls.program_id
-    JOIN club_members cm ON cm.club_id = lp.club_id
-    WHERE ls.id = lesson_reschedule_requests.session_id AND cm.user_id = auth.uid() AND cm.role IN ('OWNER', 'ADMIN') AND cm.status = 'ACTIVE'
-  )
+  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND role IN ('SUPER_ADMIN', 'ADMIN'))
 );

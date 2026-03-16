@@ -2,6 +2,50 @@
 
 All notable changes to the Tennis-Tab project are documented here.
 
+## [2026-03-16] - Club Members Unified Search Complete
+
+### Added
+- `/admin/clubs/members` unified members search page for admins/managers
+- `getAllClubMembers()` server action with role-based filtering (ADMIN: all clubs, MANAGER: managed clubs only)
+- `AllMembersSearch` client component with:
+  - Korean initial-consonant search support (초성 검색) via `matchesKoreanSearch`
+  - Phone number partial search
+  - URL query parameter synchronization (`?q=`) with 300ms debounce
+  - Role badges and registration status display
+- `MemberWithClub` type definition (`src/lib/clubs/types.ts`)
+- "전체 회원 검색" (View All Members) button in `/admin/clubs` page
+- "클럽 회원 검색" menu item in AdminSidebar
+
+### Changed
+- `src/app/admin/clubs/page.tsx`: Added unified search button in both empty and populated club list branches
+
+### Fixed
+- Gender column value inconsistency via migration `36_fix_gender_values.sql`
+- Missing "View All Members" button in main club list branch (Design gap Medium → resolved)
+
+### Testing
+- Gap analysis: 98% design match rate (45/45 items verified)
+- Playwright E2E tests: 1000+ members loading, multi-field search, URL sync, navigation
+- TypeScript strict mode: ✅ tsc --noEmit passed
+- Build verification: ✅ next build passed
+
+### Documentation
+- Plan document: `docs/01-plan/features/members-search.plan.md`
+- Design document: `docs/02-design/features/members-search.design.md`
+- Analysis report: `docs/03-analysis/members-search.analysis.md`
+- Completion report: `docs/04-report/features/members-search.report.md`
+
+### Accessibility
+- Semantic HTML: proper use of `<Link>`, `<nav>`, `<h1>`
+- ARIA labels: input `aria-label="회원 검색"`
+- Keyboard navigation: all interactive elements accessible
+
+### PDCA Status
+- Plan ✅, Design ✅, Do ✅, Check ✅ (98% match), Act ✅
+- Ready for production deployment
+
+---
+
 ## [2026-03-05] - Bracket Active Round Management Complete
 
 ### Added

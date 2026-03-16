@@ -103,7 +103,6 @@ export default function MyLessonsPage() {
               const programData = enrollment.program as unknown as {
                 id: string
                 title: string
-                club_id: string
                 coach?: { name: string } | null
               } | null
               const statusConf = ENROLLMENT_STATUS_CONFIG[enrollment.status]
@@ -121,7 +120,7 @@ export default function MyLessonsPage() {
                     <div className="min-w-0">
                       {programData ? (
                         <Link
-                          href={`/clubs/${programData.club_id}/lessons/${programData.id}`}
+                          href={`/lessons/${programData.id}`}
                           className="font-medium text-sm hover:underline"
                           style={{ color: 'var(--text-primary)' }}
                         >

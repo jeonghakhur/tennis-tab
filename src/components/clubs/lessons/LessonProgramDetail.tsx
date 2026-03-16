@@ -20,14 +20,13 @@ const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: Badge
 
 interface LessonProgramDetailProps {
   programId: string
-  clubId: string
-  /** 현재 사용자의 club_member ID (없으면 비회원) */
-  myMemberId?: string
+  /** 현재 로그인 사용자의 profile ID */
+  myUserId?: string
   /** 로그인 여부 */
   isLoggedIn: boolean
 }
 
-export function LessonProgramDetail({ programId, clubId, myMemberId, isLoggedIn }: LessonProgramDetailProps) {
+export function LessonProgramDetail({ programId, myUserId, isLoggedIn }: LessonProgramDetailProps) {
   const [program, setProgram] = useState<(LessonProgram & { sessions: LessonSession[]; enrollments: LessonEnrollment[] }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
@@ -50,7 +49,7 @@ export function LessonProgramDetail({ programId, clubId, myMemberId, isLoggedIn 
   }
 
   // 내 수강 신청 정보
-  const myEnrollment = program?.enrollments.find((e) => e.member_id === myMemberId)
+  const myEnrollment = program?.enrollments.find((e) => e.user_id === myUserId)
   const enrollCount = program?._enrollment_count || 0
   const isFull = enrollCount >= (program?.max_participants || 0)
 
@@ -71,7 +70,7 @@ export function LessonProgramDetail({ programId, clubId, myMemberId, isLoggedIn 
       <div className="max-w-content mx-auto px-6 py-12 text-center">
         <p style={{ color: 'var(--text-muted)' }}>프로그램을 찾을 수 없습니다.</p>
         <Link
-          href={`/clubs/${clubId}?tab=lessons`}
+          href="/lessons"
           className="text-sm mt-4 inline-block hover:underline"
           style={{ color: 'var(--accent-color)' }}
         >
@@ -88,7 +87,7 @@ export function LessonProgramDetail({ programId, clubId, myMemberId, isLoggedIn 
       <div className="max-w-content mx-auto px-6 py-12">
         {/* 뒤로가기 */}
         <Link
-          href={`/clubs/${clubId}?tab=lessons`}
+          href="/lessons"
           className="inline-flex items-center gap-1.5 text-sm mb-6 hover:underline"
           style={{ color: 'var(--text-muted)' }}
         >

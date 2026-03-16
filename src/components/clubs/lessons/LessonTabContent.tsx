@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { getLessonPrograms } from '@/lib/lessons/actions'
+import { getAllLessonPrograms } from '@/lib/lessons/actions'
 import { LessonProgramCard } from './LessonProgramCard'
 import type { LessonProgram } from '@/lib/lessons/types'
 
@@ -21,7 +21,7 @@ export function LessonTabContent({ clubId, isAdmin, onCreateProgram }: LessonTab
   }, [clubId])
 
   const loadPrograms = async () => {
-    const { data } = await getLessonPrograms(clubId)
+    const { data } = await getAllLessonPrograms()
     setPrograms(data)
     setLoading(false)
   }

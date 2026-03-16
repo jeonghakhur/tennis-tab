@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { getCoachesByClub, createCoach, updateCoach, deactivateCoach } from '@/lib/coaches/actions'
+import { getAllCoaches, createCoach, updateCoach, deactivateCoach } from '@/lib/coaches/actions'
 import { Toast } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { CoachCard } from './CoachCard'
@@ -27,13 +27,13 @@ export function CoachList({ clubId, isAdmin }: CoachListProps) {
   }, [clubId])
 
   const loadCoaches = async () => {
-    const { data } = await getCoachesByClub(clubId)
+    const { data } = await getAllCoaches()
     setCoaches(data)
     setLoading(false)
   }
 
   const handleCreate = async (data: CreateCoachInput) => {
-    const result = await createCoach(clubId, data)
+    const result = await createCoach(data)
     if (!result.error) {
       setToast({ isOpen: true, message: '코치가 등록되었습니다.', type: 'success' })
       loadCoaches()

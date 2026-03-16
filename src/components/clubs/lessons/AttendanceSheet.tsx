@@ -85,7 +85,7 @@ export function AttendanceSheet({ sessionId, enrollments }: AttendanceSheetProps
       <div className="space-y-2">
         {confirmedEnrollments.map((enrollment) => {
           const currentStatus = getAttendanceStatus(enrollment.id)
-          const memberName = enrollment.member?.name || '알 수 없음'
+          const memberName = enrollment.user?.name || '알 수 없음'
 
           return (
             <div

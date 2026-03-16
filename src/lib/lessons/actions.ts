@@ -28,28 +28,13 @@ function validateId(id: string, fieldName: string): string | null {
   return null
 }
 
-/** 클럽 OWNER/ADMIN 권한 확인 */
-async function checkClubAdminAuth(clubId: string) {
+/** SUPER_ADMIN / ADMIN 권한 확인 */
+async function checkAdminAuth() {
   const user = await getCurrentUser()
   if (!user) return { error: '로그인이 필요합니다.', user: null }
-
-  if (user.role === 'SUPER_ADMIN' || user.role === 'ADMIN') {
-    return { error: null, user }
+  if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
+    return { error: '관리자 권한이 필요합니다.', user: null }
   }
-
-  const admin = createAdminClient()
-  const { data: member } = await admin
-    .from('club_members')
-    .select('role')
-    .eq('club_id', clubId)
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-    .single()
-
-  if (!member || !['OWNER', 'ADMIN'].includes(member.role)) {
-    return { error: '클럽 관리 권한이 없습니다.', user: null }
-  }
-
   return { error: null, user }
 }
 
@@ -59,13 +44,9 @@ async function checkClubAdminAuth(clubId: string) {
 
 /** 레슨 프로그램 생성 */
 export async function createLessonProgram(
-  clubId: string,
   data: CreateProgramInput
 ): Promise<{ error: string | null; data?: LessonProgram }> {
-  const idErr = validateId(clubId, '클럽 ID')
-  if (idErr) return { error: idErr }
-
-  const { error: authErr, user } = await checkClubAdminAuth(clubId)
+  const { error: authErr, user } = await checkAdminAuth()
   if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
 
   if (!data.title || data.title.trim().length < 2) {
@@ -82,7 +63,6 @@ export async function createLessonProgram(
   const { data: program, error } = await admin
     .from('lesson_programs')
     .insert({
-      club_id: clubId,
       coach_id: sanitized.coach_id,
       title: sanitized.title,
       description: sanitized.description || null,
@@ -96,7 +76,7 @@ export async function createLessonProgram(
 
   if (error) return { error: '프로그램 생성에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath('/lessons')
   return { error: null, data: program }
 }
 
@@ -108,17 +88,7 @@ export async function updateLessonProgram(
   const idErr = validateId(programId, '프로그램 ID')
   if (idErr) return { error: idErr }
 
-  const admin = createAdminClient()
-
-  const { data: program } = await admin
-    .from('lesson_programs')
-    .select('club_id')
-    .eq('id', programId)
-    .single()
-
-  if (!program) return { error: '프로그램을 찾을 수 없습니다.' }
-
-  const { error: authErr } = await checkClubAdminAuth(program.club_id)
+  const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
   const sanitized = sanitizeObject(data)
@@ -130,6 +100,7 @@ export async function updateLessonProgram(
   if (sanitized.max_participants !== undefined) updateData.max_participants = sanitized.max_participants
   if (sanitized.fee_description !== undefined) updateData.fee_description = sanitized.fee_description || null
 
+  const admin = createAdminClient()
   const { error } = await admin
     .from('lesson_programs')
     .update(updateData)
@@ -137,7 +108,7 @@ export async function updateLessonProgram(
 
   if (error) return { error: '프로그램 수정에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${program.club_id}`)
+  revalidatePath('/lessons')
   return { error: null }
 }
 
@@ -149,19 +120,10 @@ export async function updateProgramStatus(
   const idErr = validateId(programId, '프로그램 ID')
   if (idErr) return { error: idErr }
 
-  const admin = createAdminClient()
-
-  const { data: program } = await admin
-    .from('lesson_programs')
-    .select('club_id')
-    .eq('id', programId)
-    .single()
-
-  if (!program) return { error: '프로그램을 찾을 수 없습니다.' }
-
-  const { error: authErr } = await checkClubAdminAuth(program.club_id)
+  const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
+  const admin = createAdminClient()
   const { error } = await admin
     .from('lesson_programs')
     .update({ status, updated_at: new Date().toISOString() })
@@ -169,20 +131,20 @@ export async function updateProgramStatus(
 
   if (error) return { error: '상태 변경에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${program.club_id}`)
+  revalidatePath('/lessons')
   return { error: null }
 }
 
-/** 전체 공개 레슨 프로그램 목록 조회 (OPEN 상태만, 클럽 정보 포함) */
+/** 전체 공개 레슨 프로그램 목록 (OPEN 상태) */
 export async function getAllOpenLessonPrograms(): Promise<{
   error: string | null
-  data: (LessonProgram & { club: { id: string; name: string } | null })[]
+  data: LessonProgram[]
 }> {
   const admin = createAdminClient()
 
   const { data: programs, error } = await admin
     .from('lesson_programs')
-    .select('*, coach:coaches(*), club:clubs(id, name)')
+    .select('*, coach:coaches(*)')
     .eq('status', 'OPEN')
     .order('created_at', { ascending: false })
 
@@ -203,34 +165,26 @@ export async function getAllOpenLessonPrograms(): Promise<{
 
   return {
     error: null,
-    data: programs.map((p) => ({
-      ...p,
-      _enrollment_count: countMap.get(p.id) || 0,
-    })),
+    data: programs.map((p) => ({ ...p, _enrollment_count: countMap.get(p.id) || 0 })),
   }
 }
 
-/** 클럽 레슨 프로그램 목록 조회 */
-export async function getLessonPrograms(
-  clubId: string
-): Promise<{ error: string | null; data: LessonProgram[] }> {
-  const idErr = validateId(clubId, '클럽 ID')
-  if (idErr) return { error: idErr, data: [] }
-
+/** 레슨 프로그램 목록 (관리자용 — 전체 상태 포함) */
+export async function getAllLessonPrograms(): Promise<{
+  error: string | null
+  data: LessonProgram[]
+}> {
   const admin = createAdminClient()
 
   const { data: programs, error } = await admin
     .from('lesson_programs')
     .select('*, coach:coaches(*)')
-    .eq('club_id', clubId)
     .order('created_at', { ascending: false })
 
-  if (error) return { error: '프로그램 목록 조회에 실패했습니다.', data: [] }
+  if (error) return { error: '레슨 목록 조회에 실패했습니다.', data: [] }
+  if (!programs || programs.length === 0) return { error: null, data: [] }
 
-  // 수강 인원 카운트
-  const programIds = (programs || []).map((p) => p.id)
-  if (programIds.length === 0) return { error: null, data: [] }
-
+  const programIds = programs.map((p) => p.id)
   const { data: counts } = await admin
     .from('lesson_enrollments')
     .select('program_id')
@@ -242,12 +196,10 @@ export async function getLessonPrograms(
     countMap.set(c.program_id, (countMap.get(c.program_id) || 0) + 1)
   }
 
-  const result = (programs || []).map((p) => ({
-    ...p,
-    _enrollment_count: countMap.get(p.id) || 0,
-  }))
-
-  return { error: null, data: result }
+  return {
+    error: null,
+    data: programs.map((p) => ({ ...p, _enrollment_count: countMap.get(p.id) || 0 })),
+  }
 }
 
 /** 레슨 프로그램 상세 조회 */
@@ -267,22 +219,19 @@ export async function getLessonProgramDetail(
 
   if (error || !program) return { error: '프로그램을 찾을 수 없습니다.' }
 
-  // 세션 목록
   const { data: sessions } = await admin
     .from('lesson_sessions')
     .select('*')
     .eq('program_id', programId)
     .order('session_date', { ascending: true })
 
-  // 수강 신청 목록 (어드민용)
   const { data: enrollments } = await admin
     .from('lesson_enrollments')
-    .select('*, member:club_members(id, name, phone)')
+    .select('*, user:profiles(id, name)')
     .eq('program_id', programId)
     .neq('status', 'CANCELLED')
-    .order('enrolled_at', { ascending: true })
 
-  const enrollmentCount = (enrollments || []).filter(
+  const enrollCount = (enrollments || []).filter(
     (e) => e.status === 'CONFIRMED' || e.status === 'PENDING'
   ).length
 
@@ -290,7 +239,7 @@ export async function getLessonProgramDetail(
     error: null,
     data: {
       ...program,
-      _enrollment_count: enrollmentCount,
+      _enrollment_count: enrollCount,
       sessions: sessions || [],
       enrollments: enrollments || [],
     },
@@ -301,71 +250,42 @@ export async function getLessonProgramDetail(
 // 레슨 세션 CRUD
 // ============================================================================
 
-/** 세션 추가 */
+/** 레슨 세션 등록 */
 export async function createLessonSession(
   programId: string,
   data: CreateSessionInput
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null; data?: LessonSession }> {
   const idErr = validateId(programId, '프로그램 ID')
   if (idErr) return { error: idErr }
 
-  const admin = createAdminClient()
-
-  const { data: program } = await admin
-    .from('lesson_programs')
-    .select('club_id')
-    .eq('id', programId)
-    .single()
-
-  if (!program) return { error: '프로그램을 찾을 수 없습니다.' }
-
-  const { error: authErr } = await checkClubAdminAuth(program.club_id)
+  const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
-  if (!data.session_date || !data.start_time || !data.end_time) {
-    return { error: '날짜와 시간을 모두 입력해주세요.' }
-  }
-
-  const sanitized = sanitizeObject(data)
-  const { error } = await admin
+  const admin = createAdminClient()
+  const { data: session, error } = await admin
     .from('lesson_sessions')
-    .insert({
-      program_id: programId,
-      session_date: sanitized.session_date,
-      start_time: sanitized.start_time,
-      end_time: sanitized.end_time,
-      location: sanitized.location || null,
-      notes: sanitized.notes || null,
-    })
+    .insert({ program_id: programId, ...data })
+    .select()
+    .single()
 
-  if (error) return { error: '세션 추가에 실패했습니다.' }
+  if (error) return { error: '세션 등록에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${program.club_id}`)
-  return { error: null }
+  revalidatePath('/lessons')
+  return { error: null, data: session }
 }
 
-/** 세션 상태 변경 */
+/** 레슨 세션 상태 변경 */
 export async function updateSessionStatus(
   sessionId: string,
-  status: 'SCHEDULED' | 'COMPLETED' | 'CANCELLED'
+  status: 'COMPLETED' | 'CANCELLED'
 ): Promise<{ error: string | null }> {
   const idErr = validateId(sessionId, '세션 ID')
   if (idErr) return { error: idErr }
 
-  const admin = createAdminClient()
-
-  const { data: session } = await admin
-    .from('lesson_sessions')
-    .select('program_id, lesson_programs(club_id)')
-    .eq('id', sessionId)
-    .single()
-
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
-
-  const clubId = (session as unknown as { lesson_programs: { club_id: string } }).lesson_programs.club_id
-  const { error: authErr } = await checkClubAdminAuth(clubId)
+  const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
+  const admin = createAdminClient()
   const { error } = await admin
     .from('lesson_sessions')
     .update({ status })
@@ -373,7 +293,7 @@ export async function updateSessionStatus(
 
   if (error) return { error: '세션 상태 변경에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath('/lessons')
   return { error: null }
 }
 
@@ -393,34 +313,22 @@ export async function enrollLesson(
 
   const admin = createAdminClient()
 
-  // 프로그램 조회
   const { data: program } = await admin
     .from('lesson_programs')
-    .select('club_id, max_participants, status')
+    .select('max_participants, status')
     .eq('id', programId)
     .single()
 
   if (!program) return { error: '프로그램을 찾을 수 없습니다.' }
   if (program.status !== 'OPEN') return { error: '모집 중인 프로그램이 아닙니다.' }
 
-  // 클럽 회원 확인
-  const { data: member } = await admin
-    .from('club_members')
-    .select('id')
-    .eq('club_id', program.club_id)
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-    .single()
-
-  if (!member) return { error: '클럽 회원만 수강 신청할 수 있습니다.' }
-
   // 이미 신청했는지 확인
   const { data: existing } = await admin
     .from('lesson_enrollments')
     .select('id, status')
     .eq('program_id', programId)
-    .eq('member_id', member.id)
-    .single()
+    .eq('user_id', user.id)
+    .maybeSingle()
 
   if (existing && existing.status !== 'CANCELLED') {
     return { error: '이미 수강 신청한 프로그램입니다.' }
@@ -433,40 +341,33 @@ export async function enrollLesson(
     .eq('program_id', programId)
     .in('status', ['CONFIRMED', 'PENDING'])
 
-  const currentCount = count || 0
-  const enrollStatus = currentCount < program.max_participants ? 'CONFIRMED' : 'WAITLISTED'
+  const enrollStatus = (count || 0) < program.max_participants ? 'CONFIRMED' : 'WAITLISTED'
 
-  // 기존 취소 건이 있으면 업데이트, 없으면 신규 생성
+  // 기존 취소 건 재신청
   if (existing && existing.status === 'CANCELLED') {
     const { data: enrollment, error } = await admin
       .from('lesson_enrollments')
-      .update({
-        status: enrollStatus,
-        enrolled_at: new Date().toISOString(),
-        cancelled_at: null,
-      })
+      .update({ status: enrollStatus, enrolled_at: new Date().toISOString(), cancelled_at: null })
       .eq('id', existing.id)
       .select()
       .single()
 
     if (error) return { error: '수강 신청에 실패했습니다.' }
-    revalidatePath(`/clubs/${program.club_id}`)
+    revalidatePath('/lessons')
+    revalidatePath('/my/lessons')
     return { error: null, data: enrollment }
   }
 
   const { data: enrollment, error } = await admin
     .from('lesson_enrollments')
-    .insert({
-      program_id: programId,
-      member_id: member.id,
-      status: enrollStatus,
-    })
+    .insert({ program_id: programId, user_id: user.id, status: enrollStatus })
     .select()
     .single()
 
   if (error) return { error: '수강 신청에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${program.club_id}`)
+  revalidatePath('/lessons')
+  revalidatePath('/my/lessons')
   return { error: null, data: enrollment }
 }
 
@@ -484,35 +385,24 @@ export async function cancelEnrollment(
 
   const { data: enrollment } = await admin
     .from('lesson_enrollments')
-    .select('id, program_id, member_id, status, member:club_members(user_id)')
+    .select('id, program_id, user_id, status')
     .eq('id', enrollmentId)
     .single()
 
   if (!enrollment) return { error: '신청 정보를 찾을 수 없습니다.' }
-
-  // 본인 확인
-  const memberUserId = (enrollment as unknown as { member: { user_id: string } }).member.user_id
-  if (memberUserId !== user.id) {
-    return { error: '본인의 신청만 취소할 수 있습니다.' }
-  }
-
-  if (enrollment.status === 'CANCELLED') {
-    return { error: '이미 취소된 신청입니다.' }
-  }
+  if (enrollment.user_id !== user.id) return { error: '본인의 신청만 취소할 수 있습니다.' }
+  if (enrollment.status === 'CANCELLED') return { error: '이미 취소된 신청입니다.' }
 
   const wasCONFIRMED = enrollment.status === 'CONFIRMED'
 
   const { error } = await admin
     .from('lesson_enrollments')
-    .update({
-      status: 'CANCELLED',
-      cancelled_at: new Date().toISOString(),
-    })
+    .update({ status: 'CANCELLED', cancelled_at: new Date().toISOString() })
     .eq('id', enrollmentId)
 
   if (error) return { error: '수강 취소에 실패했습니다.' }
 
-  // 대기자 자동 승격: CONFIRMED 취소 시 첫 번째 WAITLISTED를 CONFIRMED로
+  // 대기자 자동 승격
   if (wasCONFIRMED) {
     const { data: nextWaiting } = await admin
       .from('lesson_enrollments')
@@ -531,14 +421,7 @@ export async function cancelEnrollment(
     }
   }
 
-  // 프로그램의 클럽 ID 조회 후 revalidate
-  const { data: program } = await admin
-    .from('lesson_programs')
-    .select('club_id')
-    .eq('id', enrollment.program_id)
-    .single()
-
-  if (program) revalidatePath(`/clubs/${program.club_id}`)
+  revalidatePath('/lessons')
   revalidatePath('/my/lessons')
   return { error: null }
 }
@@ -553,21 +436,10 @@ export async function getMyEnrollments(): Promise<{
 
   const admin = createAdminClient()
 
-  // 유저의 모든 club_member ID
-  const { data: members } = await admin
-    .from('club_members')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
-
-  if (!members || members.length === 0) return { error: null, data: [] }
-
-  const memberIds = members.map((m) => m.id)
-
   const { data: enrollments, error } = await admin
     .from('lesson_enrollments')
-    .select('*, program:lesson_programs(id, title, club_id, coach:coaches(name))')
-    .in('member_id', memberIds)
+    .select('*, program:lesson_programs(id, title, coach:coaches(name))')
+    .eq('user_id', user.id)
     .neq('status', 'CANCELLED')
     .order('enrolled_at', { ascending: false })
 
@@ -580,7 +452,7 @@ export async function getMyEnrollments(): Promise<{
 // 출석 관리
 // ============================================================================
 
-/** 출석 기록 (어드민) */
+/** 출석 기록 (관리자) */
 export async function recordAttendance(
   sessionId: string,
   enrollmentId: string,
@@ -591,37 +463,21 @@ export async function recordAttendance(
   const enrollErr = validateId(enrollmentId, '신청 ID')
   if (enrollErr) return { error: enrollErr }
 
-  const admin = createAdminClient()
-
-  // 세션 → 프로그램 → 클럽 확인
-  const { data: session } = await admin
-    .from('lesson_sessions')
-    .select('program_id, lesson_programs(club_id)')
-    .eq('id', sessionId)
-    .single()
-
-  if (!session) return { error: '세션을 찾을 수 없습니다.' }
-
-  const clubId = (session as unknown as { lesson_programs: { club_id: string } }).lesson_programs.club_id
-  const { error: authErr } = await checkClubAdminAuth(clubId)
+  const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
-  // upsert — 같은 세션+수강에 대해 중복 방지
+  const admin = createAdminClient()
+
   const { error } = await admin
     .from('lesson_attendances')
     .upsert(
-      {
-        session_id: sessionId,
-        enrollment_id: enrollmentId,
-        status,
-        recorded_at: new Date().toISOString(),
-      },
+      { session_id: sessionId, enrollment_id: enrollmentId, status, recorded_at: new Date().toISOString() },
       { onConflict: 'session_id,enrollment_id' }
     )
 
   if (error) return { error: '출석 기록에 실패했습니다.' }
 
-  revalidatePath(`/clubs/${clubId}`)
+  revalidatePath('/lessons')
   return { error: null }
 }
 
@@ -636,7 +492,7 @@ export async function getSessionAttendances(
 
   const { data, error } = await admin
     .from('lesson_attendances')
-    .select('*, enrollment:lesson_enrollments(id, member:club_members(id, name))')
+    .select('*, enrollment:lesson_enrollments(id, user:profiles(id, name))')
     .eq('session_id', sessionId)
     .order('recorded_at', { ascending: true })
 
@@ -672,51 +528,40 @@ export async function submitLessonInquiry(
 
   const admin = createAdminClient()
 
-  // 프로그램 → 클럽 ID 조회
   const { data: program } = await admin
     .from('lesson_programs')
-    .select('club_id, title')
+    .select('title')
     .eq('id', programId)
     .single()
 
   if (!program) return { error: '프로그램을 찾을 수 없습니다.' }
 
-  // 문의 저장
   const { error } = await admin
     .from('lesson_inquiries')
-    .insert({
-      program_id: programId,
-      club_id: program.club_id,
-      name: sanitized.name,
-      phone: sanitized.phone,
-      message: sanitized.message,
-    })
+    .insert({ program_id: programId, name: sanitized.name, phone: sanitized.phone, message: sanitized.message })
 
   if (error) return { error: '문의 등록에 실패했습니다.' }
 
-  // 클럽 어드민에게 알림 발송 (실패해도 문의 등록은 성공)
+  // SUPER_ADMIN / ADMIN에게 알림 발송 (실패 무시)
   try {
     const { data: admins } = await admin
-      .from('club_members')
-      .select('user_id')
-      .eq('club_id', program.club_id)
-      .in('role', ['OWNER', 'ADMIN'])
-      .eq('status', 'ACTIVE')
+      .from('profiles')
+      .select('id')
+      .in('role', ['SUPER_ADMIN', 'ADMIN'])
 
     if (admins && admins.length > 0) {
       for (const adm of admins) {
         await createNotification({
-          user_id: adm.user_id,
+          user_id: adm.id,
           type: 'LESSON_INQUIRY',
           title: '레슨 문의가 접수되었습니다',
           message: `[${program.title}] ${sanitized.name}님이 문의를 남겼습니다.`,
-          club_id: program.club_id,
           metadata: { program_id: programId },
         })
       }
     }
   } catch {
-    // 알림 실패는 무시 — 문의 저장은 이미 완료
+    // 알림 실패는 무시
   }
 
   return { error: null }

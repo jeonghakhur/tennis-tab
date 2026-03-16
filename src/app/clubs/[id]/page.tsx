@@ -15,8 +15,7 @@ import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
-import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy, Calendar, BarChart3, BookOpen } from 'lucide-react'
-import { LessonTabContent } from '@/components/clubs/lessons/LessonTabContent'
+import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy, Calendar, BarChart3 } from 'lucide-react'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 모듈 레벨 캐시: 뒤로가기 시 컴포넌트 remount 후에도 스켈레톤 없이 즉시 렌더링
@@ -83,7 +82,7 @@ export default function ClubDetailPage() {
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
   const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
-  const validTabs = ['sessions', 'rankings', 'lessons', 'info', 'awards', 'manage'] as const
+  const validTabs = ['sessions', 'rankings', 'info', 'awards', 'manage'] as const
   type ActiveTab = typeof validTabs[number]
   const initialTab = (validTabs.includes(searchParams.get('tab') as ActiveTab)
     ? searchParams.get('tab')
@@ -486,7 +485,6 @@ export default function ClubDetailPage() {
                 const tabs = [
                   { key: 'sessions', icon: <Calendar className="w-4 h-4" />, label: '모임' },
                   { key: 'rankings', icon: <BarChart3 className="w-4 h-4" />, label: '순위' },
-                  { key: 'lessons', icon: <BookOpen className="w-4 h-4" />, label: '레슨' },
                   { key: 'info', icon: <Users className="w-4 h-4" />, label: '회원' },
                   { key: 'awards', icon: <Trophy className="w-4 h-4" />, label: '입상' },
                   ...(isOfficer ? [{ key: 'manage', icon: <Settings className="w-4 h-4" />, label: '관리' }] : []),
@@ -543,16 +541,6 @@ export default function ClubDetailPage() {
                     clubId={id}
                     myMemberId={myMembership?.id}
                     isOfficer={!!isOfficer}
-                  />
-                )}
-              </div>
-
-              {/* 레슨 탭 */}
-              <div className={`mt-4${activeTab !== 'lessons' ? ' hidden' : ''}`}>
-                {mountedTabs.has('lessons') && (
-                  <LessonTabContent
-                    clubId={id}
-                    isAdmin={!!isOfficer && ['OWNER', 'ADMIN'].includes(myMembership?.role || '')}
                   />
                 )}
               </div>
