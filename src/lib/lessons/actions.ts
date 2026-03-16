@@ -957,3 +957,39 @@ export async function createRecurringSessions(
   revalidatePath('/lessons')
   return { error: null, count: data?.length || 0 }
 }
+
+/** 달력용: 특정 프로그램 목록의 월별 세션 조회 */
+export async function getCoachSessionsForMonth(
+  programIds: string[],
+  year: number,
+  month: number,
+): Promise<{ error: string | null; data: Array<LessonSession & { program_title: string }> }> {
+  if (!programIds.length) return { error: null, data: [] }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, data: [] }
+
+  const admin = createAdminClient()
+  const startDate = `${year}-${String(month).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month, 0).getDate()
+  const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`
+
+  const { data, error } = await admin
+    .from('lesson_sessions')
+    .select('*, program:lesson_programs(title)')
+    .in('program_id', programIds)
+    .gte('session_date', startDate)
+    .lte('session_date', endDate)
+    .order('session_date', { ascending: true })
+    .order('start_time', { ascending: true })
+
+  if (error) return { error: '세션 조회에 실패했습니다.', data: [] }
+
+  return {
+    error: null,
+    data: (data || []).map((s) => ({
+      ...s,
+      program_title: (s.program as unknown as { title: string } | null)?.title ?? '',
+    })),
+  }
+}
