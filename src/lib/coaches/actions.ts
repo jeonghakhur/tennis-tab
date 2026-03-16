@@ -117,6 +117,217 @@ export async function updateCoach(
   return { error: null }
 }
 
+// ============================================================================
+// 공개 조회 (비로그인 가능)
+// ============================================================================
+
+/** 공개 코치 카드 데이터 (레슨 안내 메인용) */
+export interface PublicCoachCard {
+  id: string
+  name: string
+  bio: string | null
+  certifications: string[]
+  profileImageUrl: string | null
+  /** 대표 프로그램 ID (가장 최신 OPEN) */
+  programId: string | null
+  sessionDurationMinutes: number | null
+  /** 최저 요금 요약 (예: "주중 1회 120,000원~") */
+  feeSummary: string | null
+  /** 오늘 이후 OPEN 슬롯 수 */
+  openSlotCount: number
+}
+
+/** 코치 공개 목록 — 비로그인도 조회 가능, OPEN 프로그램이 있는 활성 코치만 */
+export async function getPublicCoaches(): Promise<{
+  error: string | null
+  data: PublicCoachCard[]
+}> {
+  const admin = createAdminClient()
+
+  // OPEN + is_visible 프로그램과 코치 JOIN
+  const { data: programs, error } = await admin
+    .from('lesson_programs')
+    .select('*, coach:coaches(id, name, bio, certifications, profile_image_url, is_active)')
+    .eq('status', 'OPEN')
+    .eq('is_visible', true)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: '코치 목록 조회에 실패했습니다.', data: [] }
+  if (!programs || programs.length === 0) return { error: null, data: [] }
+
+  // 코치별 대표 프로그램 그룹핑
+  const coachMap = new Map<string, typeof programs[number]>()
+  for (const p of programs) {
+    const coach = Array.isArray(p.coach) ? p.coach[0] : p.coach
+    if (!coach?.is_active) continue
+    if (!coachMap.has(p.coach_id)) {
+      coachMap.set(p.coach_id, p)
+    }
+  }
+
+  const representativePrograms = [...coachMap.values()]
+  const programIds = representativePrograms.map((p) => p.id)
+
+  // OPEN 슬롯 수 집계
+  const today = new Date().toISOString().substring(0, 10)
+  const { data: slots } = await admin
+    .from('lesson_slots')
+    .select('program_id')
+    .in('program_id', programIds)
+    .eq('status', 'OPEN')
+    .gte('slot_date', today)
+
+  const slotCountMap = new Map<string, number>()
+  for (const s of slots || []) {
+    slotCountMap.set(s.program_id, (slotCountMap.get(s.program_id) || 0) + 1)
+  }
+
+  // 요금 요약 생성
+  const FEE_FIELDS: Array<{ key: string; label: string }> = [
+    { key: 'fee_weekday_1', label: '주중 1회' },
+    { key: 'fee_weekday_2', label: '주중 2회' },
+    { key: 'fee_weekend_1', label: '주말 1회' },
+    { key: 'fee_weekend_2', label: '주말 2회' },
+    { key: 'fee_mixed_2', label: '혼합 2회' },
+  ]
+
+  const cards: PublicCoachCard[] = representativePrograms.map((p) => {
+    const coach = Array.isArray(p.coach) ? p.coach[0] : p.coach
+
+    // 최저가 요약
+    let feeSummary: string | null = null
+    let minAmount = Infinity
+    let minLabel = ''
+    for (const { key, label } of FEE_FIELDS) {
+      const amount = (p as Record<string, unknown>)[key]
+      if (typeof amount === 'number' && amount > 0 && amount < minAmount) {
+        minAmount = amount
+        minLabel = label
+      }
+    }
+    if (minAmount < Infinity) {
+      feeSummary = `${minLabel} ${minAmount.toLocaleString()}원~`
+    }
+
+    return {
+      id: coach?.id || p.coach_id,
+      name: coach?.name || '미정',
+      bio: coach?.bio || null,
+      certifications: coach?.certifications || [],
+      profileImageUrl: coach?.profile_image_url || null,
+      programId: p.id,
+      sessionDurationMinutes: p.session_duration_minutes,
+      feeSummary,
+      openSlotCount: slotCountMap.get(p.id) || 0,
+    }
+  })
+
+  return { error: null, data: cards }
+}
+
+/** 공개 코치 상세 — 비로그인 접근 가능 */
+export interface PublicCoachDetail {
+  id: string
+  name: string
+  bio: string | null
+  experience: string | null
+  certifications: string[]
+  profileImageUrl: string | null
+  /** 연결된 OPEN 프로그램 */
+  program: {
+    id: string
+    title: string
+    sessionDurationMinutes: number
+    feeWeekday1: number | null
+    feeWeekday2: number | null
+    feeWeekend1: number | null
+    feeWeekend2: number | null
+    feeMixed2: number | null
+  } | null
+  /** 이번 주 빈 슬롯 날짜들 (중복 제거) */
+  availableDates: string[]
+}
+
+export async function getPublicCoachDetail(coachId: string): Promise<{
+  error: string | null
+  data: PublicCoachDetail | null
+}> {
+  const idErr = validateId(coachId, '코치 ID')
+  if (idErr) return { error: idErr, data: null }
+
+  const admin = createAdminClient()
+
+  // 코치 기본 정보
+  const { data: coach, error: coachErr } = await admin
+    .from('coaches')
+    .select('*')
+    .eq('id', coachId)
+    .eq('is_active', true)
+    .single()
+
+  if (coachErr || !coach) return { error: '코치를 찾을 수 없습니다.', data: null }
+
+  // 대표 OPEN 프로그램
+  const { data: programs } = await admin
+    .from('lesson_programs')
+    .select('*')
+    .eq('coach_id', coachId)
+    .eq('status', 'OPEN')
+    .eq('is_visible', true)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  const prog = programs?.[0] || null
+
+  // 이번 주 빈 슬롯 날짜
+  const today = new Date()
+  const todayStr = today.toISOString().substring(0, 10)
+  // 이번 주 일요일까지
+  const endOfWeek = new Date(today)
+  endOfWeek.setDate(today.getDate() + (7 - today.getDay()))
+  const endStr = endOfWeek.toISOString().substring(0, 10)
+
+  let availableDates: string[] = []
+  if (prog) {
+    const { data: slots } = await admin
+      .from('lesson_slots')
+      .select('slot_date')
+      .eq('program_id', prog.id)
+      .eq('status', 'OPEN')
+      .gte('slot_date', todayStr)
+      .lte('slot_date', endStr)
+      .order('slot_date')
+
+    // 중복 제거
+    availableDates = [...new Set((slots || []).map((s) => s.slot_date))]
+  }
+
+  return {
+    error: null,
+    data: {
+      id: coach.id,
+      name: coach.name,
+      bio: coach.bio,
+      experience: coach.experience,
+      certifications: coach.certifications || [],
+      profileImageUrl: coach.profile_image_url,
+      program: prog
+        ? {
+            id: prog.id,
+            title: prog.title,
+            sessionDurationMinutes: prog.session_duration_minutes,
+            feeWeekday1: prog.fee_weekday_1,
+            feeWeekday2: prog.fee_weekday_2,
+            feeWeekend1: prog.fee_weekend_1,
+            feeWeekend2: prog.fee_weekend_2,
+            feeMixed2: prog.fee_mixed_2,
+          }
+        : null,
+      availableDates,
+    },
+  }
+}
+
 /** 코치 비활성화 */
 export async function deactivateCoach(coachId: string): Promise<{ error: string | null }> {
   const idErr = validateId(coachId, '코치 ID')
