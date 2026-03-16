@@ -39,7 +39,14 @@
 |------|------|
 | 클럽 어드민 | 슬롯 생성/삭제, 코치별 슬롯 관리, 회원 직접 배정 |
 | 코치 (어드민 대리) | 어드민이 코치 대신 슬롯 및 배정 관리 |
-| 클럽 회원 | 빈 슬롯 1~2개 선택 후 신청 |
+| 클럽 회원 (로그인) | 빈 슬롯 1~2개 선택 후 신청 |
+| 비회원 (비로그인) | 이름 + 연락처 입력 후 빈 슬롯 1~2개 선택 신청 가능 |
+
+> **비회원 신청 정책:**
+> - 로그인 없이 이름, 연락처(전화번호) 입력으로 신청 가능
+> - 신청 완료 후 어드민에게 알림 발송
+> - 어드민이 확인 후 수동 확정 (PENDING → CONFIRMED)
+> - 비회원 신청은 `lesson_bookings` 테이블에 `guest_name`, `guest_phone` 컬럼으로 저장
 
 ---
 
@@ -170,15 +177,20 @@
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
 | id | uuid | PK |
-| member_id | uuid | FK → club_members |
+| member_id | uuid | FK → club_members (로그인 회원, nullable) |
+| guest_name | text | 비회원 이름 (비회원 신청 시) |
+| guest_phone | text | 비회원 연락처 (비회원 신청 시) |
 | slot_ids | uuid[] | 선택한 슬롯 ID 배열 (1~2개) |
 | slot_count | int | 선택 슬롯 수 (1 or 2) |
 | booking_type | enum | `WEEKDAY_1` / `WEEKEND_1` / `WEEKDAY_2` / `WEEKEND_2` / `MIXED_2` |
 | fee_amount | int | 적용 요금 (원) |
 | status | enum | `PENDING` / `CONFIRMED` / `CANCELLED` |
+| is_guest | boolean | 비회원 신청 여부 |
 | confirmed_at | timestamptz | |
 | cancelled_at | timestamptz | |
 | created_at | timestamptz | |
+
+> `member_id`와 `guest_name/phone` 중 하나만 존재 (회원 또는 비회원)
 
 ### `lesson_programs` 테이블 요금 컬럼 추가
 
@@ -205,16 +217,19 @@
 | FR-04 | 특정 슬롯에 회원 직접 배정 (OPEN → LOCKED) |
 | FR-05 | 달력 뷰로 슬롯 현황 확인 |
 
-### 슬롯 신청 (회원)
+### 슬롯 신청 (회원 / 비회원 공통)
 
 | ID | 요구사항 |
 |----|---------|
-| FR-10 | 코치 선택 후 해당 코치의 빈 슬롯만 표시 |
+| FR-10 | 코치 선택 후 해당 코치의 빈 슬롯만 표시 (로그인 불필요) |
 | FR-11 | 슬롯 최대 2개 선택 (주중/주말 혼합 가능) |
 | FR-12 | 슬롯 선택 시 실시간 요금 계산 및 표시 |
-| FR-13 | 신청 완료 시 슬롯 상태 BOOKED 변경 |
-| FR-14 | 신청 취소 시 슬롯 상태 OPEN으로 복구 |
-| FR-15 | 내 예약 현황 조회 |
+| FR-13 | 비회원 → 이름/연락처 입력 후 신청 (PENDING 상태) |
+| FR-14 | 로그인 회원 → 바로 신청 (PENDING 상태, 어드민 확정 후 CONFIRMED) |
+| FR-15 | 신청 완료 시 슬롯 상태 BOOKED 변경 |
+| FR-16 | 신청 취소 시 슬롯 상태 OPEN으로 복구 |
+| FR-17 | 로그인 회원: 내 예약 현황 조회 |
+| FR-18 | 비회원 신청 시 어드민에게 알림 발송 (확정 요청) |
 
 ### 요금 계산
 
