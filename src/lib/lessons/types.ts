@@ -63,6 +63,10 @@ export interface LessonProgram {
   fee_weekend_1: number | null
   /** 수강료: 주말 2회 월 요금 */
   fee_weekend_2: number | null
+  /** 수강료: 주중+주말 혼합 2회 월 요금 */
+  fee_mixed_2: number | null
+  /** 슬롯 단위 시간 (분, 기본 30) */
+  slot_duration_minutes: number
   /** 프론트 노출 여부 */
   is_visible: boolean
   status: LessonProgramStatus

@@ -1,0 +1,149 @@
+// 레슨 슬롯 기반 예약 시스템 타입 정의
+
+// ─── ENUM 타입 ───────────────────────────────────────────────────────────────
+
+export type LessonSlotStatus = 'OPEN' | 'BLOCKED' | 'LOCKED' | 'BOOKED' | 'CANCELLED'
+export type LessonSlotDayType = 'WEEKDAY' | 'WEEKEND'
+export type LessonBookingStatus = 'PENDING' | 'CONFIRMED' | 'CANCELLED'
+export type LessonBookingType = 'WEEKDAY_1' | 'WEEKEND_1' | 'WEEKDAY_2' | 'WEEKEND_2' | 'MIXED_2'
+
+// ─── 레슨 슬롯 ──────────────────────────────────────────────────────────────
+
+export interface LessonSlot {
+  id: string
+  program_id: string
+  coach_id: string
+  slot_date: string        // 'YYYY-MM-DD'
+  start_time: string       // 'HH:MM:SS'
+  end_time: string         // 'HH:MM:SS'
+  day_type: LessonSlotDayType
+  status: LessonSlotStatus
+  locked_member_id: string | null
+  notes: string | null
+  created_by: string
+  created_at: string
+  updated_at: string
+  // JOIN 결과
+  locked_member?: { id: string; name: string } | null
+  booking?: LessonBooking | null
+}
+
+export interface CreateSlotInput {
+  slot_date: string        // 'YYYY-MM-DD'
+  start_time: string       // 'HH:MM'
+  end_time: string         // 'HH:MM'
+}
+
+export interface CreateRepeatingSlotsInput {
+  slots: CreateSlotInput[]
+  weeks?: number           // 반복 주수 (기본 1)
+}
+
+// ─── 레슨 예약 ──────────────────────────────────────────────────────────────
+
+export interface LessonBooking {
+  id: string
+  member_id: string | null
+  guest_name: string | null
+  guest_phone: string | null
+  is_guest: boolean
+  slot_ids: string[]
+  slot_count: number       // 1 or 2
+  booking_type: LessonBookingType
+  fee_amount: number | null
+  status: LessonBookingStatus
+  confirmed_at: string | null
+  cancelled_at: string | null
+  cancel_reason: string | null
+  admin_note: string | null
+  created_at: string
+  updated_at: string
+  // JOIN 결과
+  member?: { id: string; name: string } | null
+  slots?: LessonSlot[]
+}
+
+export interface CreateBookingInput {
+  slot_ids: string[]
+  // 회원일 때
+  member_id?: string
+  // 비회원일 때
+  guest_name?: string
+  guest_phone?: string
+}
+
+// ─── 상수 & 라벨 ────────────────────────────────────────────────────────────
+
+export const SLOT_STATUS_LABEL: Record<LessonSlotStatus, string> = {
+  OPEN: '빈 슬롯',
+  BLOCKED: '비공개',
+  LOCKED: '배정됨',
+  BOOKED: '예약됨',
+  CANCELLED: '취소됨',
+}
+
+export const BOOKING_STATUS_LABEL: Record<LessonBookingStatus, string> = {
+  PENDING: '대기',
+  CONFIRMED: '확정',
+  CANCELLED: '취소',
+}
+
+export const BOOKING_TYPE_LABEL: Record<LessonBookingType, string> = {
+  WEEKDAY_1: '주중 1회',
+  WEEKEND_1: '주말 1회',
+  WEEKDAY_2: '주중 2회',
+  WEEKEND_2: '주말 2회',
+  MIXED_2: '주중+주말 혼합 2회',
+}
+
+// ─── 레슨 가능 시간 ─────────────────────────────────────────────────────────
+
+/** 요일별 레슨 가능 시간 (0=일, 1=월, ... 6=토) */
+export const LESSON_AVAILABLE_HOURS: Record<number, { start: string; end: string }> = {
+  0: { start: '06:30', end: '10:00' },  // 일
+  1: { start: '06:30', end: '19:30' },  // 월
+  2: { start: '06:30', end: '19:30' },  // 화
+  3: { start: '06:30', end: '14:00' },  // 수
+  4: { start: '06:30', end: '19:30' },  // 목
+  5: { start: '06:30', end: '14:00' },  // 금
+  6: { start: '06:30', end: '10:00' },  // 토
+}
+
+/** 날짜 문자열로 주중/주말 구분 */
+export function getDayType(dateStr: string): LessonSlotDayType {
+  const day = new Date(dateStr + 'T00:00:00').getDay()
+  return day === 0 || day === 6 ? 'WEEKEND' : 'WEEKDAY'
+}
+
+/** 슬롯 시간이 해당 요일 가능 시간 범위 내인지 검증 */
+export function isTimeInRange(dateStr: string, startTime: string, endTime: string): boolean {
+  const day = new Date(dateStr + 'T00:00:00').getDay()
+  const range = LESSON_AVAILABLE_HOURS[day]
+  if (!range) return false
+  return startTime >= range.start && endTime <= range.end
+}
+
+/** 선택한 슬롯들로 booking_type 계산 */
+export function calculateBookingType(slots: LessonSlot[]): LessonBookingType {
+  if (slots.length === 1) {
+    return slots[0].day_type === 'WEEKDAY' ? 'WEEKDAY_1' : 'WEEKEND_1'
+  }
+  // 2개
+  const weekday = slots.filter((s) => s.day_type === 'WEEKDAY').length
+  const weekend = slots.filter((s) => s.day_type === 'WEEKEND').length
+  if (weekday === 2) return 'WEEKDAY_2'
+  if (weekend === 2) return 'WEEKEND_2'
+  return 'MIXED_2'
+}
+
+/** booking_type에 맞는 프로그램 요금 필드 반환 */
+export function getFeeFieldByBookingType(bookingType: LessonBookingType): string {
+  const map: Record<LessonBookingType, string> = {
+    WEEKDAY_1: 'fee_weekday_1',
+    WEEKEND_1: 'fee_weekend_1',
+    WEEKDAY_2: 'fee_weekday_2',
+    WEEKEND_2: 'fee_weekend_2',
+    MIXED_2: 'fee_mixed_2',
+  }
+  return map[bookingType]
+}

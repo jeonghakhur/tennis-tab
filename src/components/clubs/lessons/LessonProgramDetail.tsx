@@ -8,6 +8,7 @@ import { AlertDialog } from '@/components/common/AlertDialog'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { LessonSessionList } from './LessonSessionList'
 import { LessonInquiryForm } from './LessonInquiryForm'
+import { SlotBookingSection } from './SlotBookingSection'
 import type { LessonProgram, LessonSession, LessonProgramStatus } from '@/lib/lessons/types'
 
 const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: BadgeVariant }> = {
@@ -195,7 +196,7 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
         </section>
 
         {/* 수강료 */}
-        {(program.fee_weekday_1 || program.fee_weekday_2 || program.fee_weekend_1 || program.fee_weekend_2) && (
+        {(program.fee_weekday_1 || program.fee_weekday_2 || program.fee_weekend_1 || program.fee_weekend_2 || program.fee_mixed_2) && (
           <section
             className="glass-card rounded-xl p-4 mb-4"
             aria-labelledby="fee-section-title"
@@ -217,6 +218,7 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
                 { key: 'fee_weekday_2', label: '주중 2회', value: program.fee_weekday_2 },
                 { key: 'fee_weekend_1', label: '주말 1회', value: program.fee_weekend_1 },
                 { key: 'fee_weekend_2', label: '주말 2회', value: program.fee_weekend_2 },
+                { key: 'fee_mixed_2', label: '혼합 2회', value: program.fee_mixed_2 },
               ] as const).filter((item) => item.value !== null).map(({ key, label, value }) => (
                 <div
                   key={key}
@@ -248,6 +250,15 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
           </h2>
           <LessonSessionList sessions={program.sessions} />
         </section>
+
+        {/* 슬롯 기반 레슨 신청 (비회원 포함) */}
+        {program.coach && (
+          <SlotBookingSection
+            programId={programId}
+            coachId={program.coach_id}
+            coachName={program.coach.name}
+          />
+        )}
 
         {/* 레슨 문의하기 — 슬롯 선택 포함, 비회원도 가능 */}
         <LessonInquiryForm programId={programId} availableSessions={program.sessions} />
