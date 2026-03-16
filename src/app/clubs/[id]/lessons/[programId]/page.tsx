@@ -43,6 +43,7 @@ export default function LessonProgramPage() {
       programId={programId}
       clubId={clubId}
       myMemberId={myMemberId}
+      isLoggedIn={!!user}
     />
   )
 }

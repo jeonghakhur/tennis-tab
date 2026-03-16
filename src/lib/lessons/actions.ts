@@ -3,7 +3,8 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { revalidatePath } from 'next/cache'
-import { sanitizeObject } from '@/lib/utils/validation'
+import { sanitizeObject, validateLessonInquiryInput, hasValidationErrors } from '@/lib/utils/validation'
+import { createNotification } from '@/lib/notifications/actions'
 import type {
   LessonProgram,
   LessonSession,
@@ -605,4 +606,81 @@ export async function getSessionAttendances(
   if (error) return { error: '출석 목록 조회에 실패했습니다.', data: [] }
 
   return { error: null, data: data || [] }
+}
+
+// ============================================================================
+// 레슨 문의 (비회원 포함)
+// ============================================================================
+
+interface LessonInquiryInput {
+  name: string
+  phone: string
+  message: string
+}
+
+/** 레슨 문의 제출 — 비로그인도 가능 */
+export async function submitLessonInquiry(
+  programId: string,
+  data: LessonInquiryInput
+): Promise<{ error: string | null }> {
+  const idErr = validateId(programId, '프로그램 ID')
+  if (idErr) return { error: idErr }
+
+  const sanitized = sanitizeObject(data)
+  const validationErrors = validateLessonInquiryInput(sanitized)
+  if (hasValidationErrors(validationErrors)) {
+    const firstError = Object.values(validationErrors).find(Boolean)
+    return { error: firstError || '입력값을 확인해주세요.' }
+  }
+
+  const admin = createAdminClient()
+
+  // 프로그램 → 클럽 ID 조회
+  const { data: program } = await admin
+    .from('lesson_programs')
+    .select('club_id, title')
+    .eq('id', programId)
+    .single()
+
+  if (!program) return { error: '프로그램을 찾을 수 없습니다.' }
+
+  // 문의 저장
+  const { error } = await admin
+    .from('lesson_inquiries')
+    .insert({
+      program_id: programId,
+      club_id: program.club_id,
+      name: sanitized.name,
+      phone: sanitized.phone,
+      message: sanitized.message,
+    })
+
+  if (error) return { error: '문의 등록에 실패했습니다.' }
+
+  // 클럽 어드민에게 알림 발송 (실패해도 문의 등록은 성공)
+  try {
+    const { data: admins } = await admin
+      .from('club_members')
+      .select('user_id')
+      .eq('club_id', program.club_id)
+      .in('role', ['OWNER', 'ADMIN'])
+      .eq('status', 'ACTIVE')
+
+    if (admins && admins.length > 0) {
+      for (const adm of admins) {
+        await createNotification({
+          user_id: adm.user_id,
+          type: 'LESSON_INQUIRY',
+          title: '레슨 문의가 접수되었습니다',
+          message: `[${program.title}] ${sanitized.name}님이 문의를 남겼습니다.`,
+          club_id: program.club_id,
+          metadata: { program_id: programId },
+        })
+      }
+    }
+  } catch {
+    // 알림 실패는 무시 — 문의 저장은 이미 완료
+  }
+
+  return { error: null }
 }

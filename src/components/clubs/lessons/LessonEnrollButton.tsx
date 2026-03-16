@@ -1,6 +1,8 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
+import { LogIn } from 'lucide-react'
 import { enrollLesson, cancelEnrollment } from '@/lib/lessons/actions'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import type { EnrollmentStatus } from '@/lib/lessons/types'
@@ -11,6 +13,8 @@ interface LessonEnrollButtonProps {
   enrollmentId?: string
   enrollmentStatus?: EnrollmentStatus
   isFull: boolean
+  /** 로그인 여부 — false면 로그인 유도 버튼 표시 */
+  isLoggedIn: boolean
   onResult: (result: { error: string | null; message?: string }) => void
 }
 
@@ -20,8 +24,11 @@ export function LessonEnrollButton({
   enrollmentId,
   enrollmentStatus,
   isFull,
+  isLoggedIn,
   onResult,
 }: LessonEnrollButtonProps) {
+  const router = useRouter()
+  const pathname = usePathname()
   const [loading, setLoading] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
 
@@ -34,6 +41,23 @@ export function LessonEnrollButton({
         style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-muted)' }}
       >
         {programStatus === 'CLOSED' ? '모집 마감' : '신청 불가'}
+      </button>
+    )
+  }
+
+  // 비로그인 → 로그인 유도
+  if (!isLoggedIn) {
+    return (
+      <button
+        onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)}
+        className="w-full py-3 rounded-xl text-sm font-medium inline-flex items-center justify-center gap-2"
+        style={{
+          backgroundColor: 'var(--accent-color)',
+          color: 'var(--bg-primary)',
+        }}
+      >
+        <LogIn className="w-4 h-4" />
+        로그인 후 신청 가능
       </button>
     )
   }

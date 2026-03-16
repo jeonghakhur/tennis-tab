@@ -425,3 +425,50 @@ export function validateInquiryInput(data: {
 
   return errors
 }
+
+// ============================================================================
+// 레슨 문의 검증
+// ============================================================================
+
+export interface LessonInquiryValidationErrors {
+  name?: string
+  phone?: string
+  message?: string
+}
+
+const INQUIRY_NAME_MIN = 1
+const INQUIRY_NAME_MAX = 50
+const INQUIRY_MESSAGE_MIN = 1
+const INQUIRY_MESSAGE_MAX = 1000
+
+/** 레슨 문의 입력 검증 */
+export function validateLessonInquiryInput(data: {
+  name?: string
+  phone?: string
+  message?: string
+}): LessonInquiryValidationErrors {
+  const errors: LessonInquiryValidationErrors = {}
+
+  // 필수: 이름
+  const nameMinErr = validateMinLength(data.name, INQUIRY_NAME_MIN, '이름')
+  if (nameMinErr) errors.name = nameMinErr
+  const nameMaxErr = validateMaxLength(data.name, INQUIRY_NAME_MAX, '이름')
+  if (nameMaxErr) errors.name = nameMaxErr
+
+  // 필수: 연락처
+  const phoneRequired = validateMinLength(data.phone, 1, '연락처')
+  if (phoneRequired) {
+    errors.phone = phoneRequired
+  } else {
+    const phoneErr = validatePhone(data.phone, '연락처')
+    if (phoneErr) errors.phone = phoneErr
+  }
+
+  // 필수: 문의 내용
+  const msgMinErr = validateMinLength(data.message, INQUIRY_MESSAGE_MIN, '문의 내용')
+  if (msgMinErr) errors.message = msgMinErr
+  const msgMaxErr = validateMaxLength(data.message, INQUIRY_MESSAGE_MAX, '문의 내용')
+  if (msgMaxErr) errors.message = msgMaxErr
+
+  return errors
+}

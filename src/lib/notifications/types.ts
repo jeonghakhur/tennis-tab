@@ -1,4 +1,4 @@
-/** 알림 타입 (14가지) */
+/** 알림 타입 (15가지) */
 export const NotificationType = {
   // 사용자 알림 (10)
   ENTRY_APPROVED: 'ENTRY_APPROVED',
@@ -11,11 +11,12 @@ export const NotificationType = {
   CLUB_INVITED: 'CLUB_INVITED',
   INQUIRY_REPLIED: 'INQUIRY_REPLIED',
   REFUND_COMPLETED: 'REFUND_COMPLETED',
-  // 관리자 알림 (4)
+  // 관리자 알림 (5)
   ENTRY_SUBMITTED: 'ENTRY_SUBMITTED',
   ENTRY_CANCELLED: 'ENTRY_CANCELLED',
   PAYMENT_COMPLETED: 'PAYMENT_COMPLETED',
   CLUB_JOIN_REQUESTED: 'CLUB_JOIN_REQUESTED',
+  LESSON_INQUIRY: 'LESSON_INQUIRY',
 } as const
 
 export type NotificationType = (typeof NotificationType)[keyof typeof NotificationType]

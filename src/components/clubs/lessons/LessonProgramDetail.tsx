@@ -8,6 +8,7 @@ import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { LessonEnrollButton } from './LessonEnrollButton'
 import { LessonSessionList } from './LessonSessionList'
+import { LessonInquiryForm } from './LessonInquiryForm'
 import type { LessonProgram, LessonSession, LessonEnrollment, LessonProgramStatus } from '@/lib/lessons/types'
 
 const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: BadgeVariant }> = {
@@ -22,9 +23,11 @@ interface LessonProgramDetailProps {
   clubId: string
   /** 현재 사용자의 club_member ID (없으면 비회원) */
   myMemberId?: string
+  /** 로그인 여부 */
+  isLoggedIn: boolean
 }
 
-export function LessonProgramDetail({ programId, clubId, myMemberId }: LessonProgramDetailProps) {
+export function LessonProgramDetail({ programId, clubId, myMemberId, isLoggedIn }: LessonProgramDetailProps) {
   const [program, setProgram] = useState<(LessonProgram & { sessions: LessonSession[]; enrollments: LessonEnrollment[] }) | null>(null)
   const [loading, setLoading] = useState(true)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
@@ -240,14 +243,15 @@ export function LessonProgramDetail({ programId, clubId, myMemberId }: LessonPro
           <LessonSessionList sessions={program.sessions} />
         </section>
 
-        {/* 수강 신청 버튼 */}
-        {myMemberId && (
+        {/* 수강 신청 버튼 — 비로그인도 표시 (로그인 유도) */}
+        <div className="mb-6">
           <LessonEnrollButton
             programId={programId}
             programStatus={program.status}
             enrollmentId={myEnrollment?.id}
             enrollmentStatus={myEnrollment?.status}
             isFull={isFull}
+            isLoggedIn={isLoggedIn}
             onResult={({ error, message }) => {
               if (error) {
                 setAlert({ isOpen: true, message: error, type: 'error' })
@@ -257,7 +261,10 @@ export function LessonProgramDetail({ programId, clubId, myMemberId }: LessonPro
               }
             }}
           />
-        )}
+        </div>
+
+        {/* 레슨 문의하기 — 비회원 포함 누구나 가능 */}
+        <LessonInquiryForm programId={programId} />
 
         <Toast
           isOpen={toast.isOpen}
