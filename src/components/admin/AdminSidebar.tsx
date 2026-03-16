@@ -13,6 +13,7 @@ import {
   ChevronLeft,
   Menu,
   LogOut,
+  UserSearch,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -52,6 +53,13 @@ const menuItems = [
     name: '클럽 관리',
     href: '/admin/clubs',
     icon: Shield,
+    roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as UserRole[],
+    excludePrefix: '/admin/clubs/members',
+  },
+  {
+    name: '클럽 회원 검색',
+    href: '/admin/clubs/members',
+    icon: UserSearch,
     roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as UserRole[],
   },
   {
@@ -137,7 +145,9 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
             {filteredMenuItems.map((item) => {
               const isActive =
                 pathname === item.href ||
-                (item.href !== '/admin' && pathname.startsWith(item.href))
+                (item.href !== '/admin' &&
+                  pathname.startsWith(item.href) &&
+                  !(item.excludePrefix && pathname.startsWith(item.excludePrefix)))
               const Icon = item.icon
 
               return (
