@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Plus, Eye, EyeOff } from 'lucide-react'
 import {
   createLessonProgram,
@@ -68,8 +68,11 @@ const EMPTY_FORM: ProgramFormData = {
 }
 
 
+const ALL_COACH_TAB = 'all' as const
+
 export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTabProps) {
   const [coaches, setCoaches] = useState<Coach[]>([])
+  const [selectedCoachId, setSelectedCoachId] = useState<string>(ALL_COACH_TAB)
   const [formOpen, setFormOpen] = useState(false)
   const [editTarget, setEditTarget] = useState<LessonProgram | null>(null)
   const [formData, setFormData] = useState<ProgramFormData>(EMPTY_FORM)
@@ -82,6 +85,17 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
   useEffect(() => {
     getAllCoaches().then(({ data }) => setCoaches(data))
   }, [])
+
+  // 프로그램에 등장하는 코치만 탭으로 표시
+  const coachTabs = useMemo(() => {
+    const coachIds = new Set(programs.map((p) => p.coach_id))
+    return coaches.filter((c) => coachIds.has(c.id))
+  }, [coaches, programs])
+
+  const filteredPrograms = useMemo(() => {
+    if (selectedCoachId === ALL_COACH_TAB) return programs
+    return programs.filter((p) => p.coach_id === selectedCoachId)
+  }, [programs, selectedCoachId])
 
   const openCreate = () => {
     setEditTarget(null)
@@ -215,13 +229,51 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         </button>
       </div>
 
-      {programs.length === 0 ? (
+      {/* 코치별 필터 탭 */}
+      {coachTabs.length > 1 && (
+        <div className="flex gap-2 mb-4 overflow-x-auto" role="tablist" aria-label="코치별 필터">
+          <button
+            role="tab"
+            aria-selected={selectedCoachId === ALL_COACH_TAB}
+            onClick={() => setSelectedCoachId(ALL_COACH_TAB)}
+            className="px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap"
+            style={{
+              backgroundColor: selectedCoachId === ALL_COACH_TAB ? 'var(--accent-color)' : 'var(--bg-card)',
+              color: selectedCoachId === ALL_COACH_TAB ? 'var(--bg-primary)' : 'var(--text-secondary)',
+              border: `1px solid ${selectedCoachId === ALL_COACH_TAB ? 'var(--accent-color)' : 'var(--border-color)'}`,
+            }}
+          >
+            전체
+          </button>
+          {coachTabs.map((coach) => {
+            const isActive = selectedCoachId === coach.id
+            return (
+              <button
+                key={coach.id}
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setSelectedCoachId(coach.id)}
+                className="px-4 py-2 rounded-lg text-sm font-semibold transition-all whitespace-nowrap"
+                style={{
+                  backgroundColor: isActive ? 'var(--accent-color)' : 'var(--bg-card)',
+                  color: isActive ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  border: `1px solid ${isActive ? 'var(--accent-color)' : 'var(--border-color)'}`,
+                }}
+              >
+                {coach.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {filteredPrograms.length === 0 ? (
         <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
-          등록된 프로그램이 없습니다.
+          {selectedCoachId === ALL_COACH_TAB ? '등록된 프로그램이 없습니다.' : '해당 코치의 프로그램이 없습니다.'}
         </p>
       ) : (
         <div className="space-y-3">
-          {programs.map((program) => {
+          {filteredPrograms.map((program) => {
             const statusConf = STATUS_CONFIG[program.status]
             const transitions = STATUS_TRANSITIONS[program.status]
             return (
