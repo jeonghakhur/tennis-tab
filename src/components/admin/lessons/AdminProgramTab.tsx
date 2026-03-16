@@ -39,13 +39,20 @@ interface AdminProgramTabProps {
   onRefresh: () => void
 }
 
+const DURATION_OPTIONS = [20, 30, 45, 60, 90] as const
+type DurationOption = typeof DURATION_OPTIONS[number]
+
 interface ProgramFormData {
   coach_id: string
   title: string
   description: string
   target_level: string
   max_participants: number
-  fee_description: string
+  session_duration_minutes: DurationOption
+  fee_weekday_1: string
+  fee_weekday_2: string
+  fee_weekend_1: string
+  fee_weekend_2: string
 }
 
 const EMPTY_FORM: ProgramFormData = {
@@ -54,7 +61,11 @@ const EMPTY_FORM: ProgramFormData = {
   description: '',
   target_level: '전체',
   max_participants: 1,
-  fee_description: '',
+  session_duration_minutes: 20,
+  fee_weekday_1: '',
+  fee_weekday_2: '',
+  fee_weekend_1: '',
+  fee_weekend_2: '',
 }
 
 const TARGET_LEVELS = ['입문', '초급', '중급', '고급', '전체']
@@ -87,7 +98,13 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
       description: program.description || '',
       target_level: program.target_level,
       max_participants: program.max_participants,
-      fee_description: program.fee_description || '',
+      session_duration_minutes: (DURATION_OPTIONS.includes(program.session_duration_minutes as DurationOption)
+        ? program.session_duration_minutes
+        : 20) as DurationOption,
+      fee_weekday_1: program.fee_weekday_1?.toString() || '',
+      fee_weekday_2: program.fee_weekday_2?.toString() || '',
+      fee_weekend_1: program.fee_weekend_1?.toString() || '',
+      fee_weekend_2: program.fee_weekend_2?.toString() || '',
     })
     setFormOpen(true)
   }
@@ -106,6 +123,11 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
     setSubmitting(true)
     let result: { error: string | null }
 
+    const feeWeekday1 = formData.fee_weekday_1 ? parseInt(formData.fee_weekday_1) : undefined
+    const feeWeekday2 = formData.fee_weekday_2 ? parseInt(formData.fee_weekday_2) : undefined
+    const feeWeekend1 = formData.fee_weekend_1 ? parseInt(formData.fee_weekend_1) : undefined
+    const feeWeekend2 = formData.fee_weekend_2 ? parseInt(formData.fee_weekend_2) : undefined
+
     if (editTarget) {
       const updateData: UpdateProgramInput = {
         coach_id: formData.coach_id,
@@ -113,7 +135,11 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         description: formData.description || undefined,
         target_level: formData.target_level,
         max_participants: formData.max_participants,
-        fee_description: formData.fee_description || undefined,
+        session_duration_minutes: formData.session_duration_minutes,
+        fee_weekday_1: feeWeekday1 ?? null,
+        fee_weekday_2: feeWeekday2 ?? null,
+        fee_weekend_1: feeWeekend1 ?? null,
+        fee_weekend_2: feeWeekend2 ?? null,
       }
       result = await updateLessonProgram(editTarget.id, updateData)
     } else {
@@ -123,7 +149,11 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         description: formData.description || undefined,
         target_level: formData.target_level,
         max_participants: formData.max_participants,
-        fee_description: formData.fee_description || undefined,
+        session_duration_minutes: formData.session_duration_minutes,
+        fee_weekday_1: feeWeekday1,
+        fee_weekday_2: feeWeekday2,
+        fee_weekend_1: feeWeekend1,
+        fee_weekend_2: feeWeekend2,
       }
       result = await createLessonProgram(createData)
     }
@@ -199,13 +229,16 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
                     </div>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      코치: {program.coach?.name || '-'} · 대상: {program.target_level} · 정원: {program.max_participants}명
+                      코치: {program.coach?.name || '-'} · 대상: {program.target_level} · 정원: {program.max_participants}명 · {program.session_duration_minutes}분
                     </p>
-                    {program.fee_description && (
-                      <p className="text-xs mt-1 line-clamp-1" style={{ color: 'var(--text-secondary)' }}>
-                        {program.fee_description}
-                      </p>
-                    )}
+                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                      {[
+                        program.fee_weekday_1 ? `주중1회 ${program.fee_weekday_1.toLocaleString()}원` : null,
+                        program.fee_weekday_2 ? `주중2회 ${program.fee_weekday_2.toLocaleString()}원` : null,
+                        program.fee_weekend_1 ? `주말1회 ${program.fee_weekend_1.toLocaleString()}원` : null,
+                        program.fee_weekend_2 ? `주말2회 ${program.fee_weekend_2.toLocaleString()}원` : null,
+                      ].filter(Boolean).join(' / ') || '요금 미설정'}
+                    </p>
                   </div>
                   <div className="flex flex-col gap-1.5 shrink-0">
                     <button
@@ -312,21 +345,62 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                 </div>
               </div>
 
+              {/* 레슨 시간 */}
+              <div>
+                <label htmlFor="prog-duration" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  레슨 시간 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {DURATION_OPTIONS.map((min) => (
+                    <button
+                      key={min}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, session_duration_minutes: min })}
+                      className="px-3 py-2 rounded-lg text-sm font-medium"
+                      style={{
+                        backgroundColor: formData.session_duration_minutes === min ? 'var(--accent-color)' : 'var(--bg-card-hover)',
+                        color: formData.session_duration_minutes === min ? 'var(--bg-primary)' : 'var(--text-primary)',
+                      }}
+                    >
+                      {min}분
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* 수강료 */}
               <div>
-                <label htmlFor="prog-fee" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  수강료 안내
-                </label>
-                <textarea
-                  id="prog-fee"
-                  value={formData.fee_description}
-                  onChange={(e) => setFormData({ ...formData, fee_description: e.target.value })}
-                  placeholder="예: 주1회 100,000원 / 주2회 200,000원"
-                  rows={2}
-                  maxLength={500}
-                  className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-                  style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-                />
+                <p className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                  수강료 <span className="font-normal text-xs ml-1" style={{ color: 'var(--text-muted)' }}>(월 요금 · 빈칸은 미설정)</span>
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { key: 'fee_weekday_1', label: '주중 1회' },
+                    { key: 'fee_weekday_2', label: '주중 2회' },
+                    { key: 'fee_weekend_1', label: '주말 1회' },
+                    { key: 'fee_weekend_2', label: '주말 2회' },
+                  ] as const).map(({ key, label }) => (
+                    <div key={key}>
+                      <label htmlFor={`prog-${key}`} className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                        {label}
+                      </label>
+                      <div className="relative">
+                        <input
+                          id={`prog-${key}`}
+                          type="number"
+                          min={0}
+                          step={1000}
+                          value={formData[key]}
+                          onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
+                          placeholder="0"
+                          className="w-full px-3 py-2 pr-8 rounded-lg text-sm"
+                          style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{ color: 'var(--text-muted)' }}>원</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
               {/* 설명 */}

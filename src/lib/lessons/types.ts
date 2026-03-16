@@ -53,7 +53,16 @@ export interface LessonProgram {
   description: string | null
   target_level: string
   max_participants: number
-  fee_description: string | null
+  /** 레슨 시간 (분) */
+  session_duration_minutes: number
+  /** 수강료: 주중 1회 월 요금 */
+  fee_weekday_1: number | null
+  /** 수강료: 주중 2회 월 요금 */
+  fee_weekday_2: number | null
+  /** 수강료: 주말 1회 월 요금 */
+  fee_weekend_1: number | null
+  /** 수강료: 주말 2회 월 요금 */
+  fee_weekend_2: number | null
   status: LessonProgramStatus
   created_by: string
   created_at: string
@@ -69,7 +78,11 @@ export interface CreateProgramInput {
   description?: string
   target_level: string
   max_participants: number
-  fee_description?: string
+  session_duration_minutes: number
+  fee_weekday_1?: number
+  fee_weekday_2?: number
+  fee_weekend_1?: number
+  fee_weekend_2?: number
 }
 
 export interface UpdateProgramInput {
@@ -78,7 +91,11 @@ export interface UpdateProgramInput {
   description?: string
   target_level?: string
   max_participants?: number
-  fee_description?: string
+  session_duration_minutes?: number
+  fee_weekday_1?: number | null
+  fee_weekday_2?: number | null
+  fee_weekend_1?: number | null
+  fee_weekend_2?: number | null
 }
 
 // ─── 레슨 세션 ───────────────────────────────────────────────────────────────

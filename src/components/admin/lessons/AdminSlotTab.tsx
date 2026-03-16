@@ -126,6 +126,15 @@ interface AdminSlotTabProps {
   programsLoading: boolean
 }
 
+/** HH:MM 문자열에 분(minutes)을 더해 HH:MM 반환 */
+function addMinutesToTime(time: string, minutes: number): string {
+  const [h, m] = time.split(':').map(Number)
+  const total = h * 60 + m + minutes
+  const hh = Math.floor(total / 60) % 24
+  const mm = total % 60
+  return `${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}`
+}
+
 export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [selectedProgramId, setSelectedProgramId] = useState<string>('')
   const [sessions, setSessions] = useState<LessonSession[]>([])
@@ -137,6 +146,8 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [cancelTarget, setCancelTarget] = useState<LessonSession | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+
+  const selectedProgram = programs.find((p) => p.id === selectedProgramId) ?? null
 
   useEffect(() => {
     if (!selectedProgramId) { setSessions([]); return }
@@ -152,6 +163,16 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
       setSelectedProgramId(programs[0].id)
     }
   }, [programs, selectedProgramId])
+
+  // 프로그램 변경 시 종료 시간 자동 재계산
+  useEffect(() => {
+    if (!selectedProgram) return
+    const duration = selectedProgram.session_duration_minutes
+    setPattern((prev) => ({
+      ...prev,
+      endTime: addMinutesToTime(prev.startTime, duration),
+    }))
+  }, [selectedProgramId])
 
   // 패턴 변경 시 미리보기 자동 갱신
   useEffect(() => {
@@ -354,22 +375,31 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
               {/* 시간 */}
               <div>
-                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
                   레슨 시간 <span style={{ color: 'var(--color-danger)' }}>*</span>
                 </p>
+                {selectedProgram && (
+                  <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
+                    프로그램 레슨 시간: <strong style={{ color: 'var(--accent-color)' }}>{selectedProgram.session_duration_minutes}분</strong>
+                    {' '}— 시작 시간 변경 시 종료 시간 자동 계산됩니다.
+                  </p>
+                )}
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작</label>
                     <SessionTimePicker
                       value={pattern.startTime}
-                      onChange={(v) => setPattern({ ...pattern, startTime: v })}
+                      onChange={(v) => {
+                        const duration = selectedProgram?.session_duration_minutes ?? 20
+                        setPattern((prev) => ({ ...prev, startTime: v, endTime: addMinutesToTime(v, duration) }))
+                      }}
                     />
                   </div>
                   <div>
                     <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료</label>
                     <SessionTimePicker
                       value={pattern.endTime}
-                      onChange={(v) => setPattern({ ...pattern, endTime: v })}
+                      onChange={(v) => setPattern((prev) => ({ ...prev, endTime: v }))}
                     />
                   </div>
                 </div>

@@ -117,9 +117,13 @@ function ProgramCard({ program }: { program: LessonProgram }) {
             </span>
           </div>
 
-          {program.fee_description && (
+          {(program.fee_weekday_1 || program.fee_weekend_1) && (
             <p className="text-xs mt-1.5 line-clamp-1" style={{ color: 'var(--text-secondary)' }}>
-              {program.fee_description}
+              {[
+                program.fee_weekday_1 ? `주중 ${program.fee_weekday_1.toLocaleString()}원` : null,
+                program.fee_weekend_1 ? `주말 ${program.fee_weekend_1.toLocaleString()}원` : null,
+              ].filter(Boolean).join(' / ')}
+              {' '}· {program.session_duration_minutes}분
             </p>
           )}
         </div>

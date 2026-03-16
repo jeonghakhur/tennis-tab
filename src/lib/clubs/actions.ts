@@ -348,6 +348,7 @@ export async function updateClub(clubId: string, data: UpdateClubInput): Promise
   if (sanitized.contact_email !== undefined) updateData.contact_email = sanitized.contact_email?.trim() || null
   if (sanitized.join_type !== undefined) updateData.join_type = sanitized.join_type
   if (sanitized.max_members !== undefined) updateData.max_members = sanitized.max_members
+  if (data.is_recruiting !== undefined) updateData.is_recruiting = data.is_recruiting
   if (resolvedAssociationId !== undefined) updateData.association_id = resolvedAssociationId
 
   const { error } = await admin

@@ -72,7 +72,11 @@ export async function createLessonProgram(
       description: sanitized.description || null,
       target_level: sanitized.target_level,
       max_participants: sanitized.max_participants,
-      fee_description: sanitized.fee_description || null,
+      session_duration_minutes: data.session_duration_minutes,
+      fee_weekday_1: data.fee_weekday_1 ?? null,
+      fee_weekday_2: data.fee_weekday_2 ?? null,
+      fee_weekend_1: data.fee_weekend_1 ?? null,
+      fee_weekend_2: data.fee_weekend_2 ?? null,
       created_by: user.id,
     })
     .select('*, coach:coaches(*)')
@@ -102,7 +106,11 @@ export async function updateLessonProgram(
   if (sanitized.description !== undefined) updateData.description = sanitized.description || null
   if (sanitized.target_level !== undefined) updateData.target_level = sanitized.target_level
   if (sanitized.max_participants !== undefined) updateData.max_participants = sanitized.max_participants
-  if (sanitized.fee_description !== undefined) updateData.fee_description = sanitized.fee_description || null
+  if (data.session_duration_minutes !== undefined) updateData.session_duration_minutes = data.session_duration_minutes
+  if (data.fee_weekday_1 !== undefined) updateData.fee_weekday_1 = data.fee_weekday_1
+  if (data.fee_weekday_2 !== undefined) updateData.fee_weekday_2 = data.fee_weekday_2
+  if (data.fee_weekend_1 !== undefined) updateData.fee_weekend_1 = data.fee_weekend_1
+  if (data.fee_weekend_2 !== undefined) updateData.fee_weekend_2 = data.fee_weekend_2
 
   const admin = createAdminClient()
   const { error } = await admin

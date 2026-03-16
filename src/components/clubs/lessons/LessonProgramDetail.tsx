@@ -195,7 +195,7 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
         </section>
 
         {/* 수강료 */}
-        {program.fee_description && (
+        {(program.fee_weekday_1 || program.fee_weekday_2 || program.fee_weekend_1 || program.fee_weekend_2) && (
           <section
             className="glass-card rounded-xl p-4 mb-4"
             aria-labelledby="fee-section-title"
@@ -207,13 +207,29 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
             >
               <DollarSign className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
               수강료 안내
+              <span className="font-normal text-xs ml-1" style={{ color: 'var(--text-muted)' }}>
+                (레슨 {program.session_duration_minutes}분 · 1:1)
+              </span>
             </h2>
-            <p
-              className="text-sm whitespace-pre-wrap"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {program.fee_description}
-            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { key: 'fee_weekday_1', label: '주중 1회', value: program.fee_weekday_1 },
+                { key: 'fee_weekday_2', label: '주중 2회', value: program.fee_weekday_2 },
+                { key: 'fee_weekend_1', label: '주말 1회', value: program.fee_weekend_1 },
+                { key: 'fee_weekend_2', label: '주말 2회', value: program.fee_weekend_2 },
+              ] as const).filter((item) => item.value !== null).map(({ key, label, value }) => (
+                <div
+                  key={key}
+                  className="flex items-center justify-between px-3 py-2 rounded-lg"
+                  style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                >
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{label}</span>
+                  <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {value!.toLocaleString()}원/월
+                  </span>
+                </div>
+              ))}
+            </div>
           </section>
         )}
 

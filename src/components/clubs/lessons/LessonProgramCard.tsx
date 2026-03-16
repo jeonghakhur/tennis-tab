@@ -82,13 +82,14 @@ export function LessonProgramCard({ program, clubId }: LessonProgramCardProps) {
             </span>
           </div>
 
-          {/* 수강료 */}
-          {program.fee_description && (
-            <p
-              className="text-xs mt-1.5 line-clamp-1"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              {program.fee_description}
+          {/* 수강료 요약 */}
+          {(program.fee_weekday_1 || program.fee_weekend_1) && (
+            <p className="text-xs mt-1.5 line-clamp-1" style={{ color: 'var(--text-secondary)' }}>
+              {[
+                program.fee_weekday_1 ? `주중 ${program.fee_weekday_1.toLocaleString()}원` : null,
+                program.fee_weekend_1 ? `주말 ${program.fee_weekend_1.toLocaleString()}원` : null,
+              ].filter(Boolean).join(' / ')}
+              {' '}· {program.session_duration_minutes}분
             </p>
           )}
         </div>
