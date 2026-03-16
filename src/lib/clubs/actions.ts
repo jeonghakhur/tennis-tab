@@ -23,6 +23,7 @@ import type {
   UpdateClubInput,
   UnregisteredMemberInput,
   ClubMemberRole,
+  MemberWithClub,
 } from './types'
 
 // ============================================================================
@@ -1488,4 +1489,57 @@ export async function getClubsWithMyRoles(
   )
 
   return { clubs: (clubs || []) as Club[], myClubRoles }
+}
+
+/** 전체 클럽 회원 통합 조회
+ * - ADMIN 이상: 전체 클럽 회원
+ * - MANAGER: 자신이 OWNER/ADMIN/MATCH_DIRECTOR인 클럽의 회원만
+ */
+export async function getAllClubMembers(): Promise<{
+  data: MemberWithClub[]
+  error?: string
+}> {
+  const { error: authError, user } = await checkManagerAuth()
+  if (authError || !user) return { data: [], error: authError ?? '로그인이 필요합니다.' }
+
+  const admin = createAdminClient()
+  const isSystemAdmin = hasMinimumRole(user.role, 'ADMIN')
+
+  let clubIds: string[] | null = null
+
+  // MANAGER: 관리 클럽 ID 목록 추출
+  if (!isSystemAdmin) {
+    const { data: memberships } = await admin
+      .from('club_members')
+      .select('club_id')
+      .eq('user_id', user.id)
+      .in('role', ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'])
+      .eq('status', 'ACTIVE')
+
+    clubIds = memberships?.map((m) => m.club_id) ?? []
+    if (clubIds.length === 0) return { data: [] }
+  }
+
+  // club_members + clubs 조인 조회
+  let query = admin
+    .from('club_members')
+    .select(`*, clubs:club_id ( name )`)
+    .not('status', 'in', '("REMOVED","LEFT")')
+    .order('club_id')
+    .order('name')
+
+  if (clubIds !== null) {
+    query = query.in('club_id', clubIds)
+  }
+
+  const { data, error } = await query
+
+  if (error) return { data: [], error: '회원 목록 조회에 실패했습니다.' }
+
+  const result: MemberWithClub[] = (data ?? []).map((row) => ({
+    ...(row as unknown as ClubMember),
+    club_name: (row.clubs as { name: string } | null)?.name ?? '알 수 없는 클럽',
+  }))
+
+  return { data: result }
 }

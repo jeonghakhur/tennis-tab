@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { hasMinimumRole } from '@/lib/auth/roles'
 import { createAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
-import { Plus, Shield } from 'lucide-react'
+import { Plus, Shield, Users } from 'lucide-react'
 import { ClubList } from '@/components/clubs/ClubList'
 import type { ClubWithCounts } from '@/components/clubs/ClubList'
 
@@ -58,10 +58,16 @@ export default async function AdminClubsPage() {
             <h1 className="font-display text-2xl font-bold text-(--text-primary)">클럽 관리</h1>
             <p className="text-(--text-secondary) mt-1">나의 클럽을 관리할 수 있습니다.</p>
           </div>
-          <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1 whitespace-nowrap">
-            <Plus className="w-4 h-4" />
-            클럽 생성
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/admin/clubs/members" className="btn-secondary btn-sm flex items-center gap-1 whitespace-nowrap">
+              <Users className="w-4 h-4" />
+              전체 회원 검색
+            </Link>
+            <Link href="/admin/clubs/new" className="btn-primary btn-sm flex items-center gap-1 whitespace-nowrap">
+              <Plus className="w-4 h-4" />
+              클럽 생성
+            </Link>
+          </div>
         </div>
         <div className="glass-card rounded-xl p-8 text-center space-y-4">
           <Shield className="w-12 h-12 mx-auto text-(--text-muted)" />

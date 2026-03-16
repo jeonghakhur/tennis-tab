@@ -93,6 +93,11 @@ export interface UnregisteredMemberInput {
   rating?: number
 }
 
+/** 전체 회원 검색 결과 — ClubMember + 소속 클럽명 */
+export type MemberWithClub = ClubMember & {
+  club_name: string
+}
+
 export interface ClubFilters {
   search?: string
   city?: string
