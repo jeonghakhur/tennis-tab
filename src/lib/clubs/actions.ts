@@ -1474,7 +1474,7 @@ export async function getClubsWithMyRoles(
   if (filters?.district) query = query.eq('district', filters.district)
   if (filters?.association_id) query = query.eq('association_id', filters.association_id)
 
-  const [{ data: clubs }, { data: members }] = await Promise.all([
+  const [{ data: clubs }, { data: members }, { data: memberCounts }] = await Promise.all([
     query,
     user
       ? admin
@@ -1483,13 +1483,28 @@ export async function getClubsWithMyRoles(
           .eq('user_id', user.id)
           .eq('status', 'ACTIVE')
       : Promise.resolve({ data: [] }),
+    admin
+      .from('club_members')
+      .select('club_id')
+      .eq('status', 'ACTIVE'),
   ])
+
+  // 클럽별 활성 회원 수 집계
+  const countMap = new Map<string, number>()
+  for (const row of memberCounts || []) {
+    countMap.set(row.club_id, (countMap.get(row.club_id) ?? 0) + 1)
+  }
 
   const myClubRoles = new Map(
     ((members || []) as { club_id: string; role: ClubMemberRole }[]).map((m) => [m.club_id, m.role])
   )
 
-  return { clubs: (clubs || []) as Club[], myClubRoles }
+  const clubsWithCount = ((clubs || []) as Club[]).map((c) => ({
+    ...c,
+    _member_count: countMap.get(c.id) ?? 0,
+  }))
+
+  return { clubs: clubsWithCount, myClubRoles }
 }
 
 /** 전체 클럽 회원 통합 조회

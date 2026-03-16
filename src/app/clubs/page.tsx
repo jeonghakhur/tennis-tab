@@ -5,9 +5,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
 import { joinClubAsRegistered } from '@/lib/clubs/actions'
-import type { Club, ClubJoinType, ClubMemberRole } from '@/lib/clubs/types'
-import { Search, MapPin, Building2, Check, MessageCircle } from 'lucide-react'
-import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import type { Club, ClubMemberRole } from '@/lib/clubs/types'
+import { Search, MapPin, Users, Check, MessageCircle } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
@@ -15,18 +14,6 @@ import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 // 모듈 레벨 캐시: 뒤로가기 시 재조회 없이 즉시 렌더링
 type ClubsListCache = { clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; search: string; cityFilter: string }
 let clubsListCache: ClubsListCache | null = null
-
-const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
-  OPEN: '자유 가입',
-  APPROVAL: '승인제',
-  INVITE_ONLY: '초대 전용',
-}
-
-const JOIN_TYPE_VARIANT: Record<ClubJoinType, BadgeVariant> = {
-  OPEN: 'success',
-  APPROVAL: 'warning',
-  INVITE_ONLY: 'secondary',
-}
 
 const ROLE_LABEL: Record<string, string> = {
   OWNER: '회장',
@@ -244,21 +231,21 @@ export default function ClubsPage() {
                         {club.name}
                       </h3>
 
-                      {/* 지역 */}
-                      {(club.city || club.district) && (
+                      {/* 운동 장소 */}
+                      {(club.address || club.city || club.district) && (
                         <div className="flex items-center gap-1.5 mb-1.5">
-                          <MapPin className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
-                          <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                            {[club.city, club.district].filter(Boolean).join(' ')}
+                          <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                          <span className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+                            {club.address || [club.city, club.district].filter(Boolean).join(' ')}
                           </span>
                         </div>
                       )}
 
-                      {/* 협회 */}
+                      {/* 회원 수 */}
                       <div className="flex items-center gap-1.5 mb-2">
-                        <Building2 className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                        <Users className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-muted)' }} />
                         <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                          {club.associations?.name || '독립 클럽'}
+                          회원 {club._member_count ?? 0}명
                         </span>
                       </div>
 
@@ -273,25 +260,24 @@ export default function ClubsPage() {
                       )}
                     </Link>
 
-                    {/* 하단 정보 + 모집 버튼 */}
-                    <div className="flex items-center justify-between pt-3 border-t mt-3" style={{ borderColor: 'var(--border-color)' }}>
-                      <Badge variant={JOIN_TYPE_VARIANT[club.join_type]}>
-                        {JOIN_TYPE_LABEL[club.join_type]}
-                      </Badge>
-                      {canJoin && (
-                        <button
-                          onClick={(e) => handleJoinClick(e, club)}
-                          disabled={joinLoading}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-(--accent-color) text-(--bg-primary) hover:opacity-90 transition-opacity disabled:opacity-50"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" />
-                          {club.join_type === 'OPEN' ? '가입하기' : '가입 신청'}
-                        </button>
-                      )}
-                      {club.is_recruiting && !isMine && club.join_type === 'INVITE_ONLY' && (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>초대 전용</span>
-                      )}
-                    </div>
+                    {/* 하단: 가입 버튼 */}
+                    {(canJoin || (!isMine && club.join_type === 'INVITE_ONLY' && club.is_recruiting)) && (
+                      <div className="flex items-center justify-end pt-3 border-t mt-3" style={{ borderColor: 'var(--border-color)' }}>
+                        {canJoin ? (
+                          <button
+                            onClick={(e) => handleJoinClick(e, club)}
+                            disabled={joinLoading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-(--accent-color) text-(--bg-primary) hover:opacity-90 transition-opacity disabled:opacity-50"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" />
+                            {club.join_type === 'OPEN' ? '가입하기' : '가입 신청'}
+                          </button>
+                        ) : (
+                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>초대 전용</span>
+                        )}
+                      </div>
+                    )}
+
                   </div>
                 )
               })}
