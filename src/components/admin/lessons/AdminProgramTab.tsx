@@ -6,6 +6,7 @@ import {
   createLessonProgram,
   updateLessonProgram,
   updateProgramStatus,
+  deleteLessonProgram,
 } from '@/lib/lessons/actions'
 import { getAllCoaches } from '@/lib/coaches/actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
@@ -27,9 +28,9 @@ const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: Badge
 }
 
 const STATUS_TRANSITIONS: Record<LessonProgramStatus, LessonProgramStatus[]> = {
-  DRAFT: ['OPEN', 'CANCELLED'],
-  OPEN: ['CLOSED', 'CANCELLED'],
-  CLOSED: ['OPEN', 'CANCELLED'],
+  DRAFT: ['OPEN'],
+  OPEN: ['CLOSED'],
+  CLOSED: ['OPEN'],
   CANCELLED: [],
 }
 
@@ -74,6 +75,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
   const [formData, setFormData] = useState<ProgramFormData>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
   const [statusTarget, setStatusTarget] = useState<{ program: LessonProgram; next: LessonProgramStatus } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LessonProgram | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
@@ -178,6 +180,18 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
     onRefresh()
   }
 
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    const result = await deleteLessonProgram(deleteTarget.id)
+    setDeleteTarget(null)
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+    setToast({ isOpen: true, message: '프로그램이 삭제되었습니다.', type: 'success' })
+    onRefresh()
+  }
+
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -278,6 +292,13 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                         {STATUS_CONFIG[next].label}으로 변경
                       </button>
                     ))}
+                    <button
+                      onClick={() => setDeleteTarget(program)}
+                      className="text-xs px-2 py-1 rounded-md"
+                      style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
+                    >
+                      삭제
+                    </button>
                   </div>
                 </div>
               </div>
@@ -452,6 +473,15 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         title="상태 변경"
         message={statusTarget ? `"${statusTarget.program.title}"을 ${STATUS_CONFIG[statusTarget.next].label} 상태로 변경하시겠습니까?` : ''}
         type="warning"
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="프로그램 삭제"
+        message={deleteTarget ? `"${deleteTarget.title}" 프로그램을 삭제하시겠습니까?\n삭제된 데이터는 복구할 수 없습니다.` : ''}
+        type="error"
       />
 
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />

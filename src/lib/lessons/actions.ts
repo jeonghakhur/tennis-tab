@@ -149,6 +149,26 @@ export async function updateProgramStatus(
   return { error: null }
 }
 
+/** 레슨 프로그램 삭제 (관리자 전용) */
+export async function deleteLessonProgram(programId: string): Promise<{ error: string | null }> {
+  const idErr = validateId(programId, '프로그램 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('lesson_programs')
+    .delete()
+    .eq('id', programId)
+
+  if (error) return { error: '프로그램 삭제에 실패했습니다.' }
+
+  revalidatePath('/lessons')
+  return { error: null }
+}
+
 /** 전체 공개 레슨 프로그램 목록 (OPEN 상태) */
 export async function getAllOpenLessonPrograms(): Promise<{
   error: string | null
