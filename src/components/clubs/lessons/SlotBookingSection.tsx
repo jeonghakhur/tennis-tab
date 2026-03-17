@@ -243,9 +243,9 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
           </p>
         </div>
       ) : (
-        <>
-          {/* 달력 */}
-          <div className="mb-4">
+        <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
+          {/* 왼쪽: 달력 */}
+          <div>
             {/* 달력 헤더 */}
             <div className="flex items-center justify-between mb-3">
               <button onClick={prevMonth} className="p-1.5 rounded-lg hover:opacity-80" style={{ backgroundColor: 'var(--bg-card-hover)' }} aria-label="이전 달">
@@ -318,175 +318,182 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
             </div>
           </div>
 
-          {/* 선택된 날짜의 슬롯 목록 */}
-          {selectedDate && (
-            <div className="mb-4">
-              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                {selectedDate} ({DAY_LABELS[new Date(selectedDate + 'T00:00:00').getDay()]}) 빈 슬롯
-              </p>
-              {dateSlotsForView.length === 0 ? (
-                <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>해당 날짜에 빈 슬롯이 없습니다.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2">
-                  {dateSlotsForView.map((slot) => {
-                    const isSelected = selectedSlots.some((s) => s.id === slot.id)
-                    return (
-                      <button
-                        key={slot.id}
-                        onClick={() => toggleSlot(slot)}
-                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-                        style={{
-                          backgroundColor: isSelected ? 'var(--accent-color)' : 'var(--bg-card-hover)',
-                          color: isSelected ? 'var(--bg-primary)' : 'var(--text-primary)',
-                          border: isSelected ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
-                        }}
-                        aria-pressed={isSelected}
-                      >
-                        <Clock className="w-3.5 h-3.5" />
-                        {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
-                        {isSelected && ' ✓'}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* 선택 요약 + 요금 */}
-          {selectedSlots.length > 0 && (
-            <div
-              className="rounded-lg p-3 mb-4"
-              style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
-            >
-              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                선택한 슬롯: {selectedSlots.length}개
-              </p>
-              {selectedSlots.map((slot) => {
-                const d = new Date(slot.slot_date + 'T00:00:00')
-                const dayLabel = DAY_LABELS[d.getDay()]
-                return (
-                  <div key={slot.id} className="flex items-center justify-between text-sm mb-1">
-                    <span style={{ color: 'var(--text-secondary)' }}>
-                      {slot.slot_date} ({dayLabel}) {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
-                    </span>
-                    <button
-                      onClick={() => toggleSlot(slot)}
-                      className="text-sm px-1.5 py-0.5 rounded hover:opacity-70"
-                      style={{ color: 'var(--color-danger)' }}
-                      aria-label="슬롯 선택 해제"
-                    >
-                      삭제
-                    </button>
-                  </div>
-                )
-              })}
-
-              {/* 요금 */}
-              <div className="flex items-center gap-2 mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                <DollarSign className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
-                {bookingType && (
-                  <Badge variant="info">{BOOKING_TYPE_LABEL[bookingType]}</Badge>
-                )}
-                {feeAmount !== null ? (
-                  <span className="text-sm font-bold" style={{ color: 'var(--accent-color)' }}>
-                    {feeAmount.toLocaleString()}원/월
-                  </span>
-                ) : (
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>요금 문의</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* 신청자 정보 */}
-          {selectedSlots.length > 0 && (
-            <div className="mb-4 space-y-3">
-              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                <User className="w-3.5 h-3.5 inline mr-1" />
-                신청자 정보
-              </p>
+          {/* 오른쪽: 슬롯 선택 + 신청 정보 */}
+          <div className="mt-4 md:mt-0 space-y-4">
+            {/* 선택된 날짜의 슬롯 목록 */}
+            {selectedDate ? (
               <div>
-                <label htmlFor="guest-name" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                </label>
-                <input
-                  id="guest-name"
-                  type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
-                  placeholder="홍길동"
-                  maxLength={20}
-                  readOnly={!!profile}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="guest-phone" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                </label>
-                <input
-                  id="guest-phone"
-                  type="tel"
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value)}
-                  placeholder="010-1234-5678"
-                  maxLength={20}
-                  readOnly={!!profile}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{
-                    backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                />
-              </div>
-              <div>
-                <label htmlFor="booking-message" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  문의 내용 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
-                </label>
-                <textarea
-                  id="booking-message"
-                  value={message}
-                  onChange={(e) => setMessage(e.target.value)}
-                  placeholder="궁금한 점이나 전달할 내용을 입력해주세요"
-                  maxLength={1000}
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-                  style={{
-                    backgroundColor: 'var(--bg-input)',
-                    color: 'var(--text-primary)',
-                    border: '1px solid var(--border-color)',
-                  }}
-                />
-                <p className="text-right text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                  {message.length}/1000
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+                  {selectedDate} ({DAY_LABELS[new Date(selectedDate + 'T00:00:00').getDay()]}) 빈 슬롯
                 </p>
+                {dateSlotsForView.length === 0 ? (
+                  <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>해당 날짜에 빈 슬롯이 없습니다.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {dateSlotsForView.map((slot) => {
+                      const isSlotSelected = selectedSlots.some((s) => s.id === slot.id)
+                      return (
+                        <button
+                          key={slot.id}
+                          onClick={() => toggleSlot(slot)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                          style={{
+                            backgroundColor: isSlotSelected ? 'var(--accent-color)' : 'var(--bg-card-hover)',
+                            color: isSlotSelected ? 'var(--bg-primary)' : 'var(--text-primary)',
+                            border: isSlotSelected ? '2px solid var(--accent-color)' : '1px solid var(--border-color)',
+                          }}
+                          aria-pressed={isSlotSelected}
+                        >
+                          <Clock className="w-3.5 h-3.5" />
+                          {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
+                          {isSlotSelected && ' ✓'}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
+                날짜를 선택하면 빈 슬롯이 표시됩니다.
+              </p>
+            )}
 
-          {/* 신청 버튼 */}
-          {selectedSlots.length > 0 && (
-            <button
-              onClick={handleSubmit}
-              disabled={submitting}
-              className="w-full py-3 rounded-xl text-sm font-bold transition-colors"
-              style={{
-                backgroundColor: 'var(--accent-color)',
-                color: 'var(--bg-primary)',
-                opacity: submitting ? 0.6 : 1,
-              }}
-            >
-              {submitting ? '신청 중...' : '레슨 신청하기'}
-            </button>
-          )}
-        </>
+            {/* 선택 요약 + 요금 */}
+            {selectedSlots.length > 0 && (
+              <div
+                className="rounded-lg p-3"
+                style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
+              >
+                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+                  선택한 슬롯: {selectedSlots.length}개
+                </p>
+                {selectedSlots.map((slot) => {
+                  const d = new Date(slot.slot_date + 'T00:00:00')
+                  const dayLabel = DAY_LABELS[d.getDay()]
+                  return (
+                    <div key={slot.id} className="flex items-center justify-between text-sm mb-1">
+                      <span style={{ color: 'var(--text-secondary)' }}>
+                        {slot.slot_date} ({dayLabel}) {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
+                      </span>
+                      <button
+                        onClick={() => toggleSlot(slot)}
+                        className="text-sm px-1.5 py-0.5 rounded hover:opacity-70"
+                        style={{ color: 'var(--color-danger)' }}
+                        aria-label="슬롯 선택 해제"
+                      >
+                        삭제
+                      </button>
+                    </div>
+                  )
+                })}
+
+                {/* 요금 */}
+                <div className="flex items-center gap-2 mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                  <DollarSign className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
+                  {bookingType && (
+                    <Badge variant="info">{BOOKING_TYPE_LABEL[bookingType]}</Badge>
+                  )}
+                  {feeAmount !== null ? (
+                    <span className="text-sm font-bold" style={{ color: 'var(--accent-color)' }}>
+                      {feeAmount.toLocaleString()}원/월
+                    </span>
+                  ) : (
+                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>요금 문의</span>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 신청자 정보 */}
+            {selectedSlots.length > 0 && (
+              <div className="space-y-3">
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  <User className="w-3.5 h-3.5 inline mr-1" />
+                  신청자 정보
+                </p>
+                <div>
+                  <label htmlFor="guest-name" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                    이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    id="guest-name"
+                    type="text"
+                    value={guestName}
+                    onChange={(e) => setGuestName(e.target.value)}
+                    placeholder="홍길동"
+                    maxLength={20}
+                    readOnly={!!profile}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="guest-phone" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                    연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                  </label>
+                  <input
+                    id="guest-phone"
+                    type="tel"
+                    value={guestPhone}
+                    onChange={(e) => setGuestPhone(e.target.value)}
+                    placeholder="010-1234-5678"
+                    maxLength={20}
+                    readOnly={!!profile}
+                    className="w-full px-3 py-2 rounded-lg text-sm"
+                    style={{
+                      backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="booking-message" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                    문의 내용 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
+                  </label>
+                  <textarea
+                    id="booking-message"
+                    value={message}
+                    onChange={(e) => setMessage(e.target.value)}
+                    placeholder="궁금한 점이나 전달할 내용을 입력해주세요"
+                    maxLength={1000}
+                    rows={3}
+                    className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                    style={{
+                      backgroundColor: 'var(--bg-input)',
+                      color: 'var(--text-primary)',
+                      border: '1px solid var(--border-color)',
+                    }}
+                  />
+                  <p className="text-right text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {message.length}/1000
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* 신청 버튼 */}
+            {selectedSlots.length > 0 && (
+              <button
+                onClick={handleSubmit}
+                disabled={submitting}
+                className="w-full py-3 rounded-xl text-sm font-bold transition-colors"
+                style={{
+                  backgroundColor: 'var(--accent-color)',
+                  color: 'var(--bg-primary)',
+                  opacity: submitting ? 0.6 : 1,
+                }}
+              >
+                {submitting ? '신청 중...' : '레슨 신청하기'}
+              </button>
+            )}
+          </div>
+        </div>
       )}
 
       {/* 확인 다이얼로그 */}
