@@ -111,29 +111,36 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
           <LessonSessionList sessions={program.sessions} />
         </section>
 
-        {/* 슬롯 기반 레슨 신청 (비회원 포함) */}
-        {program.status === 'OPEN' && program.coach ? (
-          <SlotBookingSection
-            programId={programId}
-            coachId={program.coach_id}
-            coachName={program.coach.name}
-          />
-        ) : program.status !== 'OPEN' && (
-          <div
-            className="rounded-xl p-6 mb-4 text-center"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-          >
-            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-              지금 신청 가능한 레슨은 없습니다.
-            </p>
-            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
-              현재 프로그램 상태: <span style={{ color: 'var(--text-secondary)' }}>{statusConf.label}</span>
-            </p>
+        {/* 달력 + 문의 — 데스크탑 2열 */}
+        <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
+          {/* 왼쪽: 슬롯 신청 */}
+          <div>
+            {program.status === 'OPEN' && program.coach ? (
+              <SlotBookingSection
+                programId={programId}
+                coachId={program.coach_id}
+                coachName={program.coach.name}
+              />
+            ) : program.status !== 'OPEN' && (
+              <div
+                className="rounded-xl p-6 mb-4 text-center"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+              >
+                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+                  지금 신청 가능한 레슨은 없습니다.
+                </p>
+                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                  현재 프로그램 상태: <span style={{ color: 'var(--text-secondary)' }}>{statusConf.label}</span>
+                </p>
+              </div>
+            )}
           </div>
-        )}
 
-        {/* 레슨 문의하기 — 슬롯 선택 포함, 비회원도 가능 */}
-        <LessonInquiryForm programId={programId} availableSessions={program.sessions} />
+          {/* 오른쪽: 레슨 문의 */}
+          <div>
+            <LessonInquiryForm programId={programId} availableSessions={program.sessions} />
+          </div>
+        </div>
 
         <AlertDialog
           isOpen={alert.isOpen}
