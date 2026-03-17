@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { Plus } from 'lucide-react'
-import { getAllCoaches, createCoach, updateCoach, deactivateCoach } from '@/lib/coaches/actions'
+import { getAllCoaches, createCoach, updateCoach, deleteCoach } from '@/lib/coaches/actions'
 import { Toast } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { CoachCard } from './CoachCard'
@@ -19,8 +19,8 @@ export function CoachList({ clubId, isAdmin }: CoachListProps) {
   const [loading, setLoading] = useState(true)
   const [formOpen, setFormOpen] = useState(false)
   const [editingCoach, setEditingCoach] = useState<Coach | null>(null)
-  const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
-  const [confirmDeactivate, setConfirmDeactivate] = useState<Coach | null>(null)
+  const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' | 'info' | 'warning' }>({ isOpen: false, message: '', type: 'success' })
+  const [confirmDelete, setConfirmDelete] = useState<Coach | null>(null)
 
   useEffect(() => {
     loadCoaches()
@@ -52,14 +52,17 @@ export function CoachList({ clubId, isAdmin }: CoachListProps) {
     return result
   }
 
-  const handleDeactivate = async () => {
-    if (!confirmDeactivate) return
-    const result = await deactivateCoach(confirmDeactivate.id)
+  const handleDelete = async () => {
+    if (!confirmDelete) return
+    const result = await deleteCoach(confirmDelete.id)
     if (!result.error) {
-      setToast({ isOpen: true, message: '코치가 비활성화되었습니다.', type: 'success' })
+      setToast({ isOpen: true, message: '코치가 삭제되었습니다.', type: 'success' })
+      setEditingCoach(null)
       loadCoaches()
+    } else {
+      setToast({ isOpen: true, message: result.error, type: 'error' })
     }
-    setConfirmDeactivate(null)
+    setConfirmDelete(null)
   }
 
   if (loading) {
@@ -124,6 +127,7 @@ export function CoachList({ clubId, isAdmin }: CoachListProps) {
           onClose={() => setEditingCoach(null)}
           onSubmit={handleUpdate}
           initialData={editingCoach}
+          onDelete={() => setConfirmDelete(editingCoach)}
         />
       )}
 
@@ -135,12 +139,12 @@ export function CoachList({ clubId, isAdmin }: CoachListProps) {
       />
 
       <ConfirmDialog
-        isOpen={!!confirmDeactivate}
-        onClose={() => setConfirmDeactivate(null)}
-        onConfirm={handleDeactivate}
-        title="코치 비활성화"
-        message={`${confirmDeactivate?.name} 코치를 비활성화하시겠습니까?`}
-        type="warning"
+        isOpen={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        onConfirm={handleDelete}
+        title="코치 삭제"
+        message={`${confirmDelete?.name} 코치를 삭제하시겠습니까? 연결된 프로그램이 없어야 삭제됩니다.`}
+        type="error"
       />
     </div>
   )

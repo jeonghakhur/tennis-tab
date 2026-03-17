@@ -338,6 +338,23 @@ export async function getPublicCoachDetail(coachId: string): Promise<{
   }
 }
 
+/** 코치 삭제 */
+export async function deleteCoach(coachId: string): Promise<{ error: string | null }> {
+  const idErr = validateId(coachId, '코치 ID')
+  if (idErr) return { error: idErr }
+
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+  const { error } = await admin.from('coaches').delete().eq('id', coachId)
+
+  if (error) return { error: '코치 삭제에 실패했습니다. 연결된 프로그램이 있는지 확인해주세요.' }
+
+  revalidatePath('/lessons')
+  return { error: null }
+}
+
 /** 코치 비활성화 */
 export async function deactivateCoach(coachId: string): Promise<{ error: string | null }> {
   const idErr = validateId(coachId, '코치 ID')
@@ -357,3 +374,4 @@ export async function deactivateCoach(coachId: string): Promise<{ error: string 
   revalidatePath('/lessons')
   return { error: null }
 }
+

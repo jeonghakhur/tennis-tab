@@ -13,9 +13,11 @@ interface CoachFormProps {
   onSubmit: (data: CreateCoachInput) => Promise<{ error: string | null }>
   /** 수정 시 기존 데이터 */
   initialData?: Coach
+  /** 삭제 콜백 (수정 모드에서만) */
+  onDelete?: () => void
 }
 
-export function CoachForm({ isOpen, onClose, onSubmit, initialData }: CoachFormProps) {
+export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: CoachFormProps) {
   const isEdit = !!initialData
 
   const [name, setName] = useState(initialData?.name || '')
@@ -396,6 +398,17 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData }: CoachFormP
         </Modal.Body>
 
         <Modal.Footer>
+          {isEdit && onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              disabled={submitting}
+              className="px-4 py-2 rounded-lg text-sm font-medium"
+              style={{ backgroundColor: 'var(--color-danger-subtle)', color: 'var(--color-danger)' }}
+            >
+              삭제
+            </button>
+          )}
           <button
             type="button"
             onClick={onClose}
