@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { Calendar, Clock, ChevronLeft, ChevronRight, DollarSign, User } from 'lucide-react'
+import { Calendar, Clock, ChevronLeft, ChevronRight, User } from 'lucide-react'
 import { getOpenSlotsByProgram, createBooking, getProgramFees } from '@/lib/lessons/slot-actions'
 import { submitLessonInquiry } from '@/lib/lessons/actions'
 import { Badge } from '@/components/common/Badge'
@@ -15,6 +15,15 @@ import { BOOKING_TYPE_LABEL, calculateBookingType, getFeeFieldByBookingType } fr
 
 const MAX_SLOTS = 2
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+// 슬롯 수 기반 요금 라벨 (주1회=월4회, 주2회=월8회)
+const FEE_SESSION_LABEL: Record<string, string> = {
+  WEEKDAY_1: '주 1회 (4회/월)',
+  WEEKEND_1: '주 1회 (4회/월)',
+  WEEKDAY_2: '주 2회 (8회/월)',
+  WEEKEND_2: '주 2회 (8회/월)',
+  MIXED_2:   '주 2회 (8회/월)',
+}
 
 interface SlotBookingSectionProps {
   programId: string
@@ -217,19 +226,15 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
   }
 
   return (
-    <section
-      className="glass-card rounded-xl p-4 mb-4"
-      aria-labelledby="slot-booking-title"
-    >
+    <section className="mb-4" aria-labelledby="slot-booking-title">
       <h2
         id="slot-booking-title"
-        className="text-sm font-medium mb-4 flex items-center gap-1.5"
+        className="text-base font-semibold mb-3 flex items-center gap-1.5"
         style={{ color: 'var(--text-primary)' }}
       >
-        <Calendar className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
         레슨 신청
         {coachName && (
-          <span className="font-normal text-sm" style={{ color: 'var(--text-muted)' }}>
+          <span className="text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
             · {coachName} 코치
           </span>
         )}
@@ -243,9 +248,17 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
           </p>
         </div>
       ) : (
-        <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
-          {/* 왼쪽: 달력 */}
-          <div>
+        <div className="md:grid md:grid-cols-2 md:gap-4 md:items-start">
+          {/* 왼쪽: 달력 카드 */}
+          <div
+            className="rounded-xl p-3 mb-4 md:mb-0"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+          >
+            <p className="text-sm font-medium mb-3 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <Calendar className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
+              날짜 선택
+            </p>
+
             {/* 달력 헤더 */}
             <div className="flex items-center justify-between mb-3">
               <button onClick={prevMonth} className="p-1.5 rounded-lg hover:opacity-80" style={{ backgroundColor: 'var(--bg-card-hover)' }} aria-label="이전 달">
@@ -305,7 +318,6 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                     aria-pressed={isSelected}
                   >
                     {day.date}
-                    {/* 슬롯 있는 날 — 하단 라인 표시 */}
                     {day.hasSlots && !isPast && (
                       <span
                         className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full"
@@ -318,16 +330,20 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
             </div>
           </div>
 
-          {/* 오른쪽: 슬롯 선택 + 신청 정보 */}
-          <div className="mt-4 md:mt-0 space-y-4">
-            {/* 선택된 날짜의 슬롯 목록 */}
-            {selectedDate ? (
-              <div>
-                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  {selectedDate} ({DAY_LABELS[new Date(selectedDate + 'T00:00:00').getDay()]}) 빈 슬롯
-                </p>
-                {dateSlotsForView.length === 0 ? (
-                  <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>해당 날짜에 빈 슬롯이 없습니다.</p>
+          {/* 오른쪽: 슬롯 선택 + 신청 정보 카드 */}
+          <div
+            className="rounded-xl p-3 space-y-4"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+          >
+            {/* 슬롯 목록 */}
+            <div>
+              <p className="text-sm font-medium mb-2 flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <Clock className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
+                시간 선택
+              </p>
+              {selectedDate ? (
+                dateSlotsForView.length === 0 ? (
+                  <p className="text-sm py-3 text-center" style={{ color: 'var(--text-muted)' }}>해당 날짜에 빈 슬롯이 없습니다.</p>
                 ) : (
                   <div className="flex flex-wrap gap-2">
                     {dateSlotsForView.map((slot) => {
@@ -344,20 +360,19 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                           }}
                           aria-pressed={isSlotSelected}
                         >
-                          <Clock className="w-3.5 h-3.5" />
                           {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
                           {isSlotSelected && ' ✓'}
                         </button>
                       )
                     })}
                   </div>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
-                날짜를 선택하면 빈 슬롯이 표시됩니다.
-              </p>
-            )}
+                )
+              ) : (
+                <p className="text-sm py-3 text-center" style={{ color: 'var(--text-muted)' }}>
+                  날짜를 먼저 선택해주세요.
+                </p>
+              )}
+            </div>
 
             {/* 선택 요약 + 요금 */}
             {selectedSlots.length > 0 && (
@@ -370,11 +385,10 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                 </p>
                 {selectedSlots.map((slot) => {
                   const d = new Date(slot.slot_date + 'T00:00:00')
-                  const dayLabel = DAY_LABELS[d.getDay()]
                   return (
                     <div key={slot.id} className="flex items-center justify-between text-sm mb-1">
                       <span style={{ color: 'var(--text-secondary)' }}>
-                        {slot.slot_date} ({dayLabel}) {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
+                        {slot.slot_date} ({DAY_LABELS[d.getDay()]}) {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
                       </span>
                       <button
                         onClick={() => toggleSlot(slot)}
@@ -388,110 +402,106 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                   )
                 })}
 
-                {/* 요금 */}
-                <div className="flex items-center gap-2 mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
-                  <DollarSign className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
-                  {bookingType && (
-                    <Badge variant="info">{BOOKING_TYPE_LABEL[bookingType]}</Badge>
-                  )}
-                  {feeAmount !== null ? (
-                    <span className="text-sm font-bold" style={{ color: 'var(--accent-color)' }}>
-                      {feeAmount.toLocaleString()}원/월
-                    </span>
-                  ) : (
-                    <span className="text-sm" style={{ color: 'var(--text-muted)' }}>요금 문의</span>
-                  )}
-                </div>
+                {/* 요금 — 주1회(4회)/주2회(8회) 표기 */}
+                {bookingType && (
+                  <div className="flex items-center gap-2 mt-3 pt-2 border-t" style={{ borderColor: 'var(--border-color)' }}>
+                    <Badge variant="info">{FEE_SESSION_LABEL[bookingType]}</Badge>
+                    {feeAmount !== null ? (
+                      <span className="text-sm font-bold" style={{ color: 'var(--accent-color)' }}>
+                        {feeAmount.toLocaleString()}원/월
+                      </span>
+                    ) : (
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>요금 문의</span>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* 신청자 정보 */}
-            {selectedSlots.length > 0 && (
-              <div className="space-y-3">
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  <User className="w-3.5 h-3.5 inline mr-1" />
-                  신청자 정보
+            {/* 신청자 정보 — 항상 표시 */}
+            <div className="space-y-3">
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                <User className="w-3.5 h-3.5 inline mr-1" />
+                신청자 정보
+              </p>
+              <div>
+                <label htmlFor="guest-name" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                </label>
+                <input
+                  id="guest-name"
+                  type="text"
+                  value={guestName}
+                  onChange={(e) => setGuestName(e.target.value)}
+                  placeholder="홍길동"
+                  maxLength={20}
+                  readOnly={!!profile}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="guest-phone" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                </label>
+                <input
+                  id="guest-phone"
+                  type="tel"
+                  value={guestPhone}
+                  onChange={(e) => setGuestPhone(e.target.value)}
+                  placeholder="010-1234-5678"
+                  maxLength={20}
+                  readOnly={!!profile}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={{
+                    backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="booking-message" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  문의 내용 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
+                </label>
+                <textarea
+                  id="booking-message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="궁금한 점이나 전달할 내용을 입력해주세요"
+                  maxLength={1000}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                />
+                <p className="text-right text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {message.length}/1000
                 </p>
-                <div>
-                  <label htmlFor="guest-name" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-                    이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                  </label>
-                  <input
-                    id="guest-name"
-                    type="text"
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    placeholder="홍길동"
-                    maxLength={20}
-                    readOnly={!!profile}
-                    className="w-full px-3 py-2 rounded-lg text-sm"
-                    style={{
-                      backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                      color: 'var(--text-primary)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="guest-phone" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-                    연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
-                  </label>
-                  <input
-                    id="guest-phone"
-                    type="tel"
-                    value={guestPhone}
-                    onChange={(e) => setGuestPhone(e.target.value)}
-                    placeholder="010-1234-5678"
-                    maxLength={20}
-                    readOnly={!!profile}
-                    className="w-full px-3 py-2 rounded-lg text-sm"
-                    style={{
-                      backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
-                      color: 'var(--text-primary)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  />
-                </div>
-                <div>
-                  <label htmlFor="booking-message" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-                    문의 내용 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
-                  </label>
-                  <textarea
-                    id="booking-message"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="궁금한 점이나 전달할 내용을 입력해주세요"
-                    maxLength={1000}
-                    rows={3}
-                    className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-                    style={{
-                      backgroundColor: 'var(--bg-input)',
-                      color: 'var(--text-primary)',
-                      border: '1px solid var(--border-color)',
-                    }}
-                  />
-                  <p className="text-right text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {message.length}/1000
-                  </p>
-                </div>
               </div>
-            )}
+            </div>
 
-            {/* 신청 버튼 */}
-            {selectedSlots.length > 0 && (
-              <button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full py-3 rounded-xl text-sm font-bold transition-colors"
-                style={{
-                  backgroundColor: 'var(--accent-color)',
-                  color: 'var(--bg-primary)',
-                  opacity: submitting ? 0.6 : 1,
-                }}
-              >
-                {submitting ? '신청 중...' : '레슨 신청하기'}
-              </button>
-            )}
+            {/* 신청 버튼 — 슬롯 미선택 시 비활성화 */}
+            <button
+              onClick={handleSubmit}
+              disabled={selectedSlots.length === 0 || submitting}
+              className="w-full py-3 rounded-xl text-sm font-bold transition-all"
+              style={{
+                backgroundColor: selectedSlots.length === 0 ? 'var(--bg-card-hover)' : 'var(--accent-color)',
+                color: selectedSlots.length === 0 ? 'var(--text-muted)' : 'var(--bg-primary)',
+                cursor: selectedSlots.length === 0 ? 'not-allowed' : 'pointer',
+                opacity: submitting ? 0.6 : 1,
+              }}
+            >
+              {submitting ? '신청 중...' : selectedSlots.length === 0 ? '시간을 선택해주세요' : '레슨 신청하기'}
+            </button>
           </div>
         </div>
       )}
