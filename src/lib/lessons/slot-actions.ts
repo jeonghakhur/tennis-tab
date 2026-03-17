@@ -600,6 +600,124 @@ export async function getProgramFees(
   return { error: null, data: data as Pick<LessonProgram, 'fee_weekday_1' | 'fee_weekday_2' | 'fee_weekend_1' | 'fee_weekend_2' | 'fee_mixed_2' | 'title'> }
 }
 
+// ============================================================================
+// 내 예약 (마이페이지)
+// ============================================================================
+
+/** 내 예약에 필요한 슬롯+코치+프로그램 정보 */
+export interface MyBookingDetail {
+  booking: LessonBooking
+  slots: Array<LessonSlot & { program?: { title: string; coach?: { name: string; profile_image_url: string | null } } }>
+}
+
+/** 로그인 회원의 예약 목록 조회 */
+export async function getMyBookings(): Promise<{
+  error: string | null
+  data: MyBookingDetail[]
+}> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', data: [] }
+
+  const admin = createAdminClient()
+
+  // user_id → club_members.id 조회
+  const { data: members } = await admin
+    .from('club_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  if (!members || members.length === 0) return { error: null, data: [] }
+
+  const memberIds = members.map((m) => m.id)
+
+  // 예약 목록 조회
+  const { data: bookings, error: bookingErr } = await admin
+    .from('lesson_bookings')
+    .select('*')
+    .in('member_id', memberIds)
+    .order('created_at', { ascending: false })
+
+  if (bookingErr) return { error: '예약 목록 조회에 실패했습니다.', data: [] }
+  if (!bookings || bookings.length === 0) return { error: null, data: [] }
+
+  // 슬롯 상세 조회 (프로그램+코치 포함)
+  const allSlotIds = bookings.flatMap((b) => b.slot_ids)
+  const uniqueSlotIds = [...new Set(allSlotIds)]
+
+  const { data: slots } = await admin
+    .from('lesson_slots')
+    .select('*, program:lesson_programs(title, coach:coaches(name, profile_image_url))')
+    .in('id', uniqueSlotIds)
+
+  const slotMap = new Map((slots || []).map((s) => [s.id, s]))
+
+  const details: MyBookingDetail[] = bookings.map((booking) => ({
+    booking: booking as LessonBooking,
+    slots: booking.slot_ids
+      .map((id: string) => slotMap.get(id))
+      .filter(Boolean) as MyBookingDetail['slots'],
+  }))
+
+  return { error: null, data: details }
+}
+
+/** 내 예약 취소 (본인만) */
+export async function cancelMyBooking(
+  bookingId: string
+): Promise<{ error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const idErr = validateId(bookingId, '예약 ID')
+  if (idErr) return { error: idErr }
+
+  const admin = createAdminClient()
+
+  // 본인 확인
+  const { data: members } = await admin
+    .from('club_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  if (!members || members.length === 0) return { error: '회원 정보를 찾을 수 없습니다.' }
+
+  const memberIds = members.map((m) => m.id)
+
+  const { data: booking } = await admin
+    .from('lesson_bookings')
+    .select('*')
+    .eq('id', bookingId)
+    .single()
+
+  if (!booking) return { error: '예약을 찾을 수 없습니다.' }
+  if (!memberIds.includes(booking.member_id)) return { error: '본인의 예약만 취소할 수 있습니다.' }
+  if (booking.status === 'CANCELLED') return { error: '이미 취소된 예약입니다.' }
+
+  // 예약 취소
+  const { error } = await admin
+    .from('lesson_bookings')
+    .update({
+      status: 'CANCELLED',
+      cancelled_at: new Date().toISOString(),
+      cancel_reason: '회원 직접 취소',
+    })
+    .eq('id', bookingId)
+
+  if (error) return { error: '예약 취소에 실패했습니다.' }
+
+  // 슬롯 OPEN 복구
+  await admin
+    .from('lesson_slots')
+    .update({ status: 'OPEN' })
+    .in('id', booking.slot_ids)
+    .eq('status', 'BOOKED')
+
+  revalidatePath('/my/lessons')
+  return { error: null }
+}
+
 /** 클럽 회원 검색 (어드민 배정용) */
 export async function searchClubMembers(
   query: string
