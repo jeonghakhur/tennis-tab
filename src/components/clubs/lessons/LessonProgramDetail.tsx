@@ -252,12 +252,24 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
         </section>
 
         {/* 슬롯 기반 레슨 신청 (비회원 포함) */}
-        {program.coach && (
+        {program.status === 'OPEN' && program.coach ? (
           <SlotBookingSection
             programId={programId}
             coachId={program.coach_id}
             coachName={program.coach.name}
           />
+        ) : program.status !== 'OPEN' && (
+          <div
+            className="rounded-xl p-6 mb-4 text-center"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+          >
+            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+              지금 신청 가능한 레슨은 없습니다.
+            </p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+              현재 프로그램 상태: <span style={{ color: 'var(--text-secondary)' }}>{statusConf.label}</span>
+            </p>
+          </div>
         )}
 
         {/* 레슨 문의하기 — 슬롯 선택 포함, 비회원도 가능 */}
