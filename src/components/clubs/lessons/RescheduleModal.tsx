@@ -73,9 +73,8 @@ export function RescheduleModal({ isOpen, onClose, session, enrollmentId, onSucc
         description={`${session.session_date} ${session.start_time.slice(0, 5)}~${session.end_time.slice(0, 5)}`}
         size="md"
       >
-        <form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
-            <div className="space-y-4">
+            <form id="reschedule-form" onSubmit={handleSubmit} noValidate className="space-y-4">
               {/* 변경 희망 날짜 */}
               <div>
                 <label
@@ -169,7 +168,7 @@ export function RescheduleModal({ isOpen, onClose, session, enrollmentId, onSucc
                   }}
                 />
               </div>
-            </div>
+            </form>
           </Modal.Body>
 
           <Modal.Footer>
@@ -183,13 +182,13 @@ export function RescheduleModal({ isOpen, onClose, session, enrollmentId, onSucc
             </button>
             <button
               type="submit"
+              form="reschedule-form"
               disabled={submitting}
               className="flex-1 btn-primary btn-sm"
             >
               {submitting ? '처리 중...' : '요청하기'}
             </button>
           </Modal.Footer>
-        </form>
       </Modal>
 
       <AlertDialog

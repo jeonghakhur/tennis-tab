@@ -168,9 +168,8 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={isEditMode ? '모임 수정' : '모임 생성'} size="lg">
-        <form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
-            <div className="space-y-4">
+            <form id="session-form" onSubmit={handleSubmit} noValidate className="space-y-4">
 
               {/* 날짜 */}
               <div>
@@ -291,7 +290,7 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
                 />
               </div>
 
-            </div>
+            </form>
           </Modal.Body>
 
           <Modal.Footer>
@@ -300,13 +299,12 @@ export default function SessionForm({ clubId, isOpen, onClose, onCreated, sessio
               style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', borderColor: 'var(--border-color)' }}>
               취소
             </button>
-            <button type="submit" disabled={saving}
+            <button type="submit" form="session-form" disabled={saving}
               className="flex-1 h-11 rounded-lg text-sm font-semibold disabled:opacity-50"
               style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}>
               {saving ? (isEditMode ? '수정 중...' : '생성 중...') : (isEditMode ? '수정' : '생성')}
             </button>
           </Modal.Footer>
-        </form>
       </Modal>
 
       <AlertDialog

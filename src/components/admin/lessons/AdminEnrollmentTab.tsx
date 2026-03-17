@@ -904,9 +904,8 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
 
       {/* ── 결제 등록 모달 ──────────────────────────────────────────────────── */}
       <Modal isOpen={paymentFormOpen} onClose={() => setPaymentFormOpen(false)} title="결제 등록" size="md">
-        <form onSubmit={handleAddPayment} noValidate>
           <Modal.Body>
-            <div className="space-y-4">
+            <form id="enrollment-payment-form" onSubmit={handleAddPayment} noValidate className="space-y-4">
               <div>
                 <label htmlFor="pay-amount" className="block text-sm font-medium mb-1"
                   style={{ color: 'var(--text-primary)' }}>
@@ -1014,7 +1013,7 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
                   }}
                 />
               </div>
-            </div>
+            </form>
           </Modal.Body>
           <Modal.Footer>
             <button
@@ -1025,11 +1024,10 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
             >
               취소
             </button>
-            <button type="submit" disabled={paymentSubmitting} className="flex-1 btn-primary">
+            <button type="submit" form="enrollment-payment-form" disabled={paymentSubmitting} className="flex-1 btn-primary">
               {paymentSubmitting ? '등록 중...' : '등록하기'}
             </button>
           </Modal.Footer>
-        </form>
       </Modal>
 
       {/* ── 다이얼로그 ──────────────────────────────────────────────────────── */}

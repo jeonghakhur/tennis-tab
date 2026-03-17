@@ -103,9 +103,8 @@ export default function MatchResultForm({
   return (
     <>
       <Modal isOpen={isOpen} onClose={onClose} title={title} size="sm">
-        <form onSubmit={handleSubmit} noValidate>
           <Modal.Body>
-            <div className="space-y-4">
+            <form id="match-result-form" onSubmit={handleSubmit} noValidate className="space-y-4">
               {isOfficerOverride ? (
                 /* 관리자 모드: 팀1 vs 팀2 */
                 <>
@@ -190,7 +189,7 @@ export default function MatchResultForm({
                   </p>
                 </>
               )}
-            </div>
+            </form>
           </Modal.Body>
 
           <Modal.Footer>
@@ -203,13 +202,13 @@ export default function MatchResultForm({
             </button>
             <button
               type="submit"
+              form="match-result-form"
               disabled={saving}
               className="flex-1 px-4 py-2 rounded-lg bg-(--accent-color) text-(--bg-primary) font-semibold disabled:opacity-50"
             >
               {saving ? '처리 중...' : isOfficerOverride ? '확정' : '결과 제출'}
             </button>
           </Modal.Footer>
-        </form>
       </Modal>
 
       <AlertDialog

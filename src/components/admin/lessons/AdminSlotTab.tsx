@@ -474,9 +474,8 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="슬롯 일괄 등록" size="lg">
-      <form onSubmit={handleSubmit} noValidate>
         <Modal.Body>
-          <div className="space-y-5">
+          <form id="create-slot-form" onSubmit={handleSubmit} noValidate className="space-y-5">
             {/* 기간 */}
             <div>
               <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
@@ -569,7 +568,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                 </div>
               </div>
             )}
-          </div>
+          </form>
         </Modal.Body>
         <Modal.Footer>
           <button
@@ -582,6 +581,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
           </button>
           <button
             type="submit"
+            form="create-slot-form"
             disabled={submitting || previewSlots.length === 0}
             className="flex-1 btn-primary"
             style={{ opacity: previewSlots.length === 0 ? 0.5 : 1 }}
@@ -589,7 +589,6 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             {submitting ? '등록 중...' : `${previewSlots.length}개 등록`}
           </button>
         </Modal.Footer>
-      </form>
     </Modal>
   )
 }

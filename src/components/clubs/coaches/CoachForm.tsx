@@ -163,8 +163,8 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData }: CoachFormP
         title={isEdit ? '코치 수정' : '코치 등록'}
         size="lg"
       >
-        <form onSubmit={handleSubmit} noValidate>
-          <Modal.Body>
+        <Modal.Body>
+          <form id="coach-form" onSubmit={handleSubmit} noValidate>
             <div className="space-y-5">
 
               {/* 프로필 이미지 업로드 */}
@@ -392,26 +392,27 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData }: CoachFormP
               </div>
 
             </div>
-          </Modal.Body>
+          </form>
+        </Modal.Body>
 
-          <Modal.Footer>
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-4 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || uploadingImage || uploadingCert}
-              className="flex-1 btn-primary btn-sm"
-            >
-              {submitting ? '처리 중...' : isEdit ? '수정하기' : '등록하기'}
-            </button>
-          </Modal.Footer>
-        </form>
+        <Modal.Footer>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            form="coach-form"
+            disabled={submitting || uploadingImage || uploadingCert}
+            className="flex-1 btn-primary btn-sm"
+          >
+            {submitting ? '처리 중...' : isEdit ? '수정하기' : '등록하기'}
+          </button>
+        </Modal.Footer>
       </Modal>
 
       <AlertDialog
