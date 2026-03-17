@@ -343,14 +343,32 @@ export async function createBooking(
     return { error: '슬롯을 1~2개 선택해주세요.' }
   }
 
-  const isGuest = !input.member_id
+  const sanitized = sanitizeObject(input)
+  const admin = createAdminClient()
+
+  // 로그인 사용자 자동 감지 → club_members.id 매핑
+  let resolvedMemberId = input.member_id || null
+  const currentUser = await getCurrentUser()
+
+  if (currentUser && !resolvedMemberId) {
+    const { data: member } = await admin
+      .from('club_members')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('status', 'ACTIVE')
+      .limit(1)
+      .maybeSingle()
+
+    if (member) {
+      resolvedMemberId = member.id
+    }
+  }
+
+  const isGuest = !resolvedMemberId
   if (isGuest) {
     if (!input.guest_name?.trim()) return { error: '이름을 입력해주세요.' }
     if (!input.guest_phone?.trim()) return { error: '연락처를 입력해주세요.' }
   }
-
-  const sanitized = sanitizeObject(input)
-  const admin = createAdminClient()
 
   // 슬롯들 조회 + OPEN 확인
   const { data: slots, error: slotErr } = await admin
@@ -395,7 +413,7 @@ export async function createBooking(
   const { data: booking, error: bookingErr } = await admin
     .from('lesson_bookings')
     .insert({
-      member_id: isGuest ? null : sanitized.member_id,
+      member_id: isGuest ? null : resolvedMemberId,
       guest_name: isGuest ? sanitized.guest_name : null,
       guest_phone: isGuest ? sanitized.guest_phone : null,
       is_guest: isGuest,

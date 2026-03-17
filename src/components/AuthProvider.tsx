@@ -83,17 +83,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!initializedRef.current) return
 
       if (session?.user) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-
-        setAuthState({
-          user: session.user,
-          profile: profileData,
-          loading: false,
-        })
+        // 서버 액션으로 프로필 조회 (암호화된 phone, birth_year 복호화 포함)
+        await initAuth()
       } else {
         setAuthState({
           user: null,
