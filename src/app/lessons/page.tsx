@@ -85,6 +85,23 @@ function CoachProfileCard({ card }: { card: PublicCoachCard }) {
         <ChevronRight className="w-5 h-5 shrink-0" style={{ color: 'var(--text-muted)' }} />
       </div>
 
+      {/* 프로그램 제목 + 설명 */}
+      {card.programTitle && (
+        <div
+          className="rounded-lg px-3 py-2"
+          style={{ backgroundColor: 'var(--bg-card-hover)' }}
+        >
+          <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            {card.programTitle}
+          </p>
+          {card.programDescription && (
+            <p className="text-sm mt-0.5 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
+              {card.programDescription}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* 자격증 뱃지 */}
       <CertBadges certs={card.certifications} />
 

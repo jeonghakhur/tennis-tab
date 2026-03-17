@@ -130,6 +130,8 @@ export interface PublicCoachCard {
   profileImageUrl: string | null
   /** 대표 프로그램 ID (가장 최신 OPEN) */
   programId: string | null
+  programTitle: string | null
+  programDescription: string | null
   sessionDurationMinutes: number | null
   /** 최저 요금 요약 (예: "주중 1회 120,000원~") */
   feeSummary: string | null
@@ -228,6 +230,8 @@ export async function getPublicCoaches(): Promise<{
       certifications: coach.certifications || [],
       profileImageUrl: coach.profile_image_url || null,
       programId: p?.id || null,
+      programTitle: p?.title || null,
+      programDescription: p?.description || null,
       sessionDurationMinutes: p?.session_duration_minutes || null,
       feeSummary,
       openSlotCount: p ? (slotCountMap.get(p.id) || 0) : 0,
