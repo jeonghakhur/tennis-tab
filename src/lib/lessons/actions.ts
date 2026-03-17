@@ -638,6 +638,71 @@ export async function getAdminEnrollments(programId?: string): Promise<{
   }
 }
 
+// ─── 전체 수강생 목록 (어드민 테이블 뷰용) ───────────────────────────────────
+
+export type AdminEnrollmentRow = {
+  id: string
+  program_id: string
+  user_id: string
+  user_name: string
+  user_email: string | null
+  status: EnrollmentStatus
+  enrolled_at: string
+  program_title: string
+  coach_id: string
+  coach_name: string
+  /** 납부 완료된 월 목록 ('YYYY-MM' 형식) */
+  paid_periods: string[]
+}
+
+/** 전체 코치/프로그램의 수강생 목록 조회 (관리자 테이블 뷰) */
+export async function getAdminAllEnrollments(): Promise<{
+  error: string | null
+  data: AdminEnrollmentRow[]
+}> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, data: [] }
+
+  const admin = createAdminClient()
+
+  const { data, error } = await admin
+    .from('lesson_enrollments')
+    .select(
+      'id, program_id, user_id, status, enrolled_at, user:profiles(id, name, email), program:lesson_programs(id, title, coach:coaches(id, name)), payments:lesson_payments(period)',
+    )
+    .neq('status', 'CANCELLED')
+    .order('enrolled_at', { ascending: false })
+
+  if (error) return { error: '수강 목록 조회에 실패했습니다.', data: [] }
+
+  return {
+    error: null,
+    data: (data || []).map((e) => {
+      const user = e.user as unknown as { name: string; email: string } | null
+      const program = e.program as unknown as {
+        id: string
+        title: string
+        coach: { id: string; name: string } | null
+      } | null
+      const payments = (e.payments as unknown as { period: string }[] | null) ?? []
+
+      return {
+        id: e.id,
+        program_id: e.program_id,
+        user_id: e.user_id,
+        user_name: user?.name ?? '알 수 없음',
+        user_email: user?.email ?? null,
+        status: e.status,
+        enrolled_at: e.enrolled_at,
+        program_title: program?.title ?? '알 수 없음',
+        coach_id: program?.coach?.id ?? '',
+        coach_name: program?.coach?.name ?? '알 수 없음',
+        paid_periods: payments.map((p) => p.period),
+      }
+    }),
+  }
+}
+
 /** 수강 상태 변경 (관리자) */
 export async function updateEnrollmentStatus(
   enrollmentId: string,
