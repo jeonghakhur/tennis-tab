@@ -305,7 +305,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                         program.fee_weekday_2 ? `주중2회 ${program.fee_weekday_2.toLocaleString()}원` : null,
                         program.fee_weekend_1 ? `주말1회 ${program.fee_weekend_1.toLocaleString()}원` : null,
                         program.fee_weekend_2 ? `주말2회 ${program.fee_weekend_2.toLocaleString()}원` : null,
-                      ].filter(Boolean).join(' / ') || '요금 미설정'}
+                      ].filter(Boolean).join(' · ') || '요금 미설정'}
                     </p>
                   </div>
                   <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-1.5 shrink-0 items-end">
@@ -462,7 +462,6 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     { key: 'fee_weekday_2', label: '주중 2회' },
                     { key: 'fee_weekend_1', label: '주말 1회' },
                     { key: 'fee_weekend_2', label: '주말 2회' },
-                    { key: 'fee_mixed_2', label: '혼합 2회' },
                   ] as const).map(({ key, label }) => (
                     <div key={key}>
                       <label htmlFor={`prog-${key}`} className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
