@@ -34,11 +34,6 @@ function FeeTable({ program }: { program: PublicCoachDetail['program'] }) {
       fee1: program.feeWeekend1,
       fee2: program.feeWeekend2,
     },
-    {
-      label: '혼합',
-      fee1: null,
-      fee2: program.feeMixed2,
-    },
   ]
 
   // 모든 요금이 null이면 렌더 안 함
