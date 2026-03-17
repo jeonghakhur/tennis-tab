@@ -89,6 +89,7 @@ export interface CreateProgramInput {
   fee_weekday_2?: number
   fee_weekend_1?: number
   fee_weekend_2?: number
+  fee_mixed_2?: number
 }
 
 export interface UpdateProgramInput {
@@ -102,6 +103,7 @@ export interface UpdateProgramInput {
   fee_weekday_2?: number | null
   fee_weekend_1?: number | null
   fee_weekend_2?: number | null
+  fee_mixed_2?: number | null
   is_visible?: boolean
 }
 
