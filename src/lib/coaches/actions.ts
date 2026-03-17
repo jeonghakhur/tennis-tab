@@ -154,11 +154,12 @@ export async function getPublicCoaches(): Promise<{
   if (coachError) return { error: '코치 목록 조회에 실패했습니다.', data: [] }
   if (!coaches || coaches.length === 0) return { error: null, data: [] }
 
-  // 각 코치의 대표 프로그램 조회
+  // 각 코치의 대표 프로그램 조회 (OPEN 상태만)
   const { data: programs, error } = await admin
     .from('lesson_programs')
     .select('*')
     .in('coach_id', coaches.map(c => c.id))
+    .eq('status', 'OPEN')
     .order('created_at', { ascending: false })
 
   if (error) return { error: '코치 목록 조회에 실패했습니다.', data: [] }

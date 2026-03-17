@@ -90,28 +90,36 @@ function CoachProfileCard({ card }: { card: PublicCoachCard }) {
 
       {/* 하단: 요금 요약 + 레슨 시간 */}
       <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: 'var(--border-color)' }}>
-        <div className="flex flex-col gap-0.5">
-          {card.feeSummary && (
-            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-              {card.feeSummary}
+        {card.programId ? (
+          <>
+            <div className="flex flex-col gap-0.5">
+              {card.feeSummary && (
+                <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                  {card.feeSummary}
+                </span>
+              )}
+              {card.sessionDurationMinutes && (
+                <span className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
+                  <Clock className="w-3 h-3" />
+                  {card.sessionDurationMinutes}분 레슨
+                </span>
+              )}
+            </div>
+            <span
+              className="text-xs px-2.5 py-1 rounded-full font-medium"
+              style={{
+                backgroundColor: card.openSlotCount > 0 ? 'var(--color-success-subtle)' : 'var(--bg-card-hover)',
+                color: card.openSlotCount > 0 ? 'var(--color-success)' : 'var(--text-muted)',
+              }}
+            >
+              {card.openSlotCount > 0 ? `빈 슬롯 ${card.openSlotCount}개` : '빈 슬롯 없음'}
             </span>
-          )}
-          {card.sessionDurationMinutes && (
-            <span className="inline-flex items-center gap-1 text-xs" style={{ color: 'var(--text-muted)' }}>
-              <Clock className="w-3 h-3" />
-              {card.sessionDurationMinutes}분 레슨
-            </span>
-          )}
-        </div>
-        <span
-          className="text-xs px-2.5 py-1 rounded-full font-medium"
-          style={{
-            backgroundColor: card.openSlotCount > 0 ? 'var(--color-success-subtle)' : 'var(--bg-card-hover)',
-            color: card.openSlotCount > 0 ? 'var(--color-success)' : 'var(--text-muted)',
-          }}
-        >
-          {card.openSlotCount > 0 ? `빈 슬롯 ${card.openSlotCount}개` : '빈 슬롯 없음'}
-        </span>
+          </>
+        ) : (
+          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            지금 신청 가능한 레슨이 없습니다.
+          </span>
+        )}
       </div>
     </button>
   )
