@@ -43,7 +43,7 @@ export function CoachCard({ coach, onEdit, isAdmin }: CoachCardProps) {
             {isAdmin && onEdit && (
               <button
                 onClick={onEdit}
-                className="text-xs px-2 py-1 rounded-md hover:opacity-80"
+                className="text-sm px-2 py-1 rounded-md hover:opacity-80"
                 style={{
                   backgroundColor: 'var(--bg-card-hover)',
                   color: 'var(--text-secondary)',
@@ -55,7 +55,7 @@ export function CoachCard({ coach, onEdit, isAdmin }: CoachCardProps) {
           </div>
 
           {coach.experience && (
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
+            <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
               경력: {coach.experience}
             </p>
           )}
@@ -65,7 +65,7 @@ export function CoachCard({ coach, onEdit, isAdmin }: CoachCardProps) {
               {coach.certifications.map((cert) => (
                 <span
                   key={cert}
-                  className="text-xs px-1.5 py-0.5 rounded"
+                  className="text-sm px-1.5 py-0.5 rounded"
                   style={{
                     backgroundColor: 'var(--bg-card-hover)',
                     color: 'var(--text-secondary)',
@@ -79,7 +79,7 @@ export function CoachCard({ coach, onEdit, isAdmin }: CoachCardProps) {
 
           {coach.bio && (
             <p
-              className="text-xs mt-2 line-clamp-2"
+              className="text-sm mt-2 line-clamp-2"
               style={{ color: 'var(--text-secondary)' }}
             >
               {coach.bio}

@@ -195,7 +195,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                       type="button"
                       onClick={() => imageInputRef.current?.click()}
                       disabled={uploadingImage}
-                      className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg"
+                      className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg"
                       style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                     >
                       {uploadingImage
@@ -208,13 +208,13 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                       <button
                         type="button"
                         onClick={() => setProfileImageUrl('')}
-                        className="text-xs text-left"
+                        className="text-sm text-left"
                         style={{ color: 'var(--color-danger)' }}
                       >
                         사진 제거
                       </button>
                     )}
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       JPG, PNG, WebP · 최대 10MB
                     </p>
                   </div>
@@ -284,7 +284,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
               {/* 자격증 (텍스트) */}
               <div>
                 <label htmlFor="coach-cert" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                  자격증명 <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>(엔터로 추가)</span>
+                  자격증명 <span className="font-normal text-sm" style={{ color: 'var(--text-muted)' }}>(엔터로 추가)</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -312,7 +312,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                     {certifications.map((cert) => (
                       <span
                         key={cert}
-                        className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md"
+                        className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md"
                         style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-primary)' }}
                       >
                         {cert}
@@ -334,7 +334,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
               <div>
                 <p className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                   자격증 첨부파일
-                  <span className="font-normal text-xs ml-1" style={{ color: 'var(--text-muted)' }}>
+                  <span className="font-normal text-sm ml-1" style={{ color: 'var(--text-muted)' }}>
                     (PDF, 이미지 등 · 복수 선택 가능)
                   </span>
                 </p>
@@ -342,7 +342,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                   type="button"
                   onClick={() => certFileInputRef.current?.click()}
                   disabled={uploadingCert}
-                  className="inline-flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg"
+                  className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg"
                   style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                 >
                   {uploadingCert
@@ -365,7 +365,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                     {certificationFiles.map((url, idx) => (
                       <div
                         key={url}
-                        className="flex items-center justify-between text-xs px-3 py-2 rounded-lg"
+                        className="flex items-center justify-between text-sm px-3 py-2 rounded-lg"
                         style={{ backgroundColor: 'var(--bg-card-hover)' }}
                       >
                         <a

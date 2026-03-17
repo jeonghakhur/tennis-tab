@@ -84,7 +84,7 @@ export function CoachList({ clubId, isAdmin }: CoachListProps) {
         {isAdmin && (
           <button
             onClick={() => setFormOpen(true)}
-            className="inline-flex items-center gap-1 text-xs px-3 py-1.5 rounded-lg font-medium"
+            className="inline-flex items-center gap-1 text-sm px-3 py-1.5 rounded-lg font-medium"
             style={{
               backgroundColor: 'var(--accent-color)',
               color: 'var(--bg-primary)',
