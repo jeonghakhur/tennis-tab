@@ -208,7 +208,7 @@ export async function getPublicCoaches(): Promise<{
       let minAmount = Infinity
       let minLabel = ''
       for (const { key, label } of FEE_FIELDS) {
-        const amount = (p as Record<string, unknown>)[key]
+        const amount = (p as unknown as Record<string, unknown>)[key]
         if (typeof amount === 'number' && amount > 0 && amount < minAmount) {
           minAmount = amount
           minLabel = label

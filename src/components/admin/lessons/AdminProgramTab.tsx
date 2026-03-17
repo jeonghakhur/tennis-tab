@@ -119,7 +119,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
       fee_weekday_2: program.fee_weekday_2?.toString() || '',
       fee_weekend_1: program.fee_weekend_1?.toString() || '',
       fee_weekend_2: program.fee_weekend_2?.toString() || '',
-      fee_mixed_2: (program as Record<string, unknown>).fee_mixed_2?.toString() || '',
+      fee_mixed_2: program.fee_mixed_2?.toString() || '',
     })
     setFormOpen(true)
   }
