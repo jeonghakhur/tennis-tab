@@ -77,10 +77,29 @@ interface AdminSlotTabProps {
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
 export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
-  // 프로그램/코치 선택
-  const [selectedProgramId, setSelectedProgramId] = useState('')
-  const selectedProgram = programs.find((p) => p.id === selectedProgramId) ?? null
-  const coachId = selectedProgram?.coach_id ?? ''
+  // 코치별 그룹핑 (탭 구성)
+  const coachGroups = programs.reduce<Array<{ coachId: string; coachName: string; programs: LessonProgram[] }>>(
+    (acc, p) => {
+      const existing = acc.find((g) => g.coachId === p.coach_id)
+      if (existing) {
+        existing.programs.push(p)
+      } else {
+        acc.push({ coachId: p.coach_id, coachName: p.coach?.name || '미지정', programs: [p] })
+      }
+      return acc
+    },
+    []
+  )
+
+  // 선택된 코치 탭 (기본: 첫 번째)
+  const [selectedCoachId, setSelectedCoachId] = useState('')
+  const selectedGroup = coachGroups.find((g) => g.coachId === selectedCoachId) ?? coachGroups[0] ?? null
+  // 선택된 코치의 프로그램 중 첫 번째 (OPEN 우선)
+  const selectedProgram = selectedGroup
+    ? (selectedGroup.programs.find((p) => p.status === 'OPEN') ?? selectedGroup.programs[0] ?? null)
+    : null
+  const selectedProgramId = selectedProgram?.id ?? ''
+  const coachId = selectedGroup?.coachId ?? ''
 
   // 주간 뷰 상태
   const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
@@ -99,12 +118,12 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
-  // 프로그램 자동 선택
+  // 코치 탭 자동 선택 (최초 로드)
   useEffect(() => {
-    if (programs.length > 0 && !selectedProgramId) {
-      setSelectedProgramId(programs[0].id)
+    if (coachGroups.length > 0 && !selectedCoachId) {
+      setSelectedCoachId(coachGroups[0].coachId)
     }
-  }, [programs, selectedProgramId])
+  }, [coachGroups.length])
 
   // 슬롯 조회
   const loadSlots = useCallback(async () => {
@@ -181,30 +200,45 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
   return (
     <div>
-      {/* 프로그램 선택 */}
-      <div className="mb-4">
-        <label htmlFor="slot-program-select" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
-          프로그램 선택
-        </label>
-        {programsLoading ? (
-          <div className="h-10 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-        ) : (
-          <select
-            id="slot-program-select"
-            value={selectedProgramId}
-            onChange={(e) => setSelectedProgramId(e.target.value)}
-            className="w-full px-3 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-          >
-            <option value="">프로그램을 선택하세요</option>
-            {programs.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.title} ({p.coach?.name || '코치 미배정'})
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
+      {/* 코치 탭 */}
+      {programsLoading ? (
+        <div className="flex gap-2 mb-4">
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="h-9 w-24 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          ))}
+        </div>
+      ) : coachGroups.length === 0 ? (
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>등록된 프로그램이 없습니다.</p>
+      ) : (
+        <div
+          className="flex gap-1 mb-4 border-b"
+          style={{ borderColor: 'var(--border-color)' }}
+          role="tablist"
+          aria-label="코치 선택"
+        >
+          {coachGroups.map((group) => {
+            const isActive = (selectedCoachId || coachGroups[0]?.coachId) === group.coachId
+            return (
+              <button
+                key={group.coachId}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setSelectedCoachId(group.coachId)}
+                className="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors"
+                style={{
+                  backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
+                  color: isActive ? 'var(--accent-color)' : 'var(--text-secondary)',
+                  borderBottom: isActive ? '2px solid var(--accent-color)' : '2px solid transparent',
+                  marginBottom: '-1px',
+                }}
+              >
+                {group.coachName}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
       {selectedProgramId && coachId && (
         <>
