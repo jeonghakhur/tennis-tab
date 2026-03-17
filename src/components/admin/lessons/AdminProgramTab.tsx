@@ -53,6 +53,7 @@ interface ProgramFormData {
   fee_weekday_2: string
   fee_weekend_1: string
   fee_weekend_2: string
+  fee_mixed_2: string
 }
 
 const EMPTY_FORM: ProgramFormData = {
@@ -65,6 +66,7 @@ const EMPTY_FORM: ProgramFormData = {
   fee_weekday_2: '',
   fee_weekend_1: '',
   fee_weekend_2: '',
+  fee_mixed_2: '',
 }
 
 
@@ -117,6 +119,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
       fee_weekday_2: program.fee_weekday_2?.toString() || '',
       fee_weekend_1: program.fee_weekend_1?.toString() || '',
       fee_weekend_2: program.fee_weekend_2?.toString() || '',
+      fee_mixed_2: (program as Record<string, unknown>).fee_mixed_2?.toString() || '',
     })
     setFormOpen(true)
   }
@@ -139,6 +142,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
     const feeWeekday2 = formData.fee_weekday_2 ? parseInt(formData.fee_weekday_2) : undefined
     const feeWeekend1 = formData.fee_weekend_1 ? parseInt(formData.fee_weekend_1) : undefined
     const feeWeekend2 = formData.fee_weekend_2 ? parseInt(formData.fee_weekend_2) : undefined
+    const feeMixed2 = formData.fee_mixed_2 ? parseInt(formData.fee_mixed_2) : undefined
 
     if (editTarget) {
       const updateData: UpdateProgramInput = {
@@ -152,6 +156,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         fee_weekday_2: feeWeekday2 ?? null,
         fee_weekend_1: feeWeekend1 ?? null,
         fee_weekend_2: feeWeekend2 ?? null,
+        fee_mixed_2: feeMixed2 ?? null,
       }
       result = await updateLessonProgram(editTarget.id, updateData)
     } else {
@@ -166,6 +171,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         fee_weekday_2: feeWeekday2,
         fee_weekend_1: feeWeekend1,
         fee_weekend_2: feeWeekend2,
+        fee_mixed_2: feeMixed2,
       }
       result = await createLessonProgram(createData)
     }
@@ -366,8 +372,8 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
         title={editTarget ? '프로그램 수정' : '프로그램 등록'}
         size="lg"
       >
-        <form onSubmit={handleSubmit} noValidate>
-          <Modal.Body>
+        <Modal.Body>
+          <form id="program-form" onSubmit={handleSubmit} noValidate>
             <div className="space-y-4">
               {/* 코치 선택 */}
               <div>
@@ -456,6 +462,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     { key: 'fee_weekday_2', label: '주중 2회' },
                     { key: 'fee_weekend_1', label: '주말 1회' },
                     { key: 'fee_weekend_2', label: '주말 2회' },
+                    { key: 'fee_mixed_2', label: '혼합 2회' },
                   ] as const).map(({ key, label }) => (
                     <div key={key}>
                       <label htmlFor={`prog-${key}`} className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
@@ -497,25 +504,26 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                 />
               </div>
             </div>
-          </Modal.Body>
-          <Modal.Footer>
-            <button
-              type="button"
-              onClick={() => setFormOpen(false)}
-              className="flex-1 px-4 py-2 rounded-lg text-sm"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-            >
-              취소
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="flex-1 btn-primary"
-            >
-              {submitting ? '처리 중...' : editTarget ? '수정하기' : '등록하기'}
-            </button>
-          </Modal.Footer>
-        </form>
+          </form>
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            type="button"
+            onClick={() => setFormOpen(false)}
+            className="flex-1 px-4 py-2 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+          >
+            취소
+          </button>
+          <button
+            type="submit"
+            form="program-form"
+            disabled={submitting}
+            className="flex-1 btn-primary"
+          >
+            {submitting ? '처리 중...' : editTarget ? '수정하기' : '등록하기'}
+          </button>
+        </Modal.Footer>
       </Modal>
 
       <ConfirmDialog
