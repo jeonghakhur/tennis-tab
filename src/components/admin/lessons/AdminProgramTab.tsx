@@ -296,10 +296,10 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       </span>
                       <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
                     </div>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
                       코치: {program.coach?.name || '-'} · 정원: {program.max_participants}명 · {program.session_duration_minutes}분
                     </p>
-                    <p className="text-xs mt-1" style={{ color: 'var(--text-secondary)' }}>
+                    <p className="text-sm mt-1" style={{ color: 'var(--text-secondary)' }}>
                       {[
                         program.fee_weekday_1 ? `주중1회 ${program.fee_weekday_1.toLocaleString()}원` : null,
                         program.fee_weekday_2 ? `주중2회 ${program.fee_weekday_2.toLocaleString()}원` : null,
@@ -308,7 +308,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       ].filter(Boolean).join(' / ') || '요금 미설정'}
                     </p>
                   </div>
-                  <div className="flex flex-col gap-1.5 shrink-0 items-end">
+                  <div className="flex flex-col md:flex-row md:flex-wrap md:items-center gap-1.5 shrink-0 items-end">
                     {/* 노출 토글 */}
                     <button
                       type="button"
@@ -321,7 +321,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                           onRefresh()
                         }
                       }}
-                      className="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-md"
+                      className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md"
                       style={{
                         backgroundColor: program.is_visible ? 'var(--bg-card-hover)' : 'var(--color-warning-subtle, #fef3c7)',
                         color: program.is_visible ? 'var(--accent-color)' : 'var(--color-warning)',
@@ -335,7 +335,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     </button>
                     <button
                       onClick={() => openEdit(program)}
-                      className="text-xs px-2 py-1 rounded-md"
+                      className="text-sm px-2 py-1 rounded-md"
                       style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                     >
                       수정
@@ -344,7 +344,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       <button
                         key={next}
                         onClick={() => setStatusTarget({ program, next })}
-                        className="text-xs px-2 py-1 rounded-md"
+                        className="text-sm px-2 py-1 rounded-md"
                         style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                       >
                         {STATUS_CONFIG[next].label}으로 변경
@@ -352,7 +352,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     ))}
                     <button
                       onClick={() => setDeleteTarget(program)}
-                      className="text-xs px-2 py-1 rounded-md"
+                      className="text-sm px-2 py-1 rounded-md"
                       style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
                     >
                       삭제
@@ -454,7 +454,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
               {/* 수강료 */}
               <div>
                 <p className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  수강료 <span className="font-normal text-xs ml-1" style={{ color: 'var(--text-muted)' }}>(월 요금 · 빈칸은 미설정)</span>
+                  수강료 <span className="font-normal text-sm ml-1" style={{ color: 'var(--text-muted)' }}>(월 요금 · 빈칸은 미설정)</span>
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   {([
@@ -465,7 +465,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     { key: 'fee_mixed_2', label: '혼합 2회' },
                   ] as const).map(({ key, label }) => (
                     <div key={key}>
-                      <label htmlFor={`prog-${key}`} className="block text-xs mb-1" style={{ color: 'var(--text-muted)' }}>
+                      <label htmlFor={`prog-${key}`} className="block text-sm mb-1" style={{ color: 'var(--text-muted)' }}>
                         {label}
                       </label>
                       <div className="relative">
@@ -480,7 +480,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                           className="w-full px-3 py-2 pr-8 rounded-lg text-sm"
                           style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
                         />
-                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs pointer-events-none" style={{ color: 'var(--text-muted)' }}>원</span>
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-sm pointer-events-none" style={{ color: 'var(--text-muted)' }}>원</span>
                       </div>
                     </div>
                   ))}
