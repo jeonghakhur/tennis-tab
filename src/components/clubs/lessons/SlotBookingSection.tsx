@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Calendar, Clock, ChevronLeft, ChevronRight, DollarSign, User } from 'lucide-react'
 import { getOpenSlotsByProgram, createBooking, getProgramFees } from '@/lib/lessons/slot-actions'
 import { Badge } from '@/components/common/Badge'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
+import { useAuth } from '@/components/AuthProvider'
 import type { LessonSlot, LessonBookingType } from '@/lib/lessons/slot-types'
 import { BOOKING_TYPE_LABEL, calculateBookingType, getFeeFieldByBookingType } from '@/lib/lessons/slot-types'
 
@@ -23,6 +24,8 @@ interface SlotBookingSectionProps {
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
 export function SlotBookingSection({ programId, coachId, coachName }: SlotBookingSectionProps) {
+  const { profile } = useAuth()
+
   // 슬롯 데이터
   const [slots, setSlots] = useState<LessonSlot[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,9 +42,8 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
 
   // 요금 정보
   const [fees, setFees] = useState<Record<string, number | null>>({})
-  const [programTitle, setProgramTitle] = useState('')
 
-  // 비회원 폼
+  // 신청자 정보 (로그인 시 자동 입력)
   const [guestName, setGuestName] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
 
@@ -50,6 +52,14 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
+
+  // 로그인 사용자 정보 자동 입력
+  useEffect(() => {
+    if (profile) {
+      setGuestName(profile.name || '')
+      setGuestPhone(profile.phone || '')
+    }
+  }, [profile])
 
   // 슬롯 + 요금 로드
   useEffect(() => {
@@ -66,7 +76,6 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
           if (key.startsWith('fee_')) feeObj[key] = val as number | null
         }
         setFees(feeObj)
-        setProgramTitle(feesRes.data.title)
       }
       setLoading(false)
     }
@@ -98,14 +107,11 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
     const lastDate = new Date(year, month + 1, 0).getDate()
     const days: Array<{ date: number; dateStr: string; hasSlots: boolean } | null> = []
 
-    // 빈 칸
     for (let i = 0; i < firstDay; i++) days.push(null)
-
     for (let d = 1; d <= lastDate; d++) {
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
       days.push({ date: d, dateStr, hasSlots: slotsByDate.has(dateStr) })
     }
-
     return days
   }, [currentMonth, slotsByDate])
 
@@ -125,6 +131,12 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
     setSelectedDate(null)
   }
 
+  // 날짜 토글 (재클릭 시 해제)
+  const toggleDate = (dateStr: string, hasSlots: boolean, isPast: boolean) => {
+    if (!hasSlots || isPast) return
+    setSelectedDate((prev) => prev === dateStr ? null : dateStr)
+  }
+
   // 슬롯 선택/해제
   const toggleSlot = (slot: LessonSlot) => {
     setSelectedSlots((prev) => {
@@ -142,7 +154,6 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
   const handleSubmit = async () => {
     if (selectedSlots.length === 0) return
 
-    // 비회원 검증
     if (!guestName.trim()) {
       setAlert({ isOpen: true, message: '이름을 입력해주세요.', type: 'error' })
       return
@@ -173,11 +184,11 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
     }
 
     setToast({ isOpen: true, message: '레슨 신청이 완료되었습니다! 코치 수락 후 확정됩니다.', type: 'success' })
-    // 리셋
     setSelectedSlots([])
-    setGuestName('')
-    setGuestPhone('')
-    // 슬롯 새로 로드
+    if (!profile) {
+      setGuestName('')
+      setGuestPhone('')
+    }
     const { data } = await getOpenSlotsByProgram(programId, coachId)
     setSlots(data)
   }
@@ -206,7 +217,7 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
         <Calendar className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
         레슨 신청
         {coachName && (
-          <span className="font-normal text-xs" style={{ color: 'var(--text-muted)' }}>
+          <span className="font-normal text-sm" style={{ color: 'var(--text-muted)' }}>
             · {coachName} 코치
           </span>
         )}
@@ -241,7 +252,7 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
               {DAY_LABELS.map((d, i) => (
                 <div
                   key={d}
-                  className="text-center text-xs font-medium py-1"
+                  className="text-center text-sm font-medium py-1"
                   style={{ color: i === 0 ? 'var(--color-danger)' : i === 6 ? 'var(--color-info)' : 'var(--text-muted)' }}
                 >
                   {d}
@@ -261,7 +272,7 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                 return (
                   <button
                     key={day.dateStr}
-                    onClick={() => day.hasSlots && !isPast ? setSelectedDate(day.dateStr) : undefined}
+                    onClick={() => toggleDate(day.dateStr, day.hasSlots, isPast)}
                     disabled={!day.hasSlots || isPast}
                     className="relative aspect-square flex items-center justify-center rounded-lg text-sm transition-colors"
                     style={{
@@ -278,13 +289,14 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                       opacity: isPast ? 0.4 : 1,
                       fontWeight: day.hasSlots ? 600 : 400,
                     }}
-                    aria-label={`${day.dateStr}${day.hasSlots ? ' 빈 슬롯 있음' : ''}`}
+                    aria-label={`${day.dateStr}${day.hasSlots ? ' 슬롯 있음' : ''}`}
+                    aria-pressed={isSelected}
                   >
                     {day.date}
-                    {/* 빈 슬롯 있는 날 표시 */}
+                    {/* 슬롯 있는 날 — 하단 라인 표시 */}
                     {day.hasSlots && !isPast && (
                       <span
-                        className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full"
+                        className="absolute bottom-1 left-2 right-2 h-0.5 rounded-full"
                         style={{ backgroundColor: isSelected ? 'var(--bg-primary)' : 'var(--accent-color)' }}
                       />
                     )}
@@ -297,11 +309,11 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
           {/* 선택된 날짜의 슬롯 목록 */}
           {selectedDate && (
             <div className="mb-4">
-              <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
+              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
                 {selectedDate} ({DAY_LABELS[new Date(selectedDate + 'T00:00:00').getDay()]}) 빈 슬롯
               </p>
               {dateSlotsForView.length === 0 ? (
-                <p className="text-xs py-4 text-center" style={{ color: 'var(--text-muted)' }}>해당 날짜에 빈 슬롯이 없습니다.</p>
+                <p className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>해당 날짜에 빈 슬롯이 없습니다.</p>
               ) : (
                 <div className="flex flex-wrap gap-2">
                   {dateSlotsForView.map((slot) => {
@@ -335,20 +347,20 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
               className="rounded-lg p-3 mb-4"
               style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}
             >
-              <p className="text-xs font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
                 선택한 슬롯: {selectedSlots.length}개
               </p>
               {selectedSlots.map((slot) => {
                 const d = new Date(slot.slot_date + 'T00:00:00')
                 const dayLabel = DAY_LABELS[d.getDay()]
                 return (
-                  <div key={slot.id} className="flex items-center justify-between text-xs mb-1">
+                  <div key={slot.id} className="flex items-center justify-between text-sm mb-1">
                     <span style={{ color: 'var(--text-secondary)' }}>
                       {slot.slot_date} ({dayLabel}) {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
                     </span>
                     <button
                       onClick={() => toggleSlot(slot)}
-                      className="text-xs px-1.5 py-0.5 rounded hover:opacity-70"
+                      className="text-sm px-1.5 py-0.5 rounded hover:opacity-70"
                       style={{ color: 'var(--color-danger)' }}
                       aria-label="슬롯 선택 해제"
                     >
@@ -369,21 +381,21 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                     {feeAmount.toLocaleString()}원/월
                   </span>
                 ) : (
-                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>요금 문의</span>
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>요금 문의</span>
                 )}
               </div>
             </div>
           )}
 
-          {/* 비회원 입력 폼 */}
+          {/* 신청자 정보 */}
           {selectedSlots.length > 0 && (
             <div className="mb-4 space-y-3">
-              <p className="text-xs font-medium" style={{ color: 'var(--text-primary)' }}>
+              <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                 <User className="w-3.5 h-3.5 inline mr-1" />
                 신청자 정보
               </p>
               <div>
-                <label htmlFor="guest-name" className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+                <label htmlFor="guest-name" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
                   이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
                 </label>
                 <input
@@ -393,12 +405,17 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                   onChange={(e) => setGuestName(e.target.value)}
                   placeholder="홍길동"
                   maxLength={20}
+                  readOnly={!!profile}
                   className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                  style={{
+                    backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }}
                 />
               </div>
               <div>
-                <label htmlFor="guest-phone" className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
+                <label htmlFor="guest-phone" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
                   연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
                 </label>
                 <input
@@ -408,8 +425,13 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                   onChange={(e) => setGuestPhone(e.target.value)}
                   placeholder="010-1234-5678"
                   maxLength={20}
+                  readOnly={!!profile}
                   className="w-full px-3 py-2 rounded-lg text-sm"
-                  style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+                  style={{
+                    backgroundColor: profile ? 'var(--bg-card-hover)' : 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }}
                 />
               </div>
             </div>
