@@ -1,22 +1,17 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ChevronLeft, User, Award, Clock, Calendar, ArrowRight } from 'lucide-react'
+import { ChevronLeft, User, Award, Clock } from 'lucide-react'
 import { getPublicCoachDetail, type PublicCoachDetail } from '@/lib/coaches/actions'
+import { SlotBookingSection } from '@/components/clubs/lessons/SlotBookingSection'
+import { LessonInquiryForm } from '@/components/clubs/lessons/LessonInquiryForm'
 
 /** 요금 표시: null이면 "문의" */
 function feeText(amount: number | null): string {
   if (amount == null || amount <= 0) return '문의'
   return `${amount.toLocaleString()}원`
-}
-
-/** 날짜를 "3/17 (월)" 형태로 포맷 */
-function formatShortDate(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00')
-  const dayNames = ['일', '월', '화', '수', '목', '금', '토']
-  return `${date.getMonth() + 1}/${date.getDate()} (${dayNames[date.getDay()]})`
 }
 
 /** 요금표 테이블 */
@@ -99,7 +94,6 @@ function FeeTable({ program }: { program: PublicCoachDetail['program'] }) {
 
 export default function CoachDetailPage() {
   const { coachId } = useParams<{ coachId: string }>()
-  const router = useRouter()
   const [coach, setCoach] = useState<PublicCoachDetail | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -264,52 +258,17 @@ export default function CoachDetailPage() {
           </section>
         )}
 
-        {/* 빈 슬롯 미리보기 */}
-        {coach.availableDates.length > 0 && (
-          <section
-            className="rounded-xl p-5 mb-6"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-          >
-            <h2 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
-              <Calendar className="w-4 h-4 inline-block mr-1 -mt-0.5" />
-              이번 주 가능한 날짜
-            </h2>
-            <div className="flex flex-wrap gap-2">
-              {coach.availableDates.map((dateStr) => (
-                <span
-                  key={dateStr}
-                  className="text-xs px-3 py-1.5 rounded-full font-medium"
-                  style={{
-                    backgroundColor: 'var(--color-success-subtle)',
-                    color: 'var(--color-success)',
-                  }}
-                >
-                  {formatShortDate(dateStr)}
-                </span>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* 레슨 신청 버튼 */}
-        {coach.program && (
-          <button
-            type="button"
-            onClick={() => router.push(`/lessons/${coach.program!.id}`)}
-            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-base font-semibold transition-opacity hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
-            style={{
-              backgroundColor: 'var(--accent-color)',
-              color: '#fff',
-              // @ts-expect-error CSS variable
-              '--tw-ring-color': 'var(--accent-color)',
-            }}
-          >
-            레슨 신청하기
-            <ArrowRight className="w-5 h-5" />
-          </button>
-        )}
-
-        {!coach.program && (
+        {/* 레슨 신청 + 문의 — 데스크탑 2열 */}
+        {coach.program ? (
+          <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
+            <SlotBookingSection
+              programId={coach.program.id}
+              coachId={coachId}
+              coachName={coach.name}
+            />
+            <LessonInquiryForm programId={coach.program.id} />
+          </div>
+        ) : (
           <div
             className="text-center py-6 rounded-xl"
             style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
