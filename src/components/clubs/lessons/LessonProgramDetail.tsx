@@ -6,7 +6,6 @@ import { ChevronLeft } from 'lucide-react'
 import { getLessonProgramDetail } from '@/lib/lessons/actions'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import { LessonInquiryForm } from './LessonInquiryForm'
 import { SlotBookingSection } from './SlotBookingSection'
 import type { LessonProgram, LessonProgramStatus } from '@/lib/lessons/types'
 
@@ -41,8 +40,6 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
     setProgram(data)
     setLoading(false)
   }
-
-  const enrollCount = program?._enrollment_count || 0
 
   if (loading) {
     return (
@@ -94,36 +91,26 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
           <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
         </div>
 
-        {/* 달력 + 문의 — 데스크탑 2열 */}
-        <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
-          {/* 왼쪽: 슬롯 신청 */}
-          <div>
-            {program.status === 'OPEN' && program.coach ? (
-              <SlotBookingSection
-                programId={programId}
-                coachId={program.coach_id}
-                coachName={program.coach.name}
-              />
-            ) : program.status !== 'OPEN' && (
-              <div
-                className="rounded-xl p-6 mb-4 text-center"
-                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-              >
-                <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-                  지금 신청 가능한 레슨은 없습니다.
-                </p>
-                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-                  현재 프로그램 상태: <span style={{ color: 'var(--text-secondary)' }}>{statusConf.label}</span>
-                </p>
-              </div>
-            )}
+        {/* 슬롯 신청 */}
+        {program.status === 'OPEN' && program.coach ? (
+          <SlotBookingSection
+            programId={programId}
+            coachId={program.coach_id}
+            coachName={program.coach.name}
+          />
+        ) : (
+          <div
+            className="rounded-xl p-6 mb-4 text-center"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+          >
+            <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
+              지금 신청 가능한 레슨은 없습니다.
+            </p>
+            <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+              현재 프로그램 상태: <span style={{ color: 'var(--text-secondary)' }}>{statusConf.label}</span>
+            </p>
           </div>
-
-          {/* 오른쪽: 레슨 문의 */}
-          <div>
-            <LessonInquiryForm programId={programId} />
-          </div>
-        </div>
+        )}
 
         <AlertDialog
           isOpen={alert.isOpen}

@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { ChevronLeft, User, Award, Clock } from 'lucide-react'
 import { getPublicCoachDetail, type PublicCoachDetail } from '@/lib/coaches/actions'
 import { SlotBookingSection } from '@/components/clubs/lessons/SlotBookingSection'
-import { LessonInquiryForm } from '@/components/clubs/lessons/LessonInquiryForm'
 
 /** 요금 표시: null이면 "문의" */
 function feeText(amount: number | null): string {
@@ -258,16 +257,13 @@ export default function CoachDetailPage() {
           </section>
         )}
 
-        {/* 레슨 신청 + 문의 — 데스크탑 2열 */}
+        {/* 레슨 신청 */}
         {coach.program ? (
-          <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
-            <SlotBookingSection
-              programId={coach.program.id}
-              coachId={coachId}
-              coachName={coach.name}
-            />
-            <LessonInquiryForm programId={coach.program.id} />
-          </div>
+          <SlotBookingSection
+            programId={coach.program.id}
+            coachId={coachId}
+            coachName={coach.name}
+          />
         ) : (
           <div
             className="text-center py-6 rounded-xl"

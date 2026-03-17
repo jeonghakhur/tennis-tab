@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Calendar, Clock, ChevronLeft, ChevronRight, DollarSign, User } from 'lucide-react'
 import { getOpenSlotsByProgram, createBooking, getProgramFees } from '@/lib/lessons/slot-actions'
+import { submitLessonInquiry } from '@/lib/lessons/actions'
 import { Badge } from '@/components/common/Badge'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
@@ -46,6 +47,7 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
   // 신청자 정보 (로그인 시 자동 입력)
   const [guestName, setGuestName] = useState('')
   const [guestPhone, setGuestPhone] = useState('')
+  const [message, setMessage] = useState('')
 
   // 상태
   const [submitting, setSubmitting] = useState(false)
@@ -183,8 +185,18 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
       return
     }
 
+    // 문의 내용이 있으면 inquiry도 함께 등록
+    if (message.trim()) {
+      await submitLessonInquiry(programId, {
+        name: guestName.trim(),
+        phone: guestPhone.trim(),
+        message: message.trim(),
+      })
+    }
+
     setToast({ isOpen: true, message: '레슨 신청이 완료되었습니다! 코치 수락 후 확정됩니다.', type: 'success' })
     setSelectedSlots([])
+    setMessage('')
     if (!profile) {
       setGuestName('')
       setGuestPhone('')
@@ -433,6 +445,28 @@ export function SlotBookingSection({ programId, coachId, coachName }: SlotBookin
                     border: '1px solid var(--border-color)',
                   }}
                 />
+              </div>
+              <div>
+                <label htmlFor="booking-message" className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
+                  문의 내용 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
+                </label>
+                <textarea
+                  id="booking-message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="궁금한 점이나 전달할 내용을 입력해주세요"
+                  maxLength={1000}
+                  rows={3}
+                  className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                  style={{
+                    backgroundColor: 'var(--bg-input)',
+                    color: 'var(--text-primary)',
+                    border: '1px solid var(--border-color)',
+                  }}
+                />
+                <p className="text-right text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                  {message.length}/1000
+                </p>
               </div>
             </div>
           )}
