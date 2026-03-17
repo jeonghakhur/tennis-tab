@@ -12,11 +12,11 @@ import { AvatarSkeleton } from './Skeleton'
 import { NotificationBell } from './notifications/NotificationBell'
 
 const NAV_LINKS = [
-  { href: '/lessons', label: '레슨문의' },
   { href: '/tournaments', label: '대회' },
   { href: '/clubs', label: '클럽' },
   { href: '/awards', label: '명예의 전당' },
   { href: '/community', label: '커뮤니티' },
+  { href: '/lessons', label: '레슨문의' },
 ]
 
 export function Navigation() {
