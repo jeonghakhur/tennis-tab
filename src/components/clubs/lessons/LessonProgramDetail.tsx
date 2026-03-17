@@ -2,14 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { ChevronLeft, Users } from 'lucide-react'
+import { ChevronLeft } from 'lucide-react'
 import { getLessonProgramDetail } from '@/lib/lessons/actions'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import { LessonSessionList } from './LessonSessionList'
 import { LessonInquiryForm } from './LessonInquiryForm'
 import { SlotBookingSection } from './SlotBookingSection'
-import type { LessonProgram, LessonSession, LessonProgramStatus } from '@/lib/lessons/types'
+import type { LessonProgram, LessonProgramStatus } from '@/lib/lessons/types'
 
 const STATUS_CONFIG: Record<LessonProgramStatus, { label: string; variant: BadgeVariant }> = {
   DRAFT: { label: '준비 중', variant: 'secondary' },
@@ -23,7 +22,7 @@ interface LessonProgramDetailProps {
 }
 
 export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
-  const [program, setProgram] = useState<(LessonProgram & { sessions: LessonSession[] }) | null>(null)
+  const [program, setProgram] = useState<LessonProgram | null>(null)
   const [loading, setLoading] = useState(true)
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
@@ -95,22 +94,6 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
           <Badge variant={statusConf.variant}>{statusConf.label}</Badge>
         </div>
 
-        {/* 레슨 일정 */}
-        <section
-          className="glass-card rounded-xl p-4 mb-6"
-          aria-labelledby="schedule-section-title"
-        >
-          <h2
-            id="schedule-section-title"
-            className="text-sm font-medium mb-3 flex items-center gap-1.5"
-            style={{ color: 'var(--text-primary)' }}
-          >
-            <Users className="w-4 h-4" style={{ color: 'var(--accent-color)' }} />
-            레슨 일정
-          </h2>
-          <LessonSessionList sessions={program.sessions} />
-        </section>
-
         {/* 달력 + 문의 — 데스크탑 2열 */}
         <div className="md:grid md:grid-cols-2 md:gap-6 md:items-start">
           {/* 왼쪽: 슬롯 신청 */}
@@ -138,7 +121,7 @@ export function LessonProgramDetail({ programId }: LessonProgramDetailProps) {
 
           {/* 오른쪽: 레슨 문의 */}
           <div>
-            <LessonInquiryForm programId={programId} availableSessions={program.sessions} />
+            <LessonInquiryForm programId={programId} />
           </div>
         </div>
 
