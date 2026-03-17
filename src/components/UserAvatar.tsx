@@ -149,8 +149,7 @@ export function UserAvatar({
                 className="block px-4 py-2 text-sm transition-colors duration-200"
                 style={{ color: "var(--text-secondary)" }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor =
-                    "var(--bg-card-hover)";
+                  e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
                   e.currentTarget.style.color = "var(--text-primary)";
                 }}
                 onMouseLeave={(e) => {
@@ -161,6 +160,23 @@ export function UserAvatar({
               >
                 <span className="mr-2">👤</span>
                 마이페이지
+              </Link>
+              <Link
+                href="/my/lessons"
+                className="block px-4 py-2 text-sm transition-colors duration-200"
+                style={{ color: "var(--text-secondary)" }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
+                  e.currentTarget.style.color = "var(--text-primary)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.backgroundColor = "transparent";
+                  e.currentTarget.style.color = "var(--text-secondary)";
+                }}
+                onClick={() => setIsOpen(false)}
+              >
+                <span className="mr-2">🎾</span>
+                내 레슨
               </Link>
 
               {/* 클럽 임원이면서 시스템 관리자가 아닌 경우 클럽 관리 메뉴 표시 */}

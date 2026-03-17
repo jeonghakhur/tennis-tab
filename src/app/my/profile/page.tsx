@@ -756,13 +756,6 @@ export default function MyProfilePage() {
             >
               입상 기록 {!awardsLoading && awards.length > 0 && `(${awards.length})`}
             </button>
-            <Link
-              href="/my/lessons"
-              className="px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base"
-              style={{ color: "var(--text-muted)" }}
-            >
-              내 레슨
-            </Link>
             <button
               onClick={() => setActiveTab("profile")}
               className={`px-3 md:px-6 py-3 font-display tracking-wider whitespace-nowrap shrink-0 text-sm md:text-base ${
