@@ -321,7 +321,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                           onRefresh()
                         }
                       }}
-                      className="inline-flex items-center gap-1 text-sm px-2 py-1 rounded-md"
+                      className="inline-flex items-center justify-center gap-1 text-sm px-3 py-1.5 rounded-md min-w-[72px]"
                       style={{
                         backgroundColor: program.is_visible ? 'var(--bg-card-hover)' : 'var(--color-warning-subtle, #fef3c7)',
                         color: program.is_visible ? 'var(--accent-color)' : 'var(--color-warning)',
@@ -335,7 +335,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     </button>
                     <button
                       onClick={() => openEdit(program)}
-                      className="text-sm px-2 py-1 rounded-md"
+                      className="text-sm px-3 py-1.5 rounded-md min-w-[52px] text-center"
                       style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                     >
                       수정
@@ -344,7 +344,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                       <button
                         key={next}
                         onClick={() => setStatusTarget({ program, next })}
-                        className="text-sm px-2 py-1 rounded-md"
+                        className="text-sm px-3 py-1.5 rounded-md min-w-[100px] text-center"
                         style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                       >
                         {STATUS_CONFIG[next].label}으로 변경
@@ -352,7 +352,7 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     ))}
                     <button
                       onClick={() => setDeleteTarget(program)}
-                      className="text-sm px-2 py-1 rounded-md"
+                      className="text-sm px-3 py-1.5 rounded-md min-w-[52px] text-center"
                       style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
                     >
                       삭제
