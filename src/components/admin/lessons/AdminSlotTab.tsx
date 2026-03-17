@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarX } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List } from 'lucide-react'
 import {
   createRepeatingSlots,
   updateSlotStatus,
@@ -18,7 +18,7 @@ import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { LessonProgram } from '@/lib/lessons/types'
 import type { LessonSlot, LessonSlotStatus, CreateSlotInput } from '@/lib/lessons/slot-types'
-import { SLOT_STATUS_LABEL, LESSON_AVAILABLE_HOURS, isTimeInRange } from '@/lib/lessons/slot-types'
+import { LESSON_AVAILABLE_HOURS, isTimeInRange } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -31,24 +31,19 @@ const SLOT_STATUS_CONFIG: Record<LessonSlotStatus, { label: string; variant: Bad
 }
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+/** 달력 요일 헤더 — 월요일 시작 */
+const WEEK_HEADER = ['월', '화', '수', '목', '금', '토', '일']
 
 const SLOT_DURATION = 30 // 30분 단위
 
 // ─── 유틸 ────────────────────────────────────────────────────────────────────
 
-/** 주의 시작일(월요일) 계산 */
-function getWeekStart(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day // 월요일 기준
-  d.setDate(d.getDate() + diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
-
-/** YYYY-MM-DD 포맷 */
+/** YYYY-MM-DD 포맷 — 로컬 타임존 기준 (toISOString은 UTC 변환으로 날짜 밀림) */
 function toDateStr(date: Date): string {
-  return date.toISOString().substring(0, 10)
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
 }
 
 /** HH:MM 문자열에 분 더하기 */
@@ -58,13 +53,40 @@ function addMinutes(time: string, minutes: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
-/** 주간 날짜 배열 (월~일) */
-function getWeekDates(weekStart: Date): Date[] {
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + i)
-    return d
-  })
+/** 월간 달력 날짜 배열 (월요일 시작, 7의 배수) */
+function getCalendarDays(year: number, month: number): Array<{ date: Date; isCurrentMonth: boolean }> {
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+
+  // 월요일 기준 오프셋 (0=월, ..., 6=일)
+  const startDow = firstDay.getDay() // 0=Sun
+  const startOffset = startDow === 0 ? 6 : startDow - 1
+
+  const days: Array<{ date: Date; isCurrentMonth: boolean }> = []
+
+  // 이전 달 채우기
+  for (let i = startOffset; i > 0; i--) {
+    const d = new Date(firstDay)
+    d.setDate(d.getDate() - i)
+    days.push({ date: d, isCurrentMonth: false })
+  }
+
+  // 현재 달
+  for (let i = 1; i <= lastDay.getDate(); i++) {
+    days.push({ date: new Date(year, month, i), isCurrentMonth: true })
+  }
+
+  // 다음 달 채우기 (7의 배수)
+  const remaining = days.length % 7
+  if (remaining !== 0) {
+    for (let i = 1; i <= 7 - remaining; i++) {
+      const d = new Date(lastDay)
+      d.setDate(d.getDate() + i)
+      days.push({ date: d, isCurrentMonth: false })
+    }
+  }
+
+  return days
 }
 
 // ─── Props ───────────────────────────────────────────────────────────────────
@@ -94,16 +116,24 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   // 선택된 코치 탭 (기본: 첫 번째)
   const [selectedCoachId, setSelectedCoachId] = useState('')
   const selectedGroup = coachGroups.find((g) => g.coachId === selectedCoachId) ?? coachGroups[0] ?? null
-  // 선택된 코치의 프로그램 중 첫 번째 (OPEN 우선)
+  // 선택된 코치의 프로그램 중 OPEN 우선
   const selectedProgram = selectedGroup
     ? (selectedGroup.programs.find((p) => p.status === 'OPEN') ?? selectedGroup.programs[0] ?? null)
     : null
   const selectedProgramId = selectedProgram?.id ?? ''
   const coachId = selectedGroup?.coachId ?? ''
 
-  // 주간 뷰 상태
-  const [weekStart, setWeekStart] = useState(() => getWeekStart(new Date()))
-  const weekDates = getWeekDates(weekStart)
+  // 뷰 모드
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
+
+  // 현재 월 (1일로 고정)
+  const [currentMonth, setCurrentMonth] = useState<Date>(() => {
+    const d = new Date()
+    return new Date(d.getFullYear(), d.getMonth(), 1)
+  })
+
+  // 달력 뷰에서 선택된 날짜
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   // 슬롯 데이터
   const [slots, setSlots] = useState<LessonSlot[]>([])
@@ -125,33 +155,37 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
     }
   }, [coachGroups.length])
 
-  // 슬롯 조회
+  // 슬롯 조회 (월 단위)
   const loadSlots = useCallback(async () => {
     if (!coachId) { setSlots([]); return }
     setLoading(true)
-    const startDate = toDateStr(weekDates[0])
-    const endDate = toDateStr(weekDates[6])
-    const { data } = await getSlotsByCoach(coachId, startDate, endDate)
+    const year = currentMonth.getFullYear()
+    const month = currentMonth.getMonth()
+    const firstDay = toDateStr(new Date(year, month, 1))
+    const lastDay = toDateStr(new Date(year, month + 1, 0))
+    const { data } = await getSlotsByCoach(coachId, firstDay, lastDay)
     setSlots(data)
     setLoading(false)
-  }, [coachId, weekStart])
+  }, [coachId, currentMonth])
 
   useEffect(() => { loadSlots() }, [loadSlots])
 
-  // 주 이동
-  const prevWeek = () => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() - 7)
-    setWeekStart(d)
+  // 월 이동
+  const prevMonth = () => {
+    setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() - 1, 1))
+    setSelectedDate(null)
   }
-  const nextWeek = () => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + 7)
-    setWeekStart(d)
+  const nextMonth = () => {
+    setCurrentMonth((d) => new Date(d.getFullYear(), d.getMonth() + 1, 1))
+    setSelectedDate(null)
   }
-  const goToday = () => setWeekStart(getWeekStart(new Date()))
+  const goToday = () => {
+    const now = new Date()
+    setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1))
+    setSelectedDate(toDateStr(now))
+  }
 
-  // 날짜별 슬롯 그룹핑
+  // 날짜별 슬롯 맵
   const slotsByDate = new Map<string, LessonSlot[]>()
   for (const slot of slots) {
     const key = slot.slot_date
@@ -159,44 +193,41 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
     slotsByDate.get(key)!.push(slot)
   }
 
-  // 슬롯 상태 토글
+  // 슬롯 액션 핸들러
   const handleToggleStatus = async (slot: LessonSlot) => {
     const newStatus: LessonSlotStatus = slot.status === 'OPEN' ? 'BLOCKED' : 'OPEN'
     const result = await updateSlotStatus(slot.id, newStatus)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
+    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
     setToast({ isOpen: true, message: `슬롯이 ${newStatus === 'OPEN' ? '공개' : '비공개'}되었습니다.`, type: 'success' })
     loadSlots()
   }
 
-  // LOCKED 해제
   const handleUnlock = async (slot: LessonSlot) => {
     const result = await unlockSlot(slot.id)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
+    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
     setToast({ isOpen: true, message: '배정이 해제되었습니다.', type: 'success' })
     loadSlots()
   }
 
-  // 삭제
   const handleDelete = async () => {
     if (!deleteTarget) return
     const result = await deleteSlot(deleteTarget.id)
     setDeleteTarget(null)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
+    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
     setToast({ isOpen: true, message: '슬롯이 삭제되었습니다.', type: 'success' })
     loadSlots()
   }
 
-  const formatDateShort = (d: Date) => `${d.getMonth() + 1}/${d.getDate()}`
-  const isToday = (d: Date) => toDateStr(d) === toDateStr(new Date())
+  const todayStr = toDateStr(new Date())
+  const year = currentMonth.getFullYear()
+  const month = currentMonth.getMonth()
+  const calendarDays = getCalendarDays(year, month)
+
+  // 이번 달 날짜 배열 (목록 뷰)
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const monthDates = Array.from({ length: daysInMonth }, (_, i) =>
+    toDateStr(new Date(year, month, i + 1))
+  )
 
   return (
     <div>
@@ -242,84 +273,227 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
       {selectedProgramId && coachId && (
         <>
-          {/* 주간 헤더 + 액션 */}
+          {/* 월 네비게이션 + 뷰 전환 + 슬롯 등록 */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <button onClick={prevWeek} className="p-1.5 rounded-lg hover:opacity-80" style={{ backgroundColor: 'var(--bg-card-hover)' }} aria-label="이전 주">
+              <button
+                onClick={prevMonth}
+                className="p-1.5 rounded-lg hover:opacity-80"
+                style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                aria-label="이전 달"
+              >
                 <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
-              <button onClick={goToday} className="text-xs px-2 py-1 rounded-lg font-medium" style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}>
+              <button
+                onClick={goToday}
+                className="text-xs px-2 py-1 rounded-lg font-medium"
+                style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+              >
                 오늘
               </button>
-              <button onClick={nextWeek} className="p-1.5 rounded-lg hover:opacity-80" style={{ backgroundColor: 'var(--bg-card-hover)' }} aria-label="다음 주">
+              <button
+                onClick={nextMonth}
+                className="p-1.5 rounded-lg hover:opacity-80"
+                style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                aria-label="다음 달"
+              >
                 <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
               <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-primary)' }}>
-                {weekDates[0].getFullYear()}년 {weekDates[0].getMonth() + 1}월
+                {year}년 {month + 1}월
               </span>
             </div>
-            <button
-              onClick={() => setCreateModalOpen(true)}
-              className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium"
-              style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
-            >
-              <Plus className="w-4 h-4" />
-              슬롯 등록
-            </button>
+
+            <div className="flex items-center gap-2">
+              {/* 뷰 전환 토글 */}
+              <div className="flex rounded-lg overflow-hidden" style={{ border: '1px solid var(--border-color)' }}>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('calendar')}
+                  aria-label="달력 뷰"
+                  aria-pressed={viewMode === 'calendar'}
+                  className="p-2 transition-colors"
+                  style={{
+                    backgroundColor: viewMode === 'calendar' ? 'var(--accent-color)' : 'var(--bg-card)',
+                    color: viewMode === 'calendar' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  }}
+                >
+                  <CalendarDays className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  aria-label="목록 뷰"
+                  aria-pressed={viewMode === 'list'}
+                  className="p-2 transition-colors"
+                  style={{
+                    backgroundColor: viewMode === 'list' ? 'var(--accent-color)' : 'var(--bg-card)',
+                    color: viewMode === 'list' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  }}
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+
+              <button
+                onClick={() => setCreateModalOpen(true)}
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium"
+                style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+              >
+                <Plus className="w-4 h-4" />
+                슬롯 등록
+              </button>
+            </div>
           </div>
 
-          {/* 주간 달력 그리드 */}
           {loading ? (
-            <div className="space-y-2 animate-pulse">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-20 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+            <div className="animate-pulse space-y-2">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-12 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
               ))}
             </div>
+          ) : viewMode === 'calendar' ? (
+            // ── 달력 뷰: 좌(월간 달력) + 우(선택 날짜 슬롯) ───────────
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
+              {/* 좌: 월간 달력 */}
+              <div
+                className="rounded-xl p-4"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+              >
+                {/* 요일 헤더 */}
+                <div className="grid grid-cols-7 mb-1">
+                  {WEEK_HEADER.map((d, i) => (
+                    <div
+                      key={d}
+                      className="text-center text-xs font-medium py-1"
+                      style={{
+                        color: i === 5 ? 'var(--color-info)' : i === 6 ? 'var(--color-danger)' : 'var(--text-muted)',
+                      }}
+                    >
+                      {d}
+                    </div>
+                  ))}
+                </div>
+
+                {/* 날짜 그리드 */}
+                <div className="grid grid-cols-7 gap-y-0.5">
+                  {calendarDays.map(({ date, isCurrentMonth }) => {
+                    const dateStr = toDateStr(date)
+                    const daySlots = slotsByDate.get(dateStr) || []
+                    const isSelected = selectedDate === dateStr
+                    const isToday = dateStr === todayStr
+                    const dow = date.getDay()
+
+                    return (
+                      <button
+                        key={dateStr}
+                        type="button"
+                        onClick={() => setSelectedDate(dateStr)}
+                        className="flex flex-col items-center py-1 rounded-lg transition-colors"
+                        style={{
+                          backgroundColor: isSelected
+                            ? 'var(--accent-color)'
+                            : isToday
+                            ? 'var(--color-success-subtle)'
+                            : 'transparent',
+                          opacity: isCurrentMonth ? 1 : 0.3,
+                        }}
+                        aria-label={`${dateStr} ${daySlots.length}개 슬롯`}
+                        aria-pressed={isSelected}
+                      >
+                        <span
+                          className="text-sm font-medium leading-snug"
+                          style={{
+                            color: isSelected
+                              ? 'var(--bg-primary)'
+                              : dow === 0
+                              ? 'var(--color-danger)'
+                              : dow === 6
+                              ? 'var(--color-info)'
+                              : 'var(--text-primary)',
+                          }}
+                        >
+                          {date.getDate()}
+                        </span>
+                        {/* 슬롯 있는 날 점 */}
+                        <span
+                          className="w-1 h-1 rounded-full mt-0.5"
+                          style={{
+                            backgroundColor: daySlots.length > 0
+                              ? isSelected ? 'rgba(255,255,255,0.8)' : 'var(--accent-color)'
+                              : 'transparent',
+                          }}
+                        />
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* 우: 선택 날짜 슬롯 패널 */}
+              <div
+                className="rounded-xl p-4"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)', minHeight: '200px' }}
+              >
+                {!selectedDate ? (
+                  <div className="flex flex-col items-center justify-center h-40 text-center">
+                    <CalendarDays className="w-8 h-8 mb-2" style={{ color: 'var(--text-muted)' }} />
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>날짜를 선택하세요</p>
+                  </div>
+                ) : (
+                  <DateSlotPanel
+                    dateStr={selectedDate}
+                    slots={slotsByDate.get(selectedDate) || []}
+                    onToggle={handleToggleStatus}
+                    onLock={(slot) => setLockModalSlot(slot)}
+                    onUnlock={handleUnlock}
+                    onDelete={(slot) => setDeleteTarget(slot)}
+                  />
+                )}
+              </div>
+            </div>
           ) : (
+            // ── 목록 뷰: 이번 달 전체 날짜 ───────────────────────────
             <div className="space-y-1">
-              {weekDates.map((date) => {
-                const dateStr = toDateStr(date)
+              {monthDates.map((dateStr) => {
                 const daySlots = slotsByDate.get(dateStr) || []
-                const dayNum = date.getDay()
-                const range = LESSON_AVAILABLE_HOURS[dayNum]
-                const today = isToday(date)
+                const date = new Date(dateStr + 'T00:00:00')
+                const dow = date.getDay()
+                const isToday = dateStr === todayStr
 
                 return (
                   <div
                     key={dateStr}
                     className="rounded-lg p-3"
                     style={{
-                      backgroundColor: today ? 'var(--bg-card)' : 'var(--bg-secondary)',
-                      border: today ? '1px solid var(--accent-color)' : '1px solid transparent',
+                      backgroundColor: isToday ? 'var(--bg-card)' : 'var(--bg-secondary)',
+                      border: isToday ? '1px solid var(--accent-color)' : '1px solid transparent',
                     }}
                   >
-                    {/* 날짜 헤더 */}
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className={`text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center ${
-                          dayNum === 0 ? 'text-red-500' : dayNum === 6 ? 'text-blue-500' : ''
-                        }`}
+                        className="text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                         style={{
-                          backgroundColor: today ? 'var(--accent-color)' : 'transparent',
-                          color: today ? 'var(--bg-primary)' : undefined,
+                          backgroundColor: isToday ? 'var(--accent-color)' : 'transparent',
+                          color: isToday
+                            ? 'var(--bg-primary)'
+                            : dow === 0
+                            ? 'var(--color-danger)'
+                            : dow === 6
+                            ? 'var(--color-info)'
+                            : 'var(--text-secondary)',
                         }}
                       >
-                        {DAY_LABELS[dayNum]}
+                        {DAY_LABELS[dow]}
                       </span>
                       <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {formatDateShort(date)}
+                        {date.getMonth() + 1}/{date.getDate()}
                       </span>
-                      {range && (
-                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                          {range.start}~{range.end}
-                        </span>
-                      )}
                       <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                         ({daySlots.length}개)
                       </span>
                     </div>
 
-                    {/* 슬롯 목록 */}
                     {daySlots.length === 0 ? (
                       <p className="text-xs pl-8" style={{ color: 'var(--text-muted)' }}>슬롯 없음</p>
                     ) : (
@@ -391,7 +565,115 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   )
 }
 
-// ─── SlotChip 컴포넌트 ──────────────────────────────────────────────────────
+// ─── DateSlotPanel (달력 뷰 우측 패널) ─────────────────────────────────────
+
+interface DateSlotPanelProps {
+  dateStr: string
+  slots: LessonSlot[]
+  onToggle: (slot: LessonSlot) => void
+  onLock: (slot: LessonSlot) => void
+  onUnlock: (slot: LessonSlot) => void
+  onDelete: (slot: LessonSlot) => void
+}
+
+function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }: DateSlotPanelProps) {
+  const date = new Date(dateStr + 'T00:00:00')
+  const dow = date.getDay()
+
+  return (
+    <div>
+      <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
+        {date.getMonth() + 1}월 {date.getDate()}일 ({DAY_LABELS[dow]})
+        <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+          {slots.length}개 슬롯
+        </span>
+      </h3>
+
+      {slots.length === 0 ? (
+        <p className="text-sm text-center py-8" style={{ color: 'var(--text-muted)' }}>
+          이 날짜에 슬롯이 없습니다
+        </p>
+      ) : (
+        <div className="space-y-1.5">
+          {slots.map((slot) => {
+            const conf = SLOT_STATUS_CONFIG[slot.status]
+            const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
+
+            return (
+              <div
+                key={slot.id}
+                className="flex items-center justify-between px-3 py-2 rounded-lg"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm font-medium shrink-0" style={{ color: 'var(--text-primary)' }}>
+                    {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
+                  </span>
+                  <Badge variant={conf.variant}>{conf.label}</Badge>
+                  {slot.status === 'LOCKED' && slot.locked_member && (
+                    <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {slot.locked_member.name}
+                    </span>
+                  )}
+                  {slot.status === 'LOCKED' && slot.notes && !slot.locked_member && (
+                    <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {slot.notes}
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-0.5 shrink-0">
+                  {isActionable && (
+                    <>
+                      <button
+                        onClick={() => onToggle(slot)}
+                        className="p-1 rounded hover:opacity-70"
+                        aria-label={slot.status === 'OPEN' ? '비공개 처리' : '공개 처리'}
+                      >
+                        {slot.status === 'OPEN' ? (
+                          <Lock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                        ) : (
+                          <Unlock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                        )}
+                      </button>
+                      {slot.status === 'OPEN' && (
+                        <button
+                          onClick={() => onLock(slot)}
+                          className="p-1 rounded hover:opacity-70"
+                          aria-label="회원 배정"
+                        >
+                          <Search className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onDelete(slot)}
+                        className="p-1 rounded hover:opacity-70"
+                        aria-label="삭제"
+                      >
+                        <X className="w-3.5 h-3.5" style={{ color: 'var(--color-danger)' }} />
+                      </button>
+                    </>
+                  )}
+                  {slot.status === 'LOCKED' && (
+                    <button
+                      onClick={() => onUnlock(slot)}
+                      className="p-1 rounded hover:opacity-70"
+                      aria-label="배정 해제"
+                    >
+                      <Unlock className="w-3.5 h-3.5" style={{ color: 'var(--color-danger)' }} />
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SlotChip 컴포넌트 (목록 뷰용) ─────────────────────────────────────────
 
 interface SlotChipProps {
   slot: LessonSlot
@@ -414,7 +696,6 @@ function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete }: SlotChipProps)
       <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{time}</span>
       <Badge variant={conf.variant}>{conf.label}</Badge>
 
-      {/* LOCKED일 때 회원 이름 표시 */}
       {slot.status === 'LOCKED' && slot.locked_member && (
         <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
           {slot.locked_member.name}
@@ -426,7 +707,6 @@ function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete }: SlotChipProps)
         </span>
       )}
 
-      {/* 액션 버튼 */}
       {isActionable && (
         <>
           <button onClick={onToggle} className="p-0.5 rounded hover:opacity-70" aria-label={slot.status === 'OPEN' ? '비공개 처리' : '공개 처리'}>
@@ -475,7 +755,6 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [submitting, setSubmitting] = useState(false)
 
-  // 생성할 슬롯 미리보기
   const previewSlots = generateSlotPreview(startDate, endDate, startTime, endTime, selectedDays)
 
   const toggleDay = (day: number) => {
@@ -486,21 +765,14 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (previewSlots.length === 0) {
-      onError('생성할 슬롯이 없습니다.')
-      return
-    }
+    if (previewSlots.length === 0) { onError('생성할 슬롯이 없습니다.'); return }
 
     setSubmitting(true)
     const result = await createRepeatingSlots(programId, coachId, previewSlots)
     setSubmitting(false)
 
-    if (result.error) {
-      onError(result.error)
-      return
-    }
+    if (result.error) { onError(result.error); return }
     onSuccess(result.count)
-    // 폼 리셋
     setStartDate('')
     setEndDate('')
     setSelectedDays([])
@@ -508,121 +780,119 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="슬롯 일괄 등록" size="lg">
-        <Modal.Body>
-          <form id="create-slot-form" onSubmit={handleSubmit} noValidate className="space-y-5">
-            {/* 기간 */}
-            <div>
-              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                기간 <span style={{ color: 'var(--color-danger)' }}>*</span>
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작일</label>
-                  <SessionDatePicker value={startDate} onChange={setStartDate} placeholder="시작일 선택" />
-                </div>
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료일</label>
-                  <SessionDatePicker value={endDate} onChange={setEndDate} placeholder="종료일 선택" />
-                </div>
+      <Modal.Body>
+        <form id="create-slot-form" onSubmit={handleSubmit} noValidate className="space-y-5">
+          {/* 기간 */}
+          <div>
+            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              기간 <span style={{ color: 'var(--color-danger)' }}>*</span>
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작일</label>
+                <SessionDatePicker value={startDate} onChange={setStartDate} placeholder="시작일 선택" />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료일</label>
+                <SessionDatePicker value={endDate} onChange={setEndDate} placeholder="종료일 선택" />
               </div>
             </div>
+          </div>
 
-            {/* 시간 범위 (30분 단위 자동 분할) */}
-            <div>
-              <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
-                시간 범위 <span style={{ color: 'var(--color-danger)' }}>*</span>
-              </p>
-              <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>
-                30분 단위로 자동 분할됩니다.
-              </p>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작</label>
-                  <SessionTimePicker value={startTime} onChange={setStartTime} />
-                </div>
-                <div>
-                  <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료</label>
-                  <SessionTimePicker value={endTime} onChange={setEndTime} />
-                </div>
+          {/* 시간 범위 */}
+          <div>
+            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+              시간 범위 <span style={{ color: 'var(--color-danger)' }}>*</span>
+            </p>
+            <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>30분 단위로 자동 분할됩니다.</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작</label>
+                <SessionTimePicker value={startTime} onChange={setStartTime} />
+              </div>
+              <div>
+                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료</label>
+                <SessionTimePicker value={endTime} onChange={setEndTime} />
               </div>
             </div>
+          </div>
 
-            {/* 요일 선택 */}
+          {/* 요일 선택 */}
+          <div>
+            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+              요일 <span style={{ color: 'var(--color-danger)' }}>*</span>
+            </p>
+            <div className="flex gap-1.5" role="group" aria-label="요일 선택">
+              {DAY_LABELS.map((label, idx) => {
+                const range = LESSON_AVAILABLE_HOURS[idx]
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-pressed={selectedDays.includes(idx)}
+                    onClick={() => toggleDay(idx)}
+                    className="w-10 h-10 rounded-full text-sm font-medium transition-colors"
+                    title={range ? `${range.start}~${range.end}` : ''}
+                    style={{
+                      backgroundColor: selectedDays.includes(idx) ? 'var(--accent-color)' : 'var(--bg-card-hover)',
+                      color: selectedDays.includes(idx) ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                    }}
+                  >
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 미리보기 */}
+          {previewSlots.length > 0 && (
             <div>
               <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                요일 <span style={{ color: 'var(--color-danger)' }}>*</span>
+                생성 예정 ({previewSlots.length}개)
               </p>
-              <div className="flex gap-1.5" role="group" aria-label="요일 선택">
-                {DAY_LABELS.map((label, idx) => {
-                  const range = LESSON_AVAILABLE_HOURS[idx]
+              <div
+                className="rounded-lg p-3 text-xs space-y-1 max-h-40 overflow-y-auto"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
+                {previewSlots.slice(0, 30).map((s, i) => {
+                  const d = new Date(s.slot_date + 'T00:00:00')
+                  const dayLabel = DAY_LABELS[d.getDay()]
+                  const valid = isTimeInRange(s.slot_date, s.start_time, s.end_time)
                   return (
-                    <button
-                      key={idx}
-                      type="button"
-                      aria-pressed={selectedDays.includes(idx)}
-                      onClick={() => toggleDay(idx)}
-                      className="w-10 h-10 rounded-full text-sm font-medium transition-colors"
-                      title={range ? `${range.start}~${range.end}` : ''}
-                      style={{
-                        backgroundColor: selectedDays.includes(idx) ? 'var(--accent-color)' : 'var(--bg-card-hover)',
-                        color: selectedDays.includes(idx) ? 'var(--bg-primary)' : 'var(--text-secondary)',
-                      }}
-                    >
-                      {label}
-                    </button>
+                    <div key={i} style={{ color: valid ? 'var(--text-secondary)' : 'var(--color-danger)' }}>
+                      {s.slot_date} ({dayLabel}) {s.start_time}~{s.end_time}
+                      {!valid && ' ⚠ 가능 시간 초과'}
+                    </div>
                   )
                 })}
+                {previewSlots.length > 30 && (
+                  <p style={{ color: 'var(--text-muted)' }}>... 외 {previewSlots.length - 30}개</p>
+                )}
               </div>
             </div>
-
-            {/* 미리보기 */}
-            {previewSlots.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                  생성 예정 ({previewSlots.length}개)
-                </p>
-                <div
-                  className="rounded-lg p-3 text-xs space-y-1 max-h-40 overflow-y-auto"
-                  style={{ backgroundColor: 'var(--bg-secondary)' }}
-                >
-                  {previewSlots.slice(0, 30).map((s, i) => {
-                    const d = new Date(s.slot_date + 'T00:00:00')
-                    const dayLabel = DAY_LABELS[d.getDay()]
-                    const valid = isTimeInRange(s.slot_date, s.start_time, s.end_time)
-                    return (
-                      <div key={i} style={{ color: valid ? 'var(--text-secondary)' : 'var(--color-danger)' }}>
-                        {s.slot_date} ({dayLabel}) {s.start_time}~{s.end_time}
-                        {!valid && ' ⚠ 가능 시간 초과'}
-                      </div>
-                    )
-                  })}
-                  {previewSlots.length > 30 && (
-                    <p style={{ color: 'var(--text-muted)' }}>... 외 {previewSlots.length - 30}개</p>
-                  )}
-                </div>
-              </div>
-            )}
-          </form>
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 px-4 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-          >
-            취소
-          </button>
-          <button
-            type="submit"
-            form="create-slot-form"
-            disabled={submitting || previewSlots.length === 0}
-            className="flex-1 btn-primary"
-            style={{ opacity: previewSlots.length === 0 ? 0.5 : 1 }}
-          >
-            {submitting ? '등록 중...' : `${previewSlots.length}개 등록`}
-          </button>
-        </Modal.Footer>
+          )}
+        </form>
+      </Modal.Body>
+      <Modal.Footer>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex-1 px-4 py-2 rounded-lg text-sm"
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+        >
+          취소
+        </button>
+        <button
+          type="submit"
+          form="create-slot-form"
+          disabled={submitting || previewSlots.length === 0}
+          className="flex-1 btn-primary"
+          style={{ opacity: previewSlots.length === 0 ? 0.5 : 1 }}
+        >
+          {submitting ? '등록 중...' : `${previewSlots.length}개 등록`}
+        </button>
+      </Modal.Footer>
     </Modal>
   )
 }
@@ -648,7 +918,6 @@ function generateSlotPreview(
   while (cur <= end) {
     if (daySet.has(cur.getDay())) {
       const dateStr = toDateStr(cur)
-      // 30분 단위로 분할
       let time = startTime
       while (time < endTime) {
         const next = addMinutes(time, SLOT_DURATION)
@@ -692,10 +961,7 @@ function LockSlotModal({ isOpen, onClose, slot, onSuccess, onError }: LockSlotMo
     setSubmitting(true)
     const result = await lockSlot(slot.id, member.id, member.name)
     setSubmitting(false)
-    if (result.error) {
-      onError(result.error)
-      return
-    }
+    if (result.error) { onError(result.error); return }
     onSuccess()
   }
 
