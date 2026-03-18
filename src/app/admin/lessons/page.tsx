@@ -106,7 +106,9 @@ export default function AdminLessonsPage() {
       </div>
 
       <div id="tabpanel-bookings" role="tabpanel" hidden={tab !== 'bookings'}>
-        {tab === 'bookings' && <AdminBookingTab />}
+        {tab === 'bookings' && (
+          <AdminBookingTab programs={programs} programsLoading={programsLoading} />
+        )}
       </div>
 
       <div id="tabpanel-enrollments" role="tabpanel" hidden={tab !== 'enrollments'}>

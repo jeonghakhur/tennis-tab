@@ -54,6 +54,14 @@ function addMinutes(time: string, minutes: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
+/** 주 시작일(월요일) 반환 */
+function getWeekStart(date: Date): Date {
+  const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const dow = d.getDay()
+  d.setDate(d.getDate() - (dow === 0 ? 6 : dow - 1))
+  return d
+}
+
 /** 월간 달력 날짜 배열 (월요일 시작, 7의 배수) */
 function getCalendarDays(year: number, month: number): Array<{ date: Date; isCurrentMonth: boolean }> {
   const firstDay = new Date(year, month, 1)
@@ -126,12 +134,17 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
   // 뷰 모드
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
+  // 목록 뷰 범위 (주간 기본)
+  const [listRange, setListRange] = useState<'week' | 'month'>('week')
 
-  // 현재 월 (1일로 고정)
+  // 현재 월 (1일로 고정) — 달력 뷰 및 월간 목록 뷰에 사용
   const [currentMonth, setCurrentMonth] = useState<Date>(() => {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
+
+  // 주간 목록 뷰 시작일 (월요일)
+  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()))
 
   // 달력 뷰에서 선택된 날짜
   const [selectedDate, setSelectedDate] = useState<string | null>(null)
@@ -157,18 +170,29 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
     }
   }, [coachGroups.length])
 
-  // 슬롯 조회 (월 단위)
+  // 슬롯 조회 (뷰 모드에 따라 주간/월간)
   const loadSlots = useCallback(async () => {
     if (!coachId) { setSlots([]); return }
     setLoading(true)
-    const year = currentMonth.getFullYear()
-    const month = currentMonth.getMonth()
-    const firstDay = toDateStr(new Date(year, month, 1))
-    const lastDay = toDateStr(new Date(year, month + 1, 0))
-    const { data } = await getSlotsByCoach(coachId, firstDay, lastDay)
+    let startDate: string
+    let endDate: string
+    if (viewMode === 'list' && listRange === 'week') {
+      // 주간: weekStart(월) ~ weekStart+6(일)
+      const we = new Date(weekStart)
+      we.setDate(we.getDate() + 6)
+      startDate = toDateStr(weekStart)
+      endDate = toDateStr(we)
+    } else {
+      // 달력 뷰 or 월간 목록
+      const yr = currentMonth.getFullYear()
+      const mo = currentMonth.getMonth()
+      startDate = toDateStr(new Date(yr, mo, 1))
+      endDate = toDateStr(new Date(yr, mo + 1, 0))
+    }
+    const { data } = await getSlotsByCoach(coachId, startDate, endDate)
     setSlots(data)
     setLoading(false)
-  }, [coachId, currentMonth])
+  }, [coachId, currentMonth, viewMode, listRange, weekStart])
 
   useEffect(() => { loadSlots() }, [loadSlots])
 
@@ -186,6 +210,19 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
     setCurrentMonth(new Date(now.getFullYear(), now.getMonth(), 1))
     setSelectedDate(toDateStr(now))
   }
+
+  // 주 이동
+  const prevWeek = () => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() - 7)
+    setWeekStart(d)
+  }
+  const nextWeek = () => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + 7)
+    setWeekStart(d)
+  }
+  const goThisWeek = () => setWeekStart(getWeekStart(new Date()))
 
   // 날짜별 슬롯 맵
   const slotsByDate = new Map<string, LessonSlot[]>()
@@ -241,11 +278,27 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const month = currentMonth.getMonth()
   const calendarDays = getCalendarDays(year, month)
 
-  // 이번 달 날짜 배열 (목록 뷰)
+  // 이번 달 날짜 배열 (월간 목록 뷰)
   const daysInMonth = new Date(year, month + 1, 0).getDate()
   const monthDates = Array.from({ length: daysInMonth }, (_, i) =>
     toDateStr(new Date(year, month, i + 1))
   )
+
+  // 주간 날짜 배열 (주간 목록 뷰, 월~일 7일)
+  const weekDates = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart)
+    d.setDate(d.getDate() + i)
+    return toDateStr(d)
+  })
+
+  // 주간 목록 헤더 레이블
+  const weekEnd = weekDates[6]
+  const weekLabelStart = weekDates[0].slice(5).replace('-', '/')
+  const weekLabelEnd = weekEnd.slice(5).replace('-', '/')
+  const weekYearLabel = weekDates[0].slice(0, 4)
+
+  // 목록 뷰에서 표시할 날짜
+  const listDates = listRange === 'week' ? weekDates : monthDates
 
   return (
     <div>
@@ -291,35 +344,70 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
       {selectedProgramId && coachId && (
         <>
-          {/* 월 네비게이션 + 뷰 전환 + 슬롯 등록 */}
+          {/* 네비게이션 + 뷰 전환 + 슬롯 등록 */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <button
-                onClick={prevMonth}
-                className="p-1.5 rounded-lg hover:opacity-80"
-                style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                aria-label="이전 달"
-              >
-                <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-              </button>
-              <button
-                onClick={goToday}
-                className="text-sm px-2 py-1 rounded-lg font-medium"
-                style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
-              >
-                오늘
-              </button>
-              <button
-                onClick={nextMonth}
-                className="p-1.5 rounded-lg hover:opacity-80"
-                style={{ backgroundColor: 'var(--bg-card-hover)' }}
-                aria-label="다음 달"
-              >
-                <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
-              </button>
-              <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-primary)' }}>
-                {year}년 {month + 1}월
-              </span>
+              {/* 주간 목록 모드 */}
+              {viewMode === 'list' && listRange === 'week' ? (
+                <>
+                  <button
+                    onClick={prevWeek}
+                    className="p-1.5 rounded-lg hover:opacity-80"
+                    style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                    aria-label="이전 주"
+                  >
+                    <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                  </button>
+                  <button
+                    onClick={goThisWeek}
+                    className="text-sm px-2 py-1 rounded-lg font-medium"
+                    style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+                  >
+                    이번 주
+                  </button>
+                  <button
+                    onClick={nextWeek}
+                    className="p-1.5 rounded-lg hover:opacity-80"
+                    style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                    aria-label="다음 주"
+                  >
+                    <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                  </button>
+                  <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-primary)' }}>
+                    {weekYearLabel}년 {weekLabelStart} ~ {weekLabelEnd}
+                  </span>
+                </>
+              ) : (
+                /* 달력 뷰 or 월간 목록 모드 */
+                <>
+                  <button
+                    onClick={prevMonth}
+                    className="p-1.5 rounded-lg hover:opacity-80"
+                    style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                    aria-label="이전 달"
+                  >
+                    <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                  </button>
+                  <button
+                    onClick={goToday}
+                    className="text-sm px-2 py-1 rounded-lg font-medium"
+                    style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+                  >
+                    오늘
+                  </button>
+                  <button
+                    onClick={nextMonth}
+                    className="p-1.5 rounded-lg hover:opacity-80"
+                    style={{ backgroundColor: 'var(--bg-card-hover)' }}
+                    aria-label="다음 달"
+                  >
+                    <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
+                  </button>
+                  <span className="text-sm font-medium ml-1" style={{ color: 'var(--text-primary)' }}>
+                    {year}년 {month + 1}월
+                  </span>
+                </>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -472,9 +560,37 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
               </div>
             </div>
           ) : (
-            // ── 목록 뷰: 이번 달 전체 날짜 ───────────────────────────
+            // ── 목록 뷰: 주간 or 월간 ────────────────────────────────
+            <div>
+              {/* 주간/월간 토글 */}
+              <div className="flex items-center gap-1 mb-3">
+                <button
+                  type="button"
+                  onClick={() => setListRange('week')}
+                  aria-pressed={listRange === 'week'}
+                  className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                  style={{
+                    backgroundColor: listRange === 'week' ? 'var(--accent-color)' : 'var(--bg-card-hover)',
+                    color: listRange === 'week' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  }}
+                >
+                  주간
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setListRange('month')}
+                  aria-pressed={listRange === 'month'}
+                  className="text-sm px-3 py-1.5 rounded-lg font-medium transition-colors"
+                  style={{
+                    backgroundColor: listRange === 'month' ? 'var(--accent-color)' : 'var(--bg-card-hover)',
+                    color: listRange === 'month' ? 'var(--bg-primary)' : 'var(--text-secondary)',
+                  }}
+                >
+                  월간
+                </button>
+              </div>
             <div className="space-y-1">
-              {monthDates.map((dateStr) => {
+              {listDates.map((dateStr) => {
                 const daySlots = slotsByDate.get(dateStr) || []
                 const date = new Date(dateStr + 'T00:00:00')
                 const dow = date.getDay()
