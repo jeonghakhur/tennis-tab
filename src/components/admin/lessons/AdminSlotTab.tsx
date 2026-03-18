@@ -650,6 +650,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                 )
               })}
             </div>
+            </div>
           )}
         </>
       )}
