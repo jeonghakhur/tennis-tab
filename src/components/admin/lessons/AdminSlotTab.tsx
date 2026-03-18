@@ -197,9 +197,10 @@ export function AdminSlotTab() {
   }, [coaches.length])
 
   // 슬롯 조회 (뷰 모드에 따라 주간/월간)
-  const loadSlots = useCallback(async () => {
+  // silent=true이면 로딩 인디케이터 없이 백그라운드 갱신 (등록/수정 후 호출용)
+  const loadSlots = useCallback(async (silent = false) => {
     if (!coachId) { setSlots([]); return }
-    setLoading(true)
+    if (!silent) setLoading(true)
     let startDate: string
     let endDate: string
     if (viewMode === 'list' && listRange === 'week') {
@@ -217,7 +218,7 @@ export function AdminSlotTab() {
     }
     const { data } = await getSlotsByCoach(coachId, startDate, endDate)
     setSlots(data)
-    setLoading(false)
+    if (!silent) setLoading(false)
   }, [coachId, currentMonth, viewMode, listRange, weekStart])
 
   useEffect(() => { loadSlots() }, [loadSlots])
@@ -749,7 +750,7 @@ export function AdminSlotTab() {
           onSuccess={(count) => {
             setToast({ isOpen: true, message: `${count}개 슬롯이 등록되었습니다.`, type: 'success' })
             setCreateModalOpen(false)
-            loadSlots()
+            loadSlots(true) // 화면 깜빡임 없이 백그라운드 갱신
           }}
           onError={(msg) => setAlert({ isOpen: true, message: msg, type: 'error' })}
         />
