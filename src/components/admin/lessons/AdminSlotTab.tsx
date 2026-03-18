@@ -1114,15 +1114,14 @@ function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalP
                   {name}
                 </p>
               </div>
-              {/* 회차 — 대형 accent 숫자 */}
-              <div className="text-right shrink-0 ml-4">
+              {/* 회차 — 한 줄 */}
+              <div className="shrink-0 ml-4">
                 <p
-                  className="text-4xl font-bold tabular-nums leading-none"
+                  className="text-2xl font-bold tabular-nums leading-none"
                   style={{ color: 'var(--accent-color)' }}
                 >
-                  {detail.sessionNumber}
+                  {detail.sessionNumber}<span className="text-base font-medium ml-0.5" style={{ color: 'var(--text-muted)' }}>회차</span>
                 </p>
-                <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>회차</p>
               </div>
             </div>
 
