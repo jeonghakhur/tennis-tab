@@ -443,6 +443,34 @@ export async function getOpenSlotsByProgram(
   return { error: null, data: (slots || []) as LessonSlot[] }
 }
 
+/** OPEN 슬롯 공개 조회 — 코치별, 향후 3개월, 비로그인 접근 가능 */
+export async function getPublicOpenSlots(
+  coachId: string
+): Promise<{ error: string | null; data: LessonSlot[] }> {
+  const idErr = validateId(coachId, '코치 ID')
+  if (idErr) return { error: idErr, data: [] }
+
+  const admin = createAdminClient()
+  const today = new Date()
+  const startDate = today.toISOString().substring(0, 10)
+  // 3개월 뒤
+  const end = new Date(today.getFullYear(), today.getMonth() + 3, 0)
+  const endDate = end.toISOString().substring(0, 10)
+
+  const { data: slots, error } = await admin
+    .from('lesson_slots')
+    .select('*, locked_member:club_members!locked_member_id(id, name)')
+    .eq('coach_id', coachId)
+    .eq('status', 'OPEN')
+    .lte('slot_date', endDate)
+    .or(`last_session_date.gte.${startDate},slot_date.gte.${startDate}`)
+    .order('slot_date')
+    .order('start_time')
+
+  if (error) return { error: '슬롯 조회에 실패했습니다.', data: [] }
+  return { error: null, data: (slots || []) as LessonSlot[] }
+}
+
 // ============================================================================
 // 예약 CRUD
 // ============================================================================
