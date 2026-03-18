@@ -69,6 +69,16 @@ function formatDateShort(dateStr: string): string {
   return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
+/** sessions에서 요일별 대표 시간 추출 (DOW 오름차순 정렬) */
+function getPerDowTimes(sessions: Array<{ slot_date: string; start_time: string; end_time: string }>): Array<{ dow: number; start: string; end: string }> {
+  const seen = new Map<number, { start: string; end: string }>()
+  for (const s of sessions) {
+    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+    if (!seen.has(dow)) seen.set(dow, { start: s.start_time, end: s.end_time })
+  }
+  return [...seen.entries()].sort(([a], [b]) => a - b).map(([dow, t]) => ({ dow, ...t }))
+}
+
 /** sessions 배열에서 고유 요일 레이블 추출 (화·목 등) */
 function getPackageDowLabel(sessions: Array<{ slot_date: string }>, fallbackDateStr?: string): string {
   const src = sessions.length > 0 ? sessions : fallbackDateStr ? [{ slot_date: fallbackDateStr }] : []
@@ -1002,6 +1012,10 @@ function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onVi
     ? `${currentSession.start_time.slice(0, 5)}~${currentSession.end_time.slice(0, 5)}`
     : `${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
 
+  // 요일별 대표 시간 (화 11:30~11:50, 목 19:00~19:20)
+  const dowTimes = getPerDowTimes(sessions)
+  const todayDow = new Date(dateStr + 'T00:00:00').getDay()
+
   // 패키지 제목 (화·목 주2회 레슨 패키지)
   const dowLabel = getPackageDowLabel(sessions, slot.slot_date)
   const title = slot.frequency ? `${dowLabel} 주${slot.frequency}회 레슨 패키지` : `${dowLabel} 레슨 슬롯`
@@ -1061,16 +1075,35 @@ function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onVi
         </div>
       </div>
 
-      {/* 오늘 세션 시간 + 회차 */}
-      <div className="flex items-center gap-2 mb-3">
-        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SLOT_STATUS_DOT[slot.status] }} />
-        <span className="font-medium tabular-nums" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>
-          {time}
-        </span>
+      {/* 요일별 시간 — 오늘 요일 accent 강조 */}
+      <div className="flex flex-wrap gap-2 mb-3">
+        {dowTimes.length > 0 ? dowTimes.map(({ dow, start, end }) => {
+          const isToday = dow === todayDow
+          return (
+            <div
+              key={dow}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg"
+              style={{
+                backgroundColor: isToday ? 'var(--accent-color)' : 'var(--bg-secondary)',
+                color: isToday ? '#fff' : 'var(--text-secondary)',
+              }}
+            >
+              <span className="text-sm font-semibold">{DAY_LABELS[dow]}</span>
+              <span className="text-sm tabular-nums">{start.slice(0, 5)}~{end.slice(0, 5)}</span>
+            </div>
+          )
+        }) : (
+          // sessions 없는 레거시 슬롯 fallback
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SLOT_STATUS_DOT[slot.status] }} />
+            <span className="font-medium tabular-nums" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>{time}</span>
+          </div>
+        )}
+        {/* 회차 */}
         {sessions.length > 0 && sessionNumber > 0 && slot.total_sessions && (
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-            {sessionNumber}회차 / {slot.total_sessions}회
-          </span>
+          <div className="flex items-center" style={{ color: 'var(--text-muted)' }}>
+            <span className="text-sm tabular-nums">{sessionNumber}회차 / {slot.total_sessions}회</span>
+          </div>
         )}
       </div>
 
@@ -1111,12 +1144,13 @@ interface SlotRowProps {
 
 function SlotRow({ slot, dateStr, isFirst, onToggle, onLock, onUnlock, onDelete, onViewBooking }: SlotRowProps) {
   const conf = SLOT_STATUS_CONFIG[slot.status]
-  // 해당 날짜에 해당하는 세션 시간 조회 (없으면 첫 세션 기본값)
-  const session = slot.sessions?.find((s) => s.slot_date === dateStr)
-  const startTime = (session?.start_time ?? slot.start_time).slice(0, 5)
-  const endTime = (session?.end_time ?? slot.end_time).slice(0, 5)
-  const time = `${startTime}~${endTime}`
   const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
+  // 요일별 시간 목록 (화 11:30, 목 19:00 형식으로 표시)
+  const dowTimes = getPerDowTimes(slot.sessions ?? [])
+  const todayDow = new Date(dateStr + 'T00:00:00').getDay()
+  // dowTimes 없는 레거시 fallback
+  const session = slot.sessions?.find((s) => s.slot_date === dateStr)
+  const fallbackTime = `${(session?.start_time ?? slot.start_time).slice(0, 5)}~${(session?.end_time ?? slot.end_time).slice(0, 5)}`
   const bookedName = getBookingName(slot)
   // 회차 번호 (이 날짜가 전체 세션 중 몇 번째인지)
   const sessionIndex = slot.sessions?.findIndex((s) => s.slot_date === dateStr) ?? -1
@@ -1137,13 +1171,27 @@ function SlotRow({ slot, dateStr, isFirst, onToggle, onLock, onUnlock, onDelete,
         style={{ backgroundColor: SLOT_STATUS_DOT[slot.status] }}
       />
 
-      {/* 시간 — tabular-nums로 정렬 고정 */}
-      <span
-        className="text-sm font-medium shrink-0 tabular-nums"
-        style={{ color: 'var(--text-primary)', minWidth: '7.5rem' }}
-      >
-        {time}
-      </span>
+      {/* 요일별 시간 — 오늘 요일 굵게, 나머지 muted */}
+      {dowTimes.length > 0 ? (
+        <div className="flex items-center gap-2 shrink-0">
+          {dowTimes.map(({ dow, start, end }) => {
+            const isToday = dow === todayDow
+            return (
+              <span
+                key={dow}
+                className="text-sm tabular-nums"
+                style={{ color: isToday ? 'var(--text-primary)' : 'var(--text-muted)', fontWeight: isToday ? 600 : 400 }}
+              >
+                {DAY_LABELS[dow]} {start.slice(0, 5)}
+              </span>
+            )
+          })}
+        </div>
+      ) : (
+        <span className="text-sm font-medium shrink-0 tabular-nums" style={{ color: 'var(--text-primary)' }}>
+          {fallbackTime}
+        </span>
+      )}
 
       {/* 상태 배지 */}
       <Badge variant={conf.variant}>{conf.label}</Badge>
