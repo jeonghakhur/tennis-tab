@@ -501,7 +501,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                     // 점 색상 우선순위: 예약(파랑) > 빈슬롯(초록) > 기타(회색)
                     const dotColors: string[] = []
                     if (bookedCount > 0) dotColors.push('var(--color-info)')
-                    if (openCount > 0) dotColors.push('var(--color-success)')
+                    if (openCount > 0) dotColors.push('var(--color-danger)')
                     if (otherCount > 0 && dotColors.length < 2) dotColors.push('var(--text-muted)')
 
                     return (
@@ -829,7 +829,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
             {openCount > 0 && (
               <span
                 className="text-sm font-medium px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)' }}
+                style={{ backgroundColor: 'var(--color-danger-subtle)', color: 'var(--color-danger)' }}
               >
                 빈 슬롯 {openCount}
               </span>
