@@ -646,16 +646,17 @@ function BookingRow({
               수락
             </button>
           )}
-          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
-            <button
-              onClick={onCancel}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
-              style={{ backgroundColor: 'var(--color-danger)' }}
-            >
-              <X className="w-3 h-3" />
-              {booking.status === 'PENDING' ? '거절' : '취소'}
-            </button>
-          )}
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') &&
+            !(booking.slots?.[0]?.sessions as SlotSession[] | null)?.some((s) => s.status === 'COMPLETED') && (
+              <button
+                onClick={onCancel}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: 'var(--color-danger)' }}
+              >
+                <X className="w-3 h-3" />
+                {booking.status === 'PENDING' ? '거절' : '취소'}
+              </button>
+            )}
           {/* 세션 관리 버튼 */}
           {booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && (
             <button
