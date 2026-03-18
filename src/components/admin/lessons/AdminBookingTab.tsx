@@ -24,12 +24,18 @@ type StatusFilter = 'ALL' | LessonBookingStatus
 
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
-export function AdminBookingTab() {
+interface AdminBookingTabProps {
+  /** 코치 모드: 이 coachId의 예약만 표시 */
+  coachId?: string
+}
+
+export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps = {}) {
   const [coaches, setCoaches] = useState<Coach[]>([])
 
   useEffect(() => {
+    if (fixedCoachId) return // 코치 모드: 목록 조회 불필요
     getCoaches().then(({ data }) => setCoaches(data))
-  }, [])
+  }, [fixedCoachId])
   const [bookings, setBookings]             = useState<LessonBooking[]>([])
   const [loading, setLoading]               = useState(true)
   const [selectedCoachId, setSelectedCoachId] = useState<string>('ALL')
@@ -52,10 +58,10 @@ export function AdminBookingTab() {
 
   const loadBookings = useCallback(async () => {
     setLoading(true)
-    const { data } = await getBookings()
+    const { data } = await getBookings(fixedCoachId ? { coachId: fixedCoachId } : undefined)
     setBookings(data)
     setLoading(false)
-  }, [])
+  }, [fixedCoachId])
 
   useEffect(() => { loadBookings() }, [loadBookings])
 

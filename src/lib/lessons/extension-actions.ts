@@ -157,11 +157,37 @@ export async function requestLessonExtension(input: {
 
 export async function getExtensionRequests(filters?: {
   status?: ExtensionStatus
+  coachId?: string // 특정 코치 슬롯의 연장 신청만 조회 (관리자·코치 공용)
 }): Promise<{ error: string | null; data: LessonExtensionRequest[] }> {
-  const { error: authErr } = await checkAdminAuth()
-  if (authErr) return { error: authErr, data: [] }
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', data: [] }
 
+  const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
   const admin = createAdminClient()
+
+  // 코치 본인 여부 확인 (관리자가 아닌 경우)
+  let filterCoachId = filters?.coachId
+  if (!isAdmin) {
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!coach) return { error: '접근 권한이 없습니다.', data: [] }
+    filterCoachId = coach.id // 코치는 본인 ID로 강제
+  }
+
+  // 코치 필터 시 슬롯 ID 목록 먼저 조회
+  let slotIdFilter: string[] | null = null
+  if (filterCoachId) {
+    const { data: coachSlots } = await admin
+      .from('lesson_slots')
+      .select('id')
+      .eq('coach_id', filterCoachId)
+    slotIdFilter = (coachSlots ?? []).map((s) => s.id)
+    if (slotIdFilter.length === 0) return { error: null, data: [] }
+  }
 
   let query = admin
     .from('lesson_extension_requests')
@@ -174,9 +200,8 @@ export async function getExtensionRequests(filters?: {
     `)
     .order('created_at', { ascending: false })
 
-  if (filters?.status) {
-    query = query.eq('status', filters.status)
-  }
+  if (filters?.status) query = query.eq('status', filters.status)
+  if (slotIdFilter) query = query.in('slot_id', slotIdFilter)
 
   const { data, error } = await query
 

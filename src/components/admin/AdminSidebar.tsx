@@ -23,6 +23,7 @@ import { ROLE_LABELS } from '@/lib/auth/roles'
 
 interface AdminSidebarProps {
   currentRole: UserRole
+  isCoach?: boolean
 }
 
 const menuItems = [
@@ -83,14 +84,15 @@ const menuItems = [
   },
 ]
 
-export function AdminSidebar({ currentRole }: AdminSidebarProps) {
+export function AdminSidebar({ currentRole, isCoach = false }: AdminSidebarProps) {
   const pathname = usePathname()
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
 
-  const filteredMenuItems = menuItems.filter((item) =>
-    item.roles.includes(currentRole)
-  )
+  // 코치는 레슨 관리만 표시
+  const filteredMenuItems = isCoach
+    ? menuItems.filter((item) => item.href === '/admin/lessons')
+    : menuItems.filter((item) => item.roles.includes(currentRole))
 
   return (
     <>
@@ -143,7 +145,7 @@ export function AdminSidebar({ currentRole }: AdminSidebarProps) {
           <div className="px-6 py-3 border-b border-(--border-color)">
             <span className="text-xs text-(--text-muted)">권한</span>
             <p className="text-sm font-medium text-(--text-primary)">
-              {ROLE_LABELS[currentRole]}
+              {isCoach ? '코치' : ROLE_LABELS[currentRole]}
             </p>
           </div>
 

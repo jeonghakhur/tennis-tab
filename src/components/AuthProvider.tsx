@@ -75,12 +75,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     initAuth()
 
-    // 인증 상태 변경 구독 (초기 로딩 후에만 반응)
+    // 인증 상태 변경 구독
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      // 초기 로딩이 완료되지 않았으면 무시
-      if (!initializedRef.current) return
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // INITIAL_SESSION은 initAuth()가 이미 처리하므로 무시
+      // 그 외 이벤트(SIGNED_IN, SIGNED_OUT, TOKEN_REFRESHED)는 초기화 완료 여부와 무관하게 처리
+      if (event === 'INITIAL_SESSION') return
 
       if (session?.user) {
         // 서버 액션으로 프로필 조회 (암호화된 phone, birth_year 복호화 포함)

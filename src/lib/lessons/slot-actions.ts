@@ -32,9 +32,54 @@ async function checkAdminAuth() {
   const user = await getCurrentUser()
   if (!user) return { error: '로그인이 필요합니다.', user: null }
   if (user.role !== 'SUPER_ADMIN' && user.role !== 'ADMIN') {
-    return { error: '관리자 권한이 필요합니다.', user: null }
+    return { error: '관리자 권한이 없습니다.', user: null }
   }
   return { error: null, user }
+}
+
+/**
+ * 관리자이거나 본인 코치 프로필이 있는 경우 허용
+ * - isAdmin: true → 모든 데이터 접근 가능
+ * - coachId: string → 해당 coachId 데이터만 접근 가능
+ */
+async function checkCoachOrAdminAuth(): Promise<{
+  error: string | null
+  coachId: string | null
+  isAdmin: boolean
+}> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', coachId: null, isAdmin: false }
+
+  const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
+  if (isAdmin) return { error: null, coachId: null, isAdmin: true }
+
+  const admin = createAdminClient()
+  const { data: coach } = await admin
+    .from('coaches')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!coach) return { error: '접근 권한이 없습니다.', coachId: null, isAdmin: false }
+  return { error: null, coachId: coach.id, isAdmin: false }
+}
+
+/**
+ * 현재 로그인 유저의 coach ID 반환 (코치가 아니면 null)
+ * 클라이언트 컴포넌트에서 코치 모드 감지용
+ */
+export async function getMyCoachId(): Promise<string | null> {
+  const user = await getCurrentUser()
+  if (!user) return null
+  const admin = createAdminClient()
+  const { data: coach } = await admin
+    .from('coaches')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+  return coach?.id ?? null
 }
 
 const REVALIDATE_PATH = '/admin/lessons'
@@ -286,8 +331,10 @@ export async function getSlotsByCoach(
   startDate: string,
   endDate: string
 ): Promise<{ error: string | null; data: LessonSlot[] }> {
-  const { error: authErr } = await checkAdminAuth()
+  const { error: authErr, coachId: myCoachId, isAdmin } = await checkCoachOrAdminAuth()
   if (authErr) return { error: authErr, data: [] }
+  // 코치는 본인 슬롯만 조회 가능
+  if (!isAdmin && myCoachId !== coachId) return { error: '접근 권한이 없습니다.', data: [] }
 
   const admin = createAdminClient()
 
@@ -677,11 +724,24 @@ export async function getBookings(filters?: {
   status?: LessonBookingStatus
   isGuest?: boolean
   programId?: string
+  coachId?: string // 코치 모드: 해당 코치 슬롯의 예약만 조회
 }): Promise<{ error: string | null; data: LessonBooking[] }> {
-  const { error: authErr } = await checkAdminAuth()
+  const { error: authErr, coachId: myCoachId, isAdmin } = await checkCoachOrAdminAuth()
   if (authErr) return { error: authErr, data: [] }
 
+  // 코치는 본인 slotId 목록으로만 조회 가능
+  const filterCoachId = isAdmin ? filters?.coachId : myCoachId
   const admin = createAdminClient()
+
+  let slotIdFilter: string[] | null = null
+  if (filterCoachId) {
+    const { data: coachSlots } = await admin
+      .from('lesson_slots')
+      .select('id')
+      .eq('coach_id', filterCoachId)
+    slotIdFilter = (coachSlots ?? []).map((s) => s.id)
+    if (slotIdFilter.length === 0) return { error: null, data: [] }
+  }
 
   let query = admin
     .from('lesson_bookings')
@@ -690,6 +750,8 @@ export async function getBookings(filters?: {
 
   if (filters?.status) query = query.eq('status', filters.status)
   if (filters?.isGuest !== undefined) query = query.eq('is_guest', filters.isGuest)
+  // slot_ids는 배열 컬럼 — overlaps로 필터
+  if (slotIdFilter) query = query.overlaps('slot_ids', slotIdFilter)
 
   const { data: bookings, error } = await query
 
@@ -1152,6 +1214,35 @@ export async function updateInquiryStatus(
 }
 
 /** 로그인 회원의 프로필 조회 (예약 폼 자동 채움용) */
+/**
+ * 현재 로그인 유저의 활성 레슨 예약 여부 (CONFIRMED | PENDING)
+ * Nav 메뉴 "레슨문의 → 레슨현황" 전환용 경량 체크
+ */
+export async function hasActiveLesson(): Promise<boolean> {
+  const user = await getCurrentUser()
+  if (!user) return false
+
+  const admin = createAdminClient()
+
+  const { data: members } = await admin
+    .from('club_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  if (!members?.length) return false
+
+  const memberIds = members.map((m) => m.id)
+
+  const { count } = await admin
+    .from('lesson_bookings')
+    .select('id', { count: 'exact', head: true })
+    .in('member_id', memberIds)
+    .in('status', ['CONFIRMED', 'PENDING'])
+
+  return (count ?? 0) > 0
+}
+
 export async function getCurrentMemberProfile(): Promise<{
   name: string
   phone: string

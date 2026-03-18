@@ -1,6 +1,5 @@
 'use client'
 
-import { signInWithEmail } from '@/lib/auth/actions'
 import { createClient } from '@/lib/supabase/client'
 import { useState, Suspense, useRef } from 'react'
 import Link from 'next/link'
@@ -18,7 +17,9 @@ function LoginContent() {
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
-  // 이메일 로그인
+  // 이메일 로그인 — 클라이언트 SDK 직접 호출
+  // 서버 액션으로 signIn하면 클라이언트 SDK가 세션 변경을 모름 → onAuthStateChange 미발동
+  // 클라이언트 SDK signInWithPassword → onAuthStateChange 자동 발동 → AuthProvider 즉시 갱신
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) {
@@ -32,9 +33,15 @@ function LoginContent() {
 
     setLoading('email')
     try {
-      const result = await signInWithEmail(email, password)
-      if (result?.error) {
-        setAlert({ isOpen: true, message: result.error, type: 'error' })
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) {
+        const msg = error.message.includes('Invalid login credentials')
+          ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+          : error.message.includes('Email not confirmed')
+            ? '이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.'
+            : error.message
+        setAlert({ isOpen: true, message: msg, type: 'error' })
         setLoading(null)
       } else {
         router.push(redirectTo)

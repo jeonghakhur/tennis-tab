@@ -155,7 +155,12 @@ function ProcessModal({
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────
 
-export function AdminExtensionTab() {
+interface AdminExtensionTabProps {
+  /** 코치 모드: 이 coachId의 연장 신청만 표시 */
+  coachId?: string
+}
+
+export function AdminExtensionTab({ coachId: fixedCoachId }: AdminExtensionTabProps = {}) {
   const [requests, setRequests]     = useState<LessonExtensionRequest[]>([])
   const [loading, setLoading]       = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
@@ -164,10 +169,10 @@ export function AdminExtensionTab() {
 
   const loadData = useCallback(async () => {
     setLoading(true)
-    const { data } = await getExtensionRequests()
+    const { data } = await getExtensionRequests(fixedCoachId ? { coachId: fixedCoachId } : undefined)
     setRequests(data)
     setLoading(false)
-  }, [])
+  }, [fixedCoachId])
 
   useEffect(() => { loadData() }, [loadData])
 

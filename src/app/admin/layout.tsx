@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
 import { AdminSidebar } from '@/components/admin/AdminSidebar'
 import { AdminHeader } from '@/components/admin/AdminHeader'
@@ -27,14 +28,29 @@ export default async function AdminLayout({
     .eq('id', user.id)
     .single()
 
-  if (!profile?.role || !['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(profile.role)) {
+  const isAdmin = profile?.role && ['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(profile.role)
+
+  // 관리자가 아닌 경우 코치 여부 확인 (RLS 우회를 위해 admin client 사용)
+  let isCoach = false
+  if (!isAdmin) {
+    const adminClient = createAdminClient()
+    const { data: coach } = await adminClient
+      .from('coaches')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    isCoach = !!coach
+  }
+
+  if (!isAdmin && !isCoach) {
     redirect('/not-found')
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-(--bg-primary) overflow-hidden">
       <div className="flex h-full">
-        <AdminSidebar currentRole={profile.role} />
+        <AdminSidebar currentRole={profile?.role ?? 'USER'} isCoach={isCoach && !isAdmin} />
         <div className="flex-1 lg:ml-64 flex flex-col h-full overflow-hidden">
           <AdminHeader
             userName={profile.name}

@@ -18,6 +18,7 @@ export function UserAvatar({
   const { profile, loading, refresh } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isClubOfficer, setIsClubOfficer] = useState(false);
+  const [isCoach, setIsCoach] = useState(false);
   const router = useRouter();
 
   // 클럽 임원 여부 확인 (드롭다운 "클럽 관리" 메뉴 표시용)
@@ -26,6 +27,16 @@ export function UserAvatar({
     const check = async () => {
       const { hasOfficerClubs } = await import("@/lib/clubs/actions");
       setIsClubOfficer(await hasOfficerClubs());
+    };
+    check();
+  }, [profile]);
+
+  // 코치 여부 확인 (드롭다운 "내 레슨 관리" 메뉴 표시용)
+  useEffect(() => {
+    if (!profile) return;
+    const check = async () => {
+      const { getMyCoachId } = await import("@/lib/lessons/slot-actions");
+      setIsCoach(!!(await getMyCoachId()));
     };
     check();
   }, [profile]);
@@ -161,23 +172,26 @@ export function UserAvatar({
                 <span className="mr-2">👤</span>
                 마이페이지
               </Link>
-              <Link
-                href="/my/lessons"
-                className="block px-4 py-2 text-sm transition-colors duration-200"
-                style={{ color: "var(--text-secondary)" }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
-                  e.currentTarget.style.color = "var(--text-primary)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = "transparent";
-                  e.currentTarget.style.color = "var(--text-secondary)";
-                }}
-                onClick={() => setIsOpen(false)}
-              >
-                <span className="mr-2">🎾</span>
-                내 레슨
-              </Link>
+              {/* 코치면 레슨 관리 메뉴 표시 */}
+              {isCoach && (
+                <Link
+                  href="/admin/lessons"
+                  className="block px-4 py-2 text-sm transition-colors duration-200"
+                  style={{ color: "var(--text-secondary)" }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = "var(--bg-card-hover)";
+                    e.currentTarget.style.color = "var(--text-primary)";
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = "transparent";
+                    e.currentTarget.style.color = "var(--text-secondary)";
+                  }}
+                  onClick={() => setIsOpen(false)}
+                >
+                  <span className="mr-2">🎾</span>
+                  내 레슨 관리
+                </Link>
+              )}
 
               {/* 클럽 임원이면서 시스템 관리자가 아닌 경우 클럽 관리 메뉴 표시 */}
               {isClubOfficer &&

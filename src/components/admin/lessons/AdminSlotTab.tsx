@@ -142,21 +142,27 @@ function getCalendarDays(year: number, month: number): Array<{ date: Date; isCur
 
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
-export function AdminSlotTab() {
-  // 코치 목록
+interface AdminSlotTabProps {
+  /** 코치 모드: 이 ID로 고정되어 코치 탭 셀렉터 숨김 */
+  fixedCoachId?: string
+}
+
+export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
+  // 코치 목록 (fixedCoachId가 있으면 로드 불필요)
   const [coaches, setCoaches] = useState<Coach[]>([])
-  const [coachesLoading, setCoachesLoading] = useState(true)
+  const [coachesLoading, setCoachesLoading] = useState(!fixedCoachId)
 
   useEffect(() => {
+    if (fixedCoachId) return // 코치 모드: 목록 조회 생략
     getCoaches().then(({ data }) => {
       setCoaches(data)
       setCoachesLoading(false)
     })
-  }, [])
+  }, [fixedCoachId])
 
-  // 선택된 코치 (기본: 첫 번째)
-  const [selectedCoachId, setSelectedCoachId] = useState('')
-  const coachId = selectedCoachId || coaches[0]?.id || ''
+  // 선택된 코치 (fixedCoachId가 있으면 고정)
+  const [selectedCoachId, setSelectedCoachId] = useState(fixedCoachId ?? '')
+  const coachId = (fixedCoachId ?? selectedCoachId) || coaches[0]?.id || ''
 
   // 뷰 모드
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
@@ -340,16 +346,16 @@ export function AdminSlotTab() {
 
   return (
     <div>
-      {/* 코치 탭 */}
-      {coachesLoading ? (
+      {/* 코치 탭 — fixedCoachId(코치 모드)면 숨김 */}
+      {!fixedCoachId && coachesLoading ? (
         <div className="flex gap-2 mb-4">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="h-9 w-24 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
           ))}
         </div>
-      ) : coaches.length === 0 ? (
+      ) : !fixedCoachId && coaches.length === 0 ? (
         <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>등록된 코치가 없습니다.</p>
-      ) : (
+      ) : !fixedCoachId ? (
         <div
           className="flex gap-1 mb-4 border-b"
           style={{ borderColor: 'var(--border-color)' }}
@@ -378,7 +384,7 @@ export function AdminSlotTab() {
             )
           })}
         </div>
-      )}
+      ) : null}
 
       {coachId && (
         <>

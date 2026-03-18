@@ -11,18 +11,35 @@ import { useAuth } from './AuthProvider'
 import { AvatarSkeleton } from './Skeleton'
 import { NotificationBell } from './notifications/NotificationBell'
 
-const NAV_LINKS = [
+const BASE_NAV_LINKS = [
   { href: '/tournaments', label: '대회' },
   { href: '/clubs', label: '클럽' },
   { href: '/awards', label: '명예의 전당' },
   { href: '/community', label: '커뮤니티' },
-  { href: '/lessons', label: '레슨문의' },
 ]
 
 export function Navigation() {
   const { user, profile, loading } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [hasLesson, setHasLesson] = useState(false)
   const pathname = usePathname()
+
+  // 로그인 유저의 활성 레슨 여부 확인 → 레슨 메뉴 동적 변경
+  useEffect(() => {
+    if (!user) { setHasLesson(false); return }
+    const check = async () => {
+      const { hasActiveLesson } = await import('@/lib/lessons/slot-actions')
+      setHasLesson(await hasActiveLesson())
+    }
+    check()
+  }, [user])
+
+  const NAV_LINKS = [
+    ...BASE_NAV_LINKS,
+    hasLesson
+      ? { href: '/my/lessons', label: '레슨현황' }
+      : { href: '/lessons', label: '레슨문의' },
+  ]
   // 링크 컨테이너 ref — indicator의 기준점
   const containerRef = useRef<HTMLDivElement>(null)
   const linkRefs = useRef<(HTMLAnchorElement | null)[]>([])
