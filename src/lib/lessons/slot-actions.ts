@@ -560,6 +560,7 @@ export async function createBooking(
       booking_type: bookingType,
       fee_amount: feeAmount,
       status: 'PENDING',
+      admin_note: input.note?.trim() || null,
     })
     .select()
     .single()
@@ -896,4 +897,25 @@ export async function updateInquiryStatus(
   if (error) return { error: '문의 상태 업데이트에 실패했습니다.' }
   revalidatePath(REVALIDATE_PATH)
   return { error: null }
+}
+
+/** 로그인 회원의 클럽 멤버 프로필 조회 (예약 폼 자동 채움용) */
+export async function getCurrentMemberProfile(): Promise<{
+  name: string
+  phone: string
+} | null> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return null
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('club_members')
+    .select('name, phone')
+    .eq('user_id', currentUser.id)
+    .eq('status', 'ACTIVE')
+    .limit(1)
+    .maybeSingle()
+
+  if (!data) return null
+  return { name: data.name ?? '', phone: data.phone ?? '' }
 }

@@ -84,6 +84,8 @@ export interface CreateBookingInput {
   // 비회원일 때
   guest_name?: string
   guest_phone?: string
+  // 예약자 메모 (admin_note로 저장)
+  note?: string
 }
 
 // ─── 상수 & 라벨 ────────────────────────────────────────────────────────────

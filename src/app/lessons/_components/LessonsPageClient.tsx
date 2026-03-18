@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Clock, Phone, User, ChevronRight, Loader2, GraduationCap } from 'lucide-react'
-import { getPublicOpenSlots, createBooking } from '@/lib/lessons/slot-actions'
+import { Calendar, Clock, Phone, User, ChevronRight, Loader2, GraduationCap, MessageSquare } from 'lucide-react'
+import { getPublicOpenSlots, createBooking, getCurrentMemberProfile } from '@/lib/lessons/slot-actions'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import type { Coach } from '@/lib/lessons/types'
@@ -169,14 +169,28 @@ interface BookingModalProps {
 }
 
 function BookingModal({ slot, coachName, isOpen, onClose, onSuccess }: BookingModalProps) {
-  const [guestName, setGuestName] = useState('')
-  const [guestPhone, setGuestPhone] = useState('')
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [note, setNote] = useState('')
+  const [isMember, setIsMember] = useState(false)  // 로그인 회원 여부
   const [submitting, setSubmitting] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
 
-  // 모달 열릴 때 초기화
+  // 모달 열릴 때: 회원 프로필 조회 → 자동 채움
   useEffect(() => {
-    if (isOpen) { setGuestName(''); setGuestPhone('') }
+    if (!isOpen) return
+    setNote('')
+    getCurrentMemberProfile().then((profile) => {
+      if (profile) {
+        setName(profile.name)
+        setPhone(profile.phone)
+        setIsMember(true)
+      } else {
+        setName('')
+        setPhone('')
+        setIsMember(false)
+      }
+    })
   }, [isOpen])
 
   if (!slot) return null
@@ -188,19 +202,29 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess }: BookingMo
   const feeText = slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'
 
   const handleSubmit = async () => {
-    const name = guestName.trim()
-    const phone = guestPhone.trim()
-    if (!name) { setAlert({ isOpen: true, message: '이름을 입력해주세요.' }); return }
-    if (!phone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
-    if (!/^0\d{8,10}$/.test(phone.replace(/-/g, ''))) {
+    const trimName = name.trim()
+    const trimPhone = phone.trim()
+    if (!trimName) { setAlert({ isOpen: true, message: '이름을 입력해주세요.' }); return }
+    if (!trimPhone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
+    if (!isMember && !/^0\d{8,10}$/.test(trimPhone.replace(/-/g, ''))) {
       setAlert({ isOpen: true, message: '올바른 전화번호를 입력해주세요. (예: 01012345678)' })
       return
     }
     setSubmitting(true)
-    const result = await createBooking({ slot_ids: [slot.id], guest_name: name, guest_phone: phone })
+    const result = await createBooking({
+      slot_ids: [slot.id],
+      // 비회원일 때만 guest 정보 전달 (회원이면 createBooking 내부에서 자동 감지)
+      ...(!isMember && { guest_name: trimName, guest_phone: trimPhone }),
+      note: note.trim() || undefined,
+    })
     setSubmitting(false)
     if (result.error) { setAlert({ isOpen: true, message: result.error }); return }
     onSuccess()
+  }
+
+  const inputStyle = {
+    backgroundColor: 'var(--bg-input, var(--bg-secondary))',
+    border: '1.5px solid var(--border-color)',
   }
 
   return (
@@ -231,42 +255,79 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess }: BookingMo
 
           {/* 신청자 정보 */}
           <div className="space-y-4">
+            {/* 회원 자동 채움 안내 */}
+            {isMember && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-success-subtle, rgba(34,197,94,0.1))', color: 'var(--color-success)' }}
+              >
+                <User className="w-3.5 h-3.5 shrink-0" />
+                회원 정보로 자동 입력되었습니다
+              </div>
+            )}
+
+            {/* 이름 */}
             <div>
               <label htmlFor="booking-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                 이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ backgroundColor: 'var(--bg-input, var(--bg-secondary))', border: '1.5px solid var(--border-color)' }}>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
                 <User className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
                 <input
                   id="booking-name"
                   type="text"
-                  value={guestName}
-                  onChange={(e) => setGuestName(e.target.value)}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
                   placeholder="홍길동"
+                  readOnly={isMember}
                   className="flex-1 bg-transparent text-sm outline-none"
-                  style={{ color: 'var(--text-primary)' }}
+                  style={{ color: isMember ? 'var(--text-muted)' : 'var(--text-primary)' }}
                   autoComplete="name"
                 />
               </div>
             </div>
+
+            {/* 연락처 */}
             <div>
               <label htmlFor="booking-phone" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
                 연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
-              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={{ backgroundColor: 'var(--bg-input, var(--bg-secondary))', border: '1.5px solid var(--border-color)' }}>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
                 <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
                 <input
                   id="booking-phone"
                   type="tel"
-                  value={guestPhone}
-                  onChange={(e) => setGuestPhone(e.target.value)}
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
                   placeholder="01012345678"
+                  readOnly={isMember}
                   className="flex-1 bg-transparent text-sm outline-none tabular-nums"
-                  style={{ color: 'var(--text-primary)' }}
+                  style={{ color: isMember ? 'var(--text-muted)' : 'var(--text-primary)' }}
                   autoComplete="tel"
                 />
               </div>
             </div>
+
+            {/* 메모 */}
+            <div>
+              <label htmlFor="booking-note" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                메모 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
+              </label>
+              <div className="flex gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
+                <MessageSquare className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
+                <textarea
+                  id="booking-note"
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
+                  placeholder="원하는 레슨 목표, 현재 실력, 기타 문의사항을 입력해주세요"
+                  rows={3}
+                  maxLength={300}
+                  className="flex-1 bg-transparent text-sm outline-none resize-none"
+                  style={{ color: 'var(--text-primary)' }}
+                />
+              </div>
+            </div>
+
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
               예약 신청 후 관리자 확인을 거쳐 확정됩니다. 확정 여부는 연락처로 안내드립니다.
             </p>
