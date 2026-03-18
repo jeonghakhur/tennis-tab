@@ -1,42 +1,23 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Users, BookOpen, Calendar, MessageSquare, GraduationCap, ClipboardList } from 'lucide-react'
+import { useState } from 'react'
+import { Users, Calendar, MessageSquare, ClipboardList } from 'lucide-react'
 import { CoachList } from '@/components/clubs/coaches/CoachList'
-import { AdminProgramTab } from '@/components/admin/lessons/AdminProgramTab'
 import { AdminSlotTab } from '@/components/admin/lessons/AdminSlotTab'
 import { AdminBookingTab } from '@/components/admin/lessons/AdminBookingTab'
 import { AdminInquiryTab } from '@/components/admin/lessons/AdminInquiryTab'
-import { AdminEnrollmentTab } from '@/components/admin/lessons/AdminEnrollmentTab'
-import { getAllLessonPrograms } from '@/lib/lessons/actions'
-import type { LessonProgram } from '@/lib/lessons/types'
 
-type Tab = 'coaches' | 'programs' | 'slots' | 'bookings' | 'enrollments' | 'inquiries'
+type Tab = 'coaches' | 'slots' | 'bookings' | 'inquiries'
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
   { key: 'coaches', label: '코치', icon: Users },
-  { key: 'programs', label: '프로그램', icon: BookOpen },
   { key: 'slots', label: '슬롯', icon: Calendar },
   { key: 'bookings', label: '예약', icon: ClipboardList },
-  { key: 'enrollments', label: '수강생', icon: GraduationCap },
   { key: 'inquiries', label: '문의', icon: MessageSquare },
 ]
 
 export default function AdminLessonsPage() {
   const [tab, setTab] = useState<Tab>('coaches')
-  const [programs, setPrograms] = useState<LessonProgram[]>([])
-  const [programsLoading, setProgramsLoading] = useState(true)
-
-  const loadPrograms = useCallback(async () => {
-    setProgramsLoading(true)
-    const { data } = await getAllLessonPrograms()
-    setPrograms(data)
-    setProgramsLoading(false)
-  }, [])
-
-  useEffect(() => {
-    loadPrograms()
-  }, [loadPrograms])
 
   return (
     <div>
@@ -45,7 +26,7 @@ export default function AdminLessonsPage() {
           레슨 관리
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          코치, 프로그램, 일정 슬롯, 문의를 관리합니다.
+          코치, 슬롯, 예약, 문의를 관리합니다.
         </p>
       </div>
 
@@ -86,38 +67,12 @@ export default function AdminLessonsPage() {
         {tab === 'coaches' && <CoachList clubId="" isAdmin={true} />}
       </div>
 
-      <div id="tabpanel-programs" role="tabpanel" hidden={tab !== 'programs'}>
-        {tab === 'programs' && (
-          <AdminProgramTab
-            programs={programs}
-            loading={programsLoading}
-            onRefresh={loadPrograms}
-          />
-        )}
-      </div>
-
       <div id="tabpanel-slots" role="tabpanel" hidden={tab !== 'slots'}>
-        {tab === 'slots' && (
-          <AdminSlotTab
-            programs={programs}
-            programsLoading={programsLoading}
-          />
-        )}
+        {tab === 'slots' && <AdminSlotTab />}
       </div>
 
       <div id="tabpanel-bookings" role="tabpanel" hidden={tab !== 'bookings'}>
-        {tab === 'bookings' && (
-          <AdminBookingTab programs={programs} programsLoading={programsLoading} />
-        )}
-      </div>
-
-      <div id="tabpanel-enrollments" role="tabpanel" hidden={tab !== 'enrollments'}>
-        {tab === 'enrollments' && (
-          <AdminEnrollmentTab
-            programs={programs}
-            programsLoading={programsLoading}
-          />
-        )}
+        {tab === 'bookings' && <AdminBookingTab />}
       </div>
 
       <div id="tabpanel-inquiries" role="tabpanel" hidden={tab !== 'inquiries'}>

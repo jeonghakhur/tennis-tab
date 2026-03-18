@@ -4,18 +4,17 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { revalidatePath } from 'next/cache'
 import { sanitizeObject } from '@/lib/utils/validation'
-import type { LessonProgram } from './types'
 import type {
   LessonSlot,
   LessonBooking,
   LessonSlotStatus,
   LessonBookingStatus,
-  LessonBookingType,
   CreateSlotInput,
   CreateBookingInput,
   SlotSession,
 } from './slot-types'
-import { getDayType, isTimeInRange, calculateBookingType, getFeeFieldByBookingType } from './slot-types'
+import { getDayType, isTimeInRange, calculateBookingType, getBookingTypeForPackageSlot, getFeeFieldByBookingType } from './slot-types'
+import type { LessonInquiry, LessonInquiryStatus } from './types'
 
 // ============================================================================
 // 검증 헬퍼
@@ -103,7 +102,6 @@ export async function createSlot(
 
 /** 레슨 슬롯 패키지 생성 (1건 = 전체 N회 세션) */
 export async function createLessonSlot(
-  programId: string,
   coachId: string,
   input: CreateSlotInput
 ): Promise<{ error: string | null }> {
@@ -128,7 +126,6 @@ export async function createLessonSlot(
   const { error } = await admin
     .from('lesson_slots')
     .insert({
-      program_id: programId,
       coach_id: coachId,
       slot_date: first.slot_date,
       start_time: first.start_time,
@@ -139,6 +136,7 @@ export async function createLessonSlot(
       total_sessions: input.total_sessions,
       sessions: input.sessions,
       last_session_date: input.sessions[input.sessions.length - 1].slot_date,
+      fee_amount: input.fee_amount,
       status: 'OPEN',
       created_by: user.id,
     })
@@ -451,7 +449,6 @@ export async function getOpenSlotsByProgram(
 
 /** 예약 신청 (회원/비회원) */
 export async function createBooking(
-  programId: string,
   input: CreateBookingInput
 ): Promise<{ error: string | null; data?: LessonBooking }> {
   if (!input.slot_ids || input.slot_ids.length === 0 || input.slot_ids.length > 2) {
@@ -501,17 +498,15 @@ export async function createBooking(
   }
 
   // booking_type 계산
-  const bookingType = calculateBookingType(slots as LessonSlot[])
+  // 패키지 슬롯 단건(frequency 있음) → getBookingTypeForPackageSlot
+  // 레거시 슬롯 또는 다중 선택 → calculateBookingType (역호환)
+  const bookingType =
+    slots.length === 1 && (slots[0] as LessonSlot).frequency !== null
+      ? getBookingTypeForPackageSlot(slots[0] as LessonSlot)
+      : calculateBookingType(slots as LessonSlot[])
 
-  // 요금 계산
-  const { data: program } = await admin
-    .from('lesson_programs')
-    .select('fee_weekday_1, fee_weekday_2, fee_weekend_1, fee_weekend_2, fee_mixed_2')
-    .eq('id', programId)
-    .single()
-
-  const feeField = getFeeFieldByBookingType(bookingType)
-  const feeAmount = program ? (program as Record<string, number | null>)[feeField] ?? null : null
+  // 요금: 슬롯에 직접 저장된 fee_amount 사용
+  const feeAmount = (slots[0] as LessonSlot).fee_amount ?? null
 
   // 슬롯 상태 BOOKED으로 변경
   const { error: updateErr } = await admin
@@ -693,45 +688,6 @@ export async function getBookings(filters?: {
   return { error: null, data: (bookings || []) as LessonBooking[] }
 }
 
-/** 프로그램의 코치 목록 조회 (공개) */
-export async function getProgramCoaches(
-  programId: string
-): Promise<{ error: string | null; data: Array<{ id: string; name: string; profile_image_url: string | null }> }> {
-  const admin = createAdminClient()
-
-  // 해당 프로그램의 코치
-  const { data: program } = await admin
-    .from('lesson_programs')
-    .select('coach_id, coach:coaches(id, name, profile_image_url)')
-    .eq('id', programId)
-    .single()
-
-  if (!program?.coach) return { error: null, data: [] }
-
-  const coachRaw = program.coach
-  const coach = Array.isArray(coachRaw) ? coachRaw[0] : coachRaw
-  if (!coach) return { error: null, data: [] }
-  return { error: null, data: [coach as { id: string; name: string; profile_image_url: string | null }] }
-}
-
-/** 프로그램 정보 조회 (요금 포함, 공개) */
-export async function getProgramFees(
-  programId: string
-): Promise<{
-  error: string | null
-  data: Pick<LessonProgram, 'fee_weekday_1' | 'fee_weekday_2' | 'fee_weekend_1' | 'fee_weekend_2' | 'fee_mixed_2' | 'title'> | null
-}> {
-  const admin = createAdminClient()
-
-  const { data, error } = await admin
-    .from('lesson_programs')
-    .select('title, fee_weekday_1, fee_weekday_2, fee_weekend_1, fee_weekend_2, fee_mixed_2')
-    .eq('id', programId)
-    .single()
-
-  if (error || !data) return { error: '프로그램 정보를 찾을 수 없습니다.', data: null }
-  return { error: null, data: data as Pick<LessonProgram, 'fee_weekday_1' | 'fee_weekday_2' | 'fee_weekend_1' | 'fee_weekend_2' | 'fee_mixed_2' | 'title'> }
-}
 
 // ============================================================================
 // 내 예약 (마이페이지)
@@ -870,4 +826,46 @@ export async function searchClubMembers(
 
   if (error) return { error: '회원 검색에 실패했습니다.', data: [] }
   return { error: null, data: data || [] }
+}
+
+// ============================================================================
+// 레슨 문의
+// ============================================================================
+
+/** 어드민: 전체 레슨 문의 조회 */
+export async function getAdminLessonInquiries(): Promise<{ data: LessonInquiry[]; error: string | null }> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { data: [], error: authErr }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('lesson_inquiries')
+    .select('id, name, phone, message, status, admin_note, created_at')
+    .order('created_at', { ascending: false })
+
+  if (error) return { data: [], error: '문의 목록 조회에 실패했습니다.' }
+  return { data: (data as LessonInquiry[]) || [], error: null }
+}
+
+/** 어드민: 문의 상태 + 메모 업데이트 */
+export async function updateInquiryStatus(
+  inquiryId: string,
+  status: LessonInquiryStatus,
+  adminNote?: string
+): Promise<{ error: string | null }> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const idErr = validateId(inquiryId, '문의 ID')
+  if (idErr) return { error: idErr }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('lesson_inquiries')
+    .update({ status, admin_note: adminNote ?? null })
+    .eq('id', inquiryId)
+
+  if (error) return { error: '문의 상태 업데이트에 실패했습니다.' }
+  revalidatePath(REVALIDATE_PATH)
+  return { error: null }
 }

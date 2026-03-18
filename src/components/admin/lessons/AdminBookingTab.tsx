@@ -6,9 +6,10 @@ import { getBookings, confirmBooking, cancelBooking, updateBookingNote } from '@
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
+import { getCoaches } from '@/lib/coaches/actions'
+import type { Coach } from '@/lib/lessons/types'
 import type { LessonBooking, LessonBookingStatus } from '@/lib/lessons/slot-types'
 import { BOOKING_STATUS_LABEL, BOOKING_TYPE_LABEL } from '@/lib/lessons/slot-types'
-import type { LessonProgram } from '@/lib/lessons/types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -20,16 +21,14 @@ const STATUS_CONFIG: Record<LessonBookingStatus, { label: string; variant: Badge
 
 type StatusFilter = 'ALL' | LessonBookingStatus
 
-// ─── Props ───────────────────────────────────────────────────────────────────
-
-interface AdminBookingTabProps {
-  programs: LessonProgram[]
-  programsLoading: boolean
-}
-
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
-export function AdminBookingTab({ programs }: AdminBookingTabProps) {
+export function AdminBookingTab() {
+  const [coaches, setCoaches] = useState<Coach[]>([])
+
+  useEffect(() => {
+    getCoaches().then(({ data }) => setCoaches(data))
+  }, [])
   const [bookings, setBookings]             = useState<LessonBooking[]>([])
   const [loading, setLoading]               = useState(true)
   const [selectedCoachId, setSelectedCoachId] = useState<string>('ALL')
@@ -42,14 +41,12 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
-  // programs prop → coachId:name 맵
+  // coaches → coachId:name 맵
   const coachMap = useMemo(() => {
     const map = new Map<string, string>()
-    programs.forEach((p) => {
-      if (p.coach_id && p.coach?.name) map.set(p.coach_id, p.coach.name)
-    })
+    coaches.forEach((c) => map.set(c.id, c.name))
     return map
-  }, [programs])
+  }, [coaches])
 
   const loadBookings = useCallback(async () => {
     setLoading(true)

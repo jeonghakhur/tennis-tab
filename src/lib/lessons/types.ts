@@ -18,7 +18,7 @@ export interface Coach {
   bio: string | null
   experience: string | null
   certifications: string[]
-  certification_files: string[]  // 자격증 첨부 파일 URL 목록
+  certification_files: string[]
   profile_image_url: string | null
   is_active: boolean
   created_by: string
@@ -53,21 +53,13 @@ export interface LessonProgram {
   description: string | null
   target_level: string
   max_participants: number
-  /** 레슨 시간 (분) */
   session_duration_minutes: number
-  /** 수강료: 주중 1회 월 요금 */
   fee_weekday_1: number | null
-  /** 수강료: 주중 2회 월 요금 */
   fee_weekday_2: number | null
-  /** 수강료: 주말 1회 월 요금 */
   fee_weekend_1: number | null
-  /** 수강료: 주말 2회 월 요금 */
   fee_weekend_2: number | null
-  /** 수강료: 주중+주말 혼합 2회 월 요금 */
   fee_mixed_2: number | null
-  /** 슬롯 단위 시간 (분, 기본 30) */
   slot_duration_minutes: number
-  /** 프론트 노출 여부 */
   is_visible: boolean
   status: LessonProgramStatus
   created_by: string

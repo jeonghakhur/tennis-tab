@@ -17,7 +17,8 @@ import SessionTimePicker from '@/components/clubs/sessions/SessionTimePicker'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
-import type { LessonProgram } from '@/lib/lessons/types'
+import { getCoaches } from '@/lib/coaches/actions'
+import type { Coach } from '@/lib/lessons/types'
 import type { LessonSlot, LessonSlotStatus, LessonBooking, CreateSlotInput, SlotSession } from '@/lib/lessons/slot-types'
 import { LESSON_AVAILABLE_HOURS, BOOKING_TYPE_LABEL, BOOKING_STATUS_LABEL, isTimeInRange } from '@/lib/lessons/slot-types'
 
@@ -137,37 +138,25 @@ function getCalendarDays(year: number, month: number): Array<{ date: Date; isCur
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
-interface AdminSlotTabProps {
-  programs: LessonProgram[]
-  programsLoading: boolean
-}
+// props 없음 — 코치 목록을 내부에서 직접 로드
 
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
-export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
-  // 코치별 그룹핑 (탭 구성)
-  const coachGroups = programs.reduce<Array<{ coachId: string; coachName: string; programs: LessonProgram[] }>>(
-    (acc, p) => {
-      const existing = acc.find((g) => g.coachId === p.coach_id)
-      if (existing) {
-        existing.programs.push(p)
-      } else {
-        acc.push({ coachId: p.coach_id, coachName: p.coach?.name || '미지정', programs: [p] })
-      }
-      return acc
-    },
-    []
-  )
+export function AdminSlotTab() {
+  // 코치 목록
+  const [coaches, setCoaches] = useState<Coach[]>([])
+  const [coachesLoading, setCoachesLoading] = useState(true)
 
-  // 선택된 코치 탭 (기본: 첫 번째)
+  useEffect(() => {
+    getCoaches().then(({ data }) => {
+      setCoaches(data)
+      setCoachesLoading(false)
+    })
+  }, [])
+
+  // 선택된 코치 (기본: 첫 번째)
   const [selectedCoachId, setSelectedCoachId] = useState('')
-  const selectedGroup = coachGroups.find((g) => g.coachId === selectedCoachId) ?? coachGroups[0] ?? null
-  // 선택된 코치의 프로그램 중 OPEN 우선
-  const selectedProgram = selectedGroup
-    ? (selectedGroup.programs.find((p) => p.status === 'OPEN') ?? selectedGroup.programs[0] ?? null)
-    : null
-  const selectedProgramId = selectedProgram?.id ?? ''
-  const coachId = selectedGroup?.coachId ?? ''
+  const coachId = selectedCoachId || coaches[0]?.id || ''
 
   // 뷰 모드
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar')
@@ -202,10 +191,10 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
   // 코치 탭 자동 선택 (최초 로드)
   useEffect(() => {
-    if (coachGroups.length > 0 && !selectedCoachId) {
-      setSelectedCoachId(coachGroups[0].coachId)
+    if (coaches.length > 0 && !selectedCoachId) {
+      setSelectedCoachId(coaches[0].id)
     }
-  }, [coachGroups.length])
+  }, [coaches.length])
 
   // 슬롯 조회 (뷰 모드에 따라 주간/월간)
   const loadSlots = useCallback(async () => {
@@ -351,14 +340,14 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   return (
     <div>
       {/* 코치 탭 */}
-      {programsLoading ? (
+      {coachesLoading ? (
         <div className="flex gap-2 mb-4">
           {Array.from({ length: 2 }).map((_, i) => (
             <div key={i} className="h-9 w-24 rounded-lg animate-pulse" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
           ))}
         </div>
-      ) : coachGroups.length === 0 ? (
-        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>등록된 프로그램이 없습니다.</p>
+      ) : coaches.length === 0 ? (
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>등록된 코치가 없습니다.</p>
       ) : (
         <div
           className="flex gap-1 mb-4 border-b"
@@ -366,15 +355,15 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
           role="tablist"
           aria-label="코치 선택"
         >
-          {coachGroups.map((group) => {
-            const isActive = (selectedCoachId || coachGroups[0]?.coachId) === group.coachId
+          {coaches.map((coach) => {
+            const isActive = coachId === coach.id
             return (
               <button
-                key={group.coachId}
+                key={coach.id}
                 type="button"
                 role="tab"
                 aria-selected={isActive}
-                onClick={() => setSelectedCoachId(group.coachId)}
+                onClick={() => setSelectedCoachId(coach.id)}
                 className="px-4 py-2 text-sm font-medium rounded-t-lg transition-colors"
                 style={{
                   backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
@@ -383,14 +372,14 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                   marginBottom: '-1px',
                 }}
               >
-                {group.coachName}
+                {coach.name}
               </button>
             )
           })}
         </div>
       )}
 
-      {selectedProgramId && coachId && (
+      {coachId && (
         <>
           {/* 네비게이션 + 뷰 전환 + 슬롯 등록 */}
           <div className="flex items-center justify-between mb-4">
@@ -752,11 +741,10 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
       )}
 
       {/* 슬롯 등록 모달 */}
-      {selectedProgram && coachId && (
+      {coachId && (
         <CreateSlotModal
           isOpen={createModalOpen}
           onClose={() => setCreateModalOpen(false)}
-          programId={selectedProgramId}
           coachId={coachId}
           onSuccess={(count) => {
             setToast({ isOpen: true, message: `${count}개 슬롯이 등록되었습니다.`, type: 'success' })
@@ -1439,8 +1427,8 @@ function generateSessionsFromFrequency(
   return sessions
 }
 
-const WIZARD_STEP_LABELS = ['레슨 회수', '레슨 시간', '요일', '시작일', '시간'] as const
-type WizardStep = 1 | 2 | 3 | 4 | 5
+const WIZARD_STEP_LABELS = ['레슨 회수', '레슨 시간', '요일', '시작일', '시간', '요금'] as const
+type WizardStep = 1 | 2 | 3 | 4 | 5 | 6
 
 const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
   1: '주당 레슨 회수를\n선택해주세요',
@@ -1448,18 +1436,18 @@ const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
   3: '레슨 요일을\n선택해주세요',
   4: '레슨 시작일을\n선택해주세요',
   5: '레슨 시간을\n설정해주세요',
+  6: '레슨 요금을\n입력해주세요',
 }
 
 interface CreateSlotModalProps {
   isOpen: boolean
   onClose: () => void
-  programId: string
   coachId: string
   onSuccess: (count: number) => void
   onError: (message: string) => void
 }
 
-function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onError }: CreateSlotModalProps) {
+function CreateSlotModal({ isOpen, onClose, coachId, onSuccess, onError }: CreateSlotModalProps) {
   const [step, setStep] = useState<WizardStep>(1)
   const [frequency, setFrequency] = useState<1 | 2>(2)   // 2회 기본
   const [duration, setDuration] = useState<LessonDuration>(20)  // 20분 기본
@@ -1471,6 +1459,8 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
   const [selectedDays, setSelectedDays] = useState<number[]>([])
   const [startDate, setStartDate] = useState<string>('')
   const [times, setTimes] = useState<[string, string]>(['', ''])
+  // 요금: 빈 문자열 = 별도 협의, 숫자 입력 시 원 단위
+  const [feeInput, setFeeInput] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
 
   const resetModal = () => {
@@ -1482,6 +1472,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
     setSelectedDays([])
     setStartDate('')
     setTimes(['', ''])
+    setFeeInput('')
   }
 
   const handleClose = () => { resetModal(); onClose() }
@@ -1490,6 +1481,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
     if (step === 3) return selectedDays.length === frequency
     if (step === 4) return !!startDate
     if (step === 5) return times.slice(0, frequency).every(Boolean)
+    // step 6 (요금): 항상 통과 (빈 값 = 별도 협의)
     return true
   }
 
@@ -1512,17 +1504,21 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
     setStartDate('') // 요일 변경 시 시작일 초기화
   }
 
-  const handleNext = () => { if (canGoNext() && step < 5) setStep((s) => (s + 1) as WizardStep) }
+  const handleNext = () => { if (canGoNext() && step < 6) setStep((s) => (s + 1) as WizardStep) }
   const handlePrev = () => { if (step > 1) setStep((s) => (s - 1) as WizardStep) }
 
   const handleSubmit = async () => {
     if (previewSessions.length === 0) { onError('생성할 슬롯이 없습니다.'); return }
+    const parsedFee = feeInput.replace(/,/g, '').trim()
+    const feeAmount = parsedFee === '' ? null : Number(parsedFee)
+    if (parsedFee !== '' && isNaN(feeAmount!)) { onError('요금은 숫자로 입력해주세요.'); return }
     setSubmitting(true)
-    const result = await createLessonSlot(programId, coachId, {
+    const result = await createLessonSlot(coachId, {
       frequency,
       duration_minutes: duration,
       total_sessions: previewSessions.length,
       sessions: previewSessions,
+      fee_amount: feeAmount,
     })
     setSubmitting(false)
     if (result.error) { onError(result.error); return }
@@ -1837,7 +1833,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                   </span>
                   <span
                     className="ml-auto text-sm font-semibold px-2 py-0.5 rounded-full"
-                    style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)' }}
+                    style={{ backgroundColor: 'var(--color-success-subtle, rgba(34,197,94,0.12))', color: 'var(--color-success)' }}
                   >
                     총 {previewSessions.length}회
                   </span>
@@ -1879,6 +1875,61 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             )}
           </div>
         )
+
+      // ── Step 6: 요금 입력 ─────────────────────────────────────
+      case 6: {
+        const displayFee = feeInput
+          ? Number(feeInput.replace(/,/g, '')).toLocaleString()
+          : ''
+        return (
+          <div className="space-y-4">
+            <div
+              className="rounded-xl p-4 space-y-1"
+              style={{ backgroundColor: 'var(--bg-secondary)', border: '1.5px solid var(--border-color)' }}
+            >
+              <label className="text-sm font-medium" style={{ color: 'var(--text-muted)' }} htmlFor="fee-input">
+                레슨 요금 (원)
+              </label>
+              <input
+                id="fee-input"
+                type="text"
+                inputMode="numeric"
+                value={feeInput}
+                onChange={(e) => {
+                  // 숫자만 허용
+                  const raw = e.target.value.replace(/[^0-9]/g, '')
+                  setFeeInput(raw)
+                }}
+                placeholder="별도 협의 (빈 칸)"
+                className="w-full bg-transparent text-2xl font-bold tabular-nums outline-none"
+                style={{ color: 'var(--text-primary)' }}
+              />
+              {feeInput && (
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                  {displayFee}원
+                </p>
+              )}
+            </div>
+            <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+              비워두면 &apos;별도 협의&apos;로 처리됩니다.
+            </p>
+            {/* 패키지 요약 */}
+            <div
+              className="rounded-xl p-4 space-y-2"
+              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+            >
+              <p className="text-sm font-semibold" style={{ color: 'var(--text-secondary)' }}>패키지 요약</p>
+              <div className="flex gap-3 flex-wrap text-sm">
+                <span style={{ color: 'var(--text-muted)' }}>주 {frequency}회</span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--text-muted)' }}>{duration}분</span>
+                <span style={{ color: 'var(--text-muted)' }}>·</span>
+                <span style={{ color: 'var(--text-muted)' }}>총 {previewSessions.length}회</span>
+              </div>
+            </div>
+          </div>
+        )
+      }
     }
   }
 
@@ -1927,7 +1978,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             취소
           </button>
         )}
-        {step < 5 ? (
+        {step < 6 ? (
           <button
             type="button"
             onClick={handleNext}

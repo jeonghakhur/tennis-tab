@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, Calendar, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
-import { getAdminLessonInquiries, updateInquiryStatus } from '@/lib/lessons/actions'
+import { Phone, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { getAdminLessonInquiries, updateInquiryStatus } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import type { LessonInquiry, LessonInquiryStatus } from '@/lib/lessons/types'
@@ -85,12 +85,6 @@ export function AdminInquiryTab() {
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-  const formatSessionSlot = (session: NonNullable<LessonInquiry['preferred_session']>) => {
-    const d = new Date(session.session_date)
-    const dateStr = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-    return `${dateStr} ${session.start_time.slice(0, 5)}~${session.end_time.slice(0, 5)}`
-  }
-
   if (loading) {
     return (
       <div className="space-y-3 animate-pulse">
@@ -154,14 +148,8 @@ export function AdminInquiryTab() {
                       <Badge variant={conf.variant}>{conf.label}</Badge>
                     </div>
                     <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {inquiry.program?.title || '프로그램 없음'} · {formatDate(inquiry.created_at)}
+                      {formatDate(inquiry.created_at)}
                     </p>
-                    {inquiry.preferred_session && (
-                      <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'var(--accent-color)' }}>
-                        <Calendar className="w-3 h-3" />
-                        희망 일정: {formatSessionSlot(inquiry.preferred_session)}
-                      </p>
-                    )}
                   </div>
                   <div className="shrink-0 ml-2 mt-0.5">
                     {isExpanded

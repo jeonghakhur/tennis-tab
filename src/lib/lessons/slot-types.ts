@@ -18,7 +18,7 @@ export interface SlotSession {
 
 export interface LessonSlot {
   id: string
-  program_id: string
+  program_id: string | null
   coach_id: string
   slot_date: string        // 첫 번째 세션 날짜 'YYYY-MM-DD'
   start_time: string       // 첫 번째 세션 시작 시간 'HH:MM:SS'
@@ -33,6 +33,7 @@ export interface LessonSlot {
   total_sessions: number | null    // 전체 회차 수 (frequency × 4)
   sessions: SlotSession[] | null   // 전체 세션 일정
   last_session_date: string | null // 마지막 세션 날짜 (범위 쿼리용)
+  fee_amount: number | null        // 슬롯 요금 (원). null이면 별도 협의
   created_by: string
   created_at: string
   updated_at: string
@@ -46,7 +47,8 @@ export interface CreateSlotInput {
   frequency: 1 | 2
   duration_minutes: 20 | 30
   total_sessions: number
-  sessions: SlotSession[]  // 전체 세션 일정
+  sessions: SlotSession[]   // 전체 세션 일정
+  fee_amount: number | null  // 요금 (원). null이면 별도 협의
 }
 
 // ─── 레슨 예약 ──────────────────────────────────────────────────────────────
@@ -146,6 +148,34 @@ export function calculateBookingType(slots: LessonSlot[]): LessonBookingType {
   if (weekday === 2) return 'WEEKDAY_2'
   if (weekend === 2) return 'WEEKEND_2'
   return 'MIXED_2'
+}
+
+/** sessions 배열에서 unique 요일 추출 (0=일~6=토), 정렬 */
+export function getSlotDays(sessions: SlotSession[]): number[] {
+  const daySet = new Set<number>()
+  for (const s of sessions) {
+    const day = new Date(s.slot_date + 'T00:00:00').getDay()
+    daySet.add(day)
+  }
+  return [...daySet].sort((a, b) => a - b)
+}
+
+/** 패키지 슬롯 단건으로 booking_type 결정 */
+export function getBookingTypeForPackageSlot(slot: LessonSlot): LessonBookingType {
+  if (slot.frequency === 1) {
+    return slot.day_type === 'WEEKDAY' ? 'WEEKDAY_1' : 'WEEKEND_1'
+  }
+  // frequency === 2: sessions 기반 주중/주말 혼재 여부 판단
+  if (slot.sessions && slot.sessions.length > 0) {
+    const days = getSlotDays(slot.sessions)
+    const hasWeekday = days.some((d) => d !== 0 && d !== 6)
+    const hasWeekend = days.some((d) => d === 0 || d === 6)
+    if (hasWeekday && hasWeekend) return 'MIXED_2'
+    if (hasWeekend) return 'WEEKEND_2'
+    return 'WEEKDAY_2'
+  }
+  // fallback: day_type 기반
+  return slot.day_type === 'WEEKDAY' ? 'WEEKDAY_2' : 'WEEKEND_2'
 }
 
 /** booking_type에 맞는 프로그램 요금 필드 반환 */
