@@ -32,6 +32,7 @@ export interface LessonSlot {
   duration_minutes: number | null  // 회당 레슨 시간 (20 or 30)
   total_sessions: number | null    // 전체 회차 수 (frequency × 4)
   sessions: SlotSession[] | null   // 전체 세션 일정
+  last_session_date: string | null // 마지막 세션 날짜 (범위 쿼리용)
   created_by: string
   created_at: string
   updated_at: string

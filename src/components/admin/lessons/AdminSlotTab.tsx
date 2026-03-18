@@ -233,13 +233,24 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   }
   const goThisWeek = () => setWeekStart(getWeekStart(new Date()))
 
-  // 날짜별 슬롯 맵
-  const slotsByDate = new Map<string, LessonSlot[]>()
-  for (const slot of slots) {
-    const key = slot.slot_date
-    if (!slotsByDate.has(key)) slotsByDate.set(key, [])
-    slotsByDate.get(key)!.push(slot)
-  }
+  // 날짜별 슬롯 맵 — sessions JSONB 기반으로 확장 (패키지의 각 세션 날짜에 매핑)
+  const slotsByDate = useMemo(() => {
+    const map = new Map<string, LessonSlot[]>()
+    for (const slot of slots) {
+      // sessions 배열이 있으면 각 세션 날짜에 매핑, 없으면 slot_date에만 매핑
+      const dates = slot.sessions?.length
+        ? slot.sessions.map((s) => s.slot_date)
+        : [slot.slot_date]
+      for (const d of dates) {
+        if (!map.has(d)) map.set(d, [])
+        // 같은 슬롯이 중복 추가되지 않도록
+        if (!map.get(d)!.find((s) => s.id === slot.id)) {
+          map.get(d)!.push(slot)
+        }
+      }
+    }
+    return map
+  }, [slots])
 
   // 슬롯 액션 핸들러
   const handleToggleStatus = async (slot: LessonSlot) => {
@@ -694,6 +705,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                         <SlotRow
                           key={slot.id}
                           slot={slot}
+                          dateStr={dateStr}
                           isFirst={idx === 0}
                           onToggle={() => handleToggleStatus(slot)}
                           onLock={() => setLockModalSlot(slot)}
@@ -850,6 +862,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
             <SlotRow
               key={slot.id}
               slot={slot}
+              dateStr={dateStr}
               isFirst={idx === 0}
               onToggle={() => onToggle(slot)}
               onLock={() => onLock(slot)}
@@ -949,6 +962,7 @@ function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete, onViewBooking }:
 
 interface SlotRowProps {
   slot: LessonSlot
+  dateStr: string   // 현재 표시 중인 날짜 — 해당 날짜의 세션 시간 조회용
   isFirst: boolean
   onToggle: () => void
   onLock: () => void
@@ -957,11 +971,19 @@ interface SlotRowProps {
   onViewBooking: () => void
 }
 
-function SlotRow({ slot, isFirst, onToggle, onLock, onUnlock, onDelete, onViewBooking }: SlotRowProps) {
+function SlotRow({ slot, dateStr, isFirst, onToggle, onLock, onUnlock, onDelete, onViewBooking }: SlotRowProps) {
   const conf = SLOT_STATUS_CONFIG[slot.status]
-  const time = `${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
+  // 해당 날짜에 해당하는 세션 시간 조회 (없으면 첫 세션 기본값)
+  const session = slot.sessions?.find((s) => s.slot_date === dateStr)
+  const startTime = (session?.start_time ?? slot.start_time).slice(0, 5)
+  const endTime = (session?.end_time ?? slot.end_time).slice(0, 5)
+  const time = `${startTime}~${endTime}`
   const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
   const bookedName = getBookingName(slot)
+  // 패키지 정보 (주N회 · N회)
+  const packageLabel = slot.frequency && slot.total_sessions
+    ? `주${slot.frequency}회 · ${slot.total_sessions}회`
+    : null
 
   return (
     <div
@@ -984,6 +1006,13 @@ function SlotRow({ slot, isFirst, onToggle, onLock, onUnlock, onDelete, onViewBo
 
       {/* 상태 배지 */}
       <Badge variant={conf.variant}>{conf.label}</Badge>
+
+      {/* 패키지 정보 */}
+      {packageLabel && (
+        <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
+          {packageLabel}
+        </span>
+      )}
 
       {/* 예약자 이름 + 회차 */}
       {slot.status === 'BOOKED' && bookedName ? (
@@ -1730,7 +1759,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
               boxShadow: previewSessions.length > 0 ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
             }}
           >
-            {submitting ? '등록 중...' : previewSessions.length > 0 ? `${previewSessions.length}회 슬롯 등록` : '등록'}
+            {submitting ? '등록 중...' : '등록'}
           </button>
         )}
       </Modal.Footer>

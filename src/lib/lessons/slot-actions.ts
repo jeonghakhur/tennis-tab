@@ -138,6 +138,7 @@ export async function createLessonSlot(
       duration_minutes: input.duration_minutes,
       total_sessions: input.total_sessions,
       sessions: input.sessions,
+      last_session_date: input.sessions[input.sessions.length - 1].slot_date,
       status: 'OPEN',
       created_by: user.id,
     })
@@ -292,12 +293,14 @@ export async function getSlotsByCoach(
 
   const admin = createAdminClient()
 
+  // slot_date <= endDate AND (last_session_date >= startDate OR slot_date >= startDate)
+  // → 뷰 기간과 겹치는 패키지 모두 포함 (월 경계 넘는 패키지 지원)
   const { data: slots, error } = await admin
     .from('lesson_slots')
     .select('*, locked_member:club_members!locked_member_id(id, name)')
     .eq('coach_id', coachId)
-    .gte('slot_date', startDate)
     .lte('slot_date', endDate)
+    .or(`last_session_date.gte.${startDate},slot_date.gte.${startDate}`)
     .neq('status', 'CANCELLED')
     .order('slot_date')
     .order('start_time')
