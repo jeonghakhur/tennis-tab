@@ -73,6 +73,12 @@ const EMPTY_FORM: ProgramFormData = {
 const ALL_COACH_TAB = 'all' as const
 
 export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTabProps) {
+  // 낙관적 업데이트용 로컬 상태 — 서버 prop이 변경되면 동기화
+  const [localPrograms, setLocalPrograms] = useState<LessonProgram[]>(programs)
+  useEffect(() => {
+    setLocalPrograms(programs)
+  }, [programs])
+
   const [coaches, setCoaches] = useState<Coach[]>([])
   const [selectedCoachId, setSelectedCoachId] = useState<string>(ALL_COACH_TAB)
   const [formOpen, setFormOpen] = useState(false)
@@ -90,14 +96,14 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
 
   // 프로그램에 등장하는 코치만 탭으로 표시
   const coachTabs = useMemo(() => {
-    const coachIds = new Set(programs.map((p) => p.coach_id))
+    const coachIds = new Set(localPrograms.map((p) => p.coach_id))
     return coaches.filter((c) => coachIds.has(c.id))
-  }, [coaches, programs])
+  }, [coaches, localPrograms])
 
   const filteredPrograms = useMemo(() => {
-    if (selectedCoachId === ALL_COACH_TAB) return programs
-    return programs.filter((p) => p.coach_id === selectedCoachId)
-  }, [programs, selectedCoachId])
+    if (selectedCoachId === ALL_COACH_TAB) return localPrograms
+    return localPrograms.filter((p) => p.coach_id === selectedCoachId)
+  }, [localPrograms, selectedCoachId])
 
   const openCreate = () => {
     setEditTarget(null)
@@ -185,31 +191,40 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
 
     setToast({ isOpen: true, message: editTarget ? '프로그램이 수정되었습니다.' : '프로그램이 등록되었습니다.', type: 'success' })
     setFormOpen(false)
+    // 생성/수정은 서버 생성 데이터(ID, coach JOIN 등)가 필요하므로 서버 재조회
     onRefresh()
   }
 
   const handleStatusChange = async () => {
     if (!statusTarget) return
-    const result = await updateProgramStatus(statusTarget.program.id, statusTarget.next)
+    const { program, next } = statusTarget
+    const snapshot = localPrograms // 이 액션 직전 스냅샷 — 독립적 롤백
+    // 낙관적 로컬 업데이트
+    setLocalPrograms((prev) => prev.map((p) => p.id === program.id ? { ...p, status: next } : p))
     setStatusTarget(null)
+    const result = await updateProgramStatus(program.id, next)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
+      setLocalPrograms(snapshot) // 이 액션만 롤백
       return
     }
     setToast({ isOpen: true, message: '상태가 변경되었습니다.', type: 'success' })
-    onRefresh()
   }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    const result = await deleteLessonProgram(deleteTarget.id)
+    const targetId = deleteTarget.id
+    const snapshot = localPrograms // 이 액션 직전 스냅샷 — 독립적 롤백
+    // 낙관적 로컬 제거
+    setLocalPrograms((prev) => prev.filter((p) => p.id !== targetId))
     setDeleteTarget(null)
+    const result = await deleteLessonProgram(targetId)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
+      setLocalPrograms(snapshot) // 이 액션만 롤백
       return
     }
     setToast({ isOpen: true, message: '프로그램이 삭제되었습니다.', type: 'success' })
-    onRefresh()
   }
 
   if (loading) {
@@ -313,12 +328,16 @@ export function AdminProgramTab({ programs, loading, onRefresh }: AdminProgramTa
                     <button
                       type="button"
                       onClick={async () => {
-                        const result = await updateLessonProgram(program.id, { is_visible: !program.is_visible })
+                        const newVisible = !program.is_visible
+                        const snapshot = localPrograms // 이 액션 직전 스냅샷
+                        // 낙관적 로컬 업데이트
+                        setLocalPrograms((prev) => prev.map((p) => p.id === program.id ? { ...p, is_visible: newVisible } : p))
+                        const result = await updateLessonProgram(program.id, { is_visible: newVisible })
                         if (result.error) {
                           setAlert({ isOpen: true, message: result.error, type: 'error' })
+                          setLocalPrograms(snapshot) // 이 액션만 롤백
                         } else {
-                          setToast({ isOpen: true, message: program.is_visible ? '프론트에서 숨겼습니다.' : '프론트에 노출했습니다.', type: 'success' })
-                          onRefresh()
+                          setToast({ isOpen: true, message: newVisible ? '프론트에 노출했습니다.' : '프론트에서 숨겼습니다.', type: 'success' })
                         }
                       }}
                       className="inline-flex items-center justify-center gap-1 text-sm px-3 py-1.5 rounded-md min-w-[72px]"

@@ -51,8 +51,8 @@ export default function AdminLessonsPage() {
 
       {/* 탭 네비게이션 */}
       <div
-        className="flex gap-1 p-1 rounded-xl mb-6"
-        style={{ backgroundColor: 'var(--bg-secondary)' }}
+        className="flex border-b mb-6"
+        style={{ borderColor: 'var(--border-color)' }}
         role="tablist"
         aria-label="레슨 관리 탭"
       >
@@ -66,15 +66,16 @@ export default function AdminLessonsPage() {
               aria-selected={isActive}
               aria-controls={`tabpanel-${t.key}`}
               onClick={() => setTab(t.key)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center gap-1.5 px-4 py-3 text-sm transition-colors"
               style={{
-                backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
                 color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                fontWeight: isActive ? 700 : 400,
+                borderBottom: isActive ? '2px solid var(--text-primary)' : '2px solid transparent',
+                marginBottom: '-1px',
               }}
             >
-              <Icon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t.label}</span>
+              <Icon className="w-4 h-4" />
+              <span>{t.label}</span>
             </button>
           )
         })}

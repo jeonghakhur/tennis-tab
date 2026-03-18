@@ -48,28 +48,36 @@ export function AdminInquiryTab() {
   const handleStatusChange = async (inquiry: LessonInquiry, next: LessonInquiryStatus) => {
     setSavingId(inquiry.id)
     const adminNote = noteEdits[inquiry.id] ?? inquiry.admin_note ?? undefined
+    // 낙관적 로컬 업데이트
+    setInquiries((prev) =>
+      prev.map((i) => i.id === inquiry.id ? { ...i, status: next, admin_note: adminNote ?? i.admin_note } : i)
+    )
     const result = await updateInquiryStatus(inquiry.id, next, adminNote)
     setSavingId(null)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
+      await loadInquiries() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '상태가 변경되었습니다.', type: 'success' })
-    await loadInquiries()
   }
 
   const handleNoteSave = async (inquiry: LessonInquiry) => {
     setSavingId(inquiry.id)
     const note = noteEdits[inquiry.id] ?? ''
+    // 낙관적 로컬 업데이트
+    setInquiries((prev) =>
+      prev.map((i) => i.id === inquiry.id ? { ...i, admin_note: note } : i)
+    )
+    setNoteEdits((prev) => { const n = { ...prev }; delete n[inquiry.id]; return n })
     const result = await updateInquiryStatus(inquiry.id, inquiry.status, note)
     setSavingId(null)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
+      await loadInquiries() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
-    setNoteEdits((prev) => { const n = { ...prev }; delete n[inquiry.id]; return n })
-    await loadInquiries()
   }
 
   const filtered = filter === 'ALL' ? inquiries : inquiries.filter((i) => i.status === filter)

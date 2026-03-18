@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List, User, Phone, CreditCard, Hash } from 'lucide-react'
 import {
   createRepeatingSlots,
   updateSlotStatus,
@@ -10,6 +10,7 @@ import {
   deleteSlot,
   getSlotsByCoach,
   searchClubMembers,
+  getBookingWithSessionInfo,
 } from '@/lib/lessons/slot-actions'
 import SessionDatePicker from '@/components/clubs/sessions/SessionDatePicker'
 import SessionTimePicker from '@/components/clubs/sessions/SessionTimePicker'
@@ -17,8 +18,8 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { LessonProgram } from '@/lib/lessons/types'
-import type { LessonSlot, LessonSlotStatus, CreateSlotInput } from '@/lib/lessons/slot-types'
-import { LESSON_AVAILABLE_HOURS, isTimeInRange } from '@/lib/lessons/slot-types'
+import type { LessonSlot, LessonSlotStatus, LessonBooking, CreateSlotInput } from '@/lib/lessons/slot-types'
+import { LESSON_AVAILABLE_HOURS, BOOKING_TYPE_LABEL, BOOKING_STATUS_LABEL, isTimeInRange } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -143,6 +144,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [lockModalSlot, setLockModalSlot] = useState<LessonSlot | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LessonSlot | null>(null)
+  const [bookingModalSlot, setBookingModalSlot] = useState<LessonSlot | null>(null)
 
   // 피드백
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
@@ -196,26 +198,42 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
   // 슬롯 액션 핸들러
   const handleToggleStatus = async (slot: LessonSlot) => {
     const newStatus: LessonSlotStatus = slot.status === 'OPEN' ? 'BLOCKED' : 'OPEN'
+    // 낙관적 로컬 업데이트
+    setSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, status: newStatus } : s))
     const result = await updateSlotStatus(slot.id, newStatus)
-    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      loadSlots() // 에러 시에만 서버 재조회
+      return
+    }
     setToast({ isOpen: true, message: `슬롯이 ${newStatus === 'OPEN' ? '공개' : '비공개'}되었습니다.`, type: 'success' })
-    loadSlots()
   }
 
   const handleUnlock = async (slot: LessonSlot) => {
+    // 낙관적 로컬 업데이트
+    setSlots((prev) => prev.map((s) => s.id === slot.id ? { ...s, status: 'OPEN' as const, enrollment_id: null } : s))
     const result = await unlockSlot(slot.id)
-    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      loadSlots() // 에러 시에만 서버 재조회
+      return
+    }
     setToast({ isOpen: true, message: '배정이 해제되었습니다.', type: 'success' })
-    loadSlots()
   }
 
   const handleDelete = async () => {
     if (!deleteTarget) return
-    const result = await deleteSlot(deleteTarget.id)
+    const targetId = deleteTarget.id
     setDeleteTarget(null)
-    if (result.error) { setAlert({ isOpen: true, message: result.error, type: 'error' }); return }
+    // 낙관적 로컬 제거
+    setSlots((prev) => prev.filter((s) => s.id !== targetId))
+    const result = await deleteSlot(targetId)
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      loadSlots() // 에러 시에만 서버 재조회
+      return
+    }
     setToast({ isOpen: true, message: '슬롯이 삭제되었습니다.', type: 'success' })
-    loadSlots()
   }
 
   const todayStr = toDateStr(new Date())
@@ -448,6 +466,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                     onLock={(slot) => setLockModalSlot(slot)}
                     onUnlock={handleUnlock}
                     onDelete={(slot) => setDeleteTarget(slot)}
+                    onViewBooking={(slot) => setBookingModalSlot(slot)}
                   />
                 )}
               </div>
@@ -506,6 +525,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                             onLock={() => setLockModalSlot(slot)}
                             onUnlock={() => handleUnlock(slot)}
                             onDelete={() => setDeleteTarget(slot)}
+                            onViewBooking={() => setBookingModalSlot(slot)}
                           />
                         ))}
                       </div>
@@ -531,6 +551,15 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
             loadSlots()
           }}
           onError={(msg) => setAlert({ isOpen: true, message: msg, type: 'error' })}
+        />
+      )}
+
+      {/* 예약자 상세 모달 */}
+      {bookingModalSlot && (
+        <BookedSlotDetailModal
+          isOpen={!!bookingModalSlot}
+          onClose={() => setBookingModalSlot(null)}
+          slot={bookingModalSlot}
         />
       )}
 

@@ -281,7 +281,7 @@ export async function deleteSlot(slotId: string): Promise<{ error: string | null
 // 슬롯 조회
 // ============================================================================
 
-/** 코치별 슬롯 조회 (기간 필터) */
+/** 코치별 슬롯 조회 (기간 필터) — BOOKED 슬롯에 예약자 정보 포함 */
 export async function getSlotsByCoach(
   coachId: string,
   startDate: string,
@@ -303,7 +303,83 @@ export async function getSlotsByCoach(
     .order('start_time')
 
   if (error) return { error: '슬롯 조회에 실패했습니다.', data: [] }
-  return { error: null, data: (slots || []) as LessonSlot[] }
+
+  // BOOKED 슬롯의 예약자 정보 JOIN
+  const bookedSlotIds = (slots || []).filter((s) => s.status === 'BOOKED').map((s) => s.id)
+  const bookingMap = new Map<string, LessonBooking>()
+
+  if (bookedSlotIds.length > 0) {
+    const { data: bookings } = await admin
+      .from('lesson_bookings')
+      .select('*, member:club_members!member_id(id, name)')
+      .overlaps('slot_ids', bookedSlotIds)
+      .neq('status', 'CANCELLED')
+
+    for (const b of bookings || []) {
+      for (const sid of b.slot_ids as string[]) {
+        if (bookedSlotIds.includes(sid)) {
+          bookingMap.set(sid, b as LessonBooking)
+        }
+      }
+    }
+  }
+
+  const result = (slots || []).map((s) => ({
+    ...s,
+    booking: bookingMap.get(s.id) ?? null,
+  }))
+
+  return { error: null, data: result as LessonSlot[] }
+}
+
+/** BOOKED 슬롯의 예약 상세 + 회차 정보 조회 (어드민용) */
+export async function getBookingWithSessionInfo(slotId: string): Promise<{
+  error: string | null
+  data: (LessonBooking & { sessionNumber: number; memberPhone: string | null }) | null
+}> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr, data: null }
+
+  const admin = createAdminClient()
+
+  // 슬롯의 예약 조회 (회원 전화번호 포함)
+  const { data: booking } = await admin
+    .from('lesson_bookings')
+    .select('*, member:club_members!member_id(id, name, phone)')
+    .contains('slot_ids', [slotId])
+    .neq('status', 'CANCELLED')
+    .maybeSingle()
+
+  if (!booking) return { error: null, data: null }
+
+  let sessionNumber = 1
+  let memberPhone: string | null = null
+
+  if (booking.member_id) {
+    const member = booking.member as { id: string; name: string; phone?: string | null } | null
+    memberPhone = member?.phone ?? null
+
+    // 이 회원의 전체 레슨 예약 중 날짜순 순번 계산
+    const { data: allBookings } = await admin
+      .from('lesson_bookings')
+      .select('id, created_at')
+      .eq('member_id', booking.member_id)
+      .neq('status', 'CANCELLED')
+      .order('created_at')
+
+    sessionNumber = (allBookings?.findIndex((b) => b.id === booking.id) ?? 0) + 1
+  } else {
+    memberPhone = booking.guest_phone ?? null
+  }
+
+  return {
+    error: null,
+    data: {
+      ...(booking as LessonBooking),
+      sessionNumber,
+      memberPhone,
+    },
+  }
 }
 
 /** 빈 슬롯 조회 (비회원 포함 공개) — 프로그램별 + 코치별 */

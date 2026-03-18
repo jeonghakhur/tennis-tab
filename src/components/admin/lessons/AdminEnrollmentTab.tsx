@@ -253,11 +253,19 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
   // ── 상태 변경 ─────────────────────────────────────────────────────────────
   const handleStatusChange = async () => {
     if (!statusTarget) return
-    const result = await updateEnrollmentStatus(statusTarget.enrollment.id, statusTarget.next)
+    const { enrollment, next } = statusTarget
     setStatusTarget(null)
-    if (result.error) { showError(result.error); return }
+    // 낙관적 로컬 업데이트
+    setAllEnrollments((prev) =>
+      prev.map((e) => e.id === enrollment.id ? { ...e, status: next } : e)
+    )
+    const result = await updateEnrollmentStatus(enrollment.id, next)
+    if (result.error) {
+      showError(result.error)
+      await loadAllEnrollments() // 에러 시에만 서버 재조회
+      return
+    }
     showToast('수강 상태가 변경되었습니다.')
-    await loadAllEnrollments()
   }
 
   // ── 결제 등록 ─────────────────────────────────────────────────────────────
@@ -268,11 +276,13 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
       showError('금액을 올바르게 입력해주세요.'); return
     }
     setPaymentSubmitting(true)
-    const result = await createLessonPayment(paymentModalEnroll.id, {
+    const enrollId = paymentModalEnroll.id
+    const period   = paymentForm.period
+    const result = await createLessonPayment(enrollId, {
       amount:  parseInt(paymentForm.amount),
       paid_at: paymentForm.paid_at,
       method:  paymentForm.method,
-      period:  paymentForm.period,
+      period,
       note:    paymentForm.note || undefined,
     })
     setPaymentSubmitting(false)
@@ -280,27 +290,59 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
     showToast('결제 내역이 등록되었습니다.')
     setPaymentModalEnroll(null)
     setPaymentForm(EMPTY_PAYMENT)
-    // 펼쳐진 행 결제 목록 갱신
-    if (expandedId === paymentModalEnroll.id) {
-      const { data } = await getEnrollmentPayments(paymentModalEnroll.id)
+    // 납부 월 낙관적 업데이트 (paid_periods에 추가)
+    setAllEnrollments((prev) =>
+      prev.map((e) => e.id === enrollId ? { ...e, paid_periods: [...e.paid_periods, period] } : e)
+    )
+    // 펼쳐진 행 결제 목록은 서버에서 재조회 (서버 생성 ID/timestamp 필요)
+    if (expandedId === enrollId) {
+      const { data } = await getEnrollmentPayments(enrollId)
       setExpandedPayments(data)
     }
-    // 납부 월 반영을 위해 목록 새로고침
-    await loadAllEnrollments()
   }
 
   // ── 결제 삭제 ─────────────────────────────────────────────────────────────
   const handleDeletePayment = async () => {
     if (!deletePaymentTarget) return
-    const result = await deleteLessonPayment(deletePaymentTarget.id)
+    const target = deletePaymentTarget
     setDeletePaymentTarget(null)
-    if (result.error) { showError(result.error); return }
-    showToast('결제 내역이 삭제되었습니다.')
+    // 낙관적 로컬 제거
+    setExpandedPayments((prev) => prev.filter((p) => p.id !== target.id))
+    // paid_periods에서 해당 기간 한 건 제거
     if (expandedId) {
-      const { data } = await getEnrollmentPayments(expandedId)
-      setExpandedPayments(data)
+      setAllEnrollments((prev) =>
+        prev.map((e) => {
+          if (e.id !== expandedId) return e
+          const idx = e.paid_periods.indexOf(target.period)
+          if (idx === -1) return e
+          return { ...e, paid_periods: [...e.paid_periods.slice(0, idx), ...e.paid_periods.slice(idx + 1)] }
+        })
+      )
     }
-    await loadAllEnrollments()
+    // 같은 기간에 남은 결제가 없을 때만 paid_periods에서 제거
+    const remainingPayments = expandedPayments.filter((p) => p.id !== target.id)
+    const periodStillExists = remainingPayments.some((p) => p.period === target.period)
+    if (!periodStillExists && expandedId) {
+      setAllEnrollments((prev) =>
+        prev.map((e) => {
+          if (e.id !== expandedId) return e
+          const idx = e.paid_periods.indexOf(target.period)
+          if (idx === -1) return e
+          return { ...e, paid_periods: [...e.paid_periods.slice(0, idx), ...e.paid_periods.slice(idx + 1)] }
+        })
+      )
+    }
+    const result = await deleteLessonPayment(target.id)
+    if (result.error) {
+      showError(result.error)
+      await loadAllEnrollments() // 에러 시에만 서버 재조회
+      if (expandedId) {
+        const { data } = await getEnrollmentPayments(expandedId)
+        setExpandedPayments(data)
+      }
+    } else {
+      showToast('결제 내역이 삭제되었습니다.')
+    }
   }
 
   // ── 달력 ──────────────────────────────────────────────────────────────────

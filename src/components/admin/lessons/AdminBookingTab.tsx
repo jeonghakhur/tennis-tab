@@ -53,40 +53,52 @@ export function AdminBookingTab() {
 
   // 수락
   const handleConfirm = async (booking: LessonBooking) => {
+    // 낙관적 로컬 업데이트
+    setBookings((prev) => prev.map((b) => b.id === booking.id ? { ...b, status: 'CONFIRMED' as const } : b))
     const result = await confirmBooking(booking.id)
     if (result.error) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '예약이 확정되었습니다.', type: 'success' })
-    loadBookings()
   }
 
   // 거절
   const handleCancel = async () => {
     if (!cancelTarget) return
-    const result = await cancelBooking(cancelTarget.id, cancelReason)
+    const targetId = cancelTarget.id
+    const reason = cancelReason
     setCancelTarget(null)
     setCancelReason('')
+    // 낙관적 로컬 업데이트
+    setBookings((prev) =>
+      prev.map((b) => b.id === targetId ? { ...b, status: 'CANCELLED' as const, cancel_reason: reason } : b)
+    )
+    const result = await cancelBooking(targetId, reason)
     if (result.error) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '예약이 거절되었습니다. 슬롯이 복구되었습니다.', type: 'success' })
-    loadBookings()
   }
 
   // 메모 저장
   const handleSaveNote = async () => {
     if (!noteTarget) return
-    const result = await updateBookingNote(noteTarget.id, noteText)
+    const targetId = noteTarget.id
+    const note = noteText
     setNoteTarget(null)
+    // 낙관적 로컬 업데이트
+    setBookings((prev) => prev.map((b) => b.id === targetId ? { ...b, admin_note: note } : b))
+    const result = await updateBookingNote(targetId, note)
     if (result.error) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
-    loadBookings()
   }
 
   const pendingCount = bookings.filter((b) => b.status === 'PENDING').length
