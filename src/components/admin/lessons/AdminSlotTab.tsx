@@ -1110,18 +1110,9 @@ function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalP
               style={{ borderBottom: '1px solid var(--border-color)' }}
             >
               <div>
-                <p className="text-xl font-bold leading-tight mb-1.5" style={{ color: 'var(--text-primary)' }}>
+                <p className="text-xl font-bold leading-tight" style={{ color: 'var(--text-primary)' }}>
                   {name}
                 </p>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                    {detail.is_guest ? '비회원' : '회원'}
-                  </span>
-                  <span style={{ color: 'var(--border-color)' }}>·</span>
-                  <Badge variant={detail.status === 'CONFIRMED' ? 'success' : detail.status === 'CANCELLED' ? 'danger' : 'warning'}>
-                    {statusLabel}
-                  </Badge>
-                </div>
               </div>
               {/* 회차 — 대형 accent 숫자 */}
               <div className="text-right shrink-0 ml-4">
