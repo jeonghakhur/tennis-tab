@@ -1,16 +1,17 @@
 'use client'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ClipboardList, Check, X, MessageSquare, Search, User, Calendar } from 'lucide-react'
-import { getBookings, confirmBooking, cancelBooking, updateBookingNote } from '@/lib/lessons/slot-actions'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { ClipboardList, Check, X, MessageSquare, Search, User, Calendar, RotateCcw } from 'lucide-react'
+import { getBookings, confirmBooking, cancelBooking, updateBookingNote, updateSlotSessions } from '@/lib/lessons/slot-actions'
 import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
 import { SessionManageModal } from './SessionManageModal'
+import { CreateSlotModal, type SlotPrefill } from './CreateSlotModal'
 import { getCoaches } from '@/lib/coaches/actions'
 import type { Coach } from '@/lib/lessons/types'
-import type { LessonBooking, LessonBookingStatus } from '@/lib/lessons/slot-types'
+import type { LessonBooking, LessonBookingStatus, SlotSession } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,13 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
   const [cancelTarget, setCancelTarget]       = useState<LessonBooking | null>(null)
   const [noteTarget, setNoteTarget]           = useState<LessonBooking | null>(null)
   const [sessionTarget, setSessionTarget]     = useState<LessonBooking | null>(null)
+  const [extendTarget, setExtendTarget]       = useState<LessonBooking | null>(null)
+  const [quickEdit, setQuickEdit] = useState<{
+    booking: LessonBooking
+    session: SlotSession
+    x: number
+    y: number
+  } | null>(null)
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
@@ -150,6 +158,32 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
     )
   }, [])
 
+  // 날짜 칩 클릭 → 해당 세션 상태 즉시 변경
+  const handleQuickStatusChange = useCallback(async (
+    booking: LessonBooking,
+    session: SlotSession,
+    nextStatus: SlotSession['status'],
+  ) => {
+    const slot = booking.slots?.[0]
+    if (!slot?.sessions) return
+
+    setQuickEdit(null)
+    const updatedSessions = slot.sessions.map((s: SlotSession) =>
+      s.slot_date === session.slot_date ? { ...s, status: nextStatus } : s,
+    )
+    // 낙관적 업데이트
+    handleSessionsUpdated(slot.id, {
+      sessions: updatedSessions,
+      totalSessions: updatedSessions.filter((s: SlotSession) => s.status !== 'CANCELLED').length,
+      lastSessionDate: [...updatedSessions].sort((a: SlotSession, b: SlotSession) => b.slot_date.localeCompare(a.slot_date))[0]?.slot_date ?? null,
+    })
+    const result = await updateSlotSessions(slot.id, updatedSessions)
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings()
+    }
+  }, [handleSessionsUpdated, loadBookings])
+
   const handleSaveNote = async (note: string) => {
     if (!noteTarget) return
     const targetId = noteTarget.id
@@ -163,6 +197,40 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
   }
+
+  // 연장 위자드: extendTarget의 슬롯 정보를 prefill로 변환
+  const extendPrefill = useMemo((): SlotPrefill | undefined => {
+    const slot = extendTarget?.slots?.[0]
+    if (!slot?.sessions || slot.sessions.length === 0) return undefined
+
+    const activeSessions = (slot.sessions as SlotSession[]).filter(
+      (s) => s.status !== 'CANCELLED' && s.status !== 'RESCHEDULED',
+    )
+    if (activeSessions.length === 0) return undefined
+
+    // 요일별 첫 번째 시작 시간 추출
+    const dowMap = new Map<number, string>()
+    for (const s of activeSessions) {
+      const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+      if (!dowMap.has(dow)) dowMap.set(dow, s.start_time.slice(0, 5))
+    }
+    const selectedDays = [...dowMap.keys()].sort((a, b) => a - b)
+    const times: [string, string] = [
+      dowMap.get(selectedDays[0]) ?? '',
+      dowMap.get(selectedDays[1]) ?? '',
+    ]
+
+    const lastSessionDate = activeSessions.map((s) => s.slot_date).sort().reverse()[0]
+
+    return {
+      frequency: (slot.frequency as 1 | 2) ?? 1,
+      duration: (slot.duration_minutes as 20 | 30) ?? 20,
+      selectedDays,
+      times,
+      lastSessionDate,
+      feeInput: slot.fee_amount != null ? String(slot.fee_amount) : '',
+    }
+  }, [extendTarget?.slots])
 
   // ── 렌더 ───────────────────────────────────────────────────────────────────
 
@@ -276,11 +344,13 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
                 <BookingRow
                   key={booking.id}
                   booking={booking}
+                  onQuickEdit={(session, x, y) => setQuickEdit({ booking, session, x, y })}
                   isLast={idx === filtered.length - 1}
                   onConfirm={() => handleConfirm(booking)}
                   onCancel={() => setCancelTarget(booking)}
                   onNote={() => setNoteTarget(booking)}
                   onSession={() => setSessionTarget(booking)}
+                  onExtend={() => setExtendTarget(booking)}
                 />
               ))}
             </tbody>
@@ -307,8 +377,36 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
         booking={sessionTarget}
         onClose={() => setSessionTarget(null)}
         onSessionsUpdated={handleSessionsUpdated}
-        onExtended={loadBookings}
       />
+
+      {/* 연장 위자드 모달 */}
+      {extendTarget?.slots?.[0] && (
+        <CreateSlotModal
+          isOpen={!!extendTarget}
+          onClose={() => setExtendTarget(null)}
+          coachId={extendTarget.slots[0].coach_id}
+          extendSlotId={extendTarget.slots[0].id}
+          prefill={extendPrefill}
+          onSuccess={() => {
+            setExtendTarget(null)
+            setToast({ isOpen: true, message: '패키지가 연장되었습니다. 새 슬롯이 생성되었습니다.', type: 'success' })
+            loadBookings()
+          }}
+          onError={(msg) => setToast({ isOpen: true, message: msg, type: 'error' as 'success' })}
+        />
+      )}
+
+      {/* 세션 상태 빠른 변경 팝오버 */}
+      {quickEdit && (
+        <SessionQuickPopover
+          booking={quickEdit.booking}
+          session={quickEdit.session}
+          x={quickEdit.x}
+          y={quickEdit.y}
+          onClose={() => setQuickEdit(null)}
+          onChangeStatus={handleQuickStatusChange}
+        />
+      )}
 
       <Toast
         isOpen={toast.isOpen}
@@ -360,7 +458,7 @@ function TabButton({
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-/** sessions 배열에서 요일별 시간 그룹 추출 (DOW → start/end) */
+/** sessions 배열에서 요일별 시간 그룹 추출 (DOW → start/end, 월~일 순) */
 function getSlotSchedule(sessions: { slot_date: string; start_time: string; end_time: string }[]) {
   const map = new Map<number, { start: string; end: string }>()
   for (const s of sessions) {
@@ -370,16 +468,34 @@ function getSlotSchedule(sessions: { slot_date: string; start_time: string; end_
     }
   }
   return [...map.entries()].sort((a, b) => {
-    // 월~금 → 토 → 일 순 (1~5, 6, 0)
     const order = (d: number) => (d === 0 ? 7 : d)
     return order(a[0]) - order(b[0])
   })
 }
 
+/** 세션 상태별 날짜 칩 스타일 */
+function getSessionChipStyle(
+  status: SlotSession['status'],
+  isPast: boolean,
+): React.CSSProperties {
+  switch (status) {
+    case 'COMPLETED':
+      return { backgroundColor: '#10b98122', color: '#10b981' }
+    case 'CANCELLED':
+      return { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', textDecoration: 'line-through' }
+    case 'RESCHEDULED':
+      return { backgroundColor: '#f59e0b18', color: '#f59e0b', textDecoration: 'line-through' }
+    default: // SCHEDULED
+      return isPast
+        ? { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }
+        : { backgroundColor: 'var(--accent-color)', color: '#fff', opacity: 0.9 }
+  }
+}
+
 // ─── BookingRow ───────────────────────────────────────────────────────────────
 
 function BookingRow({
-  booking, isLast, onConfirm, onCancel, onNote, onSession,
+  booking, isLast, onConfirm, onCancel, onNote, onSession, onExtend, onQuickEdit,
 }: {
   booking: LessonBooking
   isLast: boolean
@@ -387,20 +503,29 @@ function BookingRow({
   onCancel: () => void
   onNote: () => void
   onSession: () => void
+  onExtend: () => void
+  onQuickEdit: (session: SlotSession, x: number, y: number) => void
 }) {
   const conf    = STATUS_CONFIG[booking.status]
   const name    = booking.is_guest ? booking.guest_name : booking.member?.name
   const slot    = booking.slots?.[0]
-  const sessions = slot?.sessions ?? []
-  const totalSessions = slot?.total_sessions ?? sessions.length
+  const sessions = (slot?.sessions ?? []) as SlotSession[]
 
-  // 요일별 시간 (예: 월 07:00~07:20, 화 07:00~07:20)
+  // 요일별 시간 헤더
   const schedule = getSlotSchedule(sessions)
 
-  // 날짜 목록 (M/D 형식, 정렬)
-  const sortedDates = sessions
-    .map((s) => s.slot_date)
-    .sort()
+  // 요일별 세션 그룹 (날짜 오름차순, 월~일 순)
+  const sessionsByDow: [number, SlotSession[]][] = (() => {
+    const map = new Map<number, SlotSession[]>()
+    for (const s of sessions) {
+      const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+      if (!map.has(dow)) map.set(dow, [])
+      map.get(dow)!.push(s)
+    }
+    return [...map.entries()]
+      .sort((a, b) => (a[0] === 0 ? 7 : a[0]) - (b[0] === 0 ? 7 : b[0]))
+      .map(([dow, ss]) => [dow, ss.sort((a, b) => a.slot_date.localeCompare(b.slot_date))])
+  })()
 
   const formatShortDate = (dateStr: string) => {
     const d = new Date(dateStr + 'T00:00:00')
@@ -448,44 +573,46 @@ function BookingRow({
         <Badge variant={conf.variant}>{conf.label}</Badge>
       </td>
 
-      {/* 스케줄 — 요일/시간 + 날짜 목록 */}
+      {/* 스케줄 — 요일/시간 + 요일별 날짜 칩 (상태 색상) */}
       <td className="px-4 py-3 min-w-[260px]">
         {sessions.length === 0 ? (
           <span style={{ color: 'var(--text-muted)' }}>—</span>
         ) : (
           <div className="space-y-1.5">
-            {/* 요일별 시간 + 총 회차 */}
+            {/* 요일별 시간 (횟수 제거) */}
             <div className="flex items-center gap-3 flex-wrap">
               {schedule.map(([dow, time]) => (
                 <span key={dow} className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                   {DAY_LABELS[dow]} {time.start}~{time.end}
                 </span>
               ))}
-              {totalSessions > 0 && (
-                <span className="text-sm whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-                  {totalSessions}회
+            </div>
+            {/* 요일별 날짜 칩 — COMPLETED=녹색, CANCELLED=취소선+뮤트, RESCHEDULED=주황+취소선, 예정=강조/뮤트 */}
+            {sessionsByDow.map(([dow, dowSessions]) => (
+              <div key={dow} className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs font-bold shrink-0 w-4" style={{ color: 'var(--text-muted)' }}>
+                  {DAY_LABELS[dow]}
                 </span>
-              )}
-            </div>
-            {/* 날짜 목록 칩 */}
-            <div className="flex flex-wrap gap-1">
-              {sortedDates.map((dateStr) => {
-                const isPast = new Date(dateStr + 'T23:59:59') < new Date()
-                return (
-                  <span
-                    key={dateStr}
-                    className="inline-block px-1.5 py-0.5 rounded text-xs font-medium"
-                    style={
-                      isPast
-                        ? { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }
-                        : { backgroundColor: 'var(--accent-color)', color: '#fff', opacity: 0.9 }
-                    }
-                  >
-                    {formatShortDate(dateStr)}
-                  </span>
-                )
-              })}
-            </div>
+                {dowSessions.map((s) => {
+                  const isPast = new Date(s.slot_date + 'T23:59:59') < new Date()
+                  return (
+                    <button
+                      key={s.slot_date}
+                      type="button"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        onQuickEdit(s, rect.left, rect.bottom + 4)
+                      }}
+                      className="inline-block px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                      style={getSessionChipStyle(s.status, isPast)}
+                      aria-label={`${formatShortDate(s.slot_date)} 세션 상태 변경`}
+                    >
+                      {formatShortDate(s.slot_date)}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
           </div>
         )}
       </td>
@@ -538,6 +665,17 @@ function BookingRow({
             >
               <Calendar className="w-3 h-3" />
               세션
+            </button>
+          )}
+          {/* 연장 버튼: CONFIRMED + 패키지 슬롯 + 미연장 */}
+          {booking.status === 'CONFIRMED' && booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && !booking.slots[0].extended_at && (
+            <button
+              onClick={onExtend}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid var(--color-success)' }}
+            >
+              <RotateCcw className="w-3 h-3" />
+              연장
             </button>
           )}
           {/* 메모 버튼 */}
@@ -648,5 +786,158 @@ function NoteModal({
         <button onClick={() => onSave(note)} className="flex-1 btn-primary">저장</button>
       </Modal.Footer>
     </Modal>
+  )
+}
+
+// ─── SessionQuickPopover ──────────────────────────────────────────────────────
+
+type SlotSessionStatus = SlotSession['status']
+
+const SESSION_STATUS_CONFIG: Record<
+  Exclude<SlotSessionStatus, undefined>,
+  { label: string; color: string; icon: string }
+> = {
+  SCHEDULED:   { label: '예정',   color: 'var(--text-muted)', icon: '○' },
+  COMPLETED:   { label: '완료',   color: '#10b981',           icon: '✓' },
+  CANCELLED:   { label: '취소',   color: '#ef4444',           icon: '✕' },
+  RESCHEDULED: { label: '연기',   color: '#f59e0b',           icon: '↻' },
+}
+
+const NEXT_STATUS_OPTIONS: Record<Exclude<SlotSessionStatus, undefined>, Exclude<SlotSessionStatus, undefined>[]> = {
+  SCHEDULED:   ['COMPLETED', 'CANCELLED'],
+  COMPLETED:   ['SCHEDULED', 'CANCELLED'],
+  CANCELLED:   ['SCHEDULED', 'COMPLETED'],
+  RESCHEDULED: ['SCHEDULED', 'CANCELLED'],
+}
+
+function SessionQuickPopover({
+  booking,
+  session,
+  x,
+  y,
+  onClose,
+  onChangeStatus,
+}: {
+  booking: LessonBooking
+  session: SlotSession
+  x: number
+  y: number
+  onClose: () => void
+  onChangeStatus: (booking: LessonBooking, session: SlotSession, next: SlotSessionStatus) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const status = (session.status ?? 'SCHEDULED') as Exclude<SlotSessionStatus, undefined>
+  const conf = SESSION_STATUS_CONFIG[status]
+  const options = NEXT_STATUS_OPTIONS[status]
+
+  const d = new Date(session.slot_date + 'T00:00:00')
+  const dateLabel = `${d.getMonth() + 1}/${d.getDate()}(${DAY_LABELS[d.getDay()]})`
+  const timeLabel = `${session.start_time.slice(0, 5)}~${session.end_time.slice(0, 5)}`
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('keydown', escHandler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', escHandler)
+    }
+  }, [onClose])
+
+  // 뷰포트 경계 보정
+  const adjustedX = Math.min(x, window.innerWidth - 200)
+  const adjustedY = Math.min(y, window.innerHeight - 120)
+
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="세션 상태 변경"
+      style={{
+        position: 'fixed',
+        top: adjustedY,
+        left: adjustedX,
+        zIndex: 9999,
+        width: 192,
+        backgroundColor: 'var(--bg-card)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 12,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 헤더 */}
+      <div style={{
+        padding: '10px 12px 8px',
+        borderBottom: '1px solid var(--border-color)',
+        backgroundColor: 'var(--bg-secondary)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{dateLabel}</span>
+          <span style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: '2px 7px',
+            borderRadius: 20,
+            color: conf.color,
+            backgroundColor: `${conf.color}20`,
+          }}>
+            {conf.icon} {conf.label}
+          </span>
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{timeLabel}</p>
+      </div>
+
+      {/* 액션 버튼 */}
+      <div style={{ padding: '6px 8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {options.map((next) => {
+          const nc = SESSION_STATUS_CONFIG[next]
+          return (
+            <button
+              key={next}
+              type="button"
+              onClick={() => onChangeStatus(booking, session, next)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '7px 10px',
+                borderRadius: 8,
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                transition: 'background-color 0.12s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${nc.color}14` }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+            >
+              <span style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                backgroundColor: `${nc.color}20`,
+                color: nc.color,
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {nc.icon}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                {nc.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }

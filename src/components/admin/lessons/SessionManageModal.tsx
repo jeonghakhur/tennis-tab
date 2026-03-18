@@ -1,10 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Check, RotateCcw, Plus, ChevronRight } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
-import { updateSlotSessions, rescheduleSession, extendSlot } from '@/lib/lessons/slot-actions'
+import { updateSlotSessions, rescheduleSession } from '@/lib/lessons/slot-actions'
 import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import type { LessonBooking, SlotSession, SlotSessionStatus } from '@/lib/lessons/slot-types'
 
@@ -12,14 +11,14 @@ import type { LessonBooking, SlotSession, SlotSessionStatus } from '@/lib/lesson
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-const SESSION_STATUS_CONFIG: Record<
+const STATUS_CONFIG: Record<
   Exclude<SlotSessionStatus, undefined>,
   { label: string; color: string; bg: string }
 > = {
-  SCHEDULED:   { label: '예정',   color: 'var(--text-muted)',       bg: 'var(--bg-secondary)' },
-  COMPLETED:   { label: '완료',   color: '#10b981',                 bg: '#10b98120' },
-  CANCELLED:   { label: '취소',   color: 'var(--color-danger)',      bg: '#ef444420' },
-  RESCHEDULED: { label: '연기됨', color: 'var(--color-warning)',     bg: '#f59e0b20' },
+  SCHEDULED:   { label: '예정',   color: 'var(--text-muted)',      bg: 'var(--bg-secondary)' },
+  COMPLETED:   { label: '완료',   color: '#10b981',                bg: '#10b98120' },
+  CANCELLED:   { label: '취소',   color: 'var(--color-danger)',     bg: '#ef444420' },
+  RESCHEDULED: { label: '연기됨', color: 'var(--color-warning)',    bg: '#f59e0b20' },
 }
 
 // ─── 타입 ────────────────────────────────────────────────────────────────────
@@ -28,7 +27,12 @@ interface Props {
   booking: LessonBooking | null
   onClose: () => void
   onSessionsUpdated: (slotId: string, meta: UpdatedSlotMeta) => void
-  onExtended: () => void  // 신규 슬롯+예약 생성됨 → 목록 재조회
+}
+
+interface RescheduleTarget {
+  session: SlotSession
+  /** 기존 세션 중 이미 사용된 날짜 목록 (충돌 방지) */
+  usedDates: string[]
 }
 
 // ─── 헬퍼 ────────────────────────────────────────────────────────────────────
@@ -38,66 +42,40 @@ function formatDate(dateStr: string) {
   return `${d.getMonth() + 1}/${d.getDate()}(${DAY_LABELS[d.getDay()]})`
 }
 
-/** Date를 로컬 타임존 기준 YYYY-MM-DD 문자열로 변환 (toISOString은 UTC 변환으로 날짜가 밀릴 수 있음) */
 function toLocalDateStr(d: Date): string {
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
-function addWeeks(dateStr: string, weeks: number): string {
-  const d = new Date(dateStr + 'T00:00:00')
-  d.setDate(d.getDate() + weeks * 7)
-  return toLocalDateStr(d)
-}
+// ─── 메인 컴포넌트 ────────────────────────────────────────────────────────────
 
-// ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
-
-export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExtended }: Props) {
+export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Props) {
   const slot = booking?.slots?.[0] ?? null
 
-  // 로컬 세션 상태 (편집 중)
   const [sessions, setSessions] = useState<SlotSession[]>([])
-  // 연기 모달 대상
-  const [rescheduleTarget, setRescheduleTarget] = useState<SlotSession | null>(null)
-  // 연장 주수 (0 = 연장 패널 닫힘)
-  const [extendWeeks, setExtendWeeks] = useState(0)
+  const [rescheduleTarget, setRescheduleTarget] = useState<RescheduleTarget | null>(null)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
-  // 모달 열릴 때 세션 초기화
   useEffect(() => {
-    if (slot?.sessions) {
-      setSessions([...slot.sessions])
-    } else {
-      setSessions([])
-    }
-    setExtendWeeks(0)
+    if (slot?.sessions) setSessions([...slot.sessions])
+    else setSessions([])
     setRescheduleTarget(null)
   }, [slot?.id])
 
   if (!booking || !slot) return null
 
-  // ── 집계 ─────────────────────────────────────────────────────────────────
-
   const completedCount = sessions.filter((s) => s.status === 'COMPLETED').length
   const totalActive    = sessions.filter((s) => s.status !== 'CANCELLED').length
 
-  // ── 세션 토글 (SCHEDULED ↔ COMPLETED) ────────────────────────────────────
+  // ── 로컬 상태 변경 (진행/취소 → 저장 버튼으로 일괄 저장) ──────────────────
 
-  const toggleComplete = (dateStr: string) => {
+  const setStatus = (dateStr: string, next: SlotSessionStatus) => {
     setSessions((prev) =>
-      prev.map((s) => {
-        if (s.slot_date !== dateStr) return s
-        const next: SlotSessionStatus =
-          s.status === 'COMPLETED' ? 'SCHEDULED' : 'COMPLETED'
-        return { ...s, status: next }
-      }),
+      prev.map((s) => s.slot_date === dateStr ? { ...s, status: next } : s),
     )
   }
 
-  // ── 저장 (sessions 전체 업데이트) ─────────────────────────────────────────
+  // ── 저장 ──────────────────────────────────────────────────────────────────
 
   const handleSave = async () => {
     setSaving(true)
@@ -115,12 +93,19 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExte
     onClose()
   }
 
-  // ── 연기 처리 ─────────────────────────────────────────────────────────────
+  // ── 연기 처리 (즉시 서버 저장) ────────────────────────────────────────────
 
-  const handleReschedule = async (reason: string) => {
+  const handleReschedule = async (makeupDate: string, startTime: string, endTime: string, reason: string) => {
     if (!rescheduleTarget) return
     setSaving(true)
-    const result = await rescheduleSession(slot.id, rescheduleTarget.slot_date, reason || undefined)
+    const result = await rescheduleSession(
+      slot.id,
+      rescheduleTarget.session.slot_date,
+      makeupDate,
+      startTime || undefined,
+      endTime || undefined,
+      reason || undefined,
+    )
     setSaving(false)
     setRescheduleTarget(null)
     if (result.error) {
@@ -132,22 +117,6 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExte
       totalSessions: result.totalSessions!,
       lastSessionDate: result.lastSessionDate!,
     })
-    onClose()
-  }
-
-  // ── 연장 처리 ─────────────────────────────────────────────────────────────
-
-  const handleExtend = async () => {
-    if (extendWeeks < 1) return
-    setSaving(true)
-    const result = await extendSlot(slot.id, extendWeeks)
-    setSaving(false)
-    if (result.error) {
-      setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
-      return
-    }
-    // 신규 슬롯+예약이 생성됐으므로 목록 전체 재조회
-    onExtended()
     onClose()
   }
 
@@ -195,47 +164,28 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExte
           <div className="space-y-1.5">
             {sessions.map((session) => {
               const status = session.status ?? 'SCHEDULED'
-              const conf = SESSION_STATUS_CONFIG[status]
+              const conf = STATUS_CONFIG[status]
               const isPast = new Date(session.slot_date + 'T23:59:59') < new Date()
-              const canToggle = status === 'SCHEDULED' || status === 'COMPLETED'
-              const canReschedule = status === 'SCHEDULED' && !isPast
 
               return (
                 <div
                   key={session.slot_date}
-                  className="flex items-center gap-3 px-3 py-2 rounded-lg"
+                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
                   style={{ backgroundColor: conf.bg, border: `1px solid ${conf.color}30` }}
                 >
-                  {/* 완료 체크박스 */}
-                  <button
-                    onClick={() => canToggle && toggleComplete(session.slot_date)}
-                    disabled={!canToggle}
-                    className="w-6 h-6 rounded flex items-center justify-center shrink-0 transition-colors"
-                    style={
-                      status === 'COMPLETED'
-                        ? { backgroundColor: '#10b981', cursor: 'pointer' }
-                        : canToggle
-                          ? { border: '2px solid var(--border-color)', cursor: 'pointer', backgroundColor: 'transparent' }
-                          : { border: '2px solid var(--border-color)', cursor: 'default', opacity: 0.4, backgroundColor: 'transparent' }
-                    }
-                    aria-label={status === 'COMPLETED' ? '완료 취소' : '완료 표시'}
-                  >
-                    {status === 'COMPLETED' && <Check className="w-3.5 h-3.5 text-white" />}
-                  </button>
-
                   {/* 날짜 */}
                   <span
-                    className="text-sm font-medium w-24 shrink-0"
+                    className="text-sm font-medium w-20 shrink-0"
                     style={{
                       color: conf.color,
-                      textDecoration: status === 'CANCELLED' ? 'line-through' : 'none',
+                      textDecoration: status === 'CANCELLED' || status === 'RESCHEDULED' ? 'line-through' : 'none',
                     }}
                   >
                     {formatDate(session.slot_date)}
                   </span>
 
                   {/* 시간 */}
-                  <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
+                  <span className="text-sm shrink-0 w-24" style={{ color: 'var(--text-muted)' }}>
                     {session.start_time.slice(0, 5)}~{session.end_time.slice(0, 5)}
                   </span>
 
@@ -247,84 +197,66 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExte
                     {conf.label}
                   </span>
 
-                  {/* 사유 메모 */}
-                  {session.note && (
-                    <span className="text-xs truncate flex-1" style={{ color: 'var(--text-muted)' }}>
-                      {session.note}
-                    </span>
-                  )}
+                  {/* 보강 원래 날짜 표시 */}
                   {session.original_date && (
-                    <span className="text-xs shrink-0" style={{ color: 'var(--text-muted)' }}>
+                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                       (원래 {formatDate(session.original_date)})
                     </span>
                   )}
 
+                  {/* 사유 */}
+                  {session.note && !session.original_date && (
+                    <span className="text-xs truncate flex-1" style={{ color: 'var(--text-muted)' }}>
+                      {session.note}
+                    </span>
+                  )}
+
+                  {/* 액션 버튼 */}
                   <div className="ml-auto flex items-center gap-1 shrink-0">
-                    {/* 연기 버튼 */}
-                    {canReschedule && (
-                      <button
-                        onClick={() => setRescheduleTarget(session)}
-                        className="inline-flex items-center gap-0.5 px-2 py-1 rounded text-xs font-medium"
-                        style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)', border: '1px solid var(--border-color)' }}
-                      >
-                        <RotateCcw className="w-3 h-3" />
-                        1주 연기
-                      </button>
+                    {status === 'SCHEDULED' && (
+                      <>
+                        <ActionBtn
+                          label="진행"
+                          color="var(--color-success)"
+                          onClick={() => setStatus(session.slot_date, 'COMPLETED')}
+                        />
+                        <ActionBtn
+                          label="취소"
+                          color="var(--color-danger)"
+                          onClick={() => setStatus(session.slot_date, 'CANCELLED')}
+                        />
+                        {!isPast && (
+                          <ActionBtn
+                            label="연기"
+                            color="var(--color-warning)"
+                            onClick={() =>
+                              setRescheduleTarget({
+                                session,
+                                usedDates: sessions.map((s) => s.slot_date),
+                              })
+                            }
+                          />
+                        )}
+                      </>
+                    )}
+                    {status === 'COMPLETED' && (
+                      <ActionBtn
+                        label="예정"
+                        color="var(--text-muted)"
+                        onClick={() => setStatus(session.slot_date, 'SCHEDULED')}
+                      />
+                    )}
+                    {status === 'CANCELLED' && (
+                      <ActionBtn
+                        label="원복"
+                        color="var(--color-success)"
+                        onClick={() => setStatus(session.slot_date, 'SCHEDULED')}
+                      />
                     )}
                   </div>
                 </div>
               )
             })}
-          </div>
-
-          {/* 연장 패널 */}
-          <div className="mt-4 pt-4" style={{ borderTop: '1px dashed var(--border-color)' }}>
-            {extendWeeks === 0 ? (
-              <button
-                onClick={() => setExtendWeeks(4)}
-                className="inline-flex items-center gap-1.5 text-sm"
-                style={{ color: 'var(--accent-color)' }}
-              >
-                <Plus className="w-4 h-4" />
-                패키지 연장
-              </button>
-            ) : (
-              <div className="flex items-center gap-3">
-                <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                  연장 주수
-                </span>
-                {[1, 2, 4, 8].map((w) => (
-                  <button
-                    key={w}
-                    onClick={() => setExtendWeeks(w)}
-                    className="w-9 h-9 rounded-lg text-sm font-medium"
-                    style={
-                      extendWeeks === w
-                        ? { backgroundColor: 'var(--accent-color)', color: '#fff' }
-                        : { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }
-                    }
-                  >
-                    {w}주
-                  </button>
-                ))}
-                <button
-                  onClick={handleExtend}
-                  disabled={saving}
-                  className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-medium text-white"
-                  style={{ backgroundColor: 'var(--accent-color)' }}
-                >
-                  <ChevronRight className="w-4 h-4" />
-                  연장 적용
-                </button>
-                <button
-                  onClick={() => setExtendWeeks(0)}
-                  className="text-sm"
-                  style={{ color: 'var(--text-muted)' }}
-                >
-                  취소
-                </button>
-              </div>
-            )}
           </div>
         </Modal.Body>
 
@@ -347,12 +279,16 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExte
         </Modal.Footer>
       </Modal>
 
-      {/* 연기 사유 모달 */}
-      <RescheduleModal
-        session={rescheduleTarget}
-        onClose={() => setRescheduleTarget(null)}
-        onConfirm={handleReschedule}
-      />
+      {/* 연기 모달 */}
+      {rescheduleTarget && (
+        <RescheduleModal
+          target={rescheduleTarget}
+          saving={saving}
+          onClose={() => setRescheduleTarget(null)}
+          onConfirm={handleReschedule}
+        />
+      )}
+
 
       <Toast
         isOpen={toast.isOpen}
@@ -364,57 +300,157 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExte
   )
 }
 
+// ─── ActionBtn ────────────────────────────────────────────────────────────────
+
+function ActionBtn({ label, color, onClick }: { label: string; color: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="px-2.5 py-1 rounded text-xs font-medium"
+      style={{ color, backgroundColor: `${color}18`, border: `1px solid ${color}40` }}
+    >
+      {label}
+    </button>
+  )
+}
+
 // ─── RescheduleModal ──────────────────────────────────────────────────────────
 
 function RescheduleModal({
-  session,
+  target,
+  saving,
   onClose,
   onConfirm,
 }: {
-  session: SlotSession | null
+  target: RescheduleTarget
+  saving: boolean
   onClose: () => void
-  onConfirm: (reason: string) => void
+  onConfirm: (makeupDate: string, startTime: string, endTime: string, reason: string) => void
 }) {
+  const { session, usedDates } = target
+
+  const minDate = (() => {
+    const d = new Date(session.slot_date + 'T00:00:00')
+    d.setDate(d.getDate() + 1)
+    return toLocalDateStr(d)
+  })()
+
+  const [makeupDate, setMakeupDate] = useState(minDate)
+  const [startTime, setStartTime] = useState(session.start_time.slice(0, 5))
+  const [endTime, setEndTime] = useState(session.end_time.slice(0, 5))
   const [reason, setReason] = useState('')
+  const [dateError, setDateError] = useState<string | null>(null)
+  const [timeError, setTimeError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (session) setReason('')
-  }, [session])
-
-  if (!session) return null
-
-  const newDate = addWeeks(session.slot_date, 1)
+  const handleConfirm = () => {
+    if (!makeupDate) { setDateError('보강 날짜를 선택해주세요.'); return }
+    if (usedDates.includes(makeupDate)) { setDateError('해당 날짜에 이미 세션이 있습니다.'); return }
+    if (startTime >= endTime) { setTimeError('종료 시간은 시작 시간 이후여야 합니다.'); return }
+    onConfirm(makeupDate, startTime, endTime, reason.trim())
+  }
 
   return (
-    <Modal isOpen={!!session} onClose={onClose} title="1주 연기" size="sm">
+    <Modal isOpen onClose={onClose} title="세션 연기" size="sm">
       <Modal.Body>
-        <p className="text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>
-          <strong>{formatDate(session.slot_date)}</strong> 세션을{' '}
-          <strong>{formatDate(newDate)}</strong>으로 연기합니다.
-        </p>
-        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
-          원래 세션은 &apos;연기됨&apos;으로 표시되고, 새 세션이 추가됩니다.
-        </p>
-        <label htmlFor="reschedule-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-          사유 (선택)
-        </label>
-        <textarea
-          id="reschedule-reason"
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={2}
-          maxLength={100}
-          placeholder="우천, 개인 사정 등"
-          className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-          style={{
-            backgroundColor: 'var(--bg-input)',
-            color: 'var(--text-primary)',
-            border: '1px solid var(--border-color)',
-          }}
-        />
+        <div className="space-y-4">
+          {/* 연기 대상 */}
+          <div className="px-3 py-2.5 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            <span className="font-medium" style={{ color: 'var(--text-primary)' }}>
+              {formatDate(session.slot_date)}
+            </span>
+            {'  '}
+            {session.start_time.slice(0, 5)}~{session.end_time.slice(0, 5)} 세션을 연기합니다.
+          </div>
+
+          {/* 보강 날짜 */}
+          <div>
+            <label htmlFor="makeup-date" className="block text-sm font-medium mb-1.5"
+              style={{ color: 'var(--text-primary)' }}>
+              보강 날짜 <span style={{ color: 'var(--color-danger)' }}>*</span>
+            </label>
+            <input
+              id="makeup-date"
+              type="date"
+              value={makeupDate}
+              min={minDate}
+              onChange={(e) => { setMakeupDate(e.target.value); setDateError(null) }}
+              className="w-full px-3 py-2 rounded-lg text-sm"
+              style={{
+                backgroundColor: 'var(--bg-input)',
+                color: 'var(--text-primary)',
+                border: `1px solid ${dateError ? 'var(--color-danger)' : 'var(--border-color)'}`,
+              }}
+            />
+            {dateError && (
+              <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>{dateError}</p>
+            )}
+          </div>
+
+          {/* 보강 시간 */}
+          <div>
+            <p className="text-sm font-medium mb-1.5" style={{ color: 'var(--text-primary)' }}>
+              보강 시간 <span style={{ color: 'var(--text-muted)' }}>(기본: 원래 시간)</span>
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => { setStartTime(e.target.value); setTimeError(null) }}
+                className="flex-1 px-3 py-2 rounded-lg text-sm"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  color: 'var(--text-primary)',
+                  border: `1px solid ${timeError ? 'var(--color-danger)' : 'var(--border-color)'}`,
+                }}
+                aria-label="시작 시간"
+              />
+              <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>~</span>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => { setEndTime(e.target.value); setTimeError(null) }}
+                className="flex-1 px-3 py-2 rounded-lg text-sm"
+                style={{
+                  backgroundColor: 'var(--bg-input)',
+                  color: 'var(--text-primary)',
+                  border: `1px solid ${timeError ? 'var(--color-danger)' : 'var(--border-color)'}`,
+                }}
+                aria-label="종료 시간"
+              />
+            </div>
+            {timeError && (
+              <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>{timeError}</p>
+            )}
+          </div>
+
+          {/* 사유 */}
+          <div>
+            <label htmlFor="reschedule-reason" className="block text-sm font-medium mb-1.5"
+              style={{ color: 'var(--text-primary)' }}>
+              사유 <span style={{ color: 'var(--text-muted)' }}>(선택)</span>
+            </label>
+            <textarea
+              id="reschedule-reason"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              rows={2}
+              maxLength={100}
+              placeholder="우천, 개인 사정 등"
+              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+              style={{
+                backgroundColor: 'var(--bg-input)',
+                color: 'var(--text-primary)',
+                border: '1px solid var(--border-color)',
+              }}
+            />
+          </div>
+        </div>
       </Modal.Body>
       <Modal.Footer>
         <button
+          type="button"
           onClick={onClose}
           className="flex-1 px-4 py-2 rounded-lg text-sm"
           style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
@@ -422,11 +458,13 @@ function RescheduleModal({
           취소
         </button>
         <button
-          onClick={() => onConfirm(reason.trim())}
-          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white"
+          type="button"
+          onClick={handleConfirm}
+          disabled={saving}
+          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-50"
           style={{ backgroundColor: 'var(--color-warning, #f59e0b)' }}
         >
-          연기 확인
+          {saving ? '처리 중…' : '연기 확인'}
         </button>
       </Modal.Footer>
     </Modal>

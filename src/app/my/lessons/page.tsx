@@ -3,11 +3,12 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import {
-  ChevronLeft, User, Loader2, BookOpen, Calendar, X, RotateCcw,
+  ChevronLeft, User, Loader2, BookOpen, Calendar, X, RotateCcw, MessageSquare, Clock,
 } from 'lucide-react'
 import { useAuth } from '@/components/AuthProvider'
-import { getMyBookings, cancelMyBooking, type MyBookingDetail } from '@/lib/lessons/slot-actions'
-import { requestLessonExtension } from '@/lib/lessons/extension-actions'
+import { getMyBookings, cancelMyBooking, getMyInquiries, type MyBookingDetail } from '@/lib/lessons/slot-actions'
+import type { LessonInquiry, LessonInquiryStatus } from '@/lib/lessons/types'
+import { requestLessonExtension, getMyPendingExtensionBookingIds } from '@/lib/lessons/extension-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
@@ -131,89 +132,115 @@ function ExtensionRequestModal({
   isOpen,
   bookingId,
   slotId,
+  scheduleSummary,
   onClose,
   onSuccess,
 }: {
   isOpen: boolean
   bookingId: string
   slotId: string
+  scheduleSummary: string
   onClose: () => void
-  onSuccess: () => void
+  onSuccess: (isInquiry: boolean) => void
 }) {
-  const [weeks, setWeeks] = useState(4)
+  const [wantsChange, setWantsChange] = useState(false)
   const [message, setMessage] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // 모달 닫힐 때 상태 초기화
+  const handleClose = () => {
+    setWantsChange(false)
+    setMessage('')
+    setError(null)
+    onClose()
+  }
+
   const handleSubmit = async () => {
+    if (wantsChange && !message.trim()) {
+      setError('코치에게 전할 내용을 입력해주세요.')
+      return
+    }
     setSubmitting(true)
     setError(null)
-    const result = await requestLessonExtension({ bookingId, slotId, requestedWeeks: weeks, message })
+    // 일정 변경 문의든 단순 연장이든 동일한 extension request로 처리
+    // 코치가 message 확인 후 조율
+    const result = await requestLessonExtension({
+      bookingId,
+      slotId,
+      message: message.trim(),
+    })
     setSubmitting(false)
     if (result.error) {
       setError(result.error)
       return
     }
-    onSuccess()
-    onClose()
+    onSuccess(wantsChange)
+    handleClose()
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="레슨 연장 신청" size="md">
+    <Modal isOpen={isOpen} onClose={handleClose} title="레슨 연장" size="md">
       <Modal.Body>
         <div className="space-y-4">
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-            연장 신청 시 코치에게 카카오 알림톡이 발송됩니다.
-          </p>
-
-          {/* 연장 주수 */}
-          <div>
-            <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-              연장 희망 기간
-            </label>
-            <div className="grid grid-cols-4 gap-2">
-              {[2, 4, 6, 8].map((w) => (
-                <button
-                  key={w}
-                  type="button"
-                  onClick={() => setWeeks(w)}
-                  className="py-2 rounded-lg text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: weeks === w ? 'var(--accent-color)' : 'var(--bg-secondary)',
-                    color: weeks === w ? '#fff' : 'var(--text-secondary)',
-                    border: weeks === w ? 'none' : '1px solid var(--border-color)',
-                  }}
-                >
-                  {w}주
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 메시지 */}
-          <div>
-            <label htmlFor="ext-message" className="block text-sm font-medium mb-2"
-              style={{ color: 'var(--text-primary)' }}>
-              코치에게 전할 메시지 <span style={{ color: 'var(--text-muted)' }}>(선택)</span>
-            </label>
-            <textarea
-              id="ext-message"
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              rows={3}
-              maxLength={200}
-              placeholder="연장 이유나 요청사항을 자유롭게 입력해주세요."
-              className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
-              }}
-            />
-            <p className="text-right text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-              {message.length}/200
+          {/* 현재 일정 */}
+          <div className="rounded-lg px-4 py-3 space-y-1"
+            style={{ backgroundColor: 'var(--color-success-subtle)', border: '1px solid var(--color-success)' }}>
+            <p className="text-sm font-semibold" style={{ color: 'var(--color-success)' }}>
+              현재 레슨 일정으로 그대로 연장됩니다
             </p>
+            {scheduleSummary && (
+              <p className="text-sm" style={{ color: 'var(--color-success)' }}>{scheduleSummary}</p>
+            )}
           </div>
+
+          {/* 일정 변경 스위치 */}
+          <div className="flex items-center justify-between px-4 py-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
+            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+              일정 변경이 필요해요
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={wantsChange}
+              onClick={() => { setWantsChange((v) => !v); setError(null) }}
+              className="relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-none"
+              style={{ backgroundColor: wantsChange ? 'var(--accent-color)' : 'var(--border-color)' }}
+            >
+              <span
+                className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5"
+                style={{ transform: wantsChange ? 'translateX(22px)' : 'translateX(2px)' }}
+              />
+            </button>
+          </div>
+
+          {/* 메시지 (스위치 ON 시만 표시) */}
+          {wantsChange && (
+            <div>
+              <label htmlFor="ext-message" className="block text-sm font-medium mb-2"
+                style={{ color: 'var(--text-primary)' }}>
+                코치에게 전할 내용 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <textarea
+                id="ext-message"
+                value={message}
+                onChange={(e) => { setMessage(e.target.value); setError(null) }}
+                rows={3}
+                maxLength={200}
+                placeholder="희망 요일, 시간 등 변경 내용을 입력해주세요."
+                className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                style={{
+                  backgroundColor: 'var(--bg-secondary)',
+                  color: 'var(--text-primary)',
+                  border: `1px solid ${error ? 'var(--color-danger)' : 'var(--border-color)'}`,
+                }}
+              />
+              <p className="text-right text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                {message.length}/200
+              </p>
+            </div>
+          )}
 
           {error && (
             <p className="text-sm" style={{ color: 'var(--color-danger)' }}>{error}</p>
@@ -223,7 +250,7 @@ function ExtensionRequestModal({
       <Modal.Footer>
         <button
           type="button"
-          onClick={onClose}
+          onClick={handleClose}
           className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium"
           style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
         >
@@ -236,10 +263,79 @@ function ExtensionRequestModal({
           className="flex-1 px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
           style={{ backgroundColor: 'var(--accent-color)', color: '#fff' }}
         >
-          {submitting ? '신청 중...' : `${weeks}주 연장 신청`}
+          {submitting ? '처리 중...' : wantsChange ? '연장 문의' : '연장 신청'}
         </button>
       </Modal.Footer>
     </Modal>
+  )
+}
+
+// ── 문의 상태 config ──────────────────────────────────────────────────────────
+
+const INQUIRY_STATUS_CONFIG: Record<LessonInquiryStatus, { label: string; variant: BadgeVariant; desc: string }> = {
+  PENDING:   { label: '접수 완료', variant: 'warning', desc: '코치가 확인 후 연락드립니다.' },
+  RESPONDED: { label: '응대 완료', variant: 'success', desc: '코치가 연락했습니다. 일정을 조율해보세요.' },
+  CLOSED:    { label: '종료',    variant: 'secondary', desc: '문의가 종료되었습니다.' },
+}
+
+// ── 문의 카드 ────────────────────────────────────────────────────────────────
+
+function InquiryCard({ inquiry }: { inquiry: LessonInquiry }) {
+  const conf = INQUIRY_STATUS_CONFIG[inquiry.status]
+  const coachName = inquiry.coach?.name || null
+
+  return (
+    <div className="rounded-xl overflow-hidden" style={{ border: '1px solid var(--border-color)' }}>
+      {/* 헤더 */}
+      <div className="px-4 py-4" style={{ backgroundColor: 'var(--bg-card)' }}>
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0"
+              style={{ backgroundColor: 'var(--bg-card-hover)' }}>
+              <MessageSquare className="w-5 h-5" style={{ color: 'var(--text-muted)' }} />
+            </div>
+            <div>
+              <p className="font-semibold text-sm" style={{ color: 'var(--text-primary)' }}>
+                레슨 신청 문의
+              </p>
+              <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {coachName ? `코치 ${coachName}` : '코치 미정'}
+              </p>
+            </div>
+          </div>
+          <Badge variant={conf.variant}>{conf.label}</Badge>
+        </div>
+      </div>
+
+      {/* 문의 내용 */}
+      <div className="px-4 py-3 space-y-2"
+        style={{ borderTop: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)' }}>
+        {/* 상태 안내 */}
+        <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{conf.desc}</p>
+
+        {/* 희망 일정 */}
+        {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+          <div className="flex flex-wrap gap-3 text-sm px-3 py-2.5 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+              <Calendar className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              {inquiry.preferred_days.join('·')}요일
+            </span>
+            {inquiry.preferred_time && (
+              <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                <Clock className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                {inquiry.preferred_time}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* 접수일 */}
+        <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          접수일 {new Date(inquiry.created_at).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+        </p>
+      </div>
+    </div>
   )
 }
 
@@ -247,12 +343,14 @@ function ExtensionRequestModal({
 
 function BookingCard({
   detail,
+  extensionPending,
   onCancel,
   onExtensionRequest,
 }: {
   detail: MyBookingDetail
+  extensionPending: boolean
   onCancel: (bookingId: string) => void
-  onExtensionRequest: (bookingId: string, slotId: string) => void
+  onExtensionRequest: (bookingId: string, slotId: string, scheduleSummary: string) => void
 }) {
   const { booking, slots } = detail
   const slot = slots[0]
@@ -262,8 +360,8 @@ function BookingCard({
 
   // CONFIRMED만 취소 불가 — PENDING만 가능
   const canCancel = booking.status === 'PENDING'
-  // 연장 신청: CONFIRMED + 패키지 슬롯
-  const canExtend = booking.status === 'CONFIRMED' && !!slot?.sessions?.length
+  // 연장 신청: CONFIRMED + 패키지 슬롯 + 처리 중인 신청 없음 + 미연장
+  const canExtend = booking.status === 'CONFIRMED' && !!slot?.sessions?.length && !extensionPending && !slot.extended_at
 
   const sessions = slot?.sessions ?? null
 
@@ -357,7 +455,7 @@ function BookingCard({
           {canExtend && (
             <button
               type="button"
-              onClick={() => onExtensionRequest(booking.id, slot!.id)}
+              onClick={() => onExtensionRequest(booking.id, slot!.id, sessions ? buildScheduleSummary(sessions) : '')}
               className="flex-1 flex items-center justify-center gap-1.5 text-sm py-2.5 rounded-lg transition-colors"
               style={{
                 backgroundColor: 'var(--color-success-subtle)',
@@ -399,6 +497,8 @@ export default function MyLessonsPage() {
   const router = useRouter()
 
   const [details, setDetails] = useState<MyBookingDetail[]>([])
+  const [inquiries, setInquiries] = useState<LessonInquiry[]>([])
+  const [pendingExtBookingIds, setPendingExtBookingIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
 
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean; bookingId: string }>({
@@ -407,8 +507,8 @@ export default function MyLessonsPage() {
   const [cancelling, setCancelling] = useState(false)
 
   const [extensionModal, setExtensionModal] = useState<{
-    isOpen: boolean; bookingId: string; slotId: string
-  }>({ isOpen: false, bookingId: '', slotId: '' })
+    isOpen: boolean; bookingId: string; slotId: string; scheduleSummary: string
+  }>({ isOpen: false, bookingId: '', slotId: '', scheduleSummary: '' })
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
@@ -418,10 +518,29 @@ export default function MyLessonsPage() {
     loadData()
   }, [authLoading, user])
 
+  // 탭 복귀 시 연장 신청 상태 조용히 갱신 (관리자 거절 후 버튼 자동 복원)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && user) {
+        getMyPendingExtensionBookingIds().then((ids) =>
+          setPendingExtBookingIds(new Set(ids))
+        )
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => document.removeEventListener('visibilitychange', handleVisibility)
+  }, [user])
+
   const loadData = async () => {
     setLoading(true)
-    const result = await getMyBookings()
-    if (!result.error) setDetails(result.data)
+    const [bookingResult, inquiryResult, pendingIds] = await Promise.all([
+      getMyBookings(),
+      getMyInquiries(),
+      getMyPendingExtensionBookingIds(),
+    ])
+    if (!bookingResult.error) setDetails(bookingResult.data)
+    if (!inquiryResult.error) setInquiries(inquiryResult.data)
+    setPendingExtBookingIds(new Set(pendingIds))
     setLoading(false)
   }
 
@@ -466,7 +585,7 @@ export default function MyLessonsPage() {
           </h1>
         </div>
 
-        {details.length === 0 ? (
+        {details.length === 0 && inquiries.length === 0 ? (
           <div className="text-center py-16">
             <Calendar className="w-12 h-12 mx-auto mb-3 opacity-30" style={{ color: 'var(--text-muted)' }} />
             <p className="text-sm" style={{ color: 'var(--text-muted)' }}>신청한 레슨이 없어요.</p>
@@ -480,12 +599,28 @@ export default function MyLessonsPage() {
               <BookingCard
                 key={detail.booking.id}
                 detail={detail}
+                extensionPending={pendingExtBookingIds.has(detail.booking.id)}
                 onCancel={(id) => setConfirmDialog({ isOpen: true, bookingId: id })}
-                onExtensionRequest={(bookingId, slotId) =>
-                  setExtensionModal({ isOpen: true, bookingId, slotId })
+                onExtensionRequest={(bookingId, slotId, scheduleSummary) =>
+                  setExtensionModal({ isOpen: true, bookingId, slotId, scheduleSummary })
                 }
               />
             ))}
+
+            {/* 레슨 신청 문의 */}
+            {inquiries.length > 0 && (
+              <section>
+                <h2 className="text-xs font-semibold uppercase tracking-wide mb-3"
+                  style={{ color: 'var(--text-muted)' }}>
+                  레슨 신청 현황
+                </h2>
+                <div className="space-y-4">
+                  {inquiries.map((inquiry) => (
+                    <InquiryCard key={inquiry.id} inquiry={inquiry} />
+                  ))}
+                </div>
+              </section>
+            )}
 
             {cancelledBookings.length > 0 && (
               <section>
@@ -498,9 +633,10 @@ export default function MyLessonsPage() {
                     <BookingCard
                       key={detail.booking.id}
                       detail={detail}
+                      extensionPending={false}
                       onCancel={(id) => setConfirmDialog({ isOpen: true, bookingId: id })}
-                      onExtensionRequest={(bookingId, slotId) =>
-                        setExtensionModal({ isOpen: true, bookingId, slotId })
+                      onExtensionRequest={(bookingId, slotId, scheduleSummary) =>
+                        setExtensionModal({ isOpen: true, bookingId, slotId, scheduleSummary })
                       }
                     />
                   ))}
@@ -528,8 +664,21 @@ export default function MyLessonsPage() {
         isOpen={extensionModal.isOpen}
         bookingId={extensionModal.bookingId}
         slotId={extensionModal.slotId}
-        onClose={() => setExtensionModal({ isOpen: false, bookingId: '', slotId: '' })}
-        onSuccess={() => setToast({ isOpen: true, message: '연장 신청이 완료되었습니다. 코치에게 알림톡이 발송되었습니다.', type: 'success' })}
+        scheduleSummary={extensionModal.scheduleSummary}
+        onClose={() => setExtensionModal({ isOpen: false, bookingId: '', slotId: '', scheduleSummary: '' })}
+        onSuccess={(isInquiry) => {
+          setToast({
+            isOpen: true,
+            message: isInquiry
+              ? '연장 문의가 접수되었습니다. 코치가 확인 후 연락드립니다.'
+              : '연장 신청이 완료되었습니다. 코치에게 알림톡이 발송되었습니다.',
+            type: 'success',
+          })
+          // 연장 신청 후 버튼만 조용히 갱신 (전체 로딩 스피너 없이)
+          getMyPendingExtensionBookingIds().then((ids) =>
+            setPendingExtBookingIds(new Set(ids))
+          )
+        }}
       />
 
       <Toast

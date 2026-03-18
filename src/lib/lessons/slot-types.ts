@@ -39,6 +39,7 @@ export interface LessonSlot {
   sessions: SlotSession[] | null   // 전체 세션 일정
   last_session_date: string | null // 마지막 세션 날짜 (범위 쿼리용)
   fee_amount: number | null        // 슬롯 요금 (원). null이면 별도 협의
+  extended_at: string | null       // 연장 처리 시각. null이면 미연장
   created_by: string
   created_at: string
   updated_at: string

@@ -10,7 +10,7 @@ import { AdminExtensionTab } from '@/components/admin/lessons/AdminExtensionTab'
 import { getMyCoachId } from '@/lib/lessons/slot-actions'
 
 type AdminTab = 'coaches' | 'slots' | 'bookings' | 'inquiries' | 'extensions'
-type CoachTab = 'slots' | 'bookings' | 'extensions'
+type CoachTab = 'slots' | 'bookings' | 'inquiries' | 'extensions'
 
 const ADMIN_TABS: { key: AdminTab; label: string; icon: React.ElementType }[] = [
   { key: 'coaches',    label: '코치',     icon: Users },
@@ -23,6 +23,7 @@ const ADMIN_TABS: { key: AdminTab; label: string; icon: React.ElementType }[] = 
 const COACH_TABS: { key: CoachTab; label: string; icon: React.ElementType }[] = [
   { key: 'slots',      label: '내 슬롯',   icon: Calendar },
   { key: 'bookings',   label: '예약 현황', icon: ClipboardList },
+  { key: 'inquiries',  label: '문의',      icon: MessageSquare },
   { key: 'extensions', label: '연장 신청', icon: RotateCcw },
 ]
 
@@ -112,6 +113,9 @@ export default function AdminLessonsPage() {
           </div>
           <div id="tabpanel-bookings" role="tabpanel" hidden={coachTab !== 'bookings'}>
             {coachTab === 'bookings' && <AdminBookingTab coachId={myCoachId} />}
+          </div>
+          <div id="tabpanel-inquiries" role="tabpanel" hidden={coachTab !== 'inquiries'}>
+            {coachTab === 'inquiries' && <AdminInquiryTab coachId={myCoachId} />}
           </div>
           <div id="tabpanel-extensions" role="tabpanel" hidden={coachTab !== 'extensions'}>
             {coachTab === 'extensions' && <AdminExtensionTab coachId={myCoachId} />}

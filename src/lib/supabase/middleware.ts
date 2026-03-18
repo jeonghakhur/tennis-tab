@@ -64,7 +64,12 @@ export async function updateSession(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (!profile?.role || !['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(profile.role)) {
+    const isAdmin = profile?.role && ['ADMIN', 'MANAGER', 'SUPER_ADMIN'].includes(profile.role)
+
+    // /admin/lessons는 코치도 접근 가능 — 세부 권한은 layout에서 처리
+    const isLessonsPath = request.nextUrl.pathname.startsWith('/admin/lessons')
+
+    if (!isAdmin && !isLessonsPath) {
       // 권한 없는 사용자는 404로 리다이렉트 (페이지 존재 숨김)
       return NextResponse.rewrite(new URL('/not-found', request.url))
     }

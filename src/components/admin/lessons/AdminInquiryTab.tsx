@@ -21,7 +21,7 @@ const STATUS_TRANSITIONS: Record<LessonInquiryStatus, LessonInquiryStatus[]> = {
 
 type FilterStatus = 'ALL' | LessonInquiryStatus
 
-export function AdminInquiryTab() {
+export function AdminInquiryTab({ coachId }: { coachId?: string } = {}) {
   const [inquiries, setInquiries] = useState<LessonInquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterStatus>('ALL')
@@ -37,7 +37,7 @@ export function AdminInquiryTab() {
 
   const loadInquiries = async () => {
     setLoading(true)
-    const { data, error } = await getAdminLessonInquiries()
+    const { data, error } = await getAdminLessonInquiries(coachId)
     if (error) {
       setAlert({ isOpen: true, message: error, type: 'error' })
     }

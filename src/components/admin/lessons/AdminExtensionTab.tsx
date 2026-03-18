@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { RotateCcw, Check, X, MessageSquare } from 'lucide-react'
 import {
   getExtensionRequests,
   updateExtensionRequest,
+  markExtensionApproved,
   type LessonExtensionRequest,
   type ExtensionStatus,
 } from '@/lib/lessons/extension-actions'
@@ -12,6 +13,8 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
 import { BOOKING_TYPE_LABEL } from '@/lib/lessons/slot-types'
+import type { SlotSession, LessonSlot } from '@/lib/lessons/slot-types'
+import { CreateSlotModal, type SlotPrefill } from './CreateSlotModal'
 
 // ── 상태 config ────────────────────────────────────────────────────────────
 
@@ -34,18 +37,23 @@ function fmtDateTime(iso: string): string {
   return `${M}/${D} ${h}:${m}`
 }
 
-// ── 처리 모달 ─────────────────────────────────────────────────────────────
+// ── 처리 모달 (거절 전용) ──────────────────────────────────────────────────
 
 function ProcessModal({
   request,
   onClose,
-  onDone,
+  onApprove,
+  onReject,
 }: {
   request: LessonExtensionRequest
   onClose: () => void
-  onDone: () => void
+  /** 승인 버튼 클릭 — adminNote 넘기고 위자드로 전환 */
+  onApprove: (adminNote: string) => void
+  /** 거절 확정 */
+  onReject: (reason: string) => Promise<void>
 }) {
   const [adminNote, setAdminNote] = useState(request.admin_note ?? '')
+  const [noteError, setNoteError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   const memberName = (request.member as { name: string } | null)?.name ?? '-'
@@ -58,11 +66,11 @@ function ProcessModal({
     ? (BOOKING_TYPE_LABEL[bookingRaw.booking_type as keyof typeof BOOKING_TYPE_LABEL] ?? bookingRaw.booking_type)
     : '-'
 
-  const handle = async (status: 'APPROVED' | 'REJECTED') => {
+  const handleReject = async () => {
+    if (!adminNote.trim()) { setNoteError(true); return }
     setSubmitting(true)
-    const result = await updateExtensionRequest(request.id, status, adminNote)
+    await onReject(adminNote.trim())
     setSubmitting(false)
-    if (!result.error) { onDone(); onClose() }
   }
 
   return (
@@ -86,12 +94,6 @@ function ProcessModal({
                 {bookingType} · {totalSessions}회
               </span>
             </div>
-            <div className="flex justify-between">
-              <span style={{ color: 'var(--text-muted)' }}>연장 희망</span>
-              <span className="font-semibold" style={{ color: 'var(--accent-color)' }}>
-                {request.requested_weeks}주
-              </span>
-            </div>
             {request.kakao_sent && (
               <div className="flex justify-between">
                 <span style={{ color: 'var(--text-muted)' }}>알림톡</span>
@@ -113,44 +115,84 @@ function ProcessModal({
             </div>
           )}
 
-          {/* 관리자 메모 */}
+          {/* 처리 메모 / 거절 사유 */}
           <div>
             <label htmlFor="admin-note" className="block text-sm font-medium mb-1.5"
               style={{ color: 'var(--text-primary)' }}>
-              처리 메모 <span style={{ color: 'var(--text-muted)' }}>(선택)</span>
+              처리 메모{' '}
+              <span style={{ color: noteError ? 'var(--color-danger)' : 'var(--text-muted)' }}>
+                (거절 시 필수)
+              </span>
             </label>
             <textarea
               id="admin-note"
               value={adminNote}
-              onChange={(e) => setAdminNote(e.target.value)}
+              onChange={(e) => { setAdminNote(e.target.value); setNoteError(false) }}
               rows={2}
-              placeholder="처리 사유 또는 전달 메시지"
+              placeholder="거절 사유 또는 전달 메시지"
               className="w-full px-3 py-2 rounded-lg text-sm resize-none"
               style={{
                 backgroundColor: 'var(--bg-secondary)',
                 color: 'var(--text-primary)',
-                border: '1px solid var(--border-color)',
+                border: `1px solid ${noteError ? 'var(--color-danger)' : 'var(--border-color)'}`,
               }}
             />
+            {noteError && (
+              <p className="text-xs mt-1" style={{ color: 'var(--color-danger)' }}>
+                거절 사유를 입력해주세요.
+              </p>
+            )}
           </div>
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <button type="button" onClick={() => handle('REJECTED')} disabled={submitting}
+        <button type="button" onClick={handleReject} disabled={submitting}
           className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
-          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--color-danger)', border: '1px solid var(--border-color)' }}>
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--color-danger)', border: '1px solid var(--color-danger)30' }}>
           <X className="w-4 h-4" />
-          거절
+          {submitting ? '처리 중...' : '거절'}
         </button>
-        <button type="button" onClick={() => handle('APPROVED')} disabled={submitting}
+        <button type="button" onClick={() => onApprove(adminNote)} disabled={submitting}
           className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50"
           style={{ backgroundColor: 'var(--accent-color)', color: '#fff' }}>
           <Check className="w-4 h-4" />
-          {submitting ? '처리 중...' : '승인'}
+          승인 (일정 설정)
         </button>
       </Modal.Footer>
     </Modal>
   )
+}
+
+// ── 슬롯 prefill 변환 ──────────────────────────────────────────────────────
+
+function buildExtensionPrefill(slot: LessonSlot | null): SlotPrefill | undefined {
+  if (!slot?.sessions || slot.sessions.length === 0) return undefined
+
+  const activeSessions = (slot.sessions as SlotSession[]).filter(
+    (s) => s.status !== 'CANCELLED' && s.status !== 'RESCHEDULED',
+  )
+  if (activeSessions.length === 0) return undefined
+
+  const dowMap = new Map<number, string>()
+  for (const s of activeSessions) {
+    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+    if (!dowMap.has(dow)) dowMap.set(dow, s.start_time.slice(0, 5))
+  }
+  const selectedDays = [...dowMap.keys()].sort((a, b) => a - b)
+  const times: [string, string] = [
+    dowMap.get(selectedDays[0]) ?? '',
+    dowMap.get(selectedDays[1]) ?? '',
+  ]
+  const lastSessionDate = activeSessions.map((s) => s.slot_date).sort().reverse()[0]
+
+  return {
+    frequency: (slot.frequency as 1 | 2) ?? 1,
+    duration: (slot.duration_minutes as 20 | 30) ?? 20,
+    selectedDays,
+    times,
+    lastSessionDate,
+    feeInput: slot.fee_amount != null ? String(slot.fee_amount) : '',
+  }
 }
 
 // ── 메인 컴포넌트 ─────────────────────────────────────────────────────────
@@ -165,6 +207,11 @@ export function AdminExtensionTab({ coachId: fixedCoachId }: AdminExtensionTabPr
   const [loading, setLoading]       = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
   const [selected, setSelected]     = useState<LessonExtensionRequest | null>(null)
+  /** 승인 위자드 대상 — 처리 모달에서 승인 클릭 시 설정 */
+  const [approveInfo, setApproveInfo] = useState<{
+    request: LessonExtensionRequest
+    adminNote: string
+  } | null>(null)
   const [toast, setToast]           = useState({ isOpen: false, message: '', type: 'success' as const })
 
   const loadData = useCallback(async () => {
@@ -181,6 +228,39 @@ export function AdminExtensionTab({ coachId: fixedCoachId }: AdminExtensionTabPr
   )
 
   const pendingCount = requests.filter((r) => r.status === 'PENDING').length
+
+  // 승인 위자드용 prefill + coachId
+  const approvePrefill = useMemo(() => {
+    if (!approveInfo) return undefined
+    const slot = approveInfo.request.slot as LessonSlot | null
+    return buildExtensionPrefill(slot)
+  }, [approveInfo])
+
+  const approveCoachId = useMemo(() => {
+    if (!approveInfo) return ''
+    const slot = approveInfo.request.slot as { coach_id?: string } | null
+    return slot?.coach_id ?? ''
+  }, [approveInfo])
+
+  const approveSlotId = useMemo(() => {
+    if (!approveInfo) return ''
+    const slot = approveInfo.request.slot as { id?: string } | null
+    return slot?.id ?? ''
+  }, [approveInfo])
+
+  // 승인 위자드 완료 핸들러 — CreateSlotModal이 슬롯+예약 생성 완료 후 호출
+  const handleApproveWizardSuccess = async (count: number) => {
+    if (!approveInfo) return
+    // 연장 신청 상태를 APPROVED로 마킹 (슬롯 생성은 위자드에서 완료됨)
+    const result = await markExtensionApproved(approveInfo.request.id, approveInfo.adminNote || undefined)
+    setApproveInfo(null)
+    if (result.error) {
+      setToast({ isOpen: true, message: `슬롯 생성됐으나 승인 마킹 실패: ${result.error}`, type: 'error' as 'success' })
+    } else {
+      setToast({ isOpen: true, message: `패키지가 연장 승인되었습니다. (${count}회)`, type: 'success' })
+    }
+    loadData()
+  }
 
   return (
     <div>
@@ -221,7 +301,7 @@ export function AdminExtensionTab({ coachId: fixedCoachId }: AdminExtensionTabPr
           <table className="w-full text-sm border-collapse">
             <thead>
               <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
-                {['회원', '코치', '패키지', '연장 희망', '알림톡', '신청일', '상태', ''].map((h) => (
+                {['회원', '코치', '패키지', '알림톡', '신청일', '상태', ''].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-medium whitespace-nowrap"
                     style={{ color: 'var(--text-muted)' }}>{h}</th>
                 ))}
@@ -253,10 +333,6 @@ export function AdminExtensionTab({ coachId: fixedCoachId }: AdminExtensionTabPr
                     <td className="px-4 py-3 whitespace-nowrap"
                       style={{ color: 'var(--text-secondary)' }}>
                       {bookingType}{totalSessions ? ` · ${totalSessions}회` : ''}
-                    </td>
-                    <td className="px-4 py-3 whitespace-nowrap font-semibold"
-                      style={{ color: 'var(--accent-color)' }}>
-                      {req.requested_weeks}주
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       {req.kakao_sent ? (
@@ -296,15 +372,39 @@ export function AdminExtensionTab({ coachId: fixedCoachId }: AdminExtensionTabPr
         </div>
       )}
 
-      {/* 처리 모달 */}
+      {/* 처리 모달 (거절/승인 선택) */}
       {selected && (
         <ProcessModal
           request={selected}
           onClose={() => setSelected(null)}
-          onDone={() => {
-            setToast({ isOpen: true, message: '처리되었습니다.', type: 'success' })
+          onApprove={(adminNote) => {
+            // 승인: 위자드로 전환
+            setApproveInfo({ request: selected, adminNote })
+            setSelected(null)
+          }}
+          onReject={async (reason) => {
+            const result = await updateExtensionRequest(selected.id, 'REJECTED', reason)
+            if (result.error) {
+              setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+              return
+            }
+            setSelected(null)
+            setToast({ isOpen: true, message: '거절 처리되었습니다.', type: 'success' })
             loadData()
           }}
+        />
+      )}
+
+      {/* 승인 위자드 모달 */}
+      {approveInfo && approveCoachId && approveSlotId && (
+        <CreateSlotModal
+          isOpen={!!approveInfo}
+          onClose={() => setApproveInfo(null)}
+          coachId={approveCoachId}
+          extendSlotId={approveSlotId}
+          prefill={approvePrefill}
+          onSuccess={handleApproveWizardSuccess}
+          onError={(msg) => setToast({ isOpen: true, message: msg, type: 'error' as 'success' })}
         />
       )}
 

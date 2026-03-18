@@ -4,7 +4,8 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import { sendExtensionRequestAlimtalk } from '@/lib/solapi/alimtalk'
 import { BOOKING_TYPE_LABEL } from './slot-types'
-import type { LessonBooking, LessonSlot } from './slot-types'
+import type { LessonBooking, LessonSlot, SlotSession, CreateSlotInput } from './slot-types'
+import { extendSlot, extendSlotWithWizard } from './slot-actions'
 
 // ── 타입 ─────────────────────────────────────────────────────────────────────
 
@@ -49,7 +50,6 @@ async function checkAdminAuth() {
 export async function requestLessonExtension(input: {
   bookingId: string
   slotId: string
-  requestedWeeks: number
   message?: string
 }): Promise<{ error: string | null }> {
   const user = await getCurrentUser()
@@ -90,9 +90,19 @@ export async function requestLessonExtension(input: {
 
   if (existing) return { error: '이미 처리 중인 연장 신청이 있습니다.' }
 
-  if (input.requestedWeeks < 1 || input.requestedWeeks > 8) {
-    return { error: '연장 가능 범위는 1~8주입니다.' }
-  }
+  // 슬롯 세션에서 연장 주수 자동 계산 (기존 패키지 기간과 동일하게)
+  const { data: slotForWeeks } = await admin
+    .from('lesson_slots')
+    .select('sessions')
+    .eq('id', input.slotId)
+    .single()
+
+  const activeSessions = ((slotForWeeks?.sessions ?? []) as SlotSession[]).filter(
+    (s) => s.status !== 'CANCELLED',
+  )
+  const uniqueDows = new Set(activeSessions.map((s) => new Date(s.slot_date + 'T00:00:00').getDay()))
+  const sessionsPerWeek = uniqueDows.size || 1
+  const computedWeeks = Math.max(1, Math.round(activeSessions.length / sessionsPerWeek))
 
   // 연장 신청 저장
   const { error: insertErr } = await admin
@@ -101,7 +111,7 @@ export async function requestLessonExtension(input: {
       booking_id:      input.bookingId,
       slot_id:         input.slotId,
       member_id:       member.id,
-      requested_weeks: input.requestedWeeks,
+      requested_weeks: computedWeeks,
       message:         input.message?.trim() || null,
       status:          'PENDING',
     })
@@ -133,7 +143,7 @@ export async function requestLessonExtension(input: {
         coachName:      coachRaw.name,
         memberName:     member.name,
         currentPackage: BOOKING_TYPE_LABEL[booking.booking_type as keyof typeof BOOKING_TYPE_LABEL] ?? booking.booking_type,
-        requestedWeeks: input.requestedWeeks,
+        requestedWeeks: computedWeeks,
         message:        input.message ?? '',
         adminUrl:       `${siteUrl}/admin/lessons`,
       })
@@ -151,6 +161,34 @@ export async function requestLessonExtension(input: {
   }
 
   return { error: null }
+}
+
+// ── 내 연장 신청 조회 ────────────────────────────────────────────────────────
+
+/** 처리 중(PENDING)인 연장 신청의 booking_id 목록 조회 (마이페이지 버튼 숨김용) */
+export async function getMyPendingExtensionBookingIds(): Promise<string[]> {
+  const user = await getCurrentUser()
+  if (!user) return []
+
+  const admin = createAdminClient()
+
+  const { data: member } = await admin
+    .from('club_members')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+    .limit(1)
+    .maybeSingle()
+
+  if (!member) return []
+
+  const { data } = await admin
+    .from('lesson_extension_requests')
+    .select('booking_id')
+    .eq('member_id', member.id)
+    .eq('status', 'PENDING')
+
+  return (data ?? []).map((r) => r.booking_id)
 }
 
 // ── 어드민: 조회 ─────────────────────────────────────────────────────────────
@@ -196,6 +234,7 @@ export async function getExtensionRequests(filters?: {
       member:club_members!member_id(id, name),
       booking:lesson_bookings!booking_id(id, booking_type, fee_amount, status),
       slot:lesson_slots!slot_id(id, total_sessions, sessions, coach_id,
+        frequency, duration_minutes, fee_amount,
         coach:coaches!coach_id(id, name))
     `)
     .order('created_at', { ascending: false })
@@ -216,10 +255,46 @@ export async function updateExtensionRequest(
   status: 'APPROVED' | 'REJECTED',
   adminNote?: string,
 ): Promise<{ error: string | null }> {
-  const { error: authErr } = await checkAdminAuth()
-  if (authErr) return { error: authErr }
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
 
+  const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
   const admin = createAdminClient()
+
+  // 코치인 경우 본인 슬롯의 연장 신청만 처리 가능
+  if (!isAdmin) {
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!coach) return { error: '접근 권한이 없습니다.' }
+
+    // 해당 연장 신청의 슬롯이 본인 것인지 확인
+    const { data: req } = await admin
+      .from('lesson_extension_requests')
+      .select('slot_id')
+      .eq('id', requestId)
+      .single()
+    if (!req) return { error: '연장 신청을 찾을 수 없습니다.' }
+
+    const { data: slot } = await admin
+      .from('lesson_slots')
+      .select('coach_id')
+      .eq('id', req.slot_id)
+      .single()
+    if (!slot || slot.coach_id !== coach.id) return { error: '본인 슬롯의 연장 신청만 처리할 수 있습니다.' }
+  }
+
+  // 연장 신청 조회 (slot_id, requested_weeks 필요)
+  const { data: req } = await admin
+    .from('lesson_extension_requests')
+    .select('slot_id, requested_weeks')
+    .eq('id', requestId)
+    .single()
+
+  if (!req) return { error: '연장 신청을 찾을 수 없습니다.' }
 
   const { error } = await admin
     .from('lesson_extension_requests')
@@ -228,5 +303,134 @@ export async function updateExtensionRequest(
     .eq('status', 'PENDING') // PENDING인 것만 처리
 
   if (error) return { error: '연장 신청 처리에 실패했습니다.' }
+
+  // 승인 시 새 슬롯 + 예약 자동 생성
+  if (status === 'APPROVED') {
+    const result = await extendSlot(req.slot_id, req.requested_weeks || 4)
+    if (result.error) return { error: `승인 처리됐으나 슬롯 생성 실패: ${result.error}` }
+  }
+
+  return { error: null }
+}
+
+// ── 어드민: 위자드로 승인 ─────────────────────────────────────────────────────
+
+/**
+ * 위자드로 구성한 세션으로 연장 신청 승인
+ * - extendSlotWithWizard로 새 슬롯+예약 생성
+ * - 연장 신청 status → APPROVED
+ */
+export async function approveExtensionWithWizard(
+  requestId: string,
+  adminNote: string | undefined,
+  coachId: string,
+  input: CreateSlotInput,
+): Promise<{ error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
+  const admin = createAdminClient()
+
+  // 코치인 경우 권한 확인
+  if (!isAdmin) {
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!coach) return { error: '접근 권한이 없습니다.' }
+
+    const { data: reqForCheck } = await admin
+      .from('lesson_extension_requests')
+      .select('slot_id')
+      .eq('id', requestId)
+      .single()
+    if (!reqForCheck) return { error: '연장 신청을 찾을 수 없습니다.' }
+
+    const { data: slotForCheck } = await admin
+      .from('lesson_slots')
+      .select('coach_id')
+      .eq('id', reqForCheck.slot_id)
+      .single()
+    if (!slotForCheck || slotForCheck.coach_id !== coach.id) {
+      return { error: '본인 슬롯의 연장 신청만 처리할 수 있습니다.' }
+    }
+  }
+
+  // 연장 신청 slot_id 조회
+  const { data: req } = await admin
+    .from('lesson_extension_requests')
+    .select('slot_id')
+    .eq('id', requestId)
+    .eq('status', 'PENDING')
+    .single()
+
+  if (!req) return { error: '연장 신청을 찾을 수 없습니다.' }
+
+  // 위자드 세션으로 새 슬롯 + 예약 생성
+  const slotResult = await extendSlotWithWizard(req.slot_id, coachId, input)
+  if (slotResult.error) return { error: slotResult.error }
+
+  // 연장 신청 APPROVED 처리
+  const { error } = await admin
+    .from('lesson_extension_requests')
+    .update({ status: 'APPROVED', admin_note: adminNote ?? null })
+    .eq('id', requestId)
+    .eq('status', 'PENDING')
+
+  if (error) return { error: '연장 신청 승인 처리에 실패했습니다.' }
+
+  return { error: null }
+}
+
+// ── 연장 신청 상태만 APPROVED로 업데이트 (슬롯 생성은 위자드에서 처리됨) ─────
+
+/**
+ * 위자드 완료 후 연장 신청 상태를 APPROVED로 업데이트
+ * - 슬롯/예약 생성은 CreateSlotModal (extendSlotWithWizard)에서 선행 처리
+ */
+export async function markExtensionApproved(
+  requestId: string,
+  adminNote?: string,
+): Promise<{ error: string | null }> {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  const isAdmin = user.role === 'SUPER_ADMIN' || user.role === 'ADMIN'
+  const admin = createAdminClient()
+
+  if (!isAdmin) {
+    const { data: coach } = await admin
+      .from('coaches')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('is_active', true)
+      .maybeSingle()
+    if (!coach) return { error: '접근 권한이 없습니다.' }
+
+    const { data: req } = await admin
+      .from('lesson_extension_requests')
+      .select('slot_id')
+      .eq('id', requestId)
+      .single()
+    if (!req) return { error: '연장 신청을 찾을 수 없습니다.' }
+
+    const { data: slot } = await admin
+      .from('lesson_slots')
+      .select('coach_id')
+      .eq('id', req.slot_id)
+      .single()
+    if (!slot || slot.coach_id !== coach.id) return { error: '본인 슬롯의 연장 신청만 처리할 수 있습니다.' }
+  }
+
+  const { error } = await admin
+    .from('lesson_extension_requests')
+    .update({ status: 'APPROVED', admin_note: adminNote ?? null })
+    .eq('id', requestId)
+    .eq('status', 'PENDING')
+
+  if (error) return { error: '연장 신청 승인 처리에 실패했습니다.' }
   return { error: null }
 }

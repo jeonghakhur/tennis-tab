@@ -916,6 +916,9 @@ export async function updateSlotSessions(
 export async function rescheduleSession(
   slotId: string,
   originalDate: string,
+  makeupDate: string,
+  makeupStartTime?: string,
+  makeupEndTime?: string,
   reason?: string,
 ): Promise<{ error: string | null; newDate?: string } & Partial<UpdatedSlotMeta>> {
   const { error: authErr, coachId } = await checkCoachOrAdminAuth()
@@ -937,10 +940,12 @@ export async function rescheduleSession(
   const target = sessions.find((s) => s.slot_date === originalDate)
   if (!target) return { error: '해당 날짜의 세션을 찾을 수 없습니다.' }
 
-  // 1주 후 날짜 계산
-  const origDt = new Date(originalDate + 'T00:00:00')
-  origDt.setDate(origDt.getDate() + 7)
-  const newDate = toLocalDateStr(origDt)
+  const newDate = makeupDate
+
+  // 보강 날짜가 원래 날짜 이후여야 함
+  if (newDate <= originalDate) {
+    return { error: '보강 날짜는 연기 날짜 이후여야 합니다.' }
+  }
 
   // 이미 같은 날짜 세션이 있으면 거부
   if (sessions.some((s) => s.slot_date === newDate)) {
@@ -952,11 +957,11 @@ export async function rescheduleSession(
       ? { ...s, status: 'RESCHEDULED' as const, note: reason ?? s.note }
       : s,
   )
-  // 연기된 새 세션 추가
+  // 연기된 새 세션 추가 (시간 지정 시 사용, 미지정 시 원본 시간 유지)
   updated.push({
     slot_date: newDate,
-    start_time: target.start_time,
-    end_time: target.end_time,
+    start_time: makeupStartTime ?? target.start_time,
+    end_time: makeupEndTime ?? target.end_time,
     status: 'SCHEDULED',
     original_date: originalDate,
     note: reason,
@@ -1105,8 +1110,102 @@ export async function extendSlot(
     }
   }
 
+  // 구 슬롯에 연장 완료 표시
+  await admin
+    .from('lesson_slots')
+    .update({ extended_at: new Date().toISOString() })
+    .eq('id', slotId)
+
   revalidatePath(REVALIDATE_PATH)
   return { error: null, newSlotId: newSlot.id }
+}
+
+/**
+ * 위자드로 직접 구성한 세션으로 패키지 연장
+ * - 기존 슬롯의 예약자 정보를 복사하여 새 슬롯 + CONFIRMED 예약 생성
+ */
+export async function extendSlotWithWizard(
+  oldSlotId: string,
+  coachId: string,
+  input: CreateSlotInput,
+): Promise<{ error: string | null }> {
+  const { error: authErr, coachId: myCoachId, isAdmin } = await checkCoachOrAdminAuth()
+  if (authErr) return { error: authErr }
+  if (!isAdmin && myCoachId !== coachId) return { error: '본인 슬롯만 연장할 수 있습니다.' }
+
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+
+  if (!input.sessions.length) return { error: '생성할 세션이 없습니다.' }
+
+  const admin = createAdminClient()
+
+  const first = input.sessions[0]
+  const last = input.sessions[input.sessions.length - 1]
+
+  // 신규 슬롯 생성 (BOOKED 상태 — 예약자 있음)
+  const { data: newSlot, error: slotErr } = await admin
+    .from('lesson_slots')
+    .insert({
+      coach_id:        coachId,
+      slot_date:       first.slot_date,
+      start_time:      first.start_time,
+      end_time:        first.end_time,
+      day_type:        getDayType(first.slot_date),
+      frequency:       input.frequency,
+      duration_minutes: input.duration_minutes,
+      total_sessions:  input.total_sessions,
+      sessions:        input.sessions,
+      last_session_date: last.slot_date,
+      fee_amount:      input.fee_amount,
+      status:          'BOOKED',
+      created_by:      user.id,
+    })
+    .select('id')
+    .single()
+
+  if (slotErr || !newSlot) return { error: '신규 슬롯 생성에 실패했습니다.' }
+
+  // 기존 예약에서 예약자 정보 복사
+  const { data: oldBooking } = await admin
+    .from('lesson_bookings')
+    .select('member_id, guest_name, guest_phone, is_guest, booking_type, fee_amount')
+    .overlaps('slot_ids', [oldSlotId])
+    .neq('status', 'CANCELLED')
+    .limit(1)
+    .maybeSingle()
+
+  if (oldBooking) {
+    const { error: bookingErr } = await admin
+      .from('lesson_bookings')
+      .insert({
+        member_id:    oldBooking.member_id,
+        guest_name:   oldBooking.guest_name,
+        guest_phone:  oldBooking.guest_phone,
+        is_guest:     oldBooking.is_guest,
+        slot_ids:     [newSlot.id],
+        slot_count:   1,
+        booking_type: getBookingTypeForPackageSlot({ sessions: input.sessions, frequency: input.frequency } as LessonSlot),
+        fee_amount:   input.fee_amount ?? oldBooking.fee_amount,
+        status:       'CONFIRMED',
+        confirmed_at: new Date().toISOString(),
+        admin_note:   '패키지 연장',
+      })
+
+    if (bookingErr) {
+      await admin.from('lesson_slots').delete().eq('id', newSlot.id)
+      return { error: '신규 예약 생성에 실패했습니다.' }
+    }
+  }
+
+  // 구 슬롯에 연장 완료 표시
+  await admin
+    .from('lesson_slots')
+    .update({ extended_at: new Date().toISOString() })
+    .eq('id', oldSlotId)
+
+  revalidatePath(REVALIDATE_PATH)
+  return { error: null }
 }
 
 // ============================================================================
@@ -1289,27 +1388,34 @@ export async function createLessonInquiry(input: {
 }
 
 /** 어드민: 전체 레슨 문의 조회 */
-export async function getAdminLessonInquiries(): Promise<{ data: LessonInquiry[]; error: string | null }> {
-  const { error: authErr } = await checkAdminAuth()
+export async function getAdminLessonInquiries(filterCoachId?: string): Promise<{ data: LessonInquiry[]; error: string | null }> {
+  const { error: authErr, coachId: myCoachId, isAdmin } = await checkCoachOrAdminAuth()
   if (authErr) return { data: [], error: authErr }
 
+  // 코치는 본인 코치 ID로 강제 필터
+  const coachIdFilter = isAdmin ? filterCoachId : (myCoachId ?? undefined)
+
   const admin = createAdminClient()
-  const { data, error } = await admin
+  let query = admin
     .from('lesson_inquiries')
     .select('id, name, phone, message, status, admin_note, created_at, coach_id, preferred_days, preferred_time, coach:coaches!coach_id(id, name)')
     .order('created_at', { ascending: false })
+
+  if (coachIdFilter) query = query.eq('coach_id', coachIdFilter)
+
+  const { data, error } = await query
 
   if (error) return { data: [], error: '문의 목록 조회에 실패했습니다.' }
   return { data: (data as unknown as LessonInquiry[]) || [], error: null }
 }
 
-/** 어드민: 문의 상태 + 메모 업데이트 */
+/** 어드민/코치: 문의 상태 + 메모 업데이트 */
 export async function updateInquiryStatus(
   inquiryId: string,
   status: LessonInquiryStatus,
   adminNote?: string
 ): Promise<{ error: string | null }> {
-  const { error: authErr } = await checkAdminAuth()
+  const { error: authErr } = await checkCoachOrAdminAuth()
   if (authErr) return { error: authErr }
 
   const idErr = validateId(inquiryId, '문의 ID')
@@ -1367,4 +1473,26 @@ export async function getCurrentMemberProfile(): Promise<{
     name: currentUser.name ?? '',
     phone: currentUser.phone ?? '',
   }
+}
+
+/** 로그인 회원의 레슨 문의 목록 조회 (전화번호 기반) */
+export async function getMyInquiries(): Promise<{
+  error: string | null
+  data: LessonInquiry[]
+}> {
+  const currentUser = await getCurrentUser()
+  if (!currentUser) return { error: '로그인이 필요합니다.', data: [] }
+
+  const phone = currentUser.phone?.trim()
+  if (!phone) return { error: null, data: [] }
+
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('lesson_inquiries')
+    .select('id, name, phone, message, status, admin_note, created_at, coach_id, preferred_days, preferred_time, coach:coaches!coach_id(id, name)')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false })
+
+  if (error) return { error: '문의 목록 조회에 실패했습니다.', data: [] }
+  return { error: null, data: (data as unknown as LessonInquiry[]) || [] }
 }
