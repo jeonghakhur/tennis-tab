@@ -36,10 +36,18 @@ function formatDate(dateStr: string) {
   return `${d.getMonth() + 1}/${d.getDate()}(${DAY_LABELS[d.getDay()]})`
 }
 
+/** Date를 로컬 타임존 기준 YYYY-MM-DD 문자열로 변환 (toISOString은 UTC 변환으로 날짜가 밀릴 수 있음) */
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 function addWeeks(dateStr: string, weeks: number): string {
   const d = new Date(dateStr + 'T00:00:00')
   d.setDate(d.getDate() + weeks * 7)
-  return d.toISOString().slice(0, 10)
+  return toLocalDateStr(d)
 }
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────

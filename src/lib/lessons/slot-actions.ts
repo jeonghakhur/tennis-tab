@@ -722,6 +722,14 @@ export async function getBookings(filters?: {
 // 세션 관리 (진행 여부 · 연기 · 연장)
 // ============================================================================
 
+/** 로컬 타임존 기준 YYYY-MM-DD 변환 (toISOString은 UTC로 변환되어 +9 환경에서 날짜가 밀림) */
+function toLocalDateStr(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
 /**
  * 슬롯의 sessions JSONB 전체를 업데이트 (진행 여부 토글 등)
  * - sessions 배열을 통째로 교체하므로 클라이언트에서 변경된 배열을 전달
@@ -759,7 +767,8 @@ export async function updateSlotSessions(
 
   if (error) return { error: '세션 정보 업데이트에 실패했습니다.' }
 
-  revalidatePath('/admin/lessons')
+  // revalidatePath 제거 — admin 탭은 loadBookings()로 클라이언트 상태 갱신,
+  // revalidatePath가 라우터 리프레시를 유발해 전체 페이지 새로고침됨
   return { error: null }
 }
 
@@ -792,7 +801,7 @@ export async function rescheduleSession(
   // 1주 후 날짜 계산
   const origDt = new Date(originalDate + 'T00:00:00')
   origDt.setDate(origDt.getDate() + 7)
-  const newDate = origDt.toISOString().slice(0, 10)
+  const newDate = toLocalDateStr(origDt)
 
   // 이미 같은 날짜 세션이 있으면 거부
   if (sessions.some((s) => s.slot_date === newDate)) {
@@ -873,7 +882,7 @@ export async function extendSlot(
       // diff를 구해 해당 요일의 다음 날짜로 이동
       const diffDays = ((dow - lastDt.getDay() + 7) % 7 || 7) + (week - 1) * 7
       base.setDate(lastDt.getDate() + diffDays)
-      const newDate = base.toISOString().slice(0, 10)
+      const newDate = toLocalDateStr(base)
 
       if (!newSessions.some((s) => s.slot_date === newDate)) {
         newSessions.push({
@@ -897,7 +906,10 @@ export async function extendSlot(
 /** 내 예약에 필요한 슬롯+코치+프로그램 정보 */
 export interface MyBookingDetail {
   booking: LessonBooking
-  slots: Array<LessonSlot & { program?: { title: string; coach?: { name: string; profile_image_url: string | null } } }>
+  slots: Array<LessonSlot & {
+    coach?: { name: string; profile_image_url: string | null } | null
+    program?: { title: string; coach?: { name: string; profile_image_url: string | null } } | null
+  }>
 }
 
 /** 로그인 회원의 예약 목록 조회 */
@@ -937,7 +949,7 @@ export async function getMyBookings(): Promise<{
 
   const { data: slots } = await admin
     .from('lesson_slots')
-    .select('*, program:lesson_programs(title, coach:coaches(name, profile_image_url))')
+    .select('*, coach:coaches!coach_id(name, profile_image_url), program:lesson_programs!program_id(title)')
     .in('id', uniqueSlotIds)
 
   const slotMap = new Map((slots || []).map((s) => [s.id, s]))
