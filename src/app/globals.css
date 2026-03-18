@@ -1189,6 +1189,13 @@ body {
   }
 }
 
+/* iOS Safari 줌인 방지 — input/select 포커스 시 font-size 16px 이상 강제 */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 /* 스크롤바 숨김 */
 .scrollbar-none {
   scrollbar-width: none;
