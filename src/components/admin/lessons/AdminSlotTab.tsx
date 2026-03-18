@@ -63,6 +63,24 @@ function addMinutes(time: string, minutes: number): string {
   return `${String(Math.floor(total / 60) % 24).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`
 }
 
+/** 날짜 문자열을 M/D 형식으로 변환 */
+function formatDateShort(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00')
+  return `${d.getMonth() + 1}/${d.getDate()}`
+}
+
+/** sessions 배열에서 고유 요일 레이블 추출 (화·목 등) */
+function getPackageDowLabel(sessions: Array<{ slot_date: string }>, fallbackDateStr?: string): string {
+  const src = sessions.length > 0 ? sessions : fallbackDateStr ? [{ slot_date: fallbackDateStr }] : []
+  const seen = new Set<number>()
+  const dows: number[] = []
+  for (const s of src) {
+    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+    if (!seen.has(dow)) { seen.add(dow); dows.push(dow) }
+  }
+  return dows.map((d) => DAY_LABELS[d]).join('·')
+}
+
 /** 주 시작일(월요일) 반환 */
 function getWeekStart(date: Date): Date {
   const d = new Date(date.getFullYear(), date.getMonth(), date.getDate())
@@ -858,12 +876,11 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
         </div>
       ) : (
         <div>
-          {slots.map((slot, idx) => (
-            <SlotRow
+          {slots.map((slot) => (
+            <PackageCard
               key={slot.id}
               slot={slot}
               dateStr={dateStr}
-              isFirst={idx === 0}
               onToggle={() => onToggle(slot)}
               onLock={() => onLock(slot)}
               onUnlock={() => onUnlock(slot)}
@@ -958,6 +975,127 @@ function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete, onViewBooking }:
   )
 }
 
+// ─── PackageCard 컴포넌트 (달력 날짜 패널용) ─────────────────────────────────
+
+interface PackageCardProps {
+  slot: LessonSlot
+  dateStr: string   // 현재 선택된 날짜 — 해당 날짜의 세션 회차 강조
+  onToggle: () => void
+  onLock: () => void
+  onUnlock: () => void
+  onDelete: () => void
+  onViewBooking: () => void
+}
+
+function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onViewBooking }: PackageCardProps) {
+  const conf = SLOT_STATUS_CONFIG[slot.status]
+  const sessions = slot.sessions ?? []
+  const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
+  const bookedName = getBookingName(slot)
+
+  // 해당 날짜 세션 + 회차 번호
+  const sessionIndex = sessions.findIndex((s) => s.slot_date === dateStr)
+  const currentSession = sessionIndex >= 0 ? sessions[sessionIndex] : null
+  const sessionNumber = sessionIndex + 1
+
+  const time = currentSession
+    ? `${currentSession.start_time.slice(0, 5)}~${currentSession.end_time.slice(0, 5)}`
+    : `${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
+
+  // 패키지 제목 (화·목 주2회 레슨 패키지)
+  const dowLabel = getPackageDowLabel(sessions, slot.slot_date)
+  const title = slot.frequency ? `${dowLabel} 주${slot.frequency}회 레슨 패키지` : `${dowLabel} 레슨 슬롯`
+
+  return (
+    <div
+      className="rounded-xl p-4 mb-3"
+      style={{ border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-card)' }}
+    >
+      {/* 헤더: 패키지 제목 + 상태 배지 + 액션 */}
+      <div className="flex items-start gap-2 mb-3">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>
+            {title}
+          </p>
+          {bookedName && (slot.status === 'BOOKED' || slot.status === 'LOCKED') && (
+            <p className="text-sm mt-0.5" style={{ color: 'var(--accent-color)' }}>{bookedName}</p>
+          )}
+        </div>
+
+        <Badge variant={conf.variant}>{conf.label}</Badge>
+
+        {/* 액션 버튼 */}
+        <div className="flex items-center gap-0.5 shrink-0">
+          {isActionable && (
+            <>
+              <button
+                onClick={onToggle}
+                className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors"
+                aria-label={slot.status === 'OPEN' ? '비공개 처리' : '공개 처리'}
+              >
+                {slot.status === 'OPEN'
+                  ? <Lock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                  : <Unlock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                }
+              </button>
+              {slot.status === 'OPEN' && (
+                <button onClick={onLock} className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors" aria-label="회원 배정">
+                  <Search className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
+                </button>
+              )}
+              <button onClick={onDelete} className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors" aria-label="삭제">
+                <X className="w-3.5 h-3.5" style={{ color: 'var(--color-danger)' }} />
+              </button>
+            </>
+          )}
+          {slot.status === 'LOCKED' && (
+            <button onClick={onUnlock} className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors" aria-label="배정 해제">
+              <Unlock className="w-3.5 h-3.5" style={{ color: 'var(--color-danger)' }} />
+            </button>
+          )}
+          {slot.status === 'BOOKED' && (
+            <button onClick={onViewBooking} className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors" aria-label="예약 상세">
+              <User className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 오늘 세션 시간 + 회차 */}
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: SLOT_STATUS_DOT[slot.status] }} />
+        <span className="font-medium tabular-nums" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>
+          {time}
+        </span>
+        {sessions.length > 0 && sessionNumber > 0 && slot.total_sessions && (
+          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+            {sessionNumber}회차 / {slot.total_sessions}회
+          </span>
+        )}
+      </div>
+
+      {/* 전체 세션 날짜 칩 */}
+      {sessions.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {sessions.map((s) => (
+            <span
+              key={s.slot_date}
+              className="text-sm px-2 py-0.5 rounded-full tabular-nums"
+              style={{
+                backgroundColor: s.slot_date === dateStr ? 'var(--accent-color)' : 'var(--bg-secondary)',
+                color: s.slot_date === dateStr ? '#fff' : 'var(--text-muted)',
+                fontWeight: s.slot_date === dateStr ? 600 : 400,
+              }}
+            >
+              {formatDateShort(s.slot_date)}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── SlotRow 컴포넌트 (목록 뷰 행) ──────────────────────────────────────────
 
 interface SlotRowProps {
@@ -980,9 +1118,12 @@ function SlotRow({ slot, dateStr, isFirst, onToggle, onLock, onUnlock, onDelete,
   const time = `${startTime}~${endTime}`
   const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
   const bookedName = getBookingName(slot)
-  // 패키지 정보 (주N회 · N회)
-  const packageLabel = slot.frequency && slot.total_sessions
-    ? `주${slot.frequency}회 · ${slot.total_sessions}회`
+  // 회차 번호 (이 날짜가 전체 세션 중 몇 번째인지)
+  const sessionIndex = slot.sessions?.findIndex((s) => s.slot_date === dateStr) ?? -1
+  const sessionNumber = sessionIndex >= 0 ? sessionIndex + 1 : null
+  // 기간 표시 (3/24~4/17)
+  const dateRange = slot.slot_date && slot.last_session_date && slot.slot_date !== slot.last_session_date
+    ? `${formatDateShort(slot.slot_date)}~${formatDateShort(slot.last_session_date)}`
     : null
 
   return (
@@ -1007,10 +1148,15 @@ function SlotRow({ slot, dateStr, isFirst, onToggle, onLock, onUnlock, onDelete,
       {/* 상태 배지 */}
       <Badge variant={conf.variant}>{conf.label}</Badge>
 
-      {/* 패키지 정보 */}
-      {packageLabel && (
-        <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
-          {packageLabel}
+      {/* 회차 / 기간 */}
+      {sessionNumber && slot.total_sessions && (
+        <span className="text-sm shrink-0 tabular-nums" style={{ color: 'var(--text-muted)' }}>
+          {sessionNumber}회차/{slot.total_sessions}회
+        </span>
+      )}
+      {dateRange && (
+        <span className="text-sm shrink-0 tabular-nums" style={{ color: 'var(--text-muted)' }}>
+          {dateRange}
         </span>
       )}
 
