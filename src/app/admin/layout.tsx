@@ -53,10 +53,10 @@ export default async function AdminLayout({
         <AdminSidebar currentRole={profile?.role ?? 'USER'} isCoach={isCoach && !isAdmin} />
         <div className="flex-1 lg:ml-64 flex flex-col h-full overflow-hidden">
           <AdminHeader
-            userName={profile.name}
-            userEmail={profile.email}
-            userAvatar={profile.avatar_url}
-            userRole={profile.role}
+            userName={profile?.name ?? ''}
+            userEmail={profile?.email ?? ''}
+            userAvatar={profile?.avatar_url ?? null}
+            userRole={profile?.role ?? 'USER'}
           />
           <div className="flex-1 overflow-y-auto p-6">
             {children}
