@@ -35,11 +35,9 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
   const [selectedCoachId, setSelectedCoachId] = useState<string>('ALL')
   const [statusFilter, setStatusFilter]   = useState<StatusFilter>('ALL')
 
-  // 모달
+  // 모달 (reason/noteText는 각 모달 컴포넌트 로컬 state로 관리 — 부모 리렌더 방지)
   const [cancelTarget, setCancelTarget]   = useState<LessonBooking | null>(null)
-  const [cancelReason, setCancelReason]   = useState('')
   const [noteTarget, setNoteTarget]       = useState<LessonBooking | null>(null)
-  const [noteText, setNoteText]           = useState('')
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
@@ -101,13 +99,11 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
     setToast({ isOpen: true, message: '예약이 확정되었습니다.', type: 'success' })
   }
 
-  const handleCancel = async () => {
+  const handleCancel = async (reason: string) => {
     if (!cancelTarget) return
     const targetId = cancelTarget.id
-    const reason   = cancelReason.trim()
     const isPending = cancelTarget.status === 'PENDING'
     setCancelTarget(null)
-    setCancelReason('')
     // 낙관적 업데이트: 상태 변경 + 사유를 admin_note에 반영
     setBookings((prev) =>
       prev.map((b) =>
@@ -133,10 +129,9 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
     })
   }
 
-  const handleSaveNote = async () => {
+  const handleSaveNote = async (note: string) => {
     if (!noteTarget) return
     const targetId = noteTarget.id
-    const note     = noteText
     setNoteTarget(null)
     setBookings((prev) => prev.map((b) => b.id === targetId ? { ...b, admin_note: note } : b))
     const result = await updateBookingNote(targetId, note)
@@ -229,71 +224,26 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
               key={booking.id}
               booking={booking}
               onConfirm={() => handleConfirm(booking)}
-              onCancel={() => { setCancelTarget(booking); setCancelReason('') }}
-              onNote={() => { setNoteTarget(booking); setNoteText(booking.admin_note || '') }}
+              onCancel={() => setCancelTarget(booking)}
+              onNote={() => setNoteTarget(booking)}
             />
           ))}
         </div>
       )}
 
-      {/* 취소/거절 사유 모달 */}
-      {(() => {
-        const isPending = cancelTarget?.status === 'PENDING'
-        const modalTitle = isPending ? '예약 거절' : '예약 취소'
-        const reasonLabel = isPending ? '거절 사유 (선택)' : '취소 사유 (선택)'
-        const confirmLabel = isPending ? '거절' : '취소 확인'
-        return (
-          <Modal isOpen={!!cancelTarget} onClose={() => setCancelTarget(null)} title={modalTitle} size="sm">
-            <Modal.Body>
-              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-                {isPending ? '예약을 거절하면 슬롯이 다시 공개됩니다.' : '예약을 취소하면 슬롯이 다시 공개됩니다.'}
-              </p>
-              <label htmlFor="cancel-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-                {reasonLabel}
-              </label>
-              <textarea
-                id="cancel-reason"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                rows={3}
-                maxLength={200}
-                placeholder="사유를 입력하면 메모에 저장됩니다."
-                className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-                style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-              />
-            </Modal.Body>
-            <Modal.Footer>
-              <button onClick={() => setCancelTarget(null)} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-                닫기
-              </button>
-              <button onClick={handleCancel} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-danger)' }}>
-                {confirmLabel}
-              </button>
-            </Modal.Footer>
-          </Modal>
-        )
-      })()}
+      {/* 취소/거절 사유 모달 — 로컬 state로 입력 관리 */}
+      <CancelModal
+        target={cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={handleCancel}
+      />
 
-      {/* 메모 모달 */}
-      <Modal isOpen={!!noteTarget} onClose={() => setNoteTarget(null)} title="관리자 메모" size="sm">
-        <Modal.Body>
-          <textarea
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            rows={4}
-            maxLength={500}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-            aria-label="관리자 메모"
-          />
-        </Modal.Body>
-        <Modal.Footer>
-          <button onClick={() => setNoteTarget(null)} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-            취소
-          </button>
-          <button onClick={handleSaveNote} className="flex-1 btn-primary">저장</button>
-        </Modal.Footer>
-      </Modal>
+      {/* 메모 모달 — 로컬 state로 입력 관리 */}
+      <NoteModal
+        target={noteTarget}
+        onClose={() => setNoteTarget(null)}
+        onSave={handleSaveNote}
+      />
 
       <Toast
         isOpen={toast.isOpen}
@@ -470,5 +420,102 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── CancelModal ─────────────────────────────────────────────────────────────
+// 로컬 state로 텍스트 관리 → 부모 리렌더 없이 입력 처리
+
+function CancelModal({
+  target,
+  onClose,
+  onConfirm,
+}: {
+  target: LessonBooking | null
+  onClose: () => void
+  onConfirm: (reason: string) => void
+}) {
+  const [reason, setReason] = useState('')
+
+  // 모달 열릴 때 초기화
+  useEffect(() => {
+    if (target) setReason('')
+  }, [target])
+
+  const isPending = target?.status === 'PENDING'
+
+  return (
+    <Modal isOpen={!!target} onClose={onClose} title={isPending ? '예약 거절' : '예약 취소'} size="sm">
+      <Modal.Body>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+          {isPending ? '예약을 거절하면 슬롯이 다시 공개됩니다.' : '예약을 취소하면 슬롯이 다시 공개됩니다.'}
+        </p>
+        <label htmlFor="cancel-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+          {isPending ? '거절 사유 (선택)' : '취소 사유 (선택)'}
+        </label>
+        <textarea
+          id="cancel-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          maxLength={200}
+          placeholder="사유를 입력하면 메모에 저장됩니다."
+          className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+          style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+        />
+      </Modal.Body>
+      <Modal.Footer>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+          닫기
+        </button>
+        <button
+          onClick={() => onConfirm(reason.trim())}
+          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white"
+          style={{ backgroundColor: 'var(--color-danger)' }}
+        >
+          {isPending ? '거절' : '취소 확인'}
+        </button>
+      </Modal.Footer>
+    </Modal>
+  )
+}
+
+// ─── NoteModal ───────────────────────────────────────────────────────────────
+
+function NoteModal({
+  target,
+  onClose,
+  onSave,
+}: {
+  target: LessonBooking | null
+  onClose: () => void
+  onSave: (note: string) => void
+}) {
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    if (target) setNote(target.admin_note ?? '')
+  }, [target])
+
+  return (
+    <Modal isOpen={!!target} onClose={onClose} title="관리자 메모" size="sm">
+      <Modal.Body>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={4}
+          maxLength={500}
+          className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+          style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          aria-label="관리자 메모"
+        />
+      </Modal.Body>
+      <Modal.Footer>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+          취소
+        </button>
+        <button onClick={() => onSave(note)} className="flex-1 btn-primary">저장</button>
+      </Modal.Footer>
+    </Modal>
   )
 }
