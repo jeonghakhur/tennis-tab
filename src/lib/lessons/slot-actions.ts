@@ -835,24 +835,27 @@ export async function rescheduleSession(
 }
 
 /**
- * 패키지 연장: 마지막 세션 이후 같은 요일 패턴으로 N주 세션 추가
- * - frequency=1이면 1개/주, =2이면 2개/주
+ * 패키지 연장: 현재 슬롯과 동일한 설정으로 신규 슬롯 + CONFIRMED 예약을 생성
+ * - 기존 슬롯의 sessions는 변경하지 않음 (월별 독립 슬롯으로 관리)
+ * - 마지막 활성 세션 이후 동일 요일 패턴으로 N주 세션 생성
  */
 export async function extendSlot(
   slotId: string,
   additionalWeeks: number,
-): Promise<{ error: string | null } & Partial<UpdatedSlotMeta>> {
-  const { error: authErr } = await checkAdminAuth()
-  if (authErr) return { error: authErr }
+): Promise<{ error: string | null; newSlotId?: string }> {
+  const { error: authErr, user } = await checkAdminAuth()
+  if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
 
   if (additionalWeeks < 1 || additionalWeeks > 8) {
     return { error: '연장 가능 범위는 1~8주입니다.' }
   }
 
   const admin = createAdminClient()
+
+  // 현재 슬롯 전체 조회 (복사에 필요한 모든 필드)
   const { data: slot, error: fetchErr } = await admin
     .from('lesson_slots')
-    .select('sessions, frequency')
+    .select('*')
     .eq('id', slotId)
     .single()
 
@@ -871,18 +874,16 @@ export async function extendSlot(
     }
   }
 
-  // 마지막 활성 세션 날짜 기준으로 연장
+  // 마지막 활성 세션 날짜 기준으로 새 세션 날짜 계산
   const lastDate = activeSessions.map((s) => s.slot_date).sort().reverse()[0]
   const lastDt = new Date(lastDate + 'T00:00:00')
 
-  const newSessions: SlotSession[] = [...sessions]
+  const newSessions: SlotSession[] = []
   const dowList = [...dayTimeMap.entries()].sort((a, b) => a[0] - b[0])
 
   for (let week = 1; week <= additionalWeeks; week++) {
     for (const [dow, times] of dowList) {
-      // 마지막 날짜와 같은 요일 기준 N주 뒤
       const base = new Date(lastDt)
-      // diff를 구해 해당 요일의 다음 날짜로 이동
       const diffDays = ((dow - lastDt.getDay() + 7) % 7 || 7) + (week - 1) * 7
       base.setDate(lastDt.getDate() + diffDays)
       const newDate = toLocalDateStr(base)
@@ -899,7 +900,71 @@ export async function extendSlot(
   }
 
   newSessions.sort((a, b) => a.slot_date.localeCompare(b.slot_date))
-  return updateSlotSessions(slotId, newSessions)
+  if (newSessions.length === 0) return { error: '생성할 새 세션이 없습니다.' }
+
+  const first = newSessions[0]
+  const last = newSessions[newSessions.length - 1]
+
+  // 신규 슬롯 생성 (기존 슬롯 설정 복사 + 새 세션)
+  const { data: newSlot, error: slotErr } = await admin
+    .from('lesson_slots')
+    .insert({
+      coach_id: slot.coach_id,
+      program_id: slot.program_id,
+      slot_date: first.slot_date,
+      start_time: first.start_time,
+      end_time: first.end_time,
+      day_type: getDayType(first.slot_date),
+      frequency: slot.frequency,
+      duration_minutes: slot.duration_minutes,
+      total_sessions: newSessions.length,
+      sessions: newSessions,
+      last_session_date: last.slot_date,
+      fee_amount: slot.fee_amount,
+      locked_member_id: slot.locked_member_id,
+      status: 'BOOKED',
+      created_by: user.id,
+    })
+    .select('id')
+    .single()
+
+  if (slotErr || !newSlot) return { error: '신규 슬롯 생성에 실패했습니다.' }
+
+  // 기존 예약에서 예약자 정보 조회
+  const { data: booking } = await admin
+    .from('lesson_bookings')
+    .select('member_id, guest_name, guest_phone, is_guest, booking_type, fee_amount')
+    .overlaps('slot_ids', [slotId])
+    .neq('status', 'CANCELLED')
+    .limit(1)
+    .maybeSingle()
+
+  if (booking) {
+    const { error: bookingErr } = await admin
+      .from('lesson_bookings')
+      .insert({
+        member_id: booking.member_id,
+        guest_name: booking.guest_name,
+        guest_phone: booking.guest_phone,
+        is_guest: booking.is_guest,
+        slot_ids: [newSlot.id],
+        slot_count: 1,
+        booking_type: booking.booking_type,
+        fee_amount: booking.fee_amount,
+        status: 'CONFIRMED',
+        confirmed_at: new Date().toISOString(),
+        admin_note: '패키지 연장',
+      })
+
+    if (bookingErr) {
+      // 롤백: 새 슬롯 삭제
+      await admin.from('lesson_slots').delete().eq('id', newSlot.id)
+      return { error: '신규 예약 생성에 실패했습니다.' }
+    }
+  }
+
+  revalidatePath(REVALIDATE_PATH)
+  return { error: null, newSlotId: newSlot.id }
 }
 
 // ============================================================================

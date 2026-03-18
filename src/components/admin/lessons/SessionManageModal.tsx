@@ -28,6 +28,7 @@ interface Props {
   booking: LessonBooking | null
   onClose: () => void
   onSessionsUpdated: (slotId: string, meta: UpdatedSlotMeta) => void
+  onExtended: () => void  // 신규 슬롯+예약 생성됨 → 목록 재조회
 }
 
 // ─── 헬퍼 ────────────────────────────────────────────────────────────────────
@@ -53,7 +54,7 @@ function addWeeks(dateStr: string, weeks: number): string {
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
 
-export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Props) {
+export function SessionManageModal({ booking, onClose, onSessionsUpdated, onExtended }: Props) {
   const slot = booking?.slots?.[0] ?? null
 
   // 로컬 세션 상태 (편집 중)
@@ -145,11 +146,8 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Prop
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
       return
     }
-    onSessionsUpdated(slot.id, {
-      sessions: result.sessions!,
-      totalSessions: result.totalSessions!,
-      lastSessionDate: result.lastSessionDate!,
-    })
+    // 신규 슬롯+예약이 생성됐으므로 목록 전체 재조회
+    onExtended()
     onClose()
   }
 

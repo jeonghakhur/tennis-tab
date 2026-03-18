@@ -301,6 +301,7 @@ export function AdminBookingTab() {
         booking={sessionTarget}
         onClose={() => setSessionTarget(null)}
         onSessionsUpdated={handleSessionsUpdated}
+        onExtended={loadBookings}
       />
 
       <Toast
