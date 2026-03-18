@@ -481,15 +481,6 @@ function NoteModal({
   return (
     <Modal isOpen={!!target} onClose={onClose} title="관리자 메모" size="sm">
       <Modal.Body>
-        {target?.cancel_reason && (
-          <div
-            className="flex items-start gap-1.5 px-3 py-2 rounded-lg text-sm mb-3"
-            style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
-          >
-            <X className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-            <span className="text-xs">{target.cancel_reason}</span>
-          </div>
-        )}
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
