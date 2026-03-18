@@ -315,10 +315,35 @@ export async function getSlotsByCoach(
       .overlaps('slot_ids', bookedSlotIds)
       .neq('status', 'CANCELLED')
 
+    // 회원별 session number 계산 (몇 번째 레슨인지)
+    const memberIds = [...new Set((bookings || []).filter((b) => b.member_id).map((b) => b.member_id as string))]
+    const memberSessionMap = new Map<string, Map<string, number>>() // memberId → (bookingId → sessionNumber)
+
+    if (memberIds.length > 0) {
+      const { data: allMemberBookings } = await admin
+        .from('lesson_bookings')
+        .select('id, member_id, created_at')
+        .in('member_id', memberIds)
+        .neq('status', 'CANCELLED')
+        .order('created_at')
+
+      for (const mb of allMemberBookings || []) {
+        const mid = mb.member_id as string
+        if (!memberSessionMap.has(mid)) memberSessionMap.set(mid, new Map())
+        const map = memberSessionMap.get(mid)!
+        map.set(mb.id, map.size + 1)
+      }
+    }
+
     for (const b of bookings || []) {
+      const sessionNumber = b.member_id
+        ? (memberSessionMap.get(b.member_id)?.get(b.id) ?? 1)
+        : 1
+      const bookingWithSession = { ...b, sessionNumber } as LessonBooking
+
       for (const sid of b.slot_ids as string[]) {
         if (bookedSlotIds.includes(sid)) {
-          bookingMap.set(sid, b as LessonBooking)
+          bookingMap.set(sid, bookingWithSession)
         }
       }
     }
@@ -332,8 +357,8 @@ export async function getSlotsByCoach(
   return { error: null, data: result as LessonSlot[] }
 }
 
-/** BOOKED 슬롯의 예약 상세 + 회차 정보 조회 (어드민용) */
-export async function getBookingWithSessionInfo(slotId: string): Promise<{
+/** BOOKED 예약 상세 + 회차 정보 조회 (어드민용) — bookingId로 직접 조회 */
+export async function getBookingWithSessionInfo(bookingId: string): Promise<{
   error: string | null
   data: (LessonBooking & { sessionNumber: number; memberPhone: string | null }) | null
 }> {
@@ -342,15 +367,14 @@ export async function getBookingWithSessionInfo(slotId: string): Promise<{
 
   const admin = createAdminClient()
 
-  // 슬롯의 예약 조회 (회원 전화번호 포함)
-  const { data: booking } = await admin
+  // 예약 조회 (회원 전화번호 포함)
+  const { data: booking, error: bookingErr } = await admin
     .from('lesson_bookings')
     .select('*, member:club_members!member_id(id, name, phone)')
-    .contains('slot_ids', [slotId])
-    .neq('status', 'CANCELLED')
-    .maybeSingle()
+    .eq('id', bookingId)
+    .single()
 
-  if (!booking) return { error: null, data: null }
+  if (bookingErr || !booking) return { error: null, data: null }
 
   let sessionNumber = 1
   let memberPhone: string | null = null
@@ -367,7 +391,8 @@ export async function getBookingWithSessionInfo(slotId: string): Promise<{
       .neq('status', 'CANCELLED')
       .order('created_at')
 
-    sessionNumber = (allBookings?.findIndex((b) => b.id === booking.id) ?? 0) + 1
+    const idx = allBookings?.findIndex((b) => b.id === booking.id) ?? -1
+    sessionNumber = idx >= 0 ? idx + 1 : 1
   } else {
     memberPhone = booking.guest_phone ?? null
   }

@@ -304,7 +304,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
               </button>
               <button
                 onClick={goToday}
-                className="text-xs px-2 py-1 rounded-lg font-medium"
+                className="text-sm px-2 py-1 rounded-lg font-medium"
                 style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
               >
                 오늘
@@ -383,7 +383,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                   {WEEK_HEADER.map((d, i) => (
                     <div
                       key={d}
-                      className="text-center text-xs font-medium py-1"
+                      className="text-center text-sm font-medium py-1"
                       style={{
                         color: i === 5 ? 'var(--color-info)' : i === 6 ? 'var(--color-danger)' : 'var(--text-muted)',
                       }}
@@ -491,7 +491,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <span
-                        className="text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                        className="text-sm font-bold w-6 h-6 rounded-full flex items-center justify-center shrink-0"
                         style={{
                           backgroundColor: isToday ? 'var(--accent-color)' : 'transparent',
                           color: isToday
@@ -508,13 +508,13 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                       <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                         {date.getMonth() + 1}/{date.getDate()}
                       </span>
-                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
                         ({daySlots.length}개)
                       </span>
                     </div>
 
                     {daySlots.length === 0 ? (
-                      <p className="text-xs pl-8" style={{ color: 'var(--text-muted)' }}>슬롯 없음</p>
+                      <p className="text-sm pl-8" style={{ color: 'var(--text-muted)' }}>슬롯 없음</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5 pl-8">
                         {daySlots.map((slot) => (
@@ -596,6 +596,19 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
 
 // ─── DateSlotPanel (달력 뷰 우측 패널) ─────────────────────────────────────
 
+/** 예약자 표시 이름 헬퍼 */
+function getBookingName(slot: LessonSlot): string | null {
+  if (slot.status === 'BOOKED' && slot.booking) {
+    return slot.booking.member?.name || slot.booking.guest_name || null
+  }
+  if (slot.status === 'LOCKED') {
+    return slot.locked_member?.name || slot.notes || null
+  }
+  return null
+}
+
+// ─── DateSlotPanel (달력 뷰 우측 패널) ─────────────────────────────────────
+
 interface DateSlotPanelProps {
   dateStr: string
   slots: LessonSlot[]
@@ -603,9 +616,10 @@ interface DateSlotPanelProps {
   onLock: (slot: LessonSlot) => void
   onUnlock: (slot: LessonSlot) => void
   onDelete: (slot: LessonSlot) => void
+  onViewBooking: (slot: LessonSlot) => void
 }
 
-function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }: DateSlotPanelProps) {
+function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, onViewBooking }: DateSlotPanelProps) {
   const date = new Date(dateStr + 'T00:00:00')
   const dow = date.getDay()
 
@@ -613,7 +627,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }:
     <div>
       <h3 className="text-sm font-semibold mb-3" style={{ color: 'var(--text-primary)' }}>
         {date.getMonth() + 1}월 {date.getDate()}일 ({DAY_LABELS[dow]})
-        <span className="ml-2 text-xs font-normal" style={{ color: 'var(--text-muted)' }}>
+        <span className="ml-2 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
           {slots.length}개 슬롯
         </span>
       </h3>
@@ -627,6 +641,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }:
           {slots.map((slot) => {
             const conf = SLOT_STATUS_CONFIG[slot.status]
             const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
+            const bookedName = getBookingName(slot)
 
             return (
               <div
@@ -639,14 +654,26 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }:
                     {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
                   </span>
                   <Badge variant={conf.variant}>{conf.label}</Badge>
-                  {slot.status === 'LOCKED' && slot.locked_member && (
-                    <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
-                      {slot.locked_member.name}
-                    </span>
+                  {/* BOOKED: 예약자 이름 + 회차 — 클릭 시 상세 모달 */}
+                  {slot.status === 'BOOKED' && bookedName && (
+                    <button
+                      type="button"
+                      onClick={() => onViewBooking(slot)}
+                      className="text-sm font-medium hover:underline truncate"
+                      style={{ color: 'var(--accent-color)' }}
+                    >
+                      {bookedName}
+                      {slot.booking?.sessionNumber != null && (
+                        <span className="ml-1 font-normal" style={{ color: 'var(--text-muted)' }}>
+                          {slot.booking.sessionNumber}회차
+                        </span>
+                      )}
+                    </button>
                   )}
-                  {slot.status === 'LOCKED' && slot.notes && !slot.locked_member && (
-                    <span className="text-xs truncate" style={{ color: 'var(--text-secondary)' }}>
-                      {slot.notes}
+                  {/* LOCKED: 배정된 회원 이름 */}
+                  {slot.status === 'LOCKED' && bookedName && (
+                    <span className="text-sm truncate" style={{ color: 'var(--text-secondary)' }}>
+                      {bookedName}
                     </span>
                   )}
                 </div>
@@ -654,11 +681,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }:
                 <div className="flex items-center gap-0.5 shrink-0">
                   {isActionable && (
                     <>
-                      <button
-                        onClick={() => onToggle(slot)}
-                        className="p-1 rounded hover:opacity-70"
-                        aria-label={slot.status === 'OPEN' ? '비공개 처리' : '공개 처리'}
-                      >
+                      <button onClick={() => onToggle(slot)} className="p-1 rounded hover:opacity-70" aria-label={slot.status === 'OPEN' ? '비공개 처리' : '공개 처리'}>
                         {slot.status === 'OPEN' ? (
                           <Lock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
                         ) : (
@@ -666,30 +689,24 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete }:
                         )}
                       </button>
                       {slot.status === 'OPEN' && (
-                        <button
-                          onClick={() => onLock(slot)}
-                          className="p-1 rounded hover:opacity-70"
-                          aria-label="회원 배정"
-                        >
+                        <button onClick={() => onLock(slot)} className="p-1 rounded hover:opacity-70" aria-label="회원 배정">
                           <Search className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
                         </button>
                       )}
-                      <button
-                        onClick={() => onDelete(slot)}
-                        className="p-1 rounded hover:opacity-70"
-                        aria-label="삭제"
-                      >
+                      <button onClick={() => onDelete(slot)} className="p-1 rounded hover:opacity-70" aria-label="삭제">
                         <X className="w-3.5 h-3.5" style={{ color: 'var(--color-danger)' }} />
                       </button>
                     </>
                   )}
                   {slot.status === 'LOCKED' && (
-                    <button
-                      onClick={() => onUnlock(slot)}
-                      className="p-1 rounded hover:opacity-70"
-                      aria-label="배정 해제"
-                    >
+                    <button onClick={() => onUnlock(slot)} className="p-1 rounded hover:opacity-70" aria-label="배정 해제">
                       <Unlock className="w-3.5 h-3.5" style={{ color: 'var(--color-danger)' }} />
+                    </button>
+                  )}
+                  {/* BOOKED: 상세 보기 버튼 */}
+                  {slot.status === 'BOOKED' && (
+                    <button onClick={() => onViewBooking(slot)} className="p-1 rounded hover:opacity-70" aria-label="예약 상세">
+                      <User className="w-3.5 h-3.5" style={{ color: 'var(--accent-color)' }} />
                     </button>
                   )}
                 </div>
@@ -710,30 +727,48 @@ interface SlotChipProps {
   onLock: () => void
   onUnlock: () => void
   onDelete: () => void
+  onViewBooking: () => void
 }
 
-function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete }: SlotChipProps) {
+function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete, onViewBooking }: SlotChipProps) {
   const conf = SLOT_STATUS_CONFIG[slot.status]
   const time = `${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
   const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
+  const bookedName = getBookingName(slot)
+
+  // BOOKED 슬롯은 전체가 클릭 가능한 버튼
+  if (slot.status === 'BOOKED') {
+    return (
+      <button
+        type="button"
+        onClick={onViewBooking}
+        className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm hover:opacity-80 transition-opacity"
+        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+        aria-label={`${time} 예약자 ${bookedName || ''} 상세 보기`}
+      >
+        <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{time}</span>
+        <Badge variant={conf.variant}>{conf.label}</Badge>
+        {bookedName && (
+          <span className="font-medium" style={{ color: 'var(--accent-color)' }}>{bookedName}</span>
+        )}
+        {slot.booking?.sessionNumber != null && (
+          <span className="font-normal" style={{ color: 'var(--text-muted)' }}>
+            {slot.booking.sessionNumber}회차
+          </span>
+        )}
+      </button>
+    )
+  }
 
   return (
     <div
-      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-xs"
+      className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-sm"
       style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
     >
       <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{time}</span>
       <Badge variant={conf.variant}>{conf.label}</Badge>
-
-      {slot.status === 'LOCKED' && slot.locked_member && (
-        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-          {slot.locked_member.name}
-        </span>
-      )}
-      {slot.status === 'LOCKED' && slot.notes && !slot.locked_member && (
-        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-          {slot.notes}
-        </span>
+      {bookedName && slot.status === 'LOCKED' && (
+        <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{bookedName}</span>
       )}
 
       {isActionable && (
@@ -762,6 +797,114 @@ function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete }: SlotChipProps)
         </button>
       )}
     </div>
+  )
+}
+
+// ─── 예약자 상세 모달 ────────────────────────────────────────────────────────
+
+interface BookedSlotDetailModalProps {
+  isOpen: boolean
+  onClose: () => void
+  slot: LessonSlot
+}
+
+function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalProps) {
+  const [detail, setDetail] = useState<(LessonBooking & { sessionNumber: number; memberPhone: string | null }) | null>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    const bookingId = slot.booking?.id
+    if (!bookingId) { setLoading(false); return }
+    setLoading(true)
+    getBookingWithSessionInfo(bookingId).then(({ data }) => {
+      setDetail(data)
+      setLoading(false)
+    })
+  }, [isOpen, slot.booking?.id])
+
+  const name = detail?.member?.name || detail?.guest_name || '미확인'
+  const phone = detail?.memberPhone || detail?.guest_phone || '-'
+  const bookingTypeLabel = detail ? BOOKING_TYPE_LABEL[detail.booking_type] : '-'
+  const statusLabel = detail ? BOOKING_STATUS_LABEL[detail.status] : '-'
+  const feeAmount = detail?.fee_amount != null ? `${detail.fee_amount.toLocaleString()}원` : '-'
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title="예약자 정보" size="sm">
+      <Modal.Body>
+        {loading ? (
+          <div className="space-y-3 animate-pulse">
+            {Array.from({ length: 4 }).map((_, i) => (
+              <div key={i} className="h-8 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+            ))}
+          </div>
+        ) : !detail ? (
+          <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>예약 정보를 찾을 수 없습니다.</p>
+        ) : (
+          <div className="space-y-3">
+            {/* 슬롯 정보 */}
+            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>레슨 일시</p>
+              <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
+                {slot.slot_date} {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
+              </p>
+            </div>
+
+            {/* 회차 */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <Hash className="w-4 h-4 shrink-0" style={{ color: 'var(--accent-color)' }} />
+              <div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>회차</p>
+                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  {detail.sessionNumber}번째 레슨
+                </p>
+              </div>
+            </div>
+
+            {/* 이름 */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <User className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              <div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{detail.is_guest ? '비회원' : '회원'}</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{name}</p>
+              </div>
+            </div>
+
+            {/* 연락처 */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              <div>
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>연락처</p>
+                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{phone}</p>
+              </div>
+            </div>
+
+            {/* 예약 유형 + 결제 */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <CreditCard className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약 유형 / 결제</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{bookingTypeLabel}</p>
+                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{feeAmount}</span>
+                  <Badge variant={detail.status === 'CONFIRMED' ? 'success' : detail.status === 'CANCELLED' ? 'danger' : 'warning'}>
+                    {statusLabel}
+                  </Badge>
+                </div>
+              </div>
+            </div>
+
+            {/* 관리자 메모 */}
+            {detail.admin_note && (
+              <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>관리자 메모</p>
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{detail.admin_note}</p>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal.Body>
+    </Modal>
   )
 }
 
@@ -818,11 +961,11 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             </p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작일</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>시작일</label>
                 <SessionDatePicker value={startDate} onChange={setStartDate} placeholder="시작일 선택" />
               </div>
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료일</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>종료일</label>
                 <SessionDatePicker value={endDate} onChange={setEndDate} placeholder="종료일 선택" />
               </div>
             </div>
@@ -833,14 +976,14 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
               시간 범위 <span style={{ color: 'var(--color-danger)' }}>*</span>
             </p>
-            <p className="text-xs mb-2" style={{ color: 'var(--text-muted)' }}>30분 단위로 자동 분할됩니다.</p>
+            <p className="text-sm mb-2" style={{ color: 'var(--text-muted)' }}>30분 단위로 자동 분할됩니다.</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>시작</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>시작</label>
                 <SessionTimePicker value={startTime} onChange={setStartTime} />
               </div>
               <div>
-                <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>종료</label>
+                <label className="block text-sm mb-1" style={{ color: 'var(--text-secondary)' }}>종료</label>
                 <SessionTimePicker value={endTime} onChange={setEndTime} />
               </div>
             </div>
@@ -881,7 +1024,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                 생성 예정 ({previewSlots.length}개)
               </p>
               <div
-                className="rounded-lg p-3 text-xs space-y-1 max-h-40 overflow-y-auto"
+                className="rounded-lg p-3 text-sm space-y-1 max-h-40 overflow-y-auto"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
               >
                 {previewSlots.slice(0, 30).map((s, i) => {
@@ -997,7 +1140,7 @@ function LockSlotModal({ isOpen, onClose, slot, onSuccess, onError }: LockSlotMo
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="회원 배정" size="sm">
       <Modal.Body>
-        <p className="text-xs mb-3" style={{ color: 'var(--text-muted)' }}>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
           {slot.slot_date} {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)} 슬롯에 회원을 배정합니다.
         </p>
         <div className="flex gap-2 mb-3">
@@ -1037,7 +1180,7 @@ function LockSlotModal({ isOpen, onClose, slot, onSuccess, onError }: LockSlotMo
           </div>
         )}
         {results.length === 0 && query.length > 0 && !searching && (
-          <p className="text-xs text-center py-4" style={{ color: 'var(--text-muted)' }}>검색 결과가 없습니다.</p>
+          <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>검색 결과가 없습니다.</p>
         )}
       </Modal.Body>
     </Modal>

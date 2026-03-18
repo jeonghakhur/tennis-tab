@@ -61,6 +61,8 @@ export interface LessonBooking {
   // JOIN 결과
   member?: { id: string; name: string } | null
   slots?: LessonSlot[]
+  // 계산된 필드 (getSlotsByCoach에서 주입)
+  sessionNumber?: number
 }
 
 export interface CreateBookingInput {
