@@ -32,7 +32,7 @@ const SLOT_STATUS_DOT: Record<LessonSlotStatus, string> = {
 }
 
 const SLOT_STATUS_CONFIG: Record<LessonSlotStatus, { label: string; variant: BadgeVariant }> = {
-  OPEN: { label: '빈 슬롯', variant: 'success' },
+  OPEN: { label: '빈 슬롯', variant: 'danger' },
   BLOCKED: { label: '비공개', variant: 'secondary' },
   LOCKED: { label: '배정됨', variant: 'purple' },
   BOOKED: { label: '예약됨', variant: 'info' },
