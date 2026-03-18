@@ -1,19 +1,21 @@
 'use client'
 
 import { useState } from 'react'
-import { Users, Calendar, MessageSquare, ClipboardList } from 'lucide-react'
+import { Users, Calendar, MessageSquare, ClipboardList, RotateCcw } from 'lucide-react'
 import { CoachList } from '@/components/clubs/coaches/CoachList'
 import { AdminSlotTab } from '@/components/admin/lessons/AdminSlotTab'
 import { AdminBookingTab } from '@/components/admin/lessons/AdminBookingTab'
 import { AdminInquiryTab } from '@/components/admin/lessons/AdminInquiryTab'
+import { AdminExtensionTab } from '@/components/admin/lessons/AdminExtensionTab'
 
-type Tab = 'coaches' | 'slots' | 'bookings' | 'inquiries'
+type Tab = 'coaches' | 'slots' | 'bookings' | 'inquiries' | 'extensions'
 
 const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-  { key: 'coaches', label: '코치', icon: Users },
-  { key: 'slots', label: '슬롯', icon: Calendar },
-  { key: 'bookings', label: '예약', icon: ClipboardList },
-  { key: 'inquiries', label: '문의', icon: MessageSquare },
+  { key: 'coaches',    label: '코치',     icon: Users },
+  { key: 'slots',      label: '슬롯',     icon: Calendar },
+  { key: 'bookings',   label: '예약',     icon: ClipboardList },
+  { key: 'inquiries',  label: '문의',     icon: MessageSquare },
+  { key: 'extensions', label: '연장 신청', icon: RotateCcw },
 ]
 
 export default function AdminLessonsPage() {
@@ -77,6 +79,10 @@ export default function AdminLessonsPage() {
 
       <div id="tabpanel-inquiries" role="tabpanel" hidden={tab !== 'inquiries'}>
         {tab === 'inquiries' && <AdminInquiryTab />}
+      </div>
+
+      <div id="tabpanel-extensions" role="tabpanel" hidden={tab !== 'extensions'}>
+        {tab === 'extensions' && <AdminExtensionTab />}
       </div>
     </div>
   )
