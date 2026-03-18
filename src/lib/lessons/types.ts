@@ -21,6 +21,7 @@ export interface Coach {
   certification_files: string[]
   profile_image_url: string | null
   phone: string | null
+  lesson_location: string | null
   is_active: boolean
   created_by: string
   created_at: string
@@ -35,6 +36,7 @@ export interface CreateCoachInput {
   certification_files?: string[]
   profile_image_url?: string
   phone?: string
+  lesson_location?: string
 }
 
 export interface UpdateCoachInput {
@@ -45,6 +47,7 @@ export interface UpdateCoachInput {
   certification_files?: string[]
   profile_image_url?: string
   phone?: string
+  lesson_location?: string
 }
 
 // ─── 레슨 프로그램 ───────────────────────────────────────────────────────────

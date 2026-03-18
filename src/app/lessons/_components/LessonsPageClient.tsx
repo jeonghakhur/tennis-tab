@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Calendar, Clock, Phone, User, ChevronRight, Loader2, GraduationCap, MessageSquare } from 'lucide-react'
+import { Calendar, Clock, Phone, User, ChevronRight, Loader2, GraduationCap, MessageSquare, MapPin } from 'lucide-react'
 import { getPublicOpenSlots, createBooking, getCurrentMemberProfile, createLessonInquiry } from '@/lib/lessons/slot-actions'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
@@ -500,6 +500,12 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
                       </span>
                     ))}
                   </div>
+                )}
+                {selectedCoach.lesson_location && (
+                  <p className="flex items-center gap-1.5 mt-3 text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    {selectedCoach.lesson_location}
+                  </p>
                 )}
                 {selectedCoach.phone && (
                   <a

@@ -24,6 +24,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
   const [phone, setPhone] = useState(initialData?.phone || '')
   const [bio, setBio] = useState(initialData?.bio || '')
   const [experience, setExperience] = useState(initialData?.experience || '')
+  const [lessonLocation, setLessonLocation] = useState(initialData?.lesson_location || '')
   const [certifications, setCertifications] = useState<string[]>(initialData?.certifications || [])
   const [certInput, setCertInput] = useState('')
   const [certificationFiles, setCertificationFiles] = useState<string[]>(initialData?.certification_files || [])
@@ -114,6 +115,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
       phone: phone.trim() || undefined,
       bio: bio.trim() || undefined,
       experience: experience.trim() || undefined,
+      lesson_location: lessonLocation.trim() || undefined,
       certifications: certifications.length > 0 ? certifications : undefined,
       certification_files: certificationFiles.length > 0 ? certificationFiles : undefined,
       profile_image_url: profileImageUrl || undefined,
@@ -135,6 +137,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
       setPhone('')
       setBio('')
       setExperience('')
+      setLessonLocation('')
       setCertifications([])
       setCertInput('')
       setCertificationFiles([])
@@ -262,6 +265,23 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="010-0000-0000"
                   maxLength={20}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* 레슨 장소 */}
+              <div>
+                <label htmlFor="coach-location" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  레슨 장소
+                </label>
+                <input
+                  id="coach-location"
+                  type="text"
+                  value={lessonLocation}
+                  onChange={(e) => setLessonLocation(e.target.value)}
+                  placeholder="예: 망원한강공원 테니스장 3번 코트"
+                  maxLength={200}
                   className="w-full px-3 py-2 rounded-lg text-sm"
                   style={inputStyle}
                 />
