@@ -104,11 +104,17 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
   const handleCancel = async () => {
     if (!cancelTarget) return
     const targetId = cancelTarget.id
-    const reason   = cancelReason
+    const reason   = cancelReason.trim()
+    const isPending = cancelTarget.status === 'PENDING'
     setCancelTarget(null)
     setCancelReason('')
+    // 낙관적 업데이트: 상태 변경 + 사유를 admin_note에 반영
     setBookings((prev) =>
-      prev.map((b) => b.id === targetId ? { ...b, status: 'CANCELLED' as const, cancel_reason: reason } : b)
+      prev.map((b) =>
+        b.id === targetId
+          ? { ...b, status: 'CANCELLED' as const, cancel_reason: reason, admin_note: reason || b.admin_note }
+          : b
+      )
     )
     const result = await cancelBooking(targetId, reason)
     if (result.error) {
@@ -116,7 +122,15 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
       await loadBookings()
       return
     }
-    setToast({ isOpen: true, message: '예약이 거절되었습니다. 슬롯이 복구되었습니다.', type: 'success' })
+    // 취소 사유를 admin_note에 저장
+    if (reason) {
+      await updateBookingNote(targetId, reason)
+    }
+    setToast({
+      isOpen: true,
+      message: isPending ? '예약이 거절되었습니다. 슬롯이 복구되었습니다.' : '예약이 취소되었습니다. 슬롯이 복구되었습니다.',
+      type: 'success',
+    })
   }
 
   const handleSaveNote = async () => {
@@ -222,34 +236,43 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
         </div>
       )}
 
-      {/* 거절 사유 모달 */}
-      <Modal isOpen={!!cancelTarget} onClose={() => setCancelTarget(null)} title="예약 거절" size="sm">
-        <Modal.Body>
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-            예약을 거절하면 슬롯이 다시 공개됩니다.
-          </p>
-          <label htmlFor="cancel-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-            거절 사유 (선택)
-          </label>
-          <textarea
-            id="cancel-reason"
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            rows={3}
-            maxLength={200}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-          />
-        </Modal.Body>
-        <Modal.Footer>
-          <button onClick={() => setCancelTarget(null)} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
-            취소
-          </button>
-          <button onClick={handleCancel} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-danger)' }}>
-            거절
-          </button>
-        </Modal.Footer>
-      </Modal>
+      {/* 취소/거절 사유 모달 */}
+      {(() => {
+        const isPending = cancelTarget?.status === 'PENDING'
+        const modalTitle = isPending ? '예약 거절' : '예약 취소'
+        const reasonLabel = isPending ? '거절 사유 (선택)' : '취소 사유 (선택)'
+        const confirmLabel = isPending ? '거절' : '취소 확인'
+        return (
+          <Modal isOpen={!!cancelTarget} onClose={() => setCancelTarget(null)} title={modalTitle} size="sm">
+            <Modal.Body>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+                {isPending ? '예약을 거절하면 슬롯이 다시 공개됩니다.' : '예약을 취소하면 슬롯이 다시 공개됩니다.'}
+              </p>
+              <label htmlFor="cancel-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+                {reasonLabel}
+              </label>
+              <textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                rows={3}
+                maxLength={200}
+                placeholder="사유를 입력하면 메모에 저장됩니다."
+                className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+                style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+              />
+            </Modal.Body>
+            <Modal.Footer>
+              <button onClick={() => setCancelTarget(null)} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+                닫기
+              </button>
+              <button onClick={handleCancel} className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white" style={{ backgroundColor: 'var(--color-danger)' }}>
+                {confirmLabel}
+              </button>
+            </Modal.Footer>
+          </Modal>
+        )
+      })()}
 
       {/* 메모 모달 */}
       <Modal isOpen={!!noteTarget} onClose={() => setNoteTarget(null)} title="관리자 메모" size="sm">
@@ -417,24 +440,24 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
         {/* 액션 버튼 */}
         <div className="mt-2 md:mt-0 flex gap-1.5 md:shrink-0">
           {booking.status === 'PENDING' && (
-            <>
-              <button
-                onClick={onConfirm}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                style={{ backgroundColor: 'var(--color-success)' }}
-              >
-                <Check className="w-3 h-3" />
-                수락
-              </button>
-              <button
-                onClick={onCancel}
-                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-                style={{ backgroundColor: 'var(--color-danger)' }}
-              >
-                <X className="w-3 h-3" />
-                거절
-              </button>
-            </>
+            <button
+              onClick={onConfirm}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              style={{ backgroundColor: 'var(--color-success)' }}
+            >
+              <Check className="w-3 h-3" />
+              수락
+            </button>
+          )}
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+            <button
+              onClick={onCancel}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              style={{ backgroundColor: 'var(--color-danger)' }}
+            >
+              <X className="w-3 h-3" />
+              {booking.status === 'PENDING' ? '거절' : '취소'}
+            </button>
           )}
           <button
             onClick={onNote}
