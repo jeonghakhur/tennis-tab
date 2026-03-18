@@ -16,6 +16,7 @@ import type {
   ClubMemberRole,
 } from '@/lib/clubs/types'
 import { ChevronLeft, Pencil, Trash2, Settings } from 'lucide-react'
+import { KakaoShareButton } from '@/components/common/KakaoShareButton'
 import { ConfirmDialog, Toast } from '@/components/common/AlertDialog'
 import SessionForm from '@/components/clubs/sessions/SessionForm'
 import { cancelClubSession, deleteClubSession } from '@/lib/clubs/session-actions'
@@ -148,7 +149,15 @@ export default function SessionDetailPage() {
               <h1 className="text-xl font-display" style={{ color: 'var(--text-primary)' }}>
                 {session.title}
               </h1>
-              <Badge variant={config.variant}>{config.label}</Badge>
+              <div className="flex items-center gap-3 shrink-0">
+                <KakaoShareButton
+                  title={session.title}
+                  description={[formattedDate, session.venue_name].filter(Boolean).join(' · ')}
+                  pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/clubs/${clubId}/sessions/${sessionId}`}
+                  compact
+                />
+                <Badge variant={config.variant}>{config.label}</Badge>
+              </div>
             </div>
 
             <div className="space-y-2 text-sm" style={{ color: 'var(--text-secondary)' }}>

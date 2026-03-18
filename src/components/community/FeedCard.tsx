@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Heart, MessageCircle, Eye } from 'lucide-react'
 import { toggleLike } from '@/lib/community/actions'
-import { KakaoShareButton } from '@/components/community/KakaoShareButton'
+import { KakaoShareButton } from '@/components/common/KakaoShareButton'
 import type { Post, PostAttachment } from '@/lib/community/types'
 
 // 본문에서 텍스트만 추출 (HTML 태그 제거)
@@ -222,9 +222,9 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
         {/* 공유 */}
         <KakaoShareButton
           title={post.title}
-          content={post.content}
+          description={plainText.slice(0, 100)}
           imageUrl={images[0]?.url}
-          postId={post.id}
+          pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/community/${post.id}`}
           compact
         />
 

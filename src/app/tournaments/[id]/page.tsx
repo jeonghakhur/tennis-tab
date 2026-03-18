@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
+import type { Metadata } from "next";
 import TournamentActions from "@/components/tournaments/TournamentActions";
 import { createClient, getUserWithTimeout } from "@/lib/supabase/server";
+import { getTournamentForMeta } from "@/lib/meta/fetchers";
+import { buildSportsEventJsonLd } from "@/lib/meta/jsonld";
 import Link from "next/link";
 import { TournamentPosterImage } from "@/components/tournaments/TournamentPosterImage";
 import { TournamentStatus, MatchType } from "@/lib/supabase/types";
@@ -10,12 +13,46 @@ import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { decryptProfile } from "@/lib/crypto/profileCrypto";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 import { PaymentSuccessToast } from "@/components/tournaments/PaymentSuccessToast";
+import { KakaoShareButton } from "@/components/common/KakaoShareButton";
 
 interface Props {
   params: Promise<{ id: string }>;
 }
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const t = await getTournamentForMeta(id)
+  if (!t) return {}
+
+  const dateStr = t.start_date
+    ? new Date(t.start_date).toLocaleDateString('ko-KR', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+      })
+    : ''
+  const description = [dateStr, t.location, t.host].filter(Boolean).join(' · ')
+
+  return {
+    title: t.title,
+    description,
+    openGraph: {
+      title: t.title,
+      description,
+      ...(t.poster_url && {
+        images: [{ url: t.poster_url, width: 1200, height: 630, alt: t.title }],
+      }),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: t.title,
+      description,
+      ...(t.poster_url && { images: [t.poster_url] }),
+    },
+  }
+}
 
 export default async function TournamentDetailPage({ params }: Props) {
   const { id } = await params;
@@ -177,6 +214,13 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   return (
     <div className="max-w-content mx-auto px-4 py-8 pb-24 lg:pb-8">
+      {/* SportsEvent 구조화 데이터 — 구글 리치 결과용 */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildSportsEventJsonLd(tournament)),
+        }}
+      />
       {/* 대회 상태 변경 실시간 감지 */}
       <TournamentRealtimeRefresher
         tournamentIds={[tournament.id]}
@@ -227,17 +271,30 @@ export default async function TournamentDetailPage({ params }: Props) {
             >
               {tournament.title}
             </h1>
-            <p className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-              <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-                {tournament.host || organizerName}
-              </span>
-              {tournament.organizer_name && (
-                <>
-                  <span style={{ color: "var(--border-color)" }}>|</span>
-                  <span>주관: {tournament.organizer_name}</span>
-                </>
-              )}
-            </p>
+            <div className="flex items-center gap-4 flex-wrap">
+              <p className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+                <span className="font-medium" style={{ color: "var(--text-primary)" }}>
+                  {tournament.host || organizerName}
+                </span>
+                {tournament.organizer_name && (
+                  <>
+                    <span style={{ color: "var(--border-color)" }}>|</span>
+                    <span>주관: {tournament.organizer_name}</span>
+                  </>
+                )}
+              </p>
+              <KakaoShareButton
+                title={tournament.title}
+                description={[
+                  tournament.start_date
+                    ? new Date(tournament.start_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                    : '',
+                  tournament.location,
+                ].filter(Boolean).join(' · ')}
+                imageUrl={tournament.poster_url ?? undefined}
+                pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/tournaments/${tournament.id}`}
+              />
+            </div>
           </div>
 
           <div className="flex-shrink-0 flex flex-col gap-3">
