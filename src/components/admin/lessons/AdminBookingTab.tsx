@@ -1,11 +1,12 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ClipboardList, Check, X, MessageSquare, Search, User } from 'lucide-react'
+import { ClipboardList, Check, X, MessageSquare, Search, User, Calendar } from 'lucide-react'
 import { getBookings, confirmBooking, cancelBooking, updateBookingNote } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
+import { SessionManageModal } from './SessionManageModal'
 import { getCoaches } from '@/lib/coaches/actions'
 import type { Coach } from '@/lib/lessons/types'
 import type { LessonBooking, LessonBookingStatus } from '@/lib/lessons/slot-types'
@@ -35,8 +36,9 @@ export function AdminBookingTab() {
   const [searchQuery, setSearchQuery]       = useState('')
 
   // 모달 (reason/noteText는 각 모달 컴포넌트 로컬 state로 관리 — 부모 리렌더 방지)
-  const [cancelTarget, setCancelTarget]     = useState<LessonBooking | null>(null)
-  const [noteTarget, setNoteTarget]         = useState<LessonBooking | null>(null)
+  const [cancelTarget, setCancelTarget]       = useState<LessonBooking | null>(null)
+  const [noteTarget, setNoteTarget]           = useState<LessonBooking | null>(null)
+  const [sessionTarget, setSessionTarget]     = useState<LessonBooking | null>(null)
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
@@ -256,6 +258,7 @@ export function AdminBookingTab() {
                   onConfirm={() => handleConfirm(booking)}
                   onCancel={() => setCancelTarget(booking)}
                   onNote={() => setNoteTarget(booking)}
+                  onSession={() => setSessionTarget(booking)}
                 />
               ))}
             </tbody>
@@ -275,6 +278,13 @@ export function AdminBookingTab() {
         target={noteTarget}
         onClose={() => setNoteTarget(null)}
         onSave={handleSaveNote}
+      />
+
+      {/* 세션 관리 모달 */}
+      <SessionManageModal
+        booking={sessionTarget}
+        onClose={() => setSessionTarget(null)}
+        onSaved={loadBookings}
       />
 
       <Toast
@@ -346,13 +356,14 @@ function getSlotSchedule(sessions: { slot_date: string; start_time: string; end_
 // ─── BookingRow ───────────────────────────────────────────────────────────────
 
 function BookingRow({
-  booking, isLast, onConfirm, onCancel, onNote,
+  booking, isLast, onConfirm, onCancel, onNote, onSession,
 }: {
   booking: LessonBooking
   isLast: boolean
   onConfirm: () => void
   onCancel: () => void
   onNote: () => void
+  onSession: () => void
 }) {
   const conf    = STATUS_CONFIG[booking.status]
   const name    = booking.is_guest ? booking.guest_name : booking.member?.name
@@ -493,6 +504,17 @@ function BookingRow({
             >
               <X className="w-3 h-3" />
               {booking.status === 'PENDING' ? '거절' : '취소'}
+            </button>
+          )}
+          {/* 세션 관리 버튼 */}
+          {booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && (
+            <button
+              onClick={onSession}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+            >
+              <Calendar className="w-3 h-3" />
+              세션
             </button>
           )}
           {/* 메모 버튼 */}

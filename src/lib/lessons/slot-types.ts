@@ -9,11 +9,16 @@ export type LessonBookingType = 'WEEKDAY_1' | 'WEEKEND_1' | 'WEEKDAY_2' | 'WEEKE
 
 // ─── 레슨 슬롯 ──────────────────────────────────────────────────────────────
 
+export type SlotSessionStatus = 'SCHEDULED' | 'COMPLETED' | 'CANCELLED' | 'RESCHEDULED'
+
 /** 개별 세션 (sessions jsonb 배열의 각 원소) */
 export interface SlotSession {
-  slot_date: string   // 'YYYY-MM-DD'
-  start_time: string  // 'HH:MM'
-  end_time: string    // 'HH:MM'
+  slot_date: string              // 'YYYY-MM-DD'
+  start_time: string             // 'HH:MM'
+  end_time: string               // 'HH:MM'
+  status?: SlotSessionStatus     // 기본값 SCHEDULED (없으면 동일 취급)
+  original_date?: string         // 연기된 경우 원래 날짜 'YYYY-MM-DD'
+  note?: string                  // 우천·개인사정 등 사유
 }
 
 export interface LessonSlot {

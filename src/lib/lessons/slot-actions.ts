@@ -719,6 +719,178 @@ export async function getBookings(filters?: {
 
 
 // ============================================================================
+// 세션 관리 (진행 여부 · 연기 · 연장)
+// ============================================================================
+
+/**
+ * 슬롯의 sessions JSONB 전체를 업데이트 (진행 여부 토글 등)
+ * - sessions 배열을 통째로 교체하므로 클라이언트에서 변경된 배열을 전달
+ */
+export async function updateSlotSessions(
+  slotId: string,
+  sessions: SlotSession[],
+): Promise<{ error: string | null }> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const idErr = validateId(slotId, '슬롯 ID')
+  if (idErr) return { error: idErr }
+
+  const admin = createAdminClient()
+
+  // last_session_date: SCHEDULED/COMPLETED 세션 중 마지막 날짜로 재계산
+  const activeDates = sessions
+    .filter((s) => s.status !== 'CANCELLED')
+    .map((s) => s.slot_date)
+    .sort()
+  const lastSessionDate = activeDates[activeDates.length - 1] ?? null
+
+  // total_sessions도 CANCELLED 제외한 수로 재계산
+  const totalSessions = sessions.filter((s) => s.status !== 'CANCELLED').length
+
+  const { error } = await admin
+    .from('lesson_slots')
+    .update({
+      sessions,
+      last_session_date: lastSessionDate,
+      total_sessions: totalSessions,
+    })
+    .eq('id', slotId)
+
+  if (error) return { error: '세션 정보 업데이트에 실패했습니다.' }
+
+  revalidatePath('/admin/lessons')
+  return { error: null }
+}
+
+/**
+ * 특정 세션을 1주 연기
+ * - 원래 세션: status → RESCHEDULED, note 기록
+ * - 새 세션: 1주 뒤 같은 요일, 같은 시간으로 append
+ */
+export async function rescheduleSession(
+  slotId: string,
+  originalDate: string,
+  reason?: string,
+): Promise<{ error: string | null; newDate?: string }> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const admin = createAdminClient()
+  const { data: slot, error: fetchErr } = await admin
+    .from('lesson_slots')
+    .select('sessions, last_session_date, total_sessions')
+    .eq('id', slotId)
+    .single()
+
+  if (fetchErr || !slot) return { error: '슬롯 조회에 실패했습니다.' }
+
+  const sessions: SlotSession[] = slot.sessions ?? []
+  const target = sessions.find((s) => s.slot_date === originalDate)
+  if (!target) return { error: '해당 날짜의 세션을 찾을 수 없습니다.' }
+
+  // 1주 후 날짜 계산
+  const origDt = new Date(originalDate + 'T00:00:00')
+  origDt.setDate(origDt.getDate() + 7)
+  const newDate = origDt.toISOString().slice(0, 10)
+
+  // 이미 같은 날짜 세션이 있으면 거부
+  if (sessions.some((s) => s.slot_date === newDate)) {
+    return { error: `${newDate}에 이미 세션이 있습니다.` }
+  }
+
+  const updated: SlotSession[] = sessions.map((s) =>
+    s.slot_date === originalDate
+      ? { ...s, status: 'RESCHEDULED' as const, note: reason ?? s.note }
+      : s,
+  )
+  // 연기된 새 세션 추가
+  updated.push({
+    slot_date: newDate,
+    start_time: target.start_time,
+    end_time: target.end_time,
+    status: 'SCHEDULED',
+    original_date: originalDate,
+    note: reason,
+  })
+  // 날짜 순 정렬
+  updated.sort((a, b) => a.slot_date.localeCompare(b.slot_date))
+
+  const result = await updateSlotSessions(slotId, updated)
+  if (result.error) return result
+
+  return { error: null, newDate }
+}
+
+/**
+ * 패키지 연장: 마지막 세션 이후 같은 요일 패턴으로 N주 세션 추가
+ * - frequency=1이면 1개/주, =2이면 2개/주
+ */
+export async function extendSlot(
+  slotId: string,
+  additionalWeeks: number,
+): Promise<{ error: string | null }> {
+  const { error: authErr } = await checkAdminAuth()
+  if (authErr) return { error: authErr }
+
+  if (additionalWeeks < 1 || additionalWeeks > 8) {
+    return { error: '연장 가능 범위는 1~8주입니다.' }
+  }
+
+  const admin = createAdminClient()
+  const { data: slot, error: fetchErr } = await admin
+    .from('lesson_slots')
+    .select('sessions, frequency')
+    .eq('id', slotId)
+    .single()
+
+  if (fetchErr || !slot) return { error: '슬롯 조회에 실패했습니다.' }
+
+  const sessions: SlotSession[] = slot.sessions ?? []
+  if (sessions.length === 0) return { error: '세션 정보가 없습니다.' }
+
+  // 취소되지 않은 세션에서 요일별 시간 패턴 추출
+  const activeSessions = sessions.filter((s) => s.status !== 'CANCELLED')
+  const dayTimeMap = new Map<number, { start_time: string; end_time: string }>()
+  for (const s of activeSessions) {
+    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+    if (!dayTimeMap.has(dow)) {
+      dayTimeMap.set(dow, { start_time: s.start_time, end_time: s.end_time })
+    }
+  }
+
+  // 마지막 활성 세션 날짜 기준으로 연장
+  const lastDate = activeSessions.map((s) => s.slot_date).sort().reverse()[0]
+  const lastDt = new Date(lastDate + 'T00:00:00')
+
+  const newSessions: SlotSession[] = [...sessions]
+  const dowList = [...dayTimeMap.entries()].sort((a, b) => a[0] - b[0])
+
+  for (let week = 1; week <= additionalWeeks; week++) {
+    for (const [dow, times] of dowList) {
+      // 마지막 날짜와 같은 요일 기준 N주 뒤
+      const base = new Date(lastDt)
+      // diff를 구해 해당 요일의 다음 날짜로 이동
+      const diffDays = ((dow - lastDt.getDay() + 7) % 7 || 7) + (week - 1) * 7
+      base.setDate(lastDt.getDate() + diffDays)
+      const newDate = base.toISOString().slice(0, 10)
+
+      if (!newSessions.some((s) => s.slot_date === newDate)) {
+        newSessions.push({
+          slot_date: newDate,
+          start_time: times.start_time,
+          end_time: times.end_time,
+          status: 'SCHEDULED',
+        })
+      }
+    }
+  }
+
+  newSessions.sort((a, b) => a.slot_date.localeCompare(b.slot_date))
+  return updateSlotSessions(slotId, newSessions)
+}
+
+// ============================================================================
 // 내 예약 (마이페이지)
 // ============================================================================
 
