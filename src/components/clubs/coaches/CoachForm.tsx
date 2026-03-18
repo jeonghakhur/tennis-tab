@@ -21,6 +21,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
   const isEdit = !!initialData
 
   const [name, setName] = useState(initialData?.name || '')
+  const [phone, setPhone] = useState(initialData?.phone || '')
   const [bio, setBio] = useState(initialData?.bio || '')
   const [experience, setExperience] = useState(initialData?.experience || '')
   const [certifications, setCertifications] = useState<string[]>(initialData?.certifications || [])
@@ -110,6 +111,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
     setSubmitting(true)
     const result = await onSubmit({
       name: name.trim(),
+      phone: phone.trim() || undefined,
       bio: bio.trim() || undefined,
       experience: experience.trim() || undefined,
       certifications: certifications.length > 0 ? certifications : undefined,
@@ -130,6 +132,7 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
   const resetForm = () => {
     if (!isEdit) {
       setName('')
+      setPhone('')
       setBio('')
       setExperience('')
       setCertifications([])
@@ -242,6 +245,23 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                   onChange={(e) => setName(e.target.value)}
                   placeholder="코치 이름"
                   maxLength={50}
+                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  style={inputStyle}
+                />
+              </div>
+
+              {/* 연락처 */}
+              <div>
+                <label htmlFor="coach-phone" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+                  연락처 <span className="font-normal text-sm" style={{ color: 'var(--text-muted)' }}>(레슨 안내 페이지 노출)</span>
+                </label>
+                <input
+                  id="coach-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="010-0000-0000"
+                  maxLength={20}
                   className="w-full px-3 py-2 rounded-lg text-sm"
                   style={inputStyle}
                 />

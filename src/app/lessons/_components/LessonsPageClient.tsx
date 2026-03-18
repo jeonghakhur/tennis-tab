@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Calendar, Clock, Phone, User, ChevronRight, Loader2, GraduationCap, MessageSquare } from 'lucide-react'
-import { getPublicOpenSlots, createBooking, getCurrentMemberProfile } from '@/lib/lessons/slot-actions'
+import { getPublicOpenSlots, createBooking, getCurrentMemberProfile, createLessonInquiry } from '@/lib/lessons/slot-actions'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import type { Coach } from '@/lib/lessons/types'
@@ -377,6 +377,7 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
   const [loadingSlots, setLoadingSlots] = useState(false)
   const [bookingSlot, setBookingSlot] = useState<LessonSlot | null>(null)
   const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [inquiryOpen, setInquiryOpen] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
   const selectedCoach = coaches.find((c) => c.id === selectedCoachId)
@@ -500,6 +501,16 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
                     ))}
                   </div>
                 )}
+                {selectedCoach.phone && (
+                  <a
+                    href={`tel:${selectedCoach.phone}`}
+                    className="inline-flex items-center gap-1.5 mt-3 text-sm font-medium"
+                    style={{ color: 'var(--accent-color)' }}
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    {selectedCoach.phone}
+                  </a>
+                )}
               </div>
             </div>
           )}
@@ -529,9 +540,17 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
                 <p className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
                   현재 신청 가능한 레슨이 없습니다
                 </p>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  새 슬롯이 등록되면 여기에 표시됩니다.
+                <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
+                  희망 일정을 남기시면 슬롯 오픈 시 우선 안내드립니다.
                 </p>
+                <button
+                  onClick={() => setInquiryOpen(true)}
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm text-white"
+                  style={{ backgroundColor: 'var(--accent-color)' }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  레슨 신청하기
+                </button>
               </div>
             ) : (
               <div className="space-y-4">
@@ -553,6 +572,18 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
         onSuccess={handleBookingSuccess}
       />
 
+      {/* 레슨 신청 모달 (슬롯 없을 때) */}
+      <InquiryModal
+        coachId={selectedCoach?.id ?? ''}
+        coachName={selectedCoach?.name ?? ''}
+        isOpen={inquiryOpen}
+        onClose={() => setInquiryOpen(false)}
+        onSuccess={() => {
+          setInquiryOpen(false)
+          setToast({ isOpen: true, message: '신청이 접수되었습니다! 곧 연락드리겠습니다.', type: 'success' })
+        }}
+      />
+
       <Toast
         isOpen={toast.isOpen}
         onClose={() => setToast({ ...toast, isOpen: false })}
@@ -561,5 +592,242 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
         duration={5000}
       />
     </div>
+  )
+}
+
+// ─── InquiryModal ─────────────────────────────────────────────────────────────
+
+const DAYS = ['월', '화', '수', '목', '금', '토', '일'] as const
+const TIME_OPTIONS = [
+  '06:30~08:00', '08:00~10:00', '10:00~12:00',
+  '12:00~14:00', '14:00~16:00', '16:00~18:00', '18:00~20:00',
+]
+
+interface InquiryModalProps {
+  coachId: string
+  coachName: string
+  isOpen: boolean
+  onClose: () => void
+  onSuccess: () => void
+}
+
+function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess }: InquiryModalProps) {
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [selectedDays, setSelectedDays] = useState<string[]>([])
+  const [preferredTime, setPreferredTime] = useState('')
+  const [message, setMessage] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [alert, setAlert] = useState({ isOpen: false, message: '' })
+  const [isMember, setIsMember] = useState(false)
+
+  useEffect(() => {
+    if (!isOpen) return
+    setSelectedDays([])
+    setPreferredTime('')
+    setMessage('')
+    getCurrentMemberProfile().then((profile) => {
+      if (profile) {
+        setName(profile.name)
+        setPhone(profile.phone)
+        setIsMember(true)
+      } else {
+        setName('')
+        setPhone('')
+        setIsMember(false)
+      }
+    })
+  }, [isOpen])
+
+  const toggleDay = (day: string) => {
+    setSelectedDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    )
+  }
+
+  const handleSubmit = async () => {
+    const trimName = name.trim()
+    const trimPhone = phone.trim()
+    if (!trimName) { setAlert({ isOpen: true, message: '이름을 입력해주세요.' }); return }
+    if (!trimPhone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
+    if (selectedDays.length === 0) { setAlert({ isOpen: true, message: '희망 요일을 선택해주세요.' }); return }
+    if (!preferredTime) { setAlert({ isOpen: true, message: '희망 시간대를 선택해주세요.' }); return }
+
+    setSubmitting(true)
+    const result = await createLessonInquiry({
+      coachId,
+      name: trimName,
+      phone: trimPhone,
+      preferredDays: selectedDays,
+      preferredTime,
+      message,
+    })
+    setSubmitting(false)
+
+    if (result.error) { setAlert({ isOpen: true, message: result.error }); return }
+    onSuccess()
+  }
+
+  const inputStyle = {
+    backgroundColor: 'var(--bg-input, var(--bg-secondary))',
+    border: '1.5px solid var(--border-color)',
+  }
+
+  return (
+    <>
+      <Modal isOpen={isOpen} onClose={onClose} title="레슨 신청" size="sm">
+        <Modal.Body>
+          <p className="text-sm mb-5" style={{ color: 'var(--text-muted)' }}>
+            <span style={{ color: 'var(--accent-color)', fontWeight: 600 }}>{coachName} 코치</span>에게 레슨을 신청합니다.
+            희망 일정을 남기시면 슬롯 오픈 시 우선 안내드립니다.
+          </p>
+
+          <div className="space-y-4">
+            {isMember && (
+              <div
+                className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--color-success-subtle, rgba(34,197,94,0.1))', color: 'var(--color-success)' }}
+              >
+                <User className="w-3.5 h-3.5 shrink-0" />
+                회원 정보로 자동 입력되었습니다
+              </div>
+            )}
+
+            {/* 이름 */}
+            <div>
+              <label htmlFor="inq-name" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                이름 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
+                <User className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                <input
+                  id="inq-name"
+                  type="text"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="홍길동"
+                  readOnly={isMember}
+                  className="flex-1 bg-transparent text-sm outline-none"
+                  style={{ color: isMember ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                />
+              </div>
+            </div>
+
+            {/* 연락처 */}
+            <div>
+              <label htmlFor="inq-phone" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
+                <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
+                <input
+                  id="inq-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="01012345678"
+                  readOnly={isMember}
+                  className="flex-1 bg-transparent text-sm outline-none tabular-nums"
+                  style={{ color: isMember ? 'var(--text-muted)' : 'var(--text-primary)' }}
+                />
+              </div>
+            </div>
+
+            {/* 희망 요일 */}
+            <div>
+              <p className="text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                희망 요일 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </p>
+              <div className="flex gap-1.5 flex-wrap">
+                {DAYS.map((day) => {
+                  const active = selectedDays.includes(day)
+                  return (
+                    <button
+                      key={day}
+                      type="button"
+                      onClick={() => toggleDay(day)}
+                      className="w-9 h-9 rounded-lg text-sm font-medium transition-colors"
+                      style={
+                        active
+                          ? { backgroundColor: 'var(--accent-color)', color: '#fff' }
+                          : { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }
+                      }
+                    >
+                      {day}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* 희망 시간대 */}
+            <div>
+              <label htmlFor="inq-time" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                희망 시간대 <span style={{ color: 'var(--color-danger)' }}>*</span>
+              </label>
+              <select
+                id="inq-time"
+                value={preferredTime}
+                onChange={(e) => setPreferredTime(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl text-sm appearance-none"
+                style={{ ...inputStyle, color: preferredTime ? 'var(--text-primary)' : 'var(--text-muted)' }}
+              >
+                <option value="">시간대 선택</option>
+                {TIME_OPTIONS.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* 메모 */}
+            <div>
+              <label htmlFor="inq-message" className="block text-sm font-medium mb-1.5" style={{ color: 'var(--text-secondary)' }}>
+                기타 문의 <span className="font-normal" style={{ color: 'var(--text-muted)' }}>(선택)</span>
+              </label>
+              <div className="flex gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
+                <MessageSquare className="w-4 h-4 shrink-0 mt-0.5" style={{ color: 'var(--text-muted)' }} />
+                <textarea
+                  id="inq-message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  placeholder="현재 실력, 레슨 목표 등을 알려주세요"
+                  rows={2}
+                  maxLength={200}
+                  className="flex-1 bg-transparent text-sm outline-none resize-none"
+                  style={{ color: 'var(--text-primary)' }}
+                />
+              </div>
+            </div>
+          </div>
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold"
+            style={{ backgroundColor: 'var(--accent-color)', color: '#fff', opacity: submitting ? 0.7 : 1 }}
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : '신청하기'}
+          </button>
+        </Modal.Footer>
+      </Modal>
+
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        title="입력 오류"
+        message={alert.message}
+        type="error"
+      />
+    </>
   )
 }

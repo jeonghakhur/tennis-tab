@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { Phone, MessageSquare, ChevronDown, ChevronUp, Calendar, Clock } from 'lucide-react'
 import { getAdminLessonInquiries, updateInquiryStatus } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
@@ -146,10 +146,25 @@ export function AdminInquiryTab() {
                         {inquiry.name}
                       </span>
                       <Badge variant={conf.variant}>{conf.label}</Badge>
+                      {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+                        <Badge variant="info">레슨신청</Badge>
+                      )}
                     </div>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {formatDate(inquiry.created_at)}
-                    </p>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {inquiry.coach && (
+                        <span className="text-xs" style={{ color: 'var(--accent-color)' }}>
+                          {inquiry.coach.name} 코치
+                        </span>
+                      )}
+                      {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {inquiry.preferred_days.join('·')}요일 · {inquiry.preferred_time}
+                        </span>
+                      )}
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {formatDate(inquiry.created_at)}
+                      </span>
+                    </div>
                   </div>
                   <div className="shrink-0 ml-2 mt-0.5">
                     {isExpanded
@@ -174,6 +189,24 @@ export function AdminInquiryTab() {
                           {inquiry.phone}
                         </a>
                       </div>
+
+                      {/* 희망 일정 (레슨 신청 문의일 때만) */}
+                      {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+                        <div className="flex flex-wrap gap-3 text-sm p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                            <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                            <span className="font-medium">희망 요일:</span>
+                            {inquiry.preferred_days.join(', ')}요일
+                          </span>
+                          {inquiry.preferred_time && (
+                            <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                              <Clock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                              <span className="font-medium">희망 시간:</span>
+                              {inquiry.preferred_time}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* 문의 내용 */}
                       <div>

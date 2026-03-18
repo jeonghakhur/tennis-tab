@@ -20,6 +20,7 @@ export interface Coach {
   certifications: string[]
   certification_files: string[]
   profile_image_url: string | null
+  phone: string | null
   is_active: boolean
   created_by: string
   created_at: string
@@ -33,6 +34,7 @@ export interface CreateCoachInput {
   certifications?: string[]
   certification_files?: string[]
   profile_image_url?: string
+  phone?: string
 }
 
 export interface UpdateCoachInput {
@@ -42,6 +44,7 @@ export interface UpdateCoachInput {
   certifications?: string[]
   certification_files?: string[]
   profile_image_url?: string
+  phone?: string
 }
 
 // ─── 레슨 프로그램 ───────────────────────────────────────────────────────────
@@ -242,20 +245,18 @@ export type LessonInquiryStatus = 'PENDING' | 'RESPONDED' | 'CLOSED'
 
 export interface LessonInquiry {
   id: string
-  program_id: string
+  program_id: string | null
+  coach_id: string | null
   name: string
   phone: string
   message: string
   preferred_session_id: string | null
+  preferred_days: string[] | null
+  preferred_time: string | null
   status: LessonInquiryStatus
   admin_note: string | null
   created_at: string
   // JOIN 결과
   program?: { id: string; title: string; coach?: { name: string } | null } | null
-  preferred_session?: {
-    id: string
-    session_date: string
-    start_time: string
-    end_time: string
-  } | null
+  coach?: { id: string; name: string } | null
 }
