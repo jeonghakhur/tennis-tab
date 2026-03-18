@@ -1504,7 +1504,20 @@ function CreateSlotModal({ isOpen, onClose, coachId, onSuccess, onError }: Creat
     setStartDate('') // 요일 변경 시 시작일 초기화
   }
 
-  const handleNext = () => { if (canGoNext() && step < 6) setStep((s) => (s + 1) as WizardStep) }
+  // 요일 기반 기본 요금 계산 (주중/주말 판단)
+  const getDefaultFee = (): string => {
+    const isWeekend = selectedDays.some((d) => d === 0 || d === 6)
+    if (isWeekend) return frequency === 1 ? '150000' : '300000'
+    return frequency === 1 ? '100000' : '200000'
+  }
+
+  const handleNext = () => {
+    if (!canGoNext() || step >= 6) return
+    const nextStep = (step + 1) as WizardStep
+    // step 5 → 6 전환 시 기본 요금 자동 세팅 (사용자가 아직 입력하지 않은 경우만)
+    if (nextStep === 6 && feeInput === '') setFeeInput(getDefaultFee())
+    setStep(nextStep)
+  }
   const handlePrev = () => { if (step > 1) setStep((s) => (s - 1) as WizardStep) }
 
   const handleSubmit = async () => {
