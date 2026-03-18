@@ -467,10 +467,10 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
               ))}
             </div>
           ) : viewMode === 'calendar' ? (
-            // ── 달력 뷰: 달력 위 + 슬롯 패널 아래 ───────────────────────
-            <div>
+            // ── 달력 뷰: 모바일 세로 / 데스크탑 가로 균등 분할 ──────────
+            <div className="flex flex-col md:flex-row md:gap-6 md:items-start">
               {/* 월간 달력 */}
-              <div className="px-1 pb-2">
+              <div className="md:flex-1 px-1 pb-2">
                 {/* 요일 헤더 */}
                 <div className="grid grid-cols-7 mb-1">
                   {WEEK_HEADER.map((d, i) => (
@@ -552,31 +552,36 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                 </div>
               </div>
 
-              {/* 구분선 + 드래그 핸들 */}
+              {/* 모바일 구분선 + 드래그 핸들 */}
               <div
-                className="flex flex-col items-center pt-1 pb-4"
+                className="flex flex-col items-center pt-1 pb-4 md:hidden"
                 style={{ borderTop: '1px solid var(--border-color)' }}
               >
                 <div className="w-10 h-1 rounded-full mt-2" style={{ backgroundColor: 'var(--border-color)' }} />
               </div>
 
-              {/* 선택 날짜 슬롯 패널 */}
-              {!selectedDate ? (
-                <div className="flex flex-col items-center justify-center py-12">
-                  <CalendarDays className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
-                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>날짜를 선택하세요</p>
-                </div>
-              ) : (
-                <DateSlotPanel
-                  dateStr={selectedDate}
-                  slots={slotsByDate.get(selectedDate) || []}
-                  onToggle={handleToggleStatus}
-                  onLock={(slot) => setLockModalSlot(slot)}
-                  onUnlock={handleUnlock}
-                  onDelete={(slot) => setDeleteTarget(slot)}
-                  onViewBooking={(slot) => setBookingModalSlot(slot)}
-                />
-              )}
+              {/* 데스크탑 세로 구분선 */}
+              <div className="hidden md:block w-px self-stretch" style={{ backgroundColor: 'var(--border-color)' }} />
+
+              {/* 슬롯 패널 */}
+              <div className="md:flex-1">
+                {!selectedDate ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <CalendarDays className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
+                    <p className="text-sm" style={{ color: 'var(--text-muted)' }}>날짜를 선택하세요</p>
+                  </div>
+                ) : (
+                  <DateSlotPanel
+                    dateStr={selectedDate}
+                    slots={slotsByDate.get(selectedDate) || []}
+                    onToggle={handleToggleStatus}
+                    onLock={(slot) => setLockModalSlot(slot)}
+                    onUnlock={handleUnlock}
+                    onDelete={(slot) => setDeleteTarget(slot)}
+                    onViewBooking={(slot) => setBookingModalSlot(slot)}
+                  />
+                )}
+              </div>
             </div>
           ) : (
             // ── 목록 뷰: 주간 or 월간 ────────────────────────────────
