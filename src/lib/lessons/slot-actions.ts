@@ -734,10 +734,21 @@ function toLocalDateStr(d: Date): string {
  * 슬롯의 sessions JSONB 전체를 업데이트 (진행 여부 토글 등)
  * - sessions 배열을 통째로 교체하므로 클라이언트에서 변경된 배열을 전달
  */
+export interface UpdatedSlotMeta {
+  sessions: SlotSession[]
+  totalSessions: number
+  lastSessionDate: string | null
+}
+
+/**
+ * 슬롯의 sessions JSONB 전체를 업데이트 (진행 여부 토글 등)
+ * - 성공 시 클라이언트가 로컬 상태를 직접 갱신할 수 있도록 updated 메타 반환
+ * - revalidatePath 미사용 — router refresh 없이 클라이언트 상태로만 동기화
+ */
 export async function updateSlotSessions(
   slotId: string,
   sessions: SlotSession[],
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null } & Partial<UpdatedSlotMeta>> {
   const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
@@ -746,30 +757,22 @@ export async function updateSlotSessions(
 
   const admin = createAdminClient()
 
-  // last_session_date: SCHEDULED/COMPLETED 세션 중 마지막 날짜로 재계산
+  // last_session_date: CANCELLED 제외한 세션 중 마지막 날짜
   const activeDates = sessions
     .filter((s) => s.status !== 'CANCELLED')
     .map((s) => s.slot_date)
     .sort()
   const lastSessionDate = activeDates[activeDates.length - 1] ?? null
-
-  // total_sessions도 CANCELLED 제외한 수로 재계산
   const totalSessions = sessions.filter((s) => s.status !== 'CANCELLED').length
 
   const { error } = await admin
     .from('lesson_slots')
-    .update({
-      sessions,
-      last_session_date: lastSessionDate,
-      total_sessions: totalSessions,
-    })
+    .update({ sessions, last_session_date: lastSessionDate, total_sessions: totalSessions })
     .eq('id', slotId)
 
   if (error) return { error: '세션 정보 업데이트에 실패했습니다.' }
 
-  // revalidatePath 제거 — admin 탭은 loadBookings()로 클라이언트 상태 갱신,
-  // revalidatePath가 라우터 리프레시를 유발해 전체 페이지 새로고침됨
-  return { error: null }
+  return { error: null, sessions, totalSessions, lastSessionDate }
 }
 
 /**
@@ -781,7 +784,7 @@ export async function rescheduleSession(
   slotId: string,
   originalDate: string,
   reason?: string,
-): Promise<{ error: string | null; newDate?: string }> {
+): Promise<{ error: string | null; newDate?: string } & Partial<UpdatedSlotMeta>> {
   const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 
@@ -828,7 +831,7 @@ export async function rescheduleSession(
   const result = await updateSlotSessions(slotId, updated)
   if (result.error) return result
 
-  return { error: null, newDate }
+  return { error: null, newDate, sessions: result.sessions, totalSessions: result.totalSessions, lastSessionDate: result.lastSessionDate }
 }
 
 /**
@@ -838,7 +841,7 @@ export async function rescheduleSession(
 export async function extendSlot(
   slotId: string,
   additionalWeeks: number,
-): Promise<{ error: string | null }> {
+): Promise<{ error: string | null } & Partial<UpdatedSlotMeta>> {
   const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr }
 

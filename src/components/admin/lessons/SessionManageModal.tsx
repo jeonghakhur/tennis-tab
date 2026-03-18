@@ -5,6 +5,7 @@ import { Check, RotateCcw, Plus, ChevronRight } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
 import { updateSlotSessions, rescheduleSession, extendSlot } from '@/lib/lessons/slot-actions'
+import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import type { LessonBooking, SlotSession, SlotSessionStatus } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
@@ -26,7 +27,7 @@ const SESSION_STATUS_CONFIG: Record<
 interface Props {
   booking: LessonBooking | null
   onClose: () => void
-  onSaved: () => void
+  onSessionsUpdated: (slotId: string, meta: UpdatedSlotMeta) => void
 }
 
 // ─── 헬퍼 ────────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ function addWeeks(dateStr: string, weeks: number): string {
 
 // ─── 컴포넌트 ─────────────────────────────────────────────────────────────────
 
-export function SessionManageModal({ booking, onClose, onSaved }: Props) {
+export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Props) {
   const slot = booking?.slots?.[0] ?? null
 
   // 로컬 세션 상태 (편집 중)
@@ -105,8 +106,12 @@ export function SessionManageModal({ booking, onClose, onSaved }: Props) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
       return
     }
-    setToast({ isOpen: true, message: '세션 정보가 저장되었습니다.', type: 'success' })
-    onSaved()
+    onSessionsUpdated(slot.id, {
+      sessions: result.sessions!,
+      totalSessions: result.totalSessions!,
+      lastSessionDate: result.lastSessionDate!,
+    })
+    onClose()
   }
 
   // ── 연기 처리 ─────────────────────────────────────────────────────────────
@@ -121,12 +126,11 @@ export function SessionManageModal({ booking, onClose, onSaved }: Props) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
       return
     }
-    setToast({
-      isOpen: true,
-      message: `${result.newDate}로 연기되었습니다.`,
-      type: 'success',
+    onSessionsUpdated(slot.id, {
+      sessions: result.sessions!,
+      totalSessions: result.totalSessions!,
+      lastSessionDate: result.lastSessionDate!,
     })
-    onSaved()
     onClose()
   }
 
@@ -141,8 +145,11 @@ export function SessionManageModal({ booking, onClose, onSaved }: Props) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
       return
     }
-    setToast({ isOpen: true, message: `${extendWeeks}주 연장되었습니다.`, type: 'success' })
-    onSaved()
+    onSessionsUpdated(slot.id, {
+      sessions: result.sessions!,
+      totalSessions: result.totalSessions!,
+      lastSessionDate: result.lastSessionDate!,
+    })
     onClose()
   }
 

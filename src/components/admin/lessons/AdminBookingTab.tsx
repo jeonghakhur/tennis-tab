@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { ClipboardList, Check, X, MessageSquare, Search, User, Calendar } from 'lucide-react'
 import { getBookings, confirmBooking, cancelBooking, updateBookingNote } from '@/lib/lessons/slot-actions'
+import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast } from '@/components/common/AlertDialog'
@@ -127,6 +128,21 @@ export function AdminBookingTab() {
       type: 'success',
     })
   }
+
+  const handleSessionsUpdated = useCallback((slotId: string, meta: UpdatedSlotMeta) => {
+    setBookings((prev) =>
+      prev.map((b) => {
+        if (!b.slots?.[0] || b.slots[0].id !== slotId) return b
+        const updatedSlot = {
+          ...b.slots[0],
+          sessions: meta.sessions,
+          total_sessions: meta.totalSessions,
+          last_session_date: meta.lastSessionDate,
+        }
+        return { ...b, slots: [updatedSlot] }
+      })
+    )
+  }, [])
 
   const handleSaveNote = async (note: string) => {
     if (!noteTarget) return
@@ -284,7 +300,7 @@ export function AdminBookingTab() {
       <SessionManageModal
         booking={sessionTarget}
         onClose={() => setSessionTarget(null)}
-        onSaved={loadBookings}
+        onSessionsUpdated={handleSessionsUpdated}
       />
 
       <Toast
