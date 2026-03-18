@@ -363,30 +363,6 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
           ))}
         </div>
 
-        {/* 관리자 메모 / 거절 사유 */}
-        {(booking.admin_note || booking.cancel_reason) && (
-          <div className="mt-2 md:mt-0 md:w-36 md:shrink-0 space-y-0.5">
-            {booking.admin_note && (
-              <p
-                className="text-xs px-2 py-1 rounded line-clamp-2"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
-                title={booking.admin_note}
-              >
-                📝 {booking.admin_note}
-              </p>
-            )}
-            {booking.cancel_reason && (
-              <p
-                className="text-xs px-2 py-1 rounded line-clamp-2"
-                style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
-                title={booking.cancel_reason}
-              >
-                ✕ {booking.cancel_reason}
-              </p>
-            )}
-          </div>
-        )}
-
         {/* 액션 버튼 */}
         <div className="mt-2 md:mt-0 flex gap-1.5 md:shrink-0">
           {booking.status === 'PENDING' && (
@@ -409,10 +385,15 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
               {booking.status === 'PENDING' ? '거절' : '취소'}
             </button>
           )}
+          {/* 메모 버튼 — 메모 있으면 강조 색상 */}
           <button
             onClick={onNote}
             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+            style={
+              booking.admin_note
+                ? { backgroundColor: 'var(--color-info, #3b82f6)', color: '#fff' }
+                : { backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }
+            }
           >
             <MessageSquare className="w-3 h-3" />
             메모
@@ -500,11 +481,21 @@ function NoteModal({
   return (
     <Modal isOpen={!!target} onClose={onClose} title="관리자 메모" size="sm">
       <Modal.Body>
+        {target?.cancel_reason && (
+          <div
+            className="flex items-start gap-1.5 px-3 py-2 rounded-lg text-sm mb-3"
+            style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
+          >
+            <X className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+            <span className="text-xs">{target.cancel_reason}</span>
+          </div>
+        )}
         <textarea
           value={note}
           onChange={(e) => setNote(e.target.value)}
           rows={4}
           maxLength={500}
+          placeholder="메모를 입력하세요."
           className="w-full px-3 py-2 rounded-lg text-sm resize-none"
           style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
           aria-label="관리자 메모"
