@@ -899,23 +899,16 @@ export async function updateInquiryStatus(
   return { error: null }
 }
 
-/** 로그인 회원의 클럽 멤버 프로필 조회 (예약 폼 자동 채움용) */
+/** 로그인 회원의 프로필 조회 (예약 폼 자동 채움용) */
 export async function getCurrentMemberProfile(): Promise<{
   name: string
   phone: string
 } | null> {
+  // getCurrentUser()가 profiles 테이블에서 복호화된 name/phone 반환
   const currentUser = await getCurrentUser()
   if (!currentUser) return null
-
-  const admin = createAdminClient()
-  const { data } = await admin
-    .from('club_members')
-    .select('name, phone')
-    .eq('user_id', currentUser.id)
-    .eq('status', 'ACTIVE')
-    .limit(1)
-    .maybeSingle()
-
-  if (!data) return null
-  return { name: data.name ?? '', phone: data.phone ?? '' }
+  return {
+    name: currentUser.name ?? '',
+    phone: currentUser.phone ?? '',
+  }
 }
