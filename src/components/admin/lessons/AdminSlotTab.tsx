@@ -1255,28 +1255,46 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
 
   const isReady = selectedDays.length === frequency && selectedDays.every((d) => startTimes[d])
 
+  // 섹션 레이블 헬퍼
+  const SectionLabel = ({ step, children }: { step: number; children: React.ReactNode }) => (
+    <div className="flex items-center gap-2 mb-3">
+      <span
+        className="w-5 h-5 flex items-center justify-center rounded-full text-sm font-bold shrink-0"
+        style={{ backgroundColor: 'var(--accent-color)', color: '#fff', fontSize: '11px' }}
+      >
+        {step}
+      </span>
+      <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>{children}</span>
+    </div>
+  )
+
   return (
     <Modal isOpen={isOpen} onClose={onClose} title="월간 레슨 슬롯 등록" size="md">
       <Modal.Body>
-        <form id="create-slot-form" onSubmit={handleSubmit} noValidate className="space-y-5">
+        <form id="create-slot-form" onSubmit={handleSubmit} noValidate className="space-y-6">
 
           {/* ① 레슨 빈도 */}
           <div>
-            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>레슨 빈도</p>
-            <div className="flex gap-2" role="group" aria-label="레슨 빈도 선택">
-              {([1, 2] as const).map((f) => (
+            <SectionLabel step={1}>레슨 빈도</SectionLabel>
+            <div className="grid grid-cols-2 gap-3" role="group" aria-label="레슨 빈도 선택">
+              {([
+                { f: 1, sub: '매주 1일 · 월 4회' },
+                { f: 2, sub: '매주 2일 · 월 8회' },
+              ] as const).map(({ f, sub }) => (
                 <button
                   key={f}
                   type="button"
                   aria-pressed={frequency === f}
                   onClick={() => handleFrequencyChange(f)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  className="flex flex-col items-center justify-center gap-1 py-4 rounded-2xl transition-all"
                   style={{
                     backgroundColor: frequency === f ? 'var(--accent-color)' : 'var(--bg-secondary)',
                     color: frequency === f ? '#fff' : 'var(--text-secondary)',
+                    boxShadow: frequency === f ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
                   }}
                 >
-                  주 {f}회
+                  <span className="text-xl font-bold">주 {f}회</span>
+                  <span className="text-sm" style={{ opacity: 0.75 }}>{sub}</span>
                 </button>
               ))}
             </div>
@@ -1284,17 +1302,26 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
 
           {/* ② 대상 월 */}
           <div>
-            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>대상 월</p>
-            <div className="flex items-center gap-3">
-              <button type="button" onClick={prevMonth} className="p-1.5 rounded-lg transition-colors"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <SectionLabel step={2}>대상 월</SectionLabel>
+            <div
+              className="flex items-center justify-between px-2 py-2 rounded-xl"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <button type="button" onClick={prevMonth}
+                className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+                style={{ backgroundColor: 'var(--bg-card)' }}
+                aria-label="이전 달"
+              >
                 <ChevronLeft className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
-              <span className="flex-1 text-center text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+              <span className="text-base font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                 {targetYear}년 {targetMonth + 1}월
               </span>
-              <button type="button" onClick={nextMonth} className="p-1.5 rounded-lg transition-colors"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}>
+              <button type="button" onClick={nextMonth}
+                className="w-9 h-9 flex items-center justify-center rounded-lg transition-colors"
+                style={{ backgroundColor: 'var(--bg-card)' }}
+                aria-label="다음 달"
+              >
                 <ChevronRight className="w-4 h-4" style={{ color: 'var(--text-secondary)' }} />
               </button>
             </div>
@@ -1302,13 +1329,13 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
 
           {/* ③ 요일 선택 */}
           <div>
-            <p className="text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
+            <SectionLabel step={3}>
               요일 선택
               <span className="ml-1.5 text-sm font-normal" style={{ color: 'var(--text-muted)' }}>
-                ({frequency}개 선택)
+                {selectedDays.length}/{frequency}
               </span>
-            </p>
-            <div className="flex gap-1.5" role="group" aria-label="요일 선택">
+            </SectionLabel>
+            <div className="grid grid-cols-7 gap-1.5" role="group" aria-label="요일 선택">
               {DAY_LABELS.map((label, idx) => {
                 const selected = selectedDays.includes(idx)
                 const isWeekend = idx === 0 || idx === 6
@@ -1318,31 +1345,67 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                     type="button"
                     aria-pressed={selected}
                     onClick={() => toggleDay(idx)}
-                    className="flex-1 h-10 rounded-xl text-sm font-medium transition-colors"
+                    className="flex flex-col items-center justify-center gap-0.5 py-3 rounded-xl transition-all"
                     style={{
                       backgroundColor: selected ? 'var(--accent-color)' : 'var(--bg-secondary)',
                       color: selected ? '#fff' : isWeekend ? 'var(--color-danger)' : 'var(--text-secondary)',
+                      boxShadow: selected ? '0 2px 8px rgba(0,0,0,0.15)' : 'none',
                     }}
                   >
-                    {label}
+                    <span className="text-sm font-semibold">{label}</span>
+                    {selected && (
+                      <span className="w-1 h-1 rounded-full" style={{ backgroundColor: 'rgba(255,255,255,0.7)' }} />
+                    )}
                   </button>
                 )
               })}
             </div>
           </div>
 
-          {/* ④ 요일별 시작 시간 */}
+          {/* ④ 레슨 시간 */}
+          <div>
+            <SectionLabel step={4}>레슨 시간</SectionLabel>
+            <div className="grid grid-cols-2 gap-3" role="group" aria-label="레슨 시간 선택">
+              {LESSON_DURATIONS.map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  aria-pressed={duration === d}
+                  onClick={() => setDuration(d)}
+                  className="flex flex-col items-center justify-center gap-0.5 py-4 rounded-2xl transition-all"
+                  style={{
+                    backgroundColor: duration === d ? 'var(--accent-color)' : 'var(--bg-secondary)',
+                    color: duration === d ? '#fff' : 'var(--text-secondary)',
+                    boxShadow: duration === d ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
+                  }}
+                >
+                  <span className="text-2xl font-bold tabular-nums">{d}</span>
+                  <span className="text-sm" style={{ opacity: 0.75 }}>분</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* ⑤ 요일별 시작 시간 */}
           {selectedDays.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>시작 시간</p>
+              <SectionLabel step={5}>시작 시간</SectionLabel>
               <div className="space-y-2">
                 {selectedDays.map((day) => {
                   const range = LESSON_AVAILABLE_HOURS[day]
+                  const isWeekend = day === 0 || day === 6
                   return (
-                    <div key={day} className="flex items-center gap-3">
+                    <div
+                      key={day}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                      style={{ backgroundColor: 'var(--bg-secondary)' }}
+                    >
                       <span
-                        className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-medium shrink-0"
-                        style={{ backgroundColor: 'var(--accent-color)', color: '#fff' }}
+                        className="w-9 h-9 flex items-center justify-center rounded-xl text-sm font-bold shrink-0"
+                        style={{
+                          backgroundColor: 'var(--accent-color)',
+                          color: '#fff',
+                        }}
                       >
                         {DAY_LABELS[day]}
                       </span>
@@ -1353,8 +1416,8 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                         />
                       </div>
                       {range && (
-                        <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
-                          {range.start}~{range.end}
+                        <span className="text-sm shrink-0" style={{ color: isWeekend ? 'var(--color-danger)' : 'var(--text-muted)' }}>
+                          ~{range.end}
                         </span>
                       )}
                     </div>
@@ -1364,60 +1427,53 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             </div>
           )}
 
-          {/* ⑤ 레슨 시간 */}
-          <div>
-            <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>레슨 시간</p>
-            <div className="flex gap-2" role="group" aria-label="레슨 시간 선택">
-              {LESSON_DURATIONS.map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  aria-pressed={duration === d}
-                  onClick={() => setDuration(d)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
-                  style={{
-                    backgroundColor: duration === d ? 'var(--accent-color)' : 'var(--bg-secondary)',
-                    color: duration === d ? '#fff' : 'var(--text-secondary)',
-                  }}
-                >
-                  {d}분
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* ⑥ 미리보기 */}
+          {/* ⑥ 슬롯 미리보기 */}
           {isReady && previewSlots.length > 0 && (
             <div>
-              <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
-                생성 예정
-                <span className="ml-1.5 font-normal" style={{ color: 'var(--text-muted)' }}>
+              <div className="flex items-center gap-2 mb-3">
+                <span
+                  className="w-5 h-5 flex items-center justify-center rounded-full text-sm font-bold shrink-0"
+                  style={{ backgroundColor: 'var(--color-success)', color: '#fff', fontSize: '11px' }}
+                >
+                  ✓
+                </span>
+                <span className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+                  생성 예정
+                </span>
+                <span
+                  className="ml-auto text-sm font-semibold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)' }}
+                >
                   {previewSlots.length}개 슬롯
                 </span>
-              </p>
-              <div
-                className="rounded-xl overflow-hidden"
-                style={{ border: '1px solid var(--border-color)' }}
-              >
+              </div>
+              <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-color)' }}>
                 {previewSlots.map((s, i) => {
-                  const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+                  const date = new Date(s.slot_date + 'T00:00:00')
+                  const dow = date.getDay()
+                  const isWeekend = dow === 0 || dow === 6
                   return (
                     <div
                       key={i}
-                      className="flex items-center gap-3 px-3 py-2.5 text-sm"
+                      className="flex items-center gap-3 px-4 py-3"
                       style={{
                         borderTop: i > 0 ? '1px solid var(--border-color)' : 'none',
-                        backgroundColor: 'var(--bg-card)',
+                        backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)',
                       }}
                     >
                       <span
-                        className="w-6 h-6 flex items-center justify-center rounded-full text-sm font-medium shrink-0"
-                        style={{ backgroundColor: 'var(--bg-secondary)', color: dow === 0 || dow === 6 ? 'var(--color-danger)' : 'var(--text-secondary)' }}
+                        className="text-sm font-bold w-6 text-center shrink-0"
+                        style={{ color: isWeekend ? 'var(--color-danger)' : 'var(--accent-color)' }}
                       >
                         {DAY_LABELS[dow]}
                       </span>
-                      <span style={{ color: 'var(--text-secondary)' }}>{s.slot_date}</span>
-                      <span className="tabular-nums font-medium" style={{ color: 'var(--text-primary)' }}>
+                      <span className="text-sm tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                        {date.getMonth() + 1}월 {date.getDate()}일
+                      </span>
+                      <span
+                        className="ml-auto text-sm font-semibold tabular-nums"
+                        style={{ color: 'var(--text-primary)' }}
+                      >
                         {s.start_time} ~ {s.end_time}
                       </span>
                     </div>
@@ -1427,10 +1483,10 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
             </div>
           )}
 
-          {/* 요일/시간 미설정 안내 */}
-          {!isReady && selectedDays.length > 0 && (
-            <p className="text-sm text-center py-2" style={{ color: 'var(--text-muted)' }}>
-              모든 요일의 시작 시간을 설정하면 미리보기가 표시됩니다
+          {/* 시간 미설정 안내 */}
+          {!isReady && selectedDays.length > 0 && selectedDays.some((d) => !startTimes[d]) && (
+            <p className="text-sm text-center py-1" style={{ color: 'var(--text-muted)' }}>
+              시작 시간을 설정하면 미리보기가 표시됩니다
             </p>
           )}
 
@@ -1441,7 +1497,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
           type="button"
           onClick={onClose}
           className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium"
-          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+          style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
         >
           취소
         </button>
@@ -1449,10 +1505,11 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
           type="submit"
           form="create-slot-form"
           disabled={submitting || !isReady || previewSlots.length === 0}
-          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors"
+          className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
           style={{
             backgroundColor: isReady && previewSlots.length > 0 ? 'var(--accent-color)' : 'var(--bg-secondary)',
             color: isReady && previewSlots.length > 0 ? '#fff' : 'var(--text-muted)',
+            boxShadow: isReady && previewSlots.length > 0 ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
           }}
         >
           {submitting ? '등록 중...' : isReady && previewSlots.length > 0 ? `${previewSlots.length}개 슬롯 등록` : '등록'}
