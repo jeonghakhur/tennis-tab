@@ -360,7 +360,7 @@ export async function getSlotsByCoach(
 /** BOOKED 예약 상세 + 회차 정보 조회 (어드민용) — bookingId로 직접 조회 */
 export async function getBookingWithSessionInfo(bookingId: string): Promise<{
   error: string | null
-  data: (LessonBooking & { sessionNumber: number; memberPhone: string | null }) | null
+  data: (LessonBooking & { sessionNumber: number; memberPhone: string | null; slotDates: string[] }) | null
 }> {
   const { error: authErr } = await checkAdminAuth()
   if (authErr) return { error: authErr, data: null }
@@ -397,12 +397,23 @@ export async function getBookingWithSessionInfo(bookingId: string): Promise<{
     memberPhone = booking.guest_phone ?? null
   }
 
+  // 예약된 슬롯 날짜 조회 (시작일~마감일 표시용)
+  const slotIds = booking.slot_ids as string[]
+  const { data: slotRows } = await admin
+    .from('lesson_slots')
+    .select('slot_date')
+    .in('id', slotIds)
+    .order('slot_date')
+
+  const slotDates = (slotRows ?? []).map((s) => s.slot_date as string)
+
   return {
     error: null,
     data: {
       ...(booking as LessonBooking),
       sessionNumber,
       memberPhone,
+      slotDates,
     },
   }
 }

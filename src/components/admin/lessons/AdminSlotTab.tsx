@@ -1071,7 +1071,7 @@ interface BookedSlotDetailModalProps {
 }
 
 function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalProps) {
-  const [detail, setDetail] = useState<(LessonBooking & { sessionNumber: number; memberPhone: string | null }) | null>(null)
+  const [detail, setDetail] = useState<(LessonBooking & { sessionNumber: number; memberPhone: string | null; slotDates: string[] }) | null>(null)
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -1130,10 +1130,21 @@ function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalP
               className="pb-4 mb-4"
               style={{ borderBottom: '1px solid var(--border-color)' }}
             >
-              <p className="text-sm mb-1" style={{ color: 'var(--text-muted)' }}>레슨 일시</p>
-              <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
-                {slot.slot_date} ({DAY_LABELS[new Date(slot.slot_date + 'T00:00:00').getDay()]})
-              </p>
+              {/* 시작일 ~ 마감일 (슬롯이 2개인 경우 범위 표시) */}
+              {detail.slotDates.length > 0 && (
+                <div className="mb-2">
+                  <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                    {detail.slotDates.length === 1 ? '레슨 일자' : '레슨 기간'}
+                  </p>
+                  <p className="text-base font-semibold" style={{ color: 'var(--text-primary)' }}>
+                    {detail.slotDates[0]}
+                    {detail.slotDates.length > 1 && (
+                      <span> ~ {detail.slotDates[detail.slotDates.length - 1]}</span>
+                    )}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>시간</p>
               <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>
                 {slot.start_time.slice(0, 5)} ~ {slot.end_time.slice(0, 5)}
               </p>
