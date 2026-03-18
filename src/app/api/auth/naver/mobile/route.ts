@@ -50,9 +50,10 @@ export async function POST(request: NextRequest) {
     const email = naverProfile.email
     const name = naverProfile.name || naverProfile.nickname
     const avatarUrl = naverProfile.profile_image
+    // 네이버 'M'/'F' → DB 'MALE'/'FEMALE' 변환
     const gender: string | undefined =
-      naverProfile.gender === 'M' || naverProfile.gender === 'F'
-        ? naverProfile.gender
+      naverProfile.gender === 'M' ? 'MALE'
+        : naverProfile.gender === 'F' ? 'FEMALE'
         : undefined
     const birthYear: string | undefined = naverProfile.birthyear || undefined
     const phone: string | undefined = naverProfile.mobile
