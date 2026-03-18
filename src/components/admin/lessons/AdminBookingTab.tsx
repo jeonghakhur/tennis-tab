@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { ClipboardList, Check, X, MessageSquare, User } from 'lucide-react'
+import { ClipboardList, Check, X, MessageSquare, Search, User } from 'lucide-react'
 import { getBookings, confirmBooking, cancelBooking, updateBookingNote } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
@@ -30,14 +30,15 @@ interface AdminBookingTabProps {
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
 export function AdminBookingTab({ programs }: AdminBookingTabProps) {
-  const [bookings, setBookings]           = useState<LessonBooking[]>([])
-  const [loading, setLoading]             = useState(true)
+  const [bookings, setBookings]             = useState<LessonBooking[]>([])
+  const [loading, setLoading]               = useState(true)
   const [selectedCoachId, setSelectedCoachId] = useState<string>('ALL')
-  const [statusFilter, setStatusFilter]   = useState<StatusFilter>('ALL')
+  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('ALL')
+  const [searchQuery, setSearchQuery]       = useState('')
 
   // 모달 (reason/noteText는 각 모달 컴포넌트 로컬 state로 관리 — 부모 리렌더 방지)
-  const [cancelTarget, setCancelTarget]   = useState<LessonBooking | null>(null)
-  const [noteTarget, setNoteTarget]       = useState<LessonBooking | null>(null)
+  const [cancelTarget, setCancelTarget]     = useState<LessonBooking | null>(null)
+  const [noteTarget, setNoteTarget]         = useState<LessonBooking | null>(null)
 
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
 
@@ -59,7 +60,7 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
-  // 예약에 등장하는 코치 탭 목록 (예약 데이터 기반으로 동적 생성)
+  // 예약에 등장하는 코치 탭 목록
   const coachTabs = useMemo(() => {
     const seen = new Map<string, string>()
     bookings.forEach((b) => {
@@ -71,20 +72,24 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
     return Array.from(seen.entries()).map(([id, name]) => ({ id, name }))
   }, [bookings, coachMap])
 
-  // 클라이언트 사이드 필터링
+  // 클라이언트 사이드 필터링 (코치 탭 + 상태 드롭다운 + 이름 검색)
   const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
     return bookings.filter((b) => {
       if (selectedCoachId !== 'ALL' && b.slots?.[0]?.coach_id !== selectedCoachId) return false
       if (statusFilter !== 'ALL' && b.status !== statusFilter) return false
+      if (q) {
+        const name = (b.is_guest ? b.guest_name : b.member?.name) ?? ''
+        if (!name.toLowerCase().includes(q)) return false
+      }
       return true
     })
-  }, [bookings, selectedCoachId, statusFilter])
+  }, [bookings, selectedCoachId, statusFilter, searchQuery])
 
   // 탭별 대기 건수
   const allPendingCount = bookings.filter((b) => b.status === 'PENDING').length
   const coachPendingCount = (coachId: string) =>
     bookings.filter((b) => b.status === 'PENDING' && b.slots?.[0]?.coach_id === coachId).length
-  const filteredPendingCount = filtered.filter((b) => b.status === 'PENDING').length
 
   // ── 액션 핸들러 ────────────────────────────────────────────────────────────
 
@@ -104,7 +109,6 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
     const targetId = cancelTarget.id
     const isPending = cancelTarget.status === 'PENDING'
     setCancelTarget(null)
-    // 낙관적 업데이트: 상태 변경 + 사유를 admin_note에 반영
     setBookings((prev) =>
       prev.map((b) =>
         b.id === targetId
@@ -118,10 +122,7 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
       await loadBookings()
       return
     }
-    // 취소 사유를 admin_note에 저장
-    if (reason) {
-      await updateBookingNote(targetId, reason)
-    }
+    if (reason) await updateBookingNote(targetId, reason)
     setToast({
       isOpen: true,
       message: isPending ? '예약이 거절되었습니다. 슬롯이 복구되었습니다.' : '예약이 취소되었습니다. 슬롯이 복구되었습니다.',
@@ -173,72 +174,108 @@ export function AdminBookingTab({ programs }: AdminBookingTabProps) {
         </div>
       )}
 
-      {/* 상태 필터 */}
-      <div
-        className="flex gap-1 mb-4 p-0.5 rounded-lg w-fit"
-        style={{ backgroundColor: 'var(--bg-secondary)' }}
-      >
-        {(['ALL', 'PENDING', 'CONFIRMED', 'CANCELLED'] as StatusFilter[]).map((s) => {
-          const isActive = statusFilter === s
-          const label = s === 'ALL' ? '전체' : BOOKING_STATUS_LABEL[s]
-          return (
-            <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
-              className="px-3 py-1 rounded-md text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
-                color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-              }}
-            >
-              {label}
-              {s === 'PENDING' && filteredPendingCount > 0 && (
-                <span
-                  className="ml-1 px-1 py-0.5 rounded text-xs font-bold text-white"
-                  style={{ backgroundColor: 'var(--color-warning)' }}
-                >
-                  {filteredPendingCount}
-                </span>
-              )}
-            </button>
-          )
-        })}
+      {/* 필터 바: 상태 드롭다운 + 이름 검색 */}
+      <div className="flex items-center gap-3 mb-4">
+        {/* 상태 드롭다운 */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="h-9 pl-3 pr-8 rounded-lg text-sm appearance-none cursor-pointer"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 10px center',
+          }}
+          aria-label="예약 상태 필터"
+        >
+          <option value="ALL">전체 상태</option>
+          <option value="PENDING">대기</option>
+          <option value="CONFIRMED">확정</option>
+          <option value="CANCELLED">취소</option>
+        </select>
+
+        {/* 이름 검색 */}
+        <div className="relative flex-1 max-w-xs">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: 'var(--text-muted)' }}
+          />
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="신청자명 검색"
+            className="w-full h-9 pl-9 pr-3 rounded-lg text-sm"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
+            }}
+            aria-label="신청자명 검색"
+          />
+        </div>
+
+        {/* 결과 건수 */}
+        {!loading && (
+          <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
+            {filtered.length}건
+          </span>
+        )}
       </div>
 
-      {/* 예약 목록 */}
+      {/* 테이블 */}
       {loading ? (
         <div className="space-y-2 animate-pulse">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-12 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
           ))}
         </div>
       ) : filtered.length === 0 ? (
-        <div className="text-center py-12">
+        <div className="text-center py-16">
           <ClipboardList className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
           <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약이 없습니다.</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {filtered.map((booking) => (
-            <BookingCard
-              key={booking.id}
-              booking={booking}
-              onConfirm={() => handleConfirm(booking)}
-              onCancel={() => setCancelTarget(booking)}
-              onNote={() => setNoteTarget(booking)}
-            />
-          ))}
+        <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border-color)' }}>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>신청자</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>상태</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>예약 유형</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>슬롯 일정</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>요금</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>신청일</th>
+                <th className="px-4 py-3 text-right font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((booking, idx) => (
+                <BookingRow
+                  key={booking.id}
+                  booking={booking}
+                  isLast={idx === filtered.length - 1}
+                  onConfirm={() => handleConfirm(booking)}
+                  onCancel={() => setCancelTarget(booking)}
+                  onNote={() => setNoteTarget(booking)}
+                />
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
-      {/* 취소/거절 사유 모달 — 로컬 state로 입력 관리 */}
+      {/* 취소/거절 사유 모달 */}
       <CancelModal
         target={cancelTarget}
         onClose={() => setCancelTarget(null)}
         onConfirm={handleCancel}
       />
 
-      {/* 메모 모달 — 로컬 state로 입력 관리 */}
+      {/* 메모 모달 */}
       <NoteModal
         target={noteTarget}
         onClose={() => setNoteTarget(null)}
@@ -291,16 +328,17 @@ function TabButton({
   )
 }
 
-// ─── BookingCard ─────────────────────────────────────────────────────────────
+// ─── BookingRow ───────────────────────────────────────────────────────────────
 
-interface BookingCardProps {
+function BookingRow({
+  booking, isLast, onConfirm, onCancel, onNote,
+}: {
   booking: LessonBooking
+  isLast: boolean
   onConfirm: () => void
   onCancel: () => void
   onNote: () => void
-}
-
-function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps) {
+}) {
   const conf      = STATUS_CONFIG[booking.status]
   const name      = booking.is_guest ? booking.guest_name : booking.member?.name
   const typeLabel = BOOKING_TYPE_LABEL[booking.booking_type]
@@ -312,63 +350,85 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
   }
 
   const createdAt = new Date(booking.created_at).toLocaleDateString('ko-KR', {
-    month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    month: 'short', day: 'numeric',
   })
 
   return (
-    <div
-      className="rounded-lg px-4 py-3"
-      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+    <tr
+      style={{
+        borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+        backgroundColor: 'var(--bg-card)',
+      }}
     >
-      {/* 모바일: 수직 스택 / 데스크탑(md+): 수평 배치 */}
-      <div className="flex flex-col md:flex-row md:items-center md:gap-4">
-
-        {/* 신청자 정보 */}
-        <div className="flex items-center gap-2 md:w-48 md:shrink-0">
+      {/* 신청자 */}
+      <td className="px-4 py-3">
+        <div className="flex items-center gap-2">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
             style={{ backgroundColor: 'var(--bg-card-hover)' }}
           >
-            <User className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+            <User className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-1 flex-wrap">
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            <div className="flex items-center gap-1">
+              <span className="font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
                 {name || '이름 없음'}
               </span>
               {booking.is_guest && <Badge variant="orange">비회원</Badge>}
-              <Badge variant={conf.variant}>{conf.label}</Badge>
             </div>
             {booking.is_guest && booking.guest_phone && (
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{booking.guest_phone}</p>
+              <p className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                {booking.guest_phone}
+              </p>
             )}
-            <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{createdAt}</p>
           </div>
         </div>
+      </td>
 
-        {/* 슬롯 / 요금 */}
-        <div className="mt-2 md:mt-0 md:flex-1">
-          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-            <Badge variant="info">{typeLabel}</Badge>
-            {booking.fee_amount !== null && (
-              <span className="text-xs font-medium" style={{ color: 'var(--accent-color)' }}>
-                {booking.fee_amount.toLocaleString()}원/월
-              </span>
-            )}
-          </div>
+      {/* 상태 */}
+      <td className="px-4 py-3 whitespace-nowrap">
+        <Badge variant={conf.variant}>{conf.label}</Badge>
+      </td>
+
+      {/* 예약 유형 */}
+      <td className="px-4 py-3 whitespace-nowrap">
+        <Badge variant="info">{typeLabel}</Badge>
+      </td>
+
+      {/* 슬롯 일정 */}
+      <td className="px-4 py-3">
+        <div className="space-y-0.5">
           {booking.slots?.map((slot) => (
-            <p key={slot.id} className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+            <p key={slot.id} className="text-xs whitespace-nowrap" style={{ color: 'var(--text-secondary)' }}>
               {formatSlotTime(slot)}
             </p>
           ))}
         </div>
+      </td>
 
-        {/* 액션 버튼 */}
-        <div className="mt-2 md:mt-0 flex gap-1.5 md:shrink-0">
+      {/* 요금 */}
+      <td className="px-4 py-3 whitespace-nowrap">
+        {booking.fee_amount !== null ? (
+          <span className="text-sm font-medium" style={{ color: 'var(--accent-color)' }}>
+            {booking.fee_amount.toLocaleString()}원/월
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+        )}
+      </td>
+
+      {/* 신청일 */}
+      <td className="px-4 py-3 whitespace-nowrap">
+        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{createdAt}</span>
+      </td>
+
+      {/* 액션 */}
+      <td className="px-4 py-3">
+        <div className="flex items-center justify-end gap-1.5">
           {booking.status === 'PENDING' && (
             <button
               onClick={onConfirm}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
               style={{ backgroundColor: 'var(--color-success)' }}
             >
               <Check className="w-3 h-3" />
@@ -378,7 +438,7 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
           {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
             <button
               onClick={onCancel}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
               style={{ backgroundColor: 'var(--color-danger)' }}
             >
               <X className="w-3 h-3" />
@@ -388,7 +448,7 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
           {/* 메모 버튼 — 메모 있으면 강조 색상 */}
           <button
             onClick={onNote}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
             style={
               booking.admin_note
                 ? { backgroundColor: 'var(--color-info, #3b82f6)', color: '#fff' }
@@ -399,18 +459,15 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
             메모
           </button>
         </div>
-      </div>
-    </div>
+      </td>
+    </tr>
   )
 }
 
 // ─── CancelModal ─────────────────────────────────────────────────────────────
-// 로컬 state로 텍스트 관리 → 부모 리렌더 없이 입력 처리
 
 function CancelModal({
-  target,
-  onClose,
-  onConfirm,
+  target, onClose, onConfirm,
 }: {
   target: LessonBooking | null
   onClose: () => void
@@ -418,7 +475,6 @@ function CancelModal({
 }) {
   const [reason, setReason] = useState('')
 
-  // 모달 열릴 때 초기화
   useEffect(() => {
     if (target) setReason('')
   }, [target])
@@ -464,9 +520,7 @@ function CancelModal({
 // ─── NoteModal ───────────────────────────────────────────────────────────────
 
 function NoteModal({
-  target,
-  onClose,
-  onSave,
+  target, onClose, onSave,
 }: {
   target: LessonBooking | null
   onClose: () => void
