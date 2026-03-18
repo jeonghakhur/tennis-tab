@@ -1092,77 +1092,79 @@ function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalP
   const feeAmount = detail?.fee_amount != null ? `${detail.fee_amount.toLocaleString()}원` : '-'
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="예약자 정보" size="sm">
+    <Modal isOpen={isOpen} onClose={onClose} title="" size="sm">
       <Modal.Body>
         {loading ? (
-          <div className="space-y-3 animate-pulse">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className="h-8 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-            ))}
+          <div className="space-y-4 animate-pulse">
+            <div className="h-7 w-32 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+            <div className="h-6 w-24 rounded-full" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+            <div className="h-4 w-full rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+            <div className="h-px w-full" style={{ backgroundColor: 'var(--border-color)' }} />
+            <div className="flex gap-4">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-4 flex-1 rounded" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+              ))}
+            </div>
           </div>
         ) : !detail ? (
           <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>예약 정보를 찾을 수 없습니다.</p>
         ) : (
-          <div className="space-y-3">
-            {/* 슬롯 정보 */}
-            <div className="rounded-lg px-3 py-2" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>레슨 일시</p>
-              <p className="text-sm font-medium mt-0.5" style={{ color: 'var(--text-primary)' }}>
-                {slot.slot_date} {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
-              </p>
+          <div>
+            {/* 예약자 이름 — 굵은 타이틀 */}
+            <p className="text-xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>{name}</p>
+
+            {/* 회원 유형 + 회차 — 필 배지 */}
+            <div className="flex items-center gap-2 mb-4">
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                <User className="w-3.5 h-3.5" />
+                {detail.is_guest ? '비회원' : '회원'}
+              </span>
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                <Hash className="w-3.5 h-3.5" />
+                {detail.sessionNumber}회차
+              </span>
+              <Badge variant={detail.status === 'CONFIRMED' ? 'success' : detail.status === 'CANCELLED' ? 'danger' : 'warning'}>
+                {statusLabel}
+              </Badge>
             </div>
 
-            {/* 회차 */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <Hash className="w-4 h-4 shrink-0" style={{ color: 'var(--accent-color)' }} />
-              <div>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>회차</p>
-                <p className="text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
-                  {detail.sessionNumber}번째 레슨
-                </p>
-              </div>
-            </div>
-
-            {/* 이름 */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <User className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
-              <div>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>{detail.is_guest ? '비회원' : '회원'}</p>
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{name}</p>
-              </div>
-            </div>
-
-            {/* 연락처 */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
-              <div>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>연락처</p>
-                <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{phone}</p>
-              </div>
-            </div>
-
-            {/* 예약 유형 + 결제 */}
-            <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <CreditCard className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약 유형 / 결제</p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{bookingTypeLabel}</p>
-                  <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>{feeAmount}</span>
-                  <Badge variant={detail.status === 'CONFIRMED' ? 'success' : detail.status === 'CANCELLED' ? 'danger' : 'warning'}>
-                    {statusLabel}
-                  </Badge>
-                </div>
-              </div>
-            </div>
+            {/* 레슨 일시 — 본문 텍스트 */}
+            <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
+              {slot.slot_date} ({DAY_LABELS[new Date(slot.slot_date + 'T00:00:00').getDay()]}){' '}
+              {slot.start_time.slice(0, 5)} ~ {slot.end_time.slice(0, 5)}
+            </p>
 
             {/* 관리자 메모 */}
             {detail.admin_note && (
-              <div className="px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>관리자 메모</p>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{detail.admin_note}</p>
-              </div>
+              <p className="text-sm mb-4 px-3 py-2 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+                {detail.admin_note}
+              </p>
             )}
+
+            {/* 구분선 */}
+            <div className="mb-3" style={{ borderTop: '1px solid var(--border-color)' }} />
+
+            {/* 하단 아이콘 + 텍스트 행 */}
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+              <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <Phone className="w-4 h-4 shrink-0" />
+                {phone}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <CreditCard className="w-4 h-4 shrink-0" />
+                {bookingTypeLabel}
+              </span>
+              <span className="inline-flex items-center gap-1.5 text-sm" style={{ color: 'var(--text-muted)' }}>
+                <Hash className="w-4 h-4 shrink-0" />
+                {feeAmount}
+              </span>
+            </div>
           </div>
         )}
       </Modal.Body>
