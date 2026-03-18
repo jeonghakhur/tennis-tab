@@ -9,7 +9,6 @@ import { Toast } from '@/components/common/AlertDialog'
 import { getCoaches } from '@/lib/coaches/actions'
 import type { Coach } from '@/lib/lessons/types'
 import type { LessonBooking, LessonBookingStatus } from '@/lib/lessons/slot-types'
-import { BOOKING_STATUS_LABEL, BOOKING_TYPE_LABEL } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -242,9 +241,7 @@ export function AdminBookingTab() {
               <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
                 <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>신청자</th>
                 <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>상태</th>
-                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>예약 유형</th>
-                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>시작일</th>
-                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>마감일</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>스케줄</th>
                 <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>요금</th>
                 <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>신청일</th>
                 <th className="px-4 py-3 text-right font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>액션</th>
@@ -326,6 +323,26 @@ function TabButton({
   )
 }
 
+// ─── 요일 레이블 ──────────────────────────────────────────────────────────────
+
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+/** sessions 배열에서 요일별 시간 그룹 추출 (DOW → start/end) */
+function getSlotSchedule(sessions: { slot_date: string; start_time: string; end_time: string }[]) {
+  const map = new Map<number, { start: string; end: string }>()
+  for (const s of sessions) {
+    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+    if (!map.has(dow)) {
+      map.set(dow, { start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5) })
+    }
+  }
+  return [...map.entries()].sort((a, b) => {
+    // 월~금 → 토 → 일 순 (1~5, 6, 0)
+    const order = (d: number) => (d === 0 ? 7 : d)
+    return order(a[0]) - order(b[0])
+  })
+}
+
 // ─── BookingRow ───────────────────────────────────────────────────────────────
 
 function BookingRow({
@@ -337,18 +354,24 @@ function BookingRow({
   onCancel: () => void
   onNote: () => void
 }) {
-  const conf      = STATUS_CONFIG[booking.status]
-  const name      = booking.is_guest ? booking.guest_name : booking.member?.name
-  const typeLabel = BOOKING_TYPE_LABEL[booking.booking_type]
+  const conf    = STATUS_CONFIG[booking.status]
+  const name    = booking.is_guest ? booking.guest_name : booking.member?.name
+  const slot    = booking.slots?.[0]
+  const sessions = slot?.sessions ?? []
+  const totalSessions = slot?.total_sessions ?? sessions.length
 
-  const formatDate = (dateStr: string) =>
-    new Date(dateStr + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })
+  // 요일별 시간 (예: 월 07:00~07:20, 화 07:00~07:20)
+  const schedule = getSlotSchedule(sessions)
 
-  const sortedDates = (booking.slots ?? [])
+  // 날짜 목록 (M/D 형식, 정렬)
+  const sortedDates = sessions
     .map((s) => s.slot_date)
     .sort()
-  const startDate = sortedDates[0]
-  const endDate   = sortedDates[sortedDates.length - 1]
+
+  const formatShortDate = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    return `${d.getMonth() + 1}/${d.getDate()}`
+  }
 
   const createdAt = new Date(booking.created_at).toLocaleDateString('ko-KR', {
     month: 'short', day: 'numeric',
@@ -387,31 +410,54 @@ function BookingRow({
       </td>
 
       {/* 상태 */}
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap align-top pt-4">
         <Badge variant={conf.variant}>{conf.label}</Badge>
       </td>
 
-      {/* 예약 유형 */}
-      <td className="px-4 py-3 whitespace-nowrap">
-        <Badge variant="info">{typeLabel}</Badge>
-      </td>
-
-      {/* 시작일 */}
-      <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-          {startDate ? formatDate(startDate) : '—'}
-        </span>
-      </td>
-
-      {/* 마감일 */}
-      <td className="px-4 py-3 whitespace-nowrap">
-        <span className="text-sm" style={{ color: 'var(--text-primary)' }}>
-          {endDate && endDate !== startDate ? formatDate(endDate) : '—'}
-        </span>
+      {/* 스케줄 — 요일/시간 + 날짜 목록 */}
+      <td className="px-4 py-3 min-w-[260px]">
+        {sessions.length === 0 ? (
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+        ) : (
+          <div className="space-y-1.5">
+            {/* 요일별 시간 + 총 회차 */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {schedule.map(([dow, time]) => (
+                <span key={dow} className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                  {DAY_LABELS[dow]} {time.start}~{time.end}
+                </span>
+              ))}
+              {totalSessions > 0 && (
+                <span className="text-sm whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                  {totalSessions}회
+                </span>
+              )}
+            </div>
+            {/* 날짜 목록 칩 */}
+            <div className="flex flex-wrap gap-1">
+              {sortedDates.map((dateStr) => {
+                const isPast = new Date(dateStr + 'T23:59:59') < new Date()
+                return (
+                  <span
+                    key={dateStr}
+                    className="inline-block px-1.5 py-0.5 rounded text-xs font-medium"
+                    style={
+                      isPast
+                        ? { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }
+                        : { backgroundColor: 'var(--accent-color)', color: '#fff', opacity: 0.9 }
+                    }
+                  >
+                    {formatShortDate(dateStr)}
+                  </span>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </td>
 
       {/* 요금 */}
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap align-top pt-4">
         {booking.fee_amount !== null ? (
           <span className="text-sm font-medium" style={{ color: 'var(--accent-color)' }}>
             {booking.fee_amount.toLocaleString()}원/월
@@ -422,12 +468,12 @@ function BookingRow({
       </td>
 
       {/* 신청일 */}
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap align-top pt-4">
         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{createdAt}</span>
       </td>
 
       {/* 액션 */}
-      <td className="px-4 py-3">
+      <td className="px-4 py-3 align-top pt-3">
         <div className="flex items-center justify-end gap-1.5">
           {booking.status === 'PENDING' && (
             <button
@@ -449,7 +495,7 @@ function BookingRow({
               {booking.status === 'PENDING' ? '거절' : '취소'}
             </button>
           )}
-          {/* 메모 버튼 — 메모 있으면 강조 색상 */}
+          {/* 메모 버튼 */}
           <button
             onClick={onNote}
             className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
