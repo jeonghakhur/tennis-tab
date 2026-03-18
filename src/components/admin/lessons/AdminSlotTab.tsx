@@ -467,21 +467,18 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
               ))}
             </div>
           ) : viewMode === 'calendar' ? (
-            // ── 달력 뷰: 좌(월간 달력) + 우(선택 날짜 슬롯) ───────────
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-start">
-              {/* 좌: 월간 달력 */}
-              <div
-                className="rounded-xl overflow-hidden"
-                style={{ border: '1px solid var(--border-color)' }}
-              >
+            // ── 달력 뷰: 달력 위 + 슬롯 패널 아래 ───────────────────────
+            <div>
+              {/* 월간 달력 */}
+              <div className="px-1 pb-2">
                 {/* 요일 헤더 */}
-                <div className="grid grid-cols-7" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                <div className="grid grid-cols-7 mb-1">
                   {WEEK_HEADER.map((d, i) => (
                     <div
                       key={d}
-                      className="text-center text-sm font-semibold py-2.5"
+                      className="text-center text-sm py-2"
                       style={{
-                        color: i === 5 ? 'var(--color-info)' : i === 6 ? 'var(--color-danger)' : 'var(--text-muted)',
+                        color: i === 0 ? 'var(--color-danger)' : i === 6 ? 'var(--color-info)' : 'var(--text-muted)',
                       }}
                     >
                       {d}
@@ -490,10 +487,7 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                 </div>
 
                 {/* 날짜 그리드 */}
-                <div
-                  className="grid grid-cols-7"
-                  style={{ backgroundColor: 'var(--bg-card)' }}
-                >
+                <div className="grid grid-cols-7">
                   {calendarDays.map(({ date, isCurrentMonth }) => {
                     const dateStr = toDateStr(date)
                     const daySlots = slotsByDate.get(dateStr) || []
@@ -502,111 +496,87 @@ export function AdminSlotTab({ programs, programsLoading }: AdminSlotTabProps) {
                     const dow = date.getDay()
                     const bookedCount = daySlots.filter((s) => s.status === 'BOOKED').length
                     const openCount = daySlots.filter((s) => s.status === 'OPEN').length
+                    const otherCount = daySlots.length - bookedCount - openCount
+
+                    // 점 색상 우선순위: 예약(파랑) > 빈슬롯(초록) > 기타(회색)
+                    const dotColors: string[] = []
+                    if (bookedCount > 0) dotColors.push('var(--color-info)')
+                    if (openCount > 0) dotColors.push('var(--color-success)')
+                    if (otherCount > 0 && dotColors.length < 2) dotColors.push('var(--text-muted)')
 
                     return (
                       <button
                         key={dateStr}
                         type="button"
                         onClick={() => setSelectedDate(dateStr)}
-                        className="flex flex-col items-center gap-1 py-2.5 transition-colors relative"
-                        style={{
-                          backgroundColor: isSelected ? 'var(--accent-color)' : 'transparent',
-                          opacity: isCurrentMonth ? 1 : 0.25,
-                          borderRight: '1px solid var(--border-color)',
-                          borderBottom: '1px solid var(--border-color)',
-                        }}
+                        className="flex flex-col items-center py-1 transition-colors"
+                        style={{ opacity: isCurrentMonth ? 1 : 0.25 }}
                         aria-label={`${dateStr} ${daySlots.length}개 슬롯`}
                         aria-pressed={isSelected}
                       >
-                        {/* 날짜 숫자 — 오늘은 원형 하이라이트 */}
+                        {/* 날짜 숫자 원 */}
                         <span
-                          className="w-8 h-8 flex items-center justify-center rounded-full text-sm font-semibold leading-none"
+                          className="w-10 h-10 flex items-center justify-center rounded-full text-base font-medium leading-none transition-colors"
                           style={{
-                            backgroundColor: !isSelected && isToday ? 'var(--accent-color)' : 'transparent',
-                            color: isSelected
-                              ? 'var(--bg-primary)'
+                            backgroundColor: isSelected
+                              ? 'var(--accent-color)'
                               : isToday
-                              ? 'var(--bg-primary)'
+                              ? 'var(--bg-secondary)'
+                              : 'transparent',
+                            color: isSelected
+                              ? '#fff'
                               : dow === 0
                               ? 'var(--color-danger)'
                               : dow === 6
                               ? 'var(--color-info)'
                               : 'var(--text-primary)',
+                            fontWeight: isToday ? 700 : undefined,
                           }}
                         >
                           {date.getDate()}
                         </span>
 
-                        {/* 슬롯 현황 — 예약/빈 슬롯 수 */}
-                        {daySlots.length > 0 ? (
-                          <div className="flex items-center gap-0.5">
-                            {bookedCount > 0 && (
-                              <span
-                                className="text-sm font-medium leading-none px-1 rounded"
-                                style={{
-                                  backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'var(--color-info-subtle, rgba(59,130,246,0.12))',
-                                  color: isSelected ? 'var(--bg-primary)' : 'var(--color-info)',
-                                }}
-                              >
-                                {bookedCount}
-                              </span>
-                            )}
-                            {openCount > 0 && (
-                              <span
-                                className="text-sm font-medium leading-none px-1 rounded"
-                                style={{
-                                  backgroundColor: isSelected ? 'rgba(255,255,255,0.25)' : 'var(--color-success-subtle)',
-                                  color: isSelected ? 'var(--bg-primary)' : 'var(--color-success)',
-                                }}
-                              >
-                                {openCount}
-                              </span>
-                            )}
-                            {/* 빈슬롯+예약 외 나머지 */}
-                            {daySlots.length - bookedCount - openCount > 0 && (
-                              <span
-                                className="text-sm font-medium leading-none px-1 rounded"
-                                style={{
-                                  backgroundColor: isSelected ? 'rgba(255,255,255,0.2)' : 'var(--bg-secondary)',
-                                  color: isSelected ? 'var(--bg-primary)' : 'var(--text-muted)',
-                                }}
-                              >
-                                {daySlots.length - bookedCount - openCount}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <span className="h-5" /> /* 높이 유지용 */
-                        )}
+                        {/* 슬롯 이벤트 점 */}
+                        <div className="flex items-center gap-0.5 mt-1 h-1.5">
+                          {dotColors.map((color, i) => (
+                            <span
+                              key={i}
+                              className="w-1.5 h-1.5 rounded-full"
+                              style={{ backgroundColor: isSelected ? 'rgba(255,255,255,0.7)' : color }}
+                            />
+                          ))}
+                        </div>
                       </button>
                     )
                   })}
                 </div>
               </div>
 
-              {/* 우: 선택 날짜 슬롯 패널 */}
+              {/* 구분선 + 드래그 핸들 */}
               <div
-                className="rounded-xl overflow-hidden"
-                style={{ border: '1px solid var(--border-color)', minHeight: '200px' }}
+                className="flex flex-col items-center pt-1 pb-4"
+                style={{ borderTop: '1px solid var(--border-color)' }}
               >
-                {!selectedDate ? (
-                  <div className="flex flex-col items-center justify-center h-48"
-                    style={{ backgroundColor: 'var(--bg-card)' }}>
-                    <CalendarDays className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)', opacity: 0.4 }} />
-                    <p className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>날짜를 선택하세요</p>
-                  </div>
-                ) : (
-                  <DateSlotPanel
-                    dateStr={selectedDate}
-                    slots={slotsByDate.get(selectedDate) || []}
-                    onToggle={handleToggleStatus}
-                    onLock={(slot) => setLockModalSlot(slot)}
-                    onUnlock={handleUnlock}
-                    onDelete={(slot) => setDeleteTarget(slot)}
-                    onViewBooking={(slot) => setBookingModalSlot(slot)}
-                  />
-                )}
+                <div className="w-10 h-1 rounded-full mt-2" style={{ backgroundColor: 'var(--border-color)' }} />
               </div>
+
+              {/* 선택 날짜 슬롯 패널 */}
+              {!selectedDate ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <CalendarDays className="w-10 h-10 mb-3" style={{ color: 'var(--text-muted)', opacity: 0.3 }} />
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>날짜를 선택하세요</p>
+                </div>
+              ) : (
+                <DateSlotPanel
+                  dateStr={selectedDate}
+                  slots={slotsByDate.get(selectedDate) || []}
+                  onToggle={handleToggleStatus}
+                  onLock={(slot) => setLockModalSlot(slot)}
+                  onUnlock={handleUnlock}
+                  onDelete={(slot) => setDeleteTarget(slot)}
+                  onViewBooking={(slot) => setBookingModalSlot(slot)}
+                />
+              )}
             </div>
           ) : (
             // ── 목록 뷰: 주간 or 월간 ────────────────────────────────
@@ -823,23 +793,20 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
   const openCount = slots.filter((s) => s.status === 'OPEN').length
 
   return (
-    <div style={{ backgroundColor: 'var(--bg-card)' }}>
+    <div>
       {/* 날짜 헤더 */}
-      <div
-        className="flex items-center gap-3 px-4 py-3"
-        style={{ borderBottom: '1px solid var(--border-color)', backgroundColor: 'var(--bg-secondary)' }}
-      >
+      <div className="flex items-center gap-3 px-4 pb-3">
         <div className="flex items-baseline gap-1.5">
-          <span className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>
+          <span className="text-base font-bold" style={{ color: 'var(--text-primary)' }}>
             {date.getMonth() + 1}월 {date.getDate()}일
           </span>
           <span
-            className="text-sm font-medium"
+            className="text-sm"
             style={{
               color: dow === 0 ? 'var(--color-danger)' : dow === 6 ? 'var(--color-info)' : 'var(--text-muted)',
             }}
           >
-            ({DAY_LABELS[dow]})
+            {DAY_LABELS[dow]}요일
           </span>
         </div>
 
@@ -849,7 +816,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
             {bookedCount > 0 && (
               <span
                 className="text-sm font-medium px-2 py-0.5 rounded-full"
-                style={{ backgroundColor: 'var(--color-info-subtle, rgba(59,130,246,0.12))', color: 'var(--color-info)' }}
+                style={{ backgroundColor: 'rgba(59,130,246,0.1)', color: 'var(--color-info)' }}
               >
                 예약 {bookedCount}
               </span>
