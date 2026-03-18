@@ -13,6 +13,7 @@ import type {
   LessonBookingType,
   CreateSlotInput,
   CreateBookingInput,
+  SlotSession,
 } from './slot-types'
 import { getDayType, isTimeInRange, calculateBookingType, getFeeFieldByBookingType } from './slot-types'
 
@@ -43,11 +44,11 @@ const REVALIDATE_PATH = '/admin/lessons'
 // 슬롯 CRUD
 // ============================================================================
 
-/** 슬롯 단건 생성 */
+/** 슬롯 단건 생성 (단일 세션용, 레거시) */
 export async function createSlot(
   programId: string,
   coachId: string,
-  data: CreateSlotInput
+  data: SlotSession
 ): Promise<{ error: string | null; data?: LessonSlot }> {
   const { error: authErr, user } = await checkAdminAuth()
   if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
@@ -59,7 +60,6 @@ export async function createSlot(
     return { error: '날짜와 시간을 입력해주세요.' }
   }
 
-  // 가용 시간 범위 검증
   if (!isTimeInRange(data.slot_date, data.start_time, data.end_time)) {
     return { error: '해당 요일의 레슨 가능 시간 범위를 벗어납니다.' }
   }
@@ -67,7 +67,6 @@ export async function createSlot(
   const dayType = getDayType(data.slot_date)
   const admin = createAdminClient()
 
-  // 중복 슬롯 체크
   const { data: existing } = await admin
     .from('lesson_slots')
     .select('id')
@@ -102,50 +101,51 @@ export async function createSlot(
   return { error: null, data: slot }
 }
 
-/** 반복 슬롯 일괄 생성 */
-export async function createRepeatingSlots(
+/** 레슨 슬롯 패키지 생성 (1건 = 전체 N회 세션) */
+export async function createLessonSlot(
   programId: string,
   coachId: string,
-  slots: CreateSlotInput[]
-): Promise<{ error: string | null; count: number }> {
+  input: CreateSlotInput
+): Promise<{ error: string | null }> {
   const { error: authErr, user } = await checkAdminAuth()
-  if (authErr || !user) return { error: authErr || '권한이 없습니다.', count: 0 }
+  if (authErr || !user) return { error: authErr || '권한이 없습니다.' }
 
-  if (!slots.length) return { error: '생성할 슬롯이 없습니다.', count: 0 }
+  if (!input.sessions.length) return { error: '생성할 세션이 없습니다.' }
 
-  // 시간 범위 검증
-  for (const s of slots) {
+  // 각 세션 시간 범위 검증
+  for (const s of input.sessions) {
     if (!isTimeInRange(s.slot_date, s.start_time, s.end_time)) {
       const d = new Date(s.slot_date + 'T00:00:00')
       const dayLabel = d.toLocaleDateString('ko-KR', { weekday: 'short' })
-      return { error: `${s.slot_date}(${dayLabel}) ${s.start_time}~${s.end_time}은 가능 시간 범위를 벗어납니다.`, count: 0 }
+      return { error: `${s.slot_date}(${dayLabel}) ${s.start_time}~${s.end_time}은 가능 시간 범위를 벗어납니다.` }
     }
   }
 
+  // 첫 번째 세션 기준으로 slot_date/start_time/end_time 설정
+  const first = input.sessions[0]
   const admin = createAdminClient()
-  const rows = slots.map((s) => ({
-    program_id: programId,
-    coach_id: coachId,
-    slot_date: s.slot_date,
-    start_time: s.start_time,
-    end_time: s.end_time,
-    day_type: getDayType(s.slot_date),
-    status: 'OPEN' as const,
-    created_by: user.id,
-  }))
 
-  const { data, error } = await admin
+  const { error } = await admin
     .from('lesson_slots')
-    .upsert(rows, {
-      onConflict: 'coach_id,slot_date,start_time',
-      ignoreDuplicates: true,
+    .insert({
+      program_id: programId,
+      coach_id: coachId,
+      slot_date: first.slot_date,
+      start_time: first.start_time,
+      end_time: first.end_time,
+      day_type: getDayType(first.slot_date),
+      frequency: input.frequency,
+      duration_minutes: input.duration_minutes,
+      total_sessions: input.total_sessions,
+      sessions: input.sessions,
+      status: 'OPEN',
+      created_by: user.id,
     })
-    .select('id')
 
-  if (error) return { error: '슬롯 일괄 생성에 실패했습니다.', count: 0 }
+  if (error) return { error: '슬롯 생성에 실패했습니다.' }
 
   revalidatePath(REVALIDATE_PATH)
-  return { error: null, count: data?.length ?? rows.length }
+  return { error: null }
 }
 
 /** 슬롯 상태 변경 (OPEN ↔ BLOCKED) */

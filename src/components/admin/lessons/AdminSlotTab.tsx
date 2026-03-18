@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List, User, Phone, CreditCard, Hash } from 'lucide-react'
 import {
-  createRepeatingSlots,
+  createLessonSlot,
   updateSlotStatus,
   lockSlot,
   unlockSlot,
@@ -18,7 +18,7 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { LessonProgram } from '@/lib/lessons/types'
-import type { LessonSlot, LessonSlotStatus, LessonBooking, CreateSlotInput } from '@/lib/lessons/slot-types'
+import type { LessonSlot, LessonSlotStatus, LessonBooking, CreateSlotInput, SlotSession } from '@/lib/lessons/slot-types'
 import { LESSON_AVAILABLE_HOURS, BOOKING_TYPE_LABEL, BOOKING_STATUS_LABEL, isTimeInRange } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
@@ -1189,33 +1189,43 @@ function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalP
 
 // ─── 슬롯 등록 모달 ─────────────────────────────────────────────────────────
 
-/** 월 + 요일 + 시간으로 해당 월 전체 슬롯 생성 */
-function generateSlotsFromMonthDayTime(
-  yearMonth: string, // 'YYYY-MM'
+/** 시작일부터 frequency × 4회 세션 생성 (월 경계 무시) */
+function generateSessionsFromFrequency(
+  frequency: 1 | 2,
   schedules: Array<{ dow: number; time: string }>,
-  duration: LessonDuration
-): CreateSlotInput[] {
-  const [year, month] = yearMonth.split('-').map(Number)
-  const daysInMonth = new Date(year, month, 0).getDate() // month은 1-indexed이므로 다음달 0일 = 이번달 마지막날
-  const slots: CreateSlotInput[] = []
-  for (const { dow, time } of schedules) {
-    if (!time) continue
-    const endTime = addMinutes(time, duration)
-    for (let d = 1; d <= daysInMonth; d++) {
-      const date = new Date(year, month - 1, d)
-      if (date.getDay() === dow) {
-        const dateStr = toDateStr(date)
-        if (isTimeInRange(dateStr, time, endTime)) {
-          slots.push({ slot_date: dateStr, start_time: time, end_time: endTime })
-        }
+  duration: LessonDuration,
+  startDate: string // 'YYYY-MM-DD'
+): SlotSession[] {
+  const totalSessions = frequency * 4
+  const sessions: SlotSession[] = []
+  const current = new Date(startDate + 'T00:00:00')
+
+  while (sessions.length < totalSessions) {
+    const dow = current.getDay()
+    const schedule = schedules.find((s) => s.dow === dow)
+    if (schedule?.time) {
+      const dateStr = toDateStr(current)
+      const endTime = addMinutes(schedule.time, duration)
+      if (isTimeInRange(dateStr, schedule.time, endTime)) {
+        sessions.push({ slot_date: dateStr, start_time: schedule.time, end_time: endTime })
       }
     }
+    current.setDate(current.getDate() + 1)
   }
-  return slots.sort((a, b) => a.slot_date.localeCompare(b.slot_date))
+
+  return sessions
 }
 
-const WIZARD_STEP_LABELS = ['레슨 회수', '레슨 시간', '월 선택', '요일', '시간'] as const
+const WIZARD_STEP_LABELS = ['레슨 회수', '레슨 시간', '요일', '시작일', '시간'] as const
 type WizardStep = 1 | 2 | 3 | 4 | 5
+
+const WIZARD_STEP_TITLES: Record<WizardStep, string> = {
+  1: '주당 레슨 회수를\n선택해주세요',
+  2: '회당 레슨 시간을\n선택해주세요',
+  3: '레슨 요일을\n선택해주세요',
+  4: '레슨 시작일을\n선택해주세요',
+  5: '레슨 시간을\n설정해주세요',
+}
 
 interface CreateSlotModalProps {
   isOpen: boolean
@@ -1230,38 +1240,45 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
   const [step, setStep] = useState<WizardStep>(1)
   const [frequency, setFrequency] = useState<1 | 2>(2)   // 2회 기본
   const [duration, setDuration] = useState<LessonDuration>(20)  // 20분 기본
-  const [yearMonth, setYearMonth] = useState<string>(() => {
+  // 시작일 달력에서 현재 표시 중인 월 (월 이동 내비게이션용)
+  const [calendarMonth, setCalendarMonth] = useState<string>(() => {
     const n = new Date()
     return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`
   })
   const [selectedDays, setSelectedDays] = useState<number[]>([])
+  const [startDate, setStartDate] = useState<string>('')
   const [times, setTimes] = useState<[string, string]>(['', ''])
   const [submitting, setSubmitting] = useState(false)
 
   const resetModal = () => {
+    const n = new Date()
     setStep(1)
     setFrequency(2)
     setDuration(20)
+    setCalendarMonth(`${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, '0')}`)
     setSelectedDays([])
+    setStartDate('')
     setTimes(['', ''])
   }
 
   const handleClose = () => { resetModal(); onClose() }
 
   const canGoNext = (): boolean => {
-    if (step === 4) return selectedDays.length === frequency
-    if (step === 5) return (times as string[]).slice(0, frequency).every(Boolean)
+    if (step === 3) return selectedDays.length === frequency
+    if (step === 4) return !!startDate
+    if (step === 5) return times.slice(0, frequency).every(Boolean)
     return true
   }
 
-  const previewSlots = useMemo(() => {
-    if (step < 5 || selectedDays.length < frequency) return []
+  const previewSessions = useMemo((): SlotSession[] => {
+    if (step < 5 || selectedDays.length < frequency || !startDate) return []
+    if (!times.slice(0, frequency).every(Boolean)) return []
     const schedules = selectedDays.slice(0, frequency).map((dow, i) => ({
       dow,
       time: times[i as 0 | 1] ?? '',
     }))
-    return generateSlotsFromMonthDayTime(yearMonth, schedules, duration)
-  }, [step, frequency, duration, yearMonth, selectedDays, times])
+    return generateSessionsFromFrequency(frequency, schedules, duration, startDate)
+  }, [step, frequency, duration, selectedDays, startDate, times])
 
   const handleDayToggle = (dow: number) => {
     setSelectedDays((prev) => {
@@ -1269,27 +1286,33 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
       if (prev.length >= frequency) return prev
       return [...prev, dow]
     })
+    setStartDate('') // 요일 변경 시 시작일 초기화
   }
 
   const handleNext = () => { if (canGoNext() && step < 5) setStep((s) => (s + 1) as WizardStep) }
   const handlePrev = () => { if (step > 1) setStep((s) => (s - 1) as WizardStep) }
 
   const handleSubmit = async () => {
-    if (previewSlots.length === 0) { onError('생성할 슬롯이 없습니다.'); return }
+    if (previewSessions.length === 0) { onError('생성할 슬롯이 없습니다.'); return }
     setSubmitting(true)
-    const result = await createRepeatingSlots(programId, coachId, previewSlots)
+    const result = await createLessonSlot(programId, coachId, {
+      frequency,
+      duration_minutes: duration,
+      total_sessions: previewSessions.length,
+      sessions: previewSessions,
+    })
     setSubmitting(false)
     if (result.error) { onError(result.error); return }
-    onSuccess(result.count)
+    onSuccess(previewSessions.length)
     resetModal()
   }
 
-  // 월 선택 헬퍼
-  const changeMonth = (delta: number) => {
-    const [y, m] = yearMonth.split('-').map(Number)
+  // 시작일 달력 월 이동 헬퍼
+  const changeCalendarMonth = (delta: number) => {
+    const [y, m] = calendarMonth.split('-').map(Number)
     const d = new Date(y, m - 1 + delta, 1)
-    setYearMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
-    setSelectedDays([])  // 월 변경 시 요일 초기화
+    setCalendarMonth(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`)
+    setStartDate('') // 달력 월 이동 시 시작일 초기화
   }
 
   const renderStepContent = () => {
@@ -1298,7 +1321,6 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
       case 1:
         return (
           <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>주당 레슨 횟수를 선택하세요</p>
             <div className="grid grid-cols-2 gap-3">
               {([1, 2] as const).map((f) => (
                 <button
@@ -1315,7 +1337,6 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                   }}
                 >
                   <span className="text-2xl font-bold tabular-nums">주 {f}회</span>
-                  <span className="text-sm font-medium" style={{ opacity: 0.75 }}>월 {f * 4}회 레슨</span>
                 </button>
               ))}
             </div>
@@ -1326,7 +1347,6 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
       case 2:
         return (
           <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>회당 레슨 시간을 선택하세요</p>
             <div className="grid grid-cols-2 gap-3">
               {LESSON_DURATIONS.map((d) => (
                 <button
@@ -1350,92 +1370,28 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
           </div>
         )
 
-      // ── Step 3: 월 선택 ──────────────────────────────────────────
+      // ── Step 3: 요일 선택 ────────────────────────────────────────
       case 3: {
-        const [selYear, selMonth] = yearMonth.split('-').map(Number)
-        return (
-          <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>레슨을 진행할 월을 선택하세요</p>
-            <div
-              className="rounded-2xl overflow-hidden"
-              style={{ border: '1.5px solid var(--border-color)' }}
-            >
-              <div
-                className="flex items-center justify-between px-5 py-4"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
-              >
-                <button
-                  type="button"
-                  onClick={() => changeMonth(-1)}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
-                  style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}
-                  aria-label="이전 달"
-                >
-                  <ChevronLeft size={18} />
-                </button>
-                <div className="text-center">
-                  <p className="text-xl font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                    {selYear}년 {selMonth}월
-                  </p>
-                  <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                    {new Date(selYear, selMonth - 1, 1).toLocaleDateString('ko-KR', { weekday: 'short', month: 'long', day: 'numeric' })}
-                    {' ~ '}
-                    {new Date(selYear, selMonth, 0).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => changeMonth(1)}
-                  className="w-9 h-9 flex items-center justify-center rounded-xl transition-colors"
-                  style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}
-                  aria-label="다음 달"
-                >
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-              <div
-                className="px-5 py-4"
-                style={{ backgroundColor: 'var(--bg-card)' }}
-              >
-                <div
-                  className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-semibold"
-                  style={{ backgroundColor: 'var(--accent-color)', color: '#fff' }}
-                >
-                  <span>{selYear}년 {selMonth}월 선택됨</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )
-      }
-
-      // ── Step 4: 요일 선택 ────────────────────────────────────────
-      case 4: {
         // 0=일,1=월,2=화,3=수,4=목,5=금,6=토 — 월요일부터 표시
         const DOW_ORDER = [1, 2, 3, 4, 5, 6, 0]
-        const [selYear, selMonth] = yearMonth.split('-').map(Number)
         return (
           <div className="space-y-4">
-            <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-              {frequency === 1 ? '레슨 요일을 선택하세요' : `레슨 요일을 2개 선택하세요 (${selectedDays.length}/2)`}
-            </p>
+            {frequency === 2 && selectedDays.length < 2 && (
+              <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                요일을 2개 선택하세요 ({selectedDays.length}/2)
+              </p>
+            )}
             <div className="grid grid-cols-7 gap-1.5">
               {DOW_ORDER.map((dow) => {
                 const isSelected = selectedDays.includes(dow)
                 const isWeekend = dow === 0 || dow === 6
-                // 해당 월에 이 요일이 몇 번 있는지 계산
-                const daysInMonth = new Date(selYear, selMonth, 0).getDate()
-                let occurrences = 0
-                for (let d = 1; d <= daysInMonth; d++) {
-                  if (new Date(selYear, selMonth - 1, d).getDay() === dow) occurrences++
-                }
                 return (
                   <button
                     key={dow}
                     type="button"
                     aria-pressed={isSelected}
                     onClick={() => handleDayToggle(dow)}
-                    className="flex flex-col items-center gap-1 py-3 rounded-xl transition-all"
+                    className="flex items-center justify-center py-4 rounded-xl transition-all text-base font-bold"
                     style={{
                       backgroundColor: isSelected ? 'var(--accent-color)' : 'var(--bg-secondary)',
                       color: isSelected ? '#fff' : isWeekend ? 'var(--color-danger)' : 'var(--text-primary)',
@@ -1443,8 +1399,7 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                       boxShadow: isSelected ? '0 3px 10px rgba(0,0,0,0.15)' : 'none',
                     }}
                   >
-                    <span className="text-base font-bold">{DAY_LABELS[dow]}</span>
-                    <span className="text-sm tabular-nums" style={{ opacity: 0.7 }}>{occurrences}회</span>
+                    {DAY_LABELS[dow]}
                   </button>
                 )
               })}
@@ -1470,13 +1425,139 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
         )
       }
 
+      // ── Step 4: 시작일 선택 ──────────────────────────────────────
+      case 4: {
+        const [calYear, calMonthNum] = calendarMonth.split('-').map(Number)
+        const calDays = getCalendarDays(calYear, calMonthNum - 1)
+        const todayStr = toDateStr(new Date())
+        return (
+          <div className="space-y-4">
+            {/* 선택된 요일 표시 */}
+            <div
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm"
+              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}
+            >
+              <span>레슨 요일:</span>
+              {selectedDays.map((dow) => (
+                <span
+                  key={dow}
+                  className="px-2 py-0.5 rounded-full font-semibold text-sm"
+                  style={{ backgroundColor: 'var(--accent-color)', color: '#fff' }}
+                >
+                  {DAY_LABELS[dow]}요일
+                </span>
+              ))}
+            </div>
+            {/* 달력 */}
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1.5px solid var(--border-color)' }}>
+              {/* 월 이동 헤더 */}
+              <div
+                className="flex items-center justify-between px-4 py-3"
+                style={{ backgroundColor: 'var(--bg-secondary)' }}
+              >
+                <button
+                  type="button"
+                  onClick={() => changeCalendarMonth(-1)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                  style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}
+                  aria-label="이전 달"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <p className="text-base font-bold tabular-nums" style={{ color: 'var(--text-primary)' }}>
+                  {calYear}년 {calMonthNum}월
+                </p>
+                <button
+                  type="button"
+                  onClick={() => changeCalendarMonth(1)}
+                  className="w-8 h-8 flex items-center justify-center rounded-lg transition-colors"
+                  style={{ backgroundColor: 'var(--bg-card)', color: 'var(--text-secondary)' }}
+                  aria-label="다음 달"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              {/* 요일 헤더 */}
+              <div
+                className="grid grid-cols-7 text-center text-sm font-medium py-2 px-2"
+                style={{ backgroundColor: 'var(--bg-card)', borderTop: '1px solid var(--border-color)' }}
+              >
+                {WEEK_HEADER.map((d) => (
+                  <span
+                    key={d}
+                    className="py-1"
+                    style={{ color: d === '토' || d === '일' ? 'var(--color-danger)' : 'var(--text-muted)' }}
+                  >
+                    {d}
+                  </span>
+                ))}
+              </div>
+              {/* 날짜 */}
+              <div className="grid grid-cols-7 gap-1 p-2" style={{ backgroundColor: 'var(--bg-card)' }}>
+                {calDays.map(({ date, isCurrentMonth }, idx) => {
+                  const dateStr = toDateStr(date)
+                  const dow = date.getDay()
+                  const isValidDay = isCurrentMonth && selectedDays.includes(dow)
+                  const isPast = dateStr < todayStr
+                  const isSelected = startDate === dateStr
+                  const isClickable = isValidDay && !isPast
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      disabled={!isClickable}
+                      onClick={() => setStartDate(dateStr)}
+                      className="aspect-square flex items-center justify-center rounded-xl text-sm font-medium transition-all"
+                      style={{
+                        backgroundColor: isSelected
+                          ? 'var(--accent-color)'
+                          : isClickable
+                          ? 'var(--bg-secondary)'
+                          : 'transparent',
+                        color: isSelected
+                          ? '#fff'
+                          : !isCurrentMonth || isPast
+                          ? 'var(--text-muted)'
+                          : isValidDay
+                          ? 'var(--text-primary)'
+                          : 'var(--text-muted)',
+                        border: isSelected ? 'none' : isClickable ? '1.5px solid var(--border-color)' : 'none',
+                        opacity: !isCurrentMonth || isPast ? 0.25 : 1,
+                        cursor: isClickable ? 'pointer' : 'default',
+                        boxShadow: isSelected ? '0 3px 10px rgba(0,0,0,0.15)' : 'none',
+                      }}
+                    >
+                      {date.getDate()}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {startDate && (
+              <div
+                className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                <span>시작일:</span>
+                <span className="font-semibold" style={{ color: 'var(--accent-color)' }}>
+                  {new Date(startDate + 'T00:00:00').toLocaleDateString('ko-KR', {
+                    month: 'long',
+                    day: 'numeric',
+                    weekday: 'short',
+                  })}
+                </span>
+              </div>
+            )}
+          </div>
+        )
+      }
+
       // ── Step 5: 시간 선택 + 미리보기 ────────────────────────────
       case 5:
         return (
-          <div className="space-y-5">
+          <div className="space-y-4">
             {/* 요일별 시간 선택 */}
             <div className="space-y-3">
-              <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>각 요일의 레슨 시작 시간을 설정하세요</p>
               {selectedDays.slice(0, frequency).map((dow, idx) => {
                 const isWeekend = dow === 0 || dow === 6
                 const range = LESSON_AVAILABLE_HOURS[dow]
@@ -1520,8 +1601,8 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
               })}
             </div>
 
-            {/* 슬롯 미리보기 */}
-            {previewSlots.length > 0 && (
+            {/* 레슨 일정 미리보기 */}
+            {previewSessions.length > 0 && (
               <div>
                 <div className="flex items-center gap-2 mb-3">
                   <span
@@ -1535,11 +1616,11 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                     className="ml-auto text-sm font-semibold px-2 py-0.5 rounded-full"
                     style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)' }}
                   >
-                    총 {previewSlots.length}회
+                    총 {previewSessions.length}회
                   </span>
                 </div>
                 <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid var(--border-color)' }}>
-                  {previewSlots.map((s, i) => {
+                  {previewSessions.map((s, i) => {
                     const date = new Date(s.slot_date + 'T00:00:00')
                     const dow = date.getDay()
                     const isWeekend = dow === 0 || dow === 6
@@ -1552,6 +1633,9 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
                           backgroundColor: i % 2 === 0 ? 'var(--bg-card)' : 'var(--bg-secondary)',
                         }}
                       >
+                        <span className="text-sm font-medium tabular-nums shrink-0" style={{ color: 'var(--text-muted)', minWidth: '2rem' }}>
+                          {i + 1}회
+                        </span>
                         <span
                           className="w-5 text-sm font-bold text-center shrink-0"
                           style={{ color: isWeekend ? 'var(--color-danger)' : 'var(--accent-color)' }}
@@ -1580,48 +1664,18 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
       <Modal.Body>
         {/* 진행 단계 표시기 */}
         <div className="mb-6">
-          <div className="relative flex items-start justify-between">
-            {/* 연결선 */}
-            <div
-              className="absolute top-4 left-0 right-0 h-px"
-              style={{ backgroundColor: 'var(--border-color)', zIndex: 0 }}
-            />
-            {/* 진행 완료선 */}
-            <div
-              className="absolute top-4 left-0 h-px transition-all duration-300"
-              style={{
-                backgroundColor: 'var(--accent-color)',
-                width: `${((step - 1) / (WIZARD_STEP_LABELS.length - 1)) * 100}%`,
-                zIndex: 0,
-              }}
-            />
-            {WIZARD_STEP_LABELS.map((label, idx) => {
-              const stepNum = (idx + 1) as WizardStep
-              const isCompleted = stepNum < step
-              const isActive = stepNum === step
-              return (
-                <div key={idx} className="flex flex-col items-center gap-1.5 relative" style={{ zIndex: 1 }}>
-                  <div
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all"
-                    style={{
-                      backgroundColor: isCompleted || isActive ? 'var(--accent-color)' : 'var(--bg-card)',
-                      color: isCompleted || isActive ? '#fff' : 'var(--text-muted)',
-                      border: isCompleted || isActive ? 'none' : '1.5px solid var(--border-color)',
-                      boxShadow: isActive ? '0 0 0 3px rgba(var(--accent-rgb, 14 165 233 / 0.25))' : 'none',
-                    }}
-                  >
-                    {isCompleted ? '✓' : stepNum}
-                  </div>
-                  <span
-                    className="text-sm font-medium whitespace-nowrap"
-                    style={{ color: isActive ? 'var(--accent-color)' : isCompleted ? 'var(--text-secondary)' : 'var(--text-muted)' }}
-                  >
-                    {label}
-                  </span>
-                </div>
-              )
-            })}
-          </div>
+          <p
+            className="text-sm font-semibold tabular-nums"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            {String(step).padStart(2, '0')} / {String(WIZARD_STEP_LABELS.length).padStart(2, '0')}
+          </p>
+          <h2
+            className="text-2xl font-bold mt-2 whitespace-pre-line leading-snug"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {WIZARD_STEP_TITLES[step]}
+          </h2>
         </div>
 
         {/* 단계 내용 */}
@@ -1668,15 +1722,15 @@ function CreateSlotModal({ isOpen, onClose, programId, coachId, onSuccess, onErr
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={submitting || previewSlots.length === 0}
+            disabled={submitting || previewSessions.length === 0}
             className="flex-1 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all"
             style={{
-              backgroundColor: previewSlots.length > 0 ? 'var(--accent-color)' : 'var(--bg-secondary)',
-              color: previewSlots.length > 0 ? '#fff' : 'var(--text-muted)',
-              boxShadow: previewSlots.length > 0 ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
+              backgroundColor: previewSessions.length > 0 ? 'var(--accent-color)' : 'var(--bg-secondary)',
+              color: previewSessions.length > 0 ? '#fff' : 'var(--text-muted)',
+              boxShadow: previewSessions.length > 0 ? '0 4px 12px rgba(0,0,0,0.15)' : 'none',
             }}
           >
-            {submitting ? '등록 중...' : previewSlots.length > 0 ? `${previewSlots.length}회 슬롯 등록` : '등록'}
+            {submitting ? '등록 중...' : previewSessions.length > 0 ? `${previewSessions.length}회 슬롯 등록` : '등록'}
           </button>
         )}
       </Modal.Footer>

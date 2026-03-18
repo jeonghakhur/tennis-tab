@@ -9,17 +9,29 @@ export type LessonBookingType = 'WEEKDAY_1' | 'WEEKEND_1' | 'WEEKDAY_2' | 'WEEKE
 
 // ─── 레슨 슬롯 ──────────────────────────────────────────────────────────────
 
+/** 개별 세션 (sessions jsonb 배열의 각 원소) */
+export interface SlotSession {
+  slot_date: string   // 'YYYY-MM-DD'
+  start_time: string  // 'HH:MM'
+  end_time: string    // 'HH:MM'
+}
+
 export interface LessonSlot {
   id: string
   program_id: string
   coach_id: string
-  slot_date: string        // 'YYYY-MM-DD'
-  start_time: string       // 'HH:MM:SS'
-  end_time: string         // 'HH:MM:SS'
+  slot_date: string        // 첫 번째 세션 날짜 'YYYY-MM-DD'
+  start_time: string       // 첫 번째 세션 시작 시간 'HH:MM:SS'
+  end_time: string         // 첫 번째 세션 종료 시간 'HH:MM:SS'
   day_type: LessonSlotDayType
   status: LessonSlotStatus
   locked_member_id: string | null
   notes: string | null
+  // 패키지 정보 (migration 44에서 추가)
+  frequency: number | null         // 주 N회 (1 or 2)
+  duration_minutes: number | null  // 회당 레슨 시간 (20 or 30)
+  total_sessions: number | null    // 전체 회차 수 (frequency × 4)
+  sessions: SlotSession[] | null   // 전체 세션 일정
   created_by: string
   created_at: string
   updated_at: string
@@ -28,15 +40,12 @@ export interface LessonSlot {
   booking?: LessonBooking | null
 }
 
+/** 레슨 슬롯(패키지) 생성 입력 */
 export interface CreateSlotInput {
-  slot_date: string        // 'YYYY-MM-DD'
-  start_time: string       // 'HH:MM'
-  end_time: string         // 'HH:MM'
-}
-
-export interface CreateRepeatingSlotsInput {
-  slots: CreateSlotInput[]
-  weeks?: number           // 반복 주수 (기본 1)
+  frequency: 1 | 2
+  duration_minutes: 20 | 30
+  total_sessions: number
+  sessions: SlotSession[]  // 전체 세션 일정
 }
 
 // ─── 레슨 예약 ──────────────────────────────────────────────────────────────
