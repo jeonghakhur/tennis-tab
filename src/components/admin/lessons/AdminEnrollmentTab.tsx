@@ -124,11 +124,13 @@ const STATUS_TRANSITIONS: Record<EnrollmentStatus, EnrollmentStatus[]> = {
 interface Props {
   programs: LessonProgram[]
   programsLoading: boolean
+  /** SUPER_ADMIN 전용 삭제 버튼 표시 여부 */
+  isSuperAdmin?: boolean
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
-export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
+export function AdminEnrollmentTab({ programs, programsLoading, isSuperAdmin = false }: Props) {
   const [subTab, setSubTab] = useState<SubTab>('list')
 
   // ── 공통 ──────────────────────────────────────────────────────────────────
@@ -720,14 +722,16 @@ export function AdminEnrollmentTab({ programs, programsLoading }: Props) {
                                                 {p.period} · {PAYMENT_METHOD_LABEL[p.method]}
                                               </span>
                                             </div>
-                                            <button
-                                              onClick={() => setDeletePaymentTarget(p)}
-                                              aria-label="결제 삭제"
-                                              className="p-1 rounded"
-                                              style={{ color: 'var(--color-danger)' }}
-                                            >
-                                              <Trash2 className="w-3.5 h-3.5" />
-                                            </button>
+                                            {isSuperAdmin && (
+                                              <button
+                                                onClick={() => setDeletePaymentTarget(p)}
+                                                aria-label="결제 삭제"
+                                                className="p-1 rounded"
+                                                style={{ color: 'var(--color-danger)' }}
+                                              >
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                              </button>
+                                            )}
                                           </div>
                                         ))}
                                       </div>

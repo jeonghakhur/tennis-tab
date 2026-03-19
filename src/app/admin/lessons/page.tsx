@@ -118,6 +118,7 @@ export default function AdminLessonsPage() {
           <AdminEnrollmentTab
             programs={programs}
             programsLoading={programsLoading}
+            isSuperAdmin={isSuperAdmin}
           />
         )}
       </div>
