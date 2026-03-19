@@ -9,6 +9,7 @@ import { AdminBookingTab } from '@/components/admin/lessons/AdminBookingTab'
 import { AdminInquiryTab } from '@/components/admin/lessons/AdminInquiryTab'
 import { AdminEnrollmentTab } from '@/components/admin/lessons/AdminEnrollmentTab'
 import { getAllLessonPrograms } from '@/lib/lessons/actions'
+import { getCurrentUser } from '@/lib/auth/actions'
 import type { LessonProgram } from '@/lib/lessons/types'
 
 type Tab = 'coaches' | 'programs' | 'slots' | 'bookings' | 'enrollments' | 'inquiries'
@@ -26,6 +27,7 @@ export default function AdminLessonsPage() {
   const [tab, setTab] = useState<Tab>('coaches')
   const [programs, setPrograms] = useState<LessonProgram[]>([])
   const [programsLoading, setProgramsLoading] = useState(true)
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
 
   const loadPrograms = useCallback(async () => {
     setProgramsLoading(true)
@@ -36,6 +38,9 @@ export default function AdminLessonsPage() {
 
   useEffect(() => {
     loadPrograms()
+    getCurrentUser().then((user) => {
+      if (user?.role === 'SUPER_ADMIN') setIsSuperAdmin(true)
+    })
   }, [loadPrograms])
 
   return (
@@ -105,7 +110,7 @@ export default function AdminLessonsPage() {
       </div>
 
       <div id="tabpanel-bookings" role="tabpanel" hidden={tab !== 'bookings'}>
-        {tab === 'bookings' && <AdminBookingTab />}
+        {tab === 'bookings' && <AdminBookingTab isSuperAdmin={isSuperAdmin} />}
       </div>
 
       <div id="tabpanel-enrollments" role="tabpanel" hidden={tab !== 'enrollments'}>
@@ -118,7 +123,7 @@ export default function AdminLessonsPage() {
       </div>
 
       <div id="tabpanel-inquiries" role="tabpanel" hidden={tab !== 'inquiries'}>
-        {tab === 'inquiries' && <AdminInquiryTab />}
+        {tab === 'inquiries' && <AdminInquiryTab isSuperAdmin={isSuperAdmin} />}
       </div>
     </div>
   )

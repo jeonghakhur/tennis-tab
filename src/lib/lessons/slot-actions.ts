@@ -37,6 +37,16 @@ async function checkAdminAuth() {
   return { error: null, user }
 }
 
+/** SUPER_ADMIN 전용 권한 확인 */
+async function checkSuperAdminAuth() {
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.', user: null }
+  if (user.role !== 'SUPER_ADMIN') {
+    return { error: '최고 관리자 권한이 필요합니다.', user: null }
+  }
+  return { error: null, user }
+}
+
 const REVALIDATE_PATH = '/admin/lessons'
 
 // ============================================================================
@@ -737,4 +747,68 @@ export async function searchClubMembers(
 
   if (error) return { error: '회원 검색에 실패했습니다.', data: [] }
   return { error: null, data: data || [] }
+}
+
+// ============================================================================
+// SUPER_ADMIN 전용 삭제
+// ============================================================================
+
+/** 예약 완전 삭제 (SUPER_ADMIN 전용) — 연결된 슬롯 상태도 OPEN으로 복구 */
+export async function deleteBooking(bookingId: string): Promise<{ error: string | null }> {
+  const { error: authErr } = await checkSuperAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const idErr = validateId(bookingId, '예약 ID')
+  if (idErr) return { error: idErr }
+
+  const admin = createAdminClient()
+
+  // 예약 조회 (슬롯 복구용)
+  const { data: booking } = await admin
+    .from('lesson_bookings')
+    .select('slot_ids, status')
+    .eq('id', bookingId)
+    .single()
+
+  if (!booking) return { error: '예약을 찾을 수 없습니다.' }
+
+  // 예약 삭제
+  const { error } = await admin
+    .from('lesson_bookings')
+    .delete()
+    .eq('id', bookingId)
+
+  if (error) return { error: '예약 삭제에 실패했습니다.' }
+
+  // 취소되지 않은 예약이었다면 슬롯 OPEN 복구
+  if (booking.status !== 'CANCELLED') {
+    await admin
+      .from('lesson_slots')
+      .update({ status: 'OPEN' })
+      .in('id', booking.slot_ids)
+      .eq('status', 'BOOKED')
+  }
+
+  revalidatePath(REVALIDATE_PATH)
+  return { error: null }
+}
+
+/** 문의 삭제 (SUPER_ADMIN 전용) */
+export async function deleteInquiry(inquiryId: string): Promise<{ error: string | null }> {
+  const { error: authErr } = await checkSuperAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const idErr = validateId(inquiryId, '문의 ID')
+  if (idErr) return { error: idErr }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('lesson_inquiries')
+    .delete()
+    .eq('id', inquiryId)
+
+  if (error) return { error: '문의 삭제에 실패했습니다.' }
+
+  revalidatePath(REVALIDATE_PATH)
+  return { error: null }
 }

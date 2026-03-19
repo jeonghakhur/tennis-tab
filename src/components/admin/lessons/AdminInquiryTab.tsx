@@ -1,10 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, Calendar, MessageSquare, ChevronDown, ChevronUp } from 'lucide-react'
+import { Phone, Calendar, MessageSquare, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
 import { getAdminLessonInquiries, updateInquiryStatus } from '@/lib/lessons/actions'
+import { deleteInquiry } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { LessonInquiry, LessonInquiryStatus } from '@/lib/lessons/types'
 
 const STATUS_CONFIG: Record<LessonInquiryStatus, { label: string; variant: BadgeVariant }> = {
@@ -21,13 +22,19 @@ const STATUS_TRANSITIONS: Record<LessonInquiryStatus, LessonInquiryStatus[]> = {
 
 type FilterStatus = 'ALL' | LessonInquiryStatus
 
-export function AdminInquiryTab() {
+interface AdminInquiryTabProps {
+  /** SUPER_ADMIN 전용 삭제 버튼 표시 여부 */
+  isSuperAdmin?: boolean
+}
+
+export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) {
   const [inquiries, setInquiries] = useState<LessonInquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterStatus>('ALL')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [noteEdits, setNoteEdits] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<LessonInquiry | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
@@ -69,6 +76,19 @@ export function AdminInquiryTab() {
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
     setNoteEdits((prev) => { const n = { ...prev }; delete n[inquiry.id]; return n })
+    await loadInquiries()
+  }
+
+  // 삭제 (SUPER_ADMIN 전용)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    const result = await deleteInquiry(deleteTarget.id)
+    setDeleteTarget(null)
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+    setToast({ isOpen: true, message: '문의가 삭제되었습니다.', type: 'success' })
     await loadInquiries()
   }
 
@@ -228,26 +248,35 @@ export function AdminInquiryTab() {
                         )}
                       </div>
 
-                      {/* 상태 변경 버튼 */}
-                      {transitions.length > 0 && (
-                        <div className="flex gap-2">
-                          {transitions.map((next) => (
-                            <button
-                              key={next}
-                              onClick={() => handleStatusChange(inquiry, next)}
-                              disabled={savingId === inquiry.id}
-                              className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                              style={{
-                                backgroundColor: next === 'RESPONDED' ? 'var(--color-success)' : 'var(--bg-card-hover)',
-                                color: next === 'RESPONDED' ? 'white' : 'var(--text-secondary)',
-                                opacity: savingId === inquiry.id ? 0.6 : 1,
-                              }}
-                            >
-                              {STATUS_CONFIG[next].label}으로 변경
-                            </button>
-                          ))}
-                        </div>
-                      )}
+                      {/* 상태 변경 버튼 + 삭제 */}
+                      <div className="flex gap-2">
+                        {transitions.map((next) => (
+                          <button
+                            key={next}
+                            onClick={() => handleStatusChange(inquiry, next)}
+                            disabled={savingId === inquiry.id}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                            style={{
+                              backgroundColor: next === 'RESPONDED' ? 'var(--color-success)' : 'var(--bg-card-hover)',
+                              color: next === 'RESPONDED' ? 'white' : 'var(--text-secondary)',
+                              opacity: savingId === inquiry.id ? 0.6 : 1,
+                            }}
+                          >
+                            {STATUS_CONFIG[next].label}으로 변경
+                          </button>
+                        ))}
+                        {/* SUPER_ADMIN 전용 삭제 */}
+                        {isSuperAdmin && (
+                          <button
+                            onClick={() => setDeleteTarget(inquiry)}
+                            className="text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1 ml-auto"
+                            style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            삭제
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 )}
@@ -259,6 +288,17 @@ export function AdminInquiryTab() {
 
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />
       <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title="오류" message={alert.message} type={alert.type} />
+
+      {/* 삭제 확인 다이얼로그 (SUPER_ADMIN 전용) */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="문의 삭제"
+        message={`${deleteTarget?.name ?? '알 수 없음'}님의 문의를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        type="error"
+      />
     </div>
   )
 }

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { ClipboardList, Check, X, MessageSquare, User } from 'lucide-react'
-import { getBookings, confirmBooking, cancelBooking, updateBookingNote } from '@/lib/lessons/slot-actions'
+import { ClipboardList, Check, X, MessageSquare, User, Trash2 } from 'lucide-react'
+import { getBookings, confirmBooking, cancelBooking, updateBookingNote, deleteBooking } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast, ConfirmDialog } from '@/components/common/AlertDialog'
@@ -22,7 +22,12 @@ type GuestFilter = 'ALL' | 'MEMBER' | 'GUEST'
 
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
-export function AdminBookingTab() {
+interface AdminBookingTabProps {
+  /** SUPER_ADMIN 전용 삭제 버튼 표시 여부 */
+  isSuperAdmin?: boolean
+}
+
+export function AdminBookingTab({ isSuperAdmin = false }: AdminBookingTabProps) {
   const [bookings, setBookings] = useState<LessonBooking[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
@@ -33,6 +38,7 @@ export function AdminBookingTab() {
   const [cancelReason, setCancelReason] = useState('')
   const [noteTarget, setNoteTarget] = useState<LessonBooking | null>(null)
   const [noteText, setNoteText] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<LessonBooking | null>(null)
 
   // 피드백
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
@@ -86,6 +92,19 @@ export function AdminBookingTab() {
       return
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
+    loadBookings()
+  }
+
+  // 삭제 (SUPER_ADMIN 전용)
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    const result = await deleteBooking(deleteTarget.id)
+    setDeleteTarget(null)
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      return
+    }
+    setToast({ isOpen: true, message: '예약이 삭제되었습니다.', type: 'success' })
     loadBookings()
   }
 
@@ -161,9 +180,11 @@ export function AdminBookingTab() {
             <BookingCard
               key={booking.id}
               booking={booking}
+              isSuperAdmin={isSuperAdmin}
               onConfirm={() => handleConfirm(booking)}
               onCancel={() => { setCancelTarget(booking); setCancelReason('') }}
               onNote={() => { setNoteTarget(booking); setNoteText(booking.admin_note || '') }}
+              onDelete={() => setDeleteTarget(booking)}
             />
           ))}
         </div>
@@ -247,6 +268,17 @@ export function AdminBookingTab() {
       </Modal>
 
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />
+
+      {/* 삭제 확인 다이얼로그 (SUPER_ADMIN 전용) */}
+      <ConfirmDialog
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleDelete}
+        title="예약 삭제"
+        message={`${deleteTarget?.is_guest ? deleteTarget?.guest_name : deleteTarget?.member?.name ?? '알 수 없음'}님의 예약을 완전히 삭제하시겠습니까?\n연결된 슬롯은 OPEN 상태로 복구됩니다.\n이 작업은 되돌릴 수 없습니다.`}
+        confirmText="삭제"
+        type="error"
+      />
     </div>
   )
 }
@@ -255,12 +287,14 @@ export function AdminBookingTab() {
 
 interface BookingCardProps {
   booking: LessonBooking
+  isSuperAdmin: boolean
   onConfirm: () => void
   onCancel: () => void
   onNote: () => void
+  onDelete: () => void
 }
 
-function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps) {
+function BookingCard({ booking, isSuperAdmin, onConfirm, onCancel, onNote, onDelete }: BookingCardProps) {
   const conf = STATUS_CONFIG[booking.status]
   const name = booking.is_guest ? booking.guest_name : booking.member?.name
   const typeLabel = BOOKING_TYPE_LABEL[booking.booking_type]
@@ -368,6 +402,17 @@ function BookingCard({ booking, onConfirm, onCancel, onNote }: BookingCardProps)
           <MessageSquare className="w-3 h-3" />
           메모
         </button>
+        {/* SUPER_ADMIN 전용 삭제 */}
+        {isSuperAdmin && (
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
+            style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
+          >
+            <Trash2 className="w-3 h-3" />
+            삭제
+          </button>
+        )}
       </div>
     </div>
   )
