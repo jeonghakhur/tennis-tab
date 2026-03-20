@@ -283,6 +283,183 @@ export async function sendTournamentApplyAlimtalk(
   }
 }
 
+// ── 레슨 예약 알림 (코치 수신 — 신청 가능 레슨 없을 때 문의) ─────────────
+
+export interface LessonReservationAlimtalkParams {
+  coachPhone: string
+  customerName: string
+  customerPhone: string
+  lessonStartDate: string
+  lessonDays: string
+}
+
+/**
+ * 레슨 예약 알림 발송 (코치 수신)
+ * 발송 시점: /lessons 페이지에서 신청 가능 레슨 없을 때 문의 제출
+ *
+ * #{고객명}님이 레슨 예약하였습니다.
+ * - 연락처: #{연락처}
+ * - 레슨신청일: #{레슨시작일}
+ * - 레슨요일: #{레슨요일}
+ */
+export async function sendLessonReservationAlimtalk(
+  params: LessonReservationAlimtalkParams,
+): Promise<SendResult> {
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_LESSON_RESERVATION
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 레슨 예약 알림(코치):', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  try {
+    const result = await service.sendOne({
+      to: params.coachPhone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{고객명}':     params.customerName,
+          '#{연락처}':     params.customerPhone,
+          '#{레슨시작일}': params.lessonStartDate,
+          '#{레슨요일}':   params.lessonDays,
+        },
+      },
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 레슨 예약 알림:', msg)
+    return { success: false, error: msg }
+  }
+}
+
+// ── 레슨 신청 알림 (코치 수신 — 실제 레슨 신청) ──────────────────────────
+
+export interface LessonApplyToCoachAlimtalkParams {
+  coachPhone: string
+  customerName: string
+  customerPhone: string
+  lessonStartDate: string
+  lessonDays: string
+}
+
+/**
+ * 레슨 신청 알림 발송 (코치 수신)
+ * 발송 시점: /lessons 페이지에서 실제 레슨 신청 완료
+ *
+ * #{고객명}님이 레슨 신청했습니다.
+ * - 연락처: #{연락처}
+ * - 레슨신청일: #{레슨시작일}
+ * - 레슨요일: #{레슨요일}
+ */
+export async function sendLessonApplyToCoachAlimtalk(
+  params: LessonApplyToCoachAlimtalkParams,
+): Promise<SendResult> {
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_LESSON_APPLY_COACH
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 레슨 신청 알림(코치):', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  try {
+    const result = await service.sendOne({
+      to: params.coachPhone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{고객명}':     params.customerName,
+          '#{연락처}':     params.customerPhone,
+          '#{레슨시작일}': params.lessonStartDate,
+          '#{레슨요일}':   params.lessonDays,
+        },
+      },
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 레슨 신청 알림(코치):', msg)
+    return { success: false, error: msg }
+  }
+}
+
+// ── 레슨 확정 알림 (고객 수신) ────────────────────────────────────────────
+
+export interface LessonConfirmAlimtalkParams {
+  customerPhone: string
+  customerName: string
+  bankInfo: string
+  lessonStartDate: string
+  lessonInfo: string
+  lessonDays: string
+}
+
+/**
+ * 레슨 확정 알림 발송 (고객 수신)
+ * 발송 시점: 코치/관리자가 수강 상태를 CONFIRMED로 변경
+ *
+ * #{고객명}님이 레슨 확정 되었습니다.
+ * #{계좌정보}로 입금부탁드립니다.
+ * - 레슨신청일: #{레슨시작일}
+ * - 레슨정보: #{레슨정보}
+ * - 레슨요일: #{레슨요일}
+ */
+export async function sendLessonConfirmAlimtalk(
+  params: LessonConfirmAlimtalkParams,
+): Promise<SendResult> {
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_LESSON_CONFIRM
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 레슨 확정 알림(고객):', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  try {
+    const result = await service.sendOne({
+      to: params.customerPhone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{고객명}':   params.customerName,
+          '#{계좌정보}': params.bankInfo,
+          '#{레슨시작일}': params.lessonStartDate,
+          '#{레슨정보}': params.lessonInfo,
+          '#{레슨요일}': params.lessonDays,
+        },
+      },
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 레슨 확정 알림:', msg)
+    return { success: false, error: msg }
+  }
+}
+
 // ── 연장 신청 알림 ────────────────────────────────────────────────────────
 
 export interface ExtensionAlimtalkParams {

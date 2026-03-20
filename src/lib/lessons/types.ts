@@ -22,6 +22,7 @@ export interface Coach {
   profile_image_url: string | null
   phone: string | null
   lesson_location: string | null
+  bank_account: string | null
   is_active: boolean
   created_by: string
   created_at: string
@@ -37,6 +38,7 @@ export interface CreateCoachInput {
   profile_image_url?: string
   phone?: string
   lesson_location?: string
+  bank_account?: string
 }
 
 export interface UpdateCoachInput {
@@ -48,6 +50,7 @@ export interface UpdateCoachInput {
   profile_image_url?: string
   phone?: string
   lesson_location?: string
+  bank_account?: string
 }
 
 // ─── 레슨 프로그램 ───────────────────────────────────────────────────────────
