@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AlertDialog } from '@/components/common/AlertDialog'
 
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === 'development'
+
 function LoginContent() {
   const [loading, setLoading] = useState<'google' | 'kakao' | 'naver' | 'email' | null>(null)
   const [email, setEmail] = useState('')
@@ -121,73 +123,79 @@ function LoginContent() {
           </p>
         </div>
 
-        {/* 이메일 로그인 폼 */}
-        <form onSubmit={handleEmailLogin} noValidate className="space-y-3 mb-6">
-          <div>
-            <label htmlFor="login-email" className="sr-only">이메일</label>
-            <input
-              ref={emailRef}
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              suppressHydrationWarning
-              placeholder="이메일"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading !== null}
-              className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-          <div>
-            <label htmlFor="login-password" className="sr-only">비밀번호</label>
-            <input
-              ref={passwordRef}
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              suppressHydrationWarning
-              placeholder="비밀번호"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading !== null}
-              className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading !== null}
-            className="w-full py-3.5 rounded-xl font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading === 'email' ? '로그인 중...' : '로그인'}
-          </button>
-        </form>
+        {/* 이메일 로그인 폼 — 개발 환경에서만 노출 */}
+        {isDev && (
+          <>
+            <form onSubmit={handleEmailLogin} noValidate className="space-y-3 mb-6">
+              <div>
+                <label htmlFor="login-email" className="sr-only">이메일</label>
+                <input
+                  ref={emailRef}
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  suppressHydrationWarning
+                  placeholder="이메일"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading !== null}
+                  className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="login-password" className="sr-only">비밀번호</label>
+                <input
+                  ref={passwordRef}
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  suppressHydrationWarning
+                  placeholder="비밀번호"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading !== null}
+                  className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading !== null}
+                className="w-full py-3.5 rounded-xl font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading === 'email' ? '로그인 중...' : '로그인'}
+              </button>
+            </form>
 
-        <div className="text-center mb-6">
-          <Link
-            href="/auth/reset-password"
-            className="text-sm hover:underline"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            비밀번호를 잊으셨나요?
-          </Link>
-        </div>
+            <div className="text-center mb-6">
+              <Link
+                href="/auth/reset-password"
+                className="text-sm hover:underline"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                비밀번호를 잊으셨나요?
+              </Link>
+            </div>
+          </>
+        )}
 
-        {/* 구분선 */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>또는</span>
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
-        </div>
+        {/* 구분선 — 이메일 폼이 있을 때만 표시 */}
+        {isDev && (
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>또는</span>
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
+          </div>
+        )}
 
         {/* 소셜 로그인 */}
         <div className="space-y-3">

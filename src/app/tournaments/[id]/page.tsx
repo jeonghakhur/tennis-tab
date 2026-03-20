@@ -273,9 +273,7 @@ export default async function TournamentDetailPage({ params }: Props) {
             </h1>
             <div className="flex items-center gap-4 flex-wrap">
               <p className="flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-                <span className="font-medium" style={{ color: "var(--text-primary)" }}>
-                  {tournament.host || organizerName}
-                </span>
+                <span>주최: <span className="font-medium" style={{ color: "var(--text-primary)" }}>{tournament.host || organizerName}</span></span>
                 {tournament.organizer_name && (
                   <>
                     <span style={{ color: "var(--border-color)" }}>|</span>
