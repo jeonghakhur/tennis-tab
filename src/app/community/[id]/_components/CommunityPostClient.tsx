@@ -231,13 +231,16 @@ export default function CommunityPostClient({ postId: id }: Props) {
 
           {/* 포스트 헤더 */}
           <article className="glass-card rounded-xl p-5 mb-5">
-            {/* 카테고리 + 제목 (한 줄) */}
+            {/* 카테고리 + 고정 + 비공개 배지 */}
             <div className="flex items-center gap-2 mb-1.5">
               <Badge variant={CATEGORY_VARIANT[post.category]}>
                 {POST_CATEGORY_LABELS[post.category]}
               </Badge>
               {post.is_pinned && (
                 <Pin className="w-4 h-4" style={{ color: 'var(--accent-color)' }} aria-label="고정된 글" />
+              )}
+              {!post.is_published && (
+                <Badge variant="warning">비공개</Badge>
               )}
             </div>
             <h1

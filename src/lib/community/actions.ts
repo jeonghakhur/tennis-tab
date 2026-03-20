@@ -76,19 +76,32 @@ export async function getPost(id: string): Promise<{ data: Post | null; error?: 
 
   const admin = createAdminClient()
 
-  // 조회수 증가 + 포스트 상세 조회 병렬 처리
-  const [{ data: current }, { data, error }] = await Promise.all([
+  // 조회수 증가 + 포스트 상세 조회 + 현재 유저 병렬 처리
+  const [{ data: current }, { data, error }, currentUser] = await Promise.all([
     admin.from('posts').select('view_count').eq('id', id).single(),
     admin.from('posts').select('*, author:profiles!author_id(name, avatar_url)').eq('id', id).single(),
+    getCurrentUser().catch(() => null),
   ])
+
+  if (error || !data) return { data: null, error: '게시글을 찾을 수 없습니다.' }
+
+  const post = data as Post
+
+  // 비공개 글: 작성자 본인 또는 ADMIN+만 조회 가능
+  if (!post.is_published) {
+    const isAdmin = currentUser ? hasMinimumRole(currentUser.role as UserRole, 'ADMIN') : false
+    const isAuthor = currentUser?.id === post.author_id
+    if (!isAdmin && !isAuthor) {
+      return { data: null, error: '접근 권한이 없습니다.' }
+    }
+  }
 
   // 조회수 업데이트 (fire-and-forget)
   if (current) {
     admin.from('posts').update({ view_count: current.view_count + 1 }).eq('id', id).then(() => {})
   }
 
-  if (error) return { data: null, error: error.message }
-  return { data: data as Post }
+  return { data: post }
 }
 
 /** 포스트 작성 (MANAGER+, 공지사항은 ADMIN+) */
@@ -173,6 +186,7 @@ export async function updatePost(
   if (input.content) updateData.content = input.content
   if (input.category) updateData.category = input.category
   if (input.attachments !== undefined) updateData.attachments = input.attachments
+  if (input.is_published !== undefined) updateData.is_published = input.is_published
 
   const { error } = await admin.from('posts').update(updateData).eq('id', id)
   if (error) return { error: error.message }
@@ -355,8 +369,9 @@ export async function getPostsFeed(options?: {
   const admin = createAdminClient()
   const limit = options?.limit ?? 5
 
-  // 현재 로그인 유저 (좋아요 여부 체크용, 비로그인도 허용)
+  // 현재 로그인 유저 (좋아요 여부 + 비공개 필터용, 비로그인도 허용)
   const user = await getCurrentUser().catch(() => null)
+  const isAdmin = user ? hasMinimumRole(user.role as UserRole, 'ADMIN') : false
 
   let query = admin
     .from('posts')
@@ -364,6 +379,15 @@ export async function getPostsFeed(options?: {
     .order('is_pinned', { ascending: false })
     .order('created_at', { ascending: false })
     .limit(limit)
+
+  // 비공개 필터: ADMIN+는 전체 조회, 그 외는 공개 글 + 본인 글만
+  if (!isAdmin) {
+    if (user) {
+      query = query.or(`is_published.eq.true,author_id.eq.${user.id}`)
+    } else {
+      query = query.eq('is_published', true)
+    }
+  }
 
   if (options?.cursor) {
     query = query.lt('created_at', options.cursor)

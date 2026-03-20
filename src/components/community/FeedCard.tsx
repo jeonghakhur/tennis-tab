@@ -4,7 +4,7 @@ import { useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Heart, MessageCircle, Eye } from 'lucide-react'
+import { Heart, MessageCircle, Eye, Lock } from 'lucide-react'
 import { toggleLike } from '@/lib/community/actions'
 import { KakaoShareButton } from '@/components/common/KakaoShareButton'
 import type { Post, PostAttachment } from '@/lib/community/types'
@@ -139,9 +139,12 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
       {/* 제목 + 본문 */}
       <div className="px-4 pb-3">
         <h3
-          className="text-base font-semibold mb-1"
+          className="text-base font-semibold mb-1 flex items-center gap-1.5"
           style={{ color: 'var(--text-primary)' }}
         >
+          {!post.is_published && (
+            <Lock className="w-3.5 h-3.5 shrink-0" style={{ color: 'var(--text-muted)' }} aria-label="비공개 글" />
+          )}
           {post.title}
         </h3>
         <div
