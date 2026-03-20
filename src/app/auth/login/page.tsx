@@ -103,7 +103,7 @@ function LoginContent() {
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
       <div className="w-full max-w-md px-6">
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 pt-12">
           <Link href="/" className="inline-block mb-8">
             <span
               className="font-display text-3xl tracking-wider"
@@ -270,20 +270,22 @@ function LoginContent() {
           </button>
         </div>
 
-        {/* 회원가입 링크 */}
-        <p
-          className="text-center text-sm mt-8"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          계정이 없으신가요?{' '}
-          <Link
-            href="/auth/signup"
-            className="font-medium hover:underline"
-            style={{ color: 'var(--text-primary)' }}
+        {/* 회원가입 링크 — DEV 환경에서만 노출 */}
+        {isDev && (
+          <p
+            className="text-center text-sm mt-8"
+            style={{ color: 'var(--text-muted)' }}
           >
-            회원가입
-          </Link>
-        </p>
+            계정이 없으신가요?{' '}
+            <Link
+              href="/auth/signup"
+              className="font-medium hover:underline"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              회원가입
+            </Link>
+          </p>
+        )}
 
         <p
           className="text-center text-sm mt-4 mb-8"

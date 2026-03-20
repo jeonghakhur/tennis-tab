@@ -224,7 +224,7 @@ export default function CommunityPage() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
           {posts.map((post) => (
             <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
           ))}

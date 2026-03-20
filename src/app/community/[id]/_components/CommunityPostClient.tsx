@@ -330,7 +330,7 @@ export default function CommunityPostClient({ postId: id }: Props) {
                       key={att.url}
                       type="button"
                       onClick={() => openLightbox(att.url)}
-                      className="block w-full rounded-lg overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2"
+                      className="flex justify-center w-full rounded-lg overflow-hidden cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2"
                       style={{ focusRingColor: 'var(--accent-color)' } as React.CSSProperties}
                     >
                       <Image
@@ -338,7 +338,7 @@ export default function CommunityPostClient({ postId: id }: Props) {
                         alt={att.name}
                         width={800}
                         height={600}
-                        className="w-full h-auto object-contain rounded-lg"
+                        className="h-auto object-contain rounded-lg"
                         unoptimized
                       />
                     </button>
