@@ -1,131 +1,127 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { Users, BookOpen, Calendar, MessageSquare, GraduationCap, ClipboardList } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Users, Calendar, MessageSquare, ClipboardList, RotateCcw } from 'lucide-react'
 import { CoachList } from '@/components/clubs/coaches/CoachList'
-import { AdminProgramTab } from '@/components/admin/lessons/AdminProgramTab'
 import { AdminSlotTab } from '@/components/admin/lessons/AdminSlotTab'
 import { AdminBookingTab } from '@/components/admin/lessons/AdminBookingTab'
 import { AdminInquiryTab } from '@/components/admin/lessons/AdminInquiryTab'
-import { AdminEnrollmentTab } from '@/components/admin/lessons/AdminEnrollmentTab'
-import { getAllLessonPrograms } from '@/lib/lessons/actions'
-import { getCurrentUser } from '@/lib/auth/actions'
-import type { LessonProgram } from '@/lib/lessons/types'
+import { AdminExtensionTab } from '@/components/admin/lessons/AdminExtensionTab'
+import { getMyCoachId } from '@/lib/lessons/slot-actions'
 
-type Tab = 'coaches' | 'programs' | 'slots' | 'bookings' | 'enrollments' | 'inquiries'
+type AdminTab = 'coaches' | 'slots' | 'bookings' | 'inquiries' | 'extensions'
+type CoachTab = 'slots' | 'bookings' | 'inquiries' | 'extensions'
 
-const TABS: { key: Tab; label: string; icon: React.ElementType }[] = [
-  { key: 'coaches', label: '코치', icon: Users },
-  { key: 'programs', label: '프로그램', icon: BookOpen },
-  { key: 'slots', label: '슬롯', icon: Calendar },
-  { key: 'bookings', label: '예약', icon: ClipboardList },
-  { key: 'enrollments', label: '수강생', icon: GraduationCap },
-  { key: 'inquiries', label: '문의', icon: MessageSquare },
+const ADMIN_TABS: { key: AdminTab; label: string; icon: React.ElementType }[] = [
+  { key: 'coaches',    label: '코치',     icon: Users },
+  { key: 'slots',      label: '슬롯',     icon: Calendar },
+  { key: 'bookings',   label: '예약',     icon: ClipboardList },
+  { key: 'inquiries',  label: '문의',     icon: MessageSquare },
+  { key: 'extensions', label: '연장 신청', icon: RotateCcw },
+]
+
+const COACH_TABS: { key: CoachTab; label: string; icon: React.ElementType }[] = [
+  { key: 'slots',      label: '내 슬롯',   icon: Calendar },
+  { key: 'bookings',   label: '예약 현황', icon: ClipboardList },
+  { key: 'inquiries',  label: '문의',      icon: MessageSquare },
+  { key: 'extensions', label: '연장 신청', icon: RotateCcw },
 ]
 
 export default function AdminLessonsPage() {
-  const [tab, setTab] = useState<Tab>('coaches')
-  const [programs, setPrograms] = useState<LessonProgram[]>([])
-  const [programsLoading, setProgramsLoading] = useState(true)
-  const [isSuperAdmin, setIsSuperAdmin] = useState(false)
-
-  const loadPrograms = useCallback(async () => {
-    setProgramsLoading(true)
-    const { data } = await getAllLessonPrograms()
-    setPrograms(data)
-    setProgramsLoading(false)
-  }, [])
+  const [myCoachId, setMyCoachId] = useState<string | null | undefined>(undefined)
+  const [adminTab, setAdminTab] = useState<AdminTab>('coaches')
+  const [coachTab, setCoachTab] = useState<CoachTab>('slots')
 
   useEffect(() => {
-    loadPrograms()
-    getCurrentUser().then((user) => {
-      if (user?.role === 'SUPER_ADMIN') setIsSuperAdmin(true)
-    })
-  }, [loadPrograms])
+    getMyCoachId().then(setMyCoachId)
+  }, [])
+
+  // 코치 ID 로딩 중
+  if (myCoachId === undefined) return null
+
+  const isCoachMode = myCoachId !== null
 
   return (
     <div>
       <div className="mb-6">
         <h1 className="text-2xl font-display font-bold" style={{ color: 'var(--text-primary)' }}>
-          레슨 관리
+          {isCoachMode ? '내 레슨 관리' : '레슨 관리'}
         </h1>
         <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
-          코치, 프로그램, 일정 슬롯, 문의를 관리합니다.
+          {isCoachMode ? '본인의 슬롯, 예약, 연장 신청을 확인합니다.' : '코치, 슬롯, 예약, 문의를 관리합니다.'}
         </p>
       </div>
 
       {/* 탭 네비게이션 */}
       <div
-        className="flex gap-1 p-1 rounded-xl mb-6"
-        style={{ backgroundColor: 'var(--bg-secondary)' }}
+        className="flex border-b mb-6"
+        style={{ borderColor: 'var(--border-color)' }}
         role="tablist"
         aria-label="레슨 관리 탭"
       >
-        {TABS.map((t) => {
+        {(isCoachMode ? COACH_TABS : ADMIN_TABS).map((t) => {
           const Icon = t.icon
-          const isActive = tab === t.key
+          const isActive = isCoachMode ? coachTab === t.key : adminTab === t.key
           return (
             <button
               key={t.key}
               role="tab"
               aria-selected={isActive}
               aria-controls={`tabpanel-${t.key}`}
-              onClick={() => setTab(t.key)}
-              className="flex-1 flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-medium transition-colors"
+              onClick={() => isCoachMode ? setCoachTab(t.key as CoachTab) : setAdminTab(t.key as AdminTab)}
+              className="flex items-center gap-1.5 px-4 py-3 text-sm transition-colors"
               style={{
-                backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
                 color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                boxShadow: isActive ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+                fontWeight: isActive ? 700 : 400,
+                borderBottom: isActive ? '2px solid var(--text-primary)' : '2px solid transparent',
+                marginBottom: '-1px',
               }}
             >
-              <Icon className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">{t.label}</span>
+              <Icon className="w-4 h-4" />
+              <span>{t.label}</span>
             </button>
           )
         })}
       </div>
 
-      {/* 탭 패널 */}
-      <div id="tabpanel-coaches" role="tabpanel" hidden={tab !== 'coaches'}>
-        {tab === 'coaches' && <CoachList clubId="" isAdmin={true} />}
-      </div>
+      {/* 어드민 탭 패널 */}
+      {!isCoachMode && (
+        <>
+          <div id="tabpanel-coaches" role="tabpanel" hidden={adminTab !== 'coaches'}>
+            {adminTab === 'coaches' && <CoachList clubId="" isAdmin={true} />}
+          </div>
+          <div id="tabpanel-slots" role="tabpanel" hidden={adminTab !== 'slots'}>
+            {adminTab === 'slots' && <AdminSlotTab />}
+          </div>
+          <div id="tabpanel-bookings" role="tabpanel" hidden={adminTab !== 'bookings'}>
+            {adminTab === 'bookings' && <AdminBookingTab />}
+          </div>
+          <div id="tabpanel-inquiries" role="tabpanel" hidden={adminTab !== 'inquiries'}>
+            {adminTab === 'inquiries' && <AdminInquiryTab />}
+          </div>
+          <div id="tabpanel-extensions" role="tabpanel" hidden={adminTab !== 'extensions'}>
+            {adminTab === 'extensions' && <AdminExtensionTab />}
+          </div>
+        </>
+      )}
 
-      <div id="tabpanel-programs" role="tabpanel" hidden={tab !== 'programs'}>
-        {tab === 'programs' && (
-          <AdminProgramTab
-            programs={programs}
-            loading={programsLoading}
-            onRefresh={loadPrograms}
-          />
-        )}
-      </div>
-
-      <div id="tabpanel-slots" role="tabpanel" hidden={tab !== 'slots'}>
-        {tab === 'slots' && (
-          <AdminSlotTab
-            programs={programs}
-            programsLoading={programsLoading}
-          />
-        )}
-      </div>
-
-      <div id="tabpanel-bookings" role="tabpanel" hidden={tab !== 'bookings'}>
-        {tab === 'bookings' && <AdminBookingTab isSuperAdmin={isSuperAdmin} />}
-      </div>
-
-      <div id="tabpanel-enrollments" role="tabpanel" hidden={tab !== 'enrollments'}>
-        {tab === 'enrollments' && (
-          <AdminEnrollmentTab
-            programs={programs}
-            programsLoading={programsLoading}
-            isSuperAdmin={isSuperAdmin}
-          />
-        )}
-      </div>
-
-      <div id="tabpanel-inquiries" role="tabpanel" hidden={tab !== 'inquiries'}>
-        {tab === 'inquiries' && <AdminInquiryTab isSuperAdmin={isSuperAdmin} />}
-      </div>
+      {/* 코치 탭 패널 — 본인 데이터만 */}
+      {isCoachMode && (
+        <>
+          <div id="tabpanel-slots" role="tabpanel" hidden={coachTab !== 'slots'}>
+            {coachTab === 'slots' && <AdminSlotTab fixedCoachId={myCoachId} />}
+          </div>
+          <div id="tabpanel-bookings" role="tabpanel" hidden={coachTab !== 'bookings'}>
+            {coachTab === 'bookings' && <AdminBookingTab coachId={myCoachId} />}
+          </div>
+          <div id="tabpanel-inquiries" role="tabpanel" hidden={coachTab !== 'inquiries'}>
+            {coachTab === 'inquiries' && <AdminInquiryTab coachId={myCoachId} />}
+          </div>
+          <div id="tabpanel-extensions" role="tabpanel" hidden={coachTab !== 'extensions'}>
+            {coachTab === 'extensions' && <AdminExtensionTab coachId={myCoachId} />}
+          </div>
+        </>
+      )}
     </div>
   )
 }

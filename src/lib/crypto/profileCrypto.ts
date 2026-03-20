@@ -1,7 +1,7 @@
 import { encrypt, decrypt } from './encryption'
 
 // profiles 테이블에서 암호화할 필드 목록
-// gender는 'M'/'F' 2값뿐이라 암호화 실익이 없고 DB CHECK 제약과 충돌하므로 제외
+// gender는 'MALE'/'FEMALE' 2값뿐이라 암호화 실익이 없고 DB CHECK 제약과 충돌하므로 제외
 const ENCRYPTED_FIELDS = ['phone', 'birth_year'] as const
 type EncryptedField = (typeof ENCRYPTED_FIELDS)[number]
 

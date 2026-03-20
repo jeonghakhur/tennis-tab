@@ -7,9 +7,32 @@ import { Footer } from "@/components/Footer";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "마포구테니스협회 | 테니스 대회의 새로운 기준",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tennis-tab.com'
+  ),
+  title: {
+    template: '%s | 마포구테니스협회',
+    default: '마포구테니스협회 | 테니스 대회의 새로운 기준',
+  },
   description:
-    "대회 생성부터 참가 신청, 클럽 관리까지. 테니스 커뮤니티를 위한 올인원 플랫폼",
+    '대회 생성부터 참가 신청, 클럽 관리까지. 테니스 커뮤니티를 위한 올인원 플랫폼',
+  openGraph: {
+    type: 'website',
+    locale: 'ko_KR',
+    siteName: '마포구테니스협회',
+    images: [
+      {
+        url: '/og-default.jpg',
+        width: 1200,
+        height: 630,
+        alt: '마포구테니스협회 — 테니스 대회의 새로운 기준',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    images: ['/og-default.jpg'],
+  },
 };
 
 export default function RootLayout({

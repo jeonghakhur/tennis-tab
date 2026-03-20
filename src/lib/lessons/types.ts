@@ -18,8 +18,11 @@ export interface Coach {
   bio: string | null
   experience: string | null
   certifications: string[]
-  certification_files: string[]  // 자격증 첨부 파일 URL 목록
+  certification_files: string[]
   profile_image_url: string | null
+  phone: string | null
+  lesson_location: string | null
+  bank_account: string | null
   is_active: boolean
   created_by: string
   created_at: string
@@ -33,6 +36,9 @@ export interface CreateCoachInput {
   certifications?: string[]
   certification_files?: string[]
   profile_image_url?: string
+  phone?: string
+  lesson_location?: string
+  bank_account?: string
 }
 
 export interface UpdateCoachInput {
@@ -42,6 +48,9 @@ export interface UpdateCoachInput {
   certifications?: string[]
   certification_files?: string[]
   profile_image_url?: string
+  phone?: string
+  lesson_location?: string
+  bank_account?: string
 }
 
 // ─── 레슨 프로그램 ───────────────────────────────────────────────────────────
@@ -53,21 +62,13 @@ export interface LessonProgram {
   description: string | null
   target_level: string
   max_participants: number
-  /** 레슨 시간 (분) */
   session_duration_minutes: number
-  /** 수강료: 주중 1회 월 요금 */
   fee_weekday_1: number | null
-  /** 수강료: 주중 2회 월 요금 */
   fee_weekday_2: number | null
-  /** 수강료: 주말 1회 월 요금 */
   fee_weekend_1: number | null
-  /** 수강료: 주말 2회 월 요금 */
   fee_weekend_2: number | null
-  /** 수강료: 주중+주말 혼합 2회 월 요금 */
   fee_mixed_2: number | null
-  /** 슬롯 단위 시간 (분, 기본 30) */
   slot_duration_minutes: number
-  /** 프론트 노출 여부 */
   is_visible: boolean
   status: LessonProgramStatus
   created_by: string
@@ -250,20 +251,18 @@ export type LessonInquiryStatus = 'PENDING' | 'RESPONDED' | 'CLOSED'
 
 export interface LessonInquiry {
   id: string
-  program_id: string
+  program_id: string | null
+  coach_id: string | null
   name: string
   phone: string
   message: string
   preferred_session_id: string | null
+  preferred_days: string[] | null
+  preferred_time: string | null
   status: LessonInquiryStatus
   admin_note: string | null
   created_at: string
   // JOIN 결과
   program?: { id: string; title: string; coach?: { name: string } | null } | null
-  preferred_session?: {
-    id: string
-    session_date: string
-    start_time: string
-    end_time: string
-  } | null
+  coach?: { id: string; name: string } | null
 }

@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Phone, Calendar, MessageSquare, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
-import { getAdminLessonInquiries, updateInquiryStatus } from '@/lib/lessons/actions'
-import { deleteInquiry } from '@/lib/lessons/slot-actions'
+import { Phone, MessageSquare, ChevronDown, ChevronUp, Calendar, Clock } from 'lucide-react'
+import { getAdminLessonInquiries, updateInquiryStatus } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
-import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
+import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import type { LessonInquiry, LessonInquiryStatus } from '@/lib/lessons/types'
 
 const STATUS_CONFIG: Record<LessonInquiryStatus, { label: string; variant: BadgeVariant }> = {
@@ -22,19 +21,13 @@ const STATUS_TRANSITIONS: Record<LessonInquiryStatus, LessonInquiryStatus[]> = {
 
 type FilterStatus = 'ALL' | LessonInquiryStatus
 
-interface AdminInquiryTabProps {
-  /** SUPER_ADMIN 전용 삭제 버튼 표시 여부 */
-  isSuperAdmin?: boolean
-}
-
-export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) {
+export function AdminInquiryTab({ coachId }: { coachId?: string } = {}) {
   const [inquiries, setInquiries] = useState<LessonInquiry[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterStatus>('ALL')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [noteEdits, setNoteEdits] = useState<Record<string, string>>({})
   const [savingId, setSavingId] = useState<string | null>(null)
-  const [deleteTarget, setDeleteTarget] = useState<LessonInquiry | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
@@ -44,7 +37,7 @@ export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) 
 
   const loadInquiries = async () => {
     setLoading(true)
-    const { data, error } = await getAdminLessonInquiries()
+    const { data, error } = await getAdminLessonInquiries(coachId)
     if (error) {
       setAlert({ isOpen: true, message: error, type: 'error' })
     }
@@ -55,53 +48,42 @@ export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) 
   const handleStatusChange = async (inquiry: LessonInquiry, next: LessonInquiryStatus) => {
     setSavingId(inquiry.id)
     const adminNote = noteEdits[inquiry.id] ?? inquiry.admin_note ?? undefined
+    // 낙관적 로컬 업데이트
+    setInquiries((prev) =>
+      prev.map((i) => i.id === inquiry.id ? { ...i, status: next, admin_note: adminNote ?? i.admin_note } : i)
+    )
     const result = await updateInquiryStatus(inquiry.id, next, adminNote)
     setSavingId(null)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
+      await loadInquiries() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '상태가 변경되었습니다.', type: 'success' })
-    await loadInquiries()
   }
 
   const handleNoteSave = async (inquiry: LessonInquiry) => {
     setSavingId(inquiry.id)
     const note = noteEdits[inquiry.id] ?? ''
+    // 낙관적 로컬 업데이트
+    setInquiries((prev) =>
+      prev.map((i) => i.id === inquiry.id ? { ...i, admin_note: note } : i)
+    )
+    setNoteEdits((prev) => { const n = { ...prev }; delete n[inquiry.id]; return n })
     const result = await updateInquiryStatus(inquiry.id, inquiry.status, note)
     setSavingId(null)
     if (result.error) {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
+      await loadInquiries() // 에러 시에만 서버 재조회
       return
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
-    setNoteEdits((prev) => { const n = { ...prev }; delete n[inquiry.id]; return n })
-    await loadInquiries()
-  }
-
-  // 삭제 (SUPER_ADMIN 전용)
-  const handleDelete = async () => {
-    if (!deleteTarget) return
-    const result = await deleteInquiry(deleteTarget.id)
-    setDeleteTarget(null)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
-    setToast({ isOpen: true, message: '문의가 삭제되었습니다.', type: 'success' })
-    await loadInquiries()
   }
 
   const filtered = filter === 'ALL' ? inquiries : inquiries.filter((i) => i.status === filter)
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-
-  const formatSessionSlot = (session: NonNullable<LessonInquiry['preferred_session']>) => {
-    const d = new Date(session.session_date)
-    const dateStr = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })
-    return `${dateStr} ${session.start_time.slice(0, 5)}~${session.end_time.slice(0, 5)}`
-  }
 
   if (loading) {
     return (
@@ -164,16 +146,25 @@ export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) 
                         {inquiry.name}
                       </span>
                       <Badge variant={conf.variant}>{conf.label}</Badge>
+                      {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+                        <Badge variant="info">레슨신청</Badge>
+                      )}
                     </div>
-                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      {inquiry.program?.title || '프로그램 없음'} · {formatDate(inquiry.created_at)}
-                    </p>
-                    {inquiry.preferred_session && (
-                      <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'var(--accent-color)' }}>
-                        <Calendar className="w-3 h-3" />
-                        희망 일정: {formatSessionSlot(inquiry.preferred_session)}
-                      </p>
-                    )}
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {inquiry.coach && (
+                        <span className="text-xs" style={{ color: 'var(--accent-color)' }}>
+                          {inquiry.coach.name} 코치
+                        </span>
+                      )}
+                      {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+                        <span className="text-xs" style={{ color: 'var(--text-secondary)' }}>
+                          {inquiry.preferred_days.join('·')}요일 · {inquiry.preferred_time}
+                        </span>
+                      )}
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        {formatDate(inquiry.created_at)}
+                      </span>
+                    </div>
                   </div>
                   <div className="shrink-0 ml-2 mt-0.5">
                     {isExpanded
@@ -198,6 +189,24 @@ export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) 
                           {inquiry.phone}
                         </a>
                       </div>
+
+                      {/* 희망 일정 (레슨 신청 문의일 때만) */}
+                      {inquiry.preferred_days && inquiry.preferred_days.length > 0 && (
+                        <div className="flex flex-wrap gap-3 text-sm p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+                          <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                            <Calendar className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                            <span className="font-medium">희망 요일:</span>
+                            {inquiry.preferred_days.join(', ')}요일
+                          </span>
+                          {inquiry.preferred_time && (
+                            <span className="flex items-center gap-1.5" style={{ color: 'var(--text-secondary)' }}>
+                              <Clock className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
+                              <span className="font-medium">희망 시간:</span>
+                              {inquiry.preferred_time}
+                            </span>
+                          )}
+                        </div>
+                      )}
 
                       {/* 문의 내용 */}
                       <div>
@@ -248,35 +257,26 @@ export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) 
                         )}
                       </div>
 
-                      {/* 상태 변경 버튼 + 삭제 */}
-                      <div className="flex gap-2">
-                        {transitions.map((next) => (
-                          <button
-                            key={next}
-                            onClick={() => handleStatusChange(inquiry, next)}
-                            disabled={savingId === inquiry.id}
-                            className="text-xs px-3 py-1.5 rounded-lg font-medium"
-                            style={{
-                              backgroundColor: next === 'RESPONDED' ? 'var(--color-success)' : 'var(--bg-card-hover)',
-                              color: next === 'RESPONDED' ? 'white' : 'var(--text-secondary)',
-                              opacity: savingId === inquiry.id ? 0.6 : 1,
-                            }}
-                          >
-                            {STATUS_CONFIG[next].label}으로 변경
-                          </button>
-                        ))}
-                        {/* SUPER_ADMIN 전용 삭제 */}
-                        {isSuperAdmin && (
-                          <button
-                            onClick={() => setDeleteTarget(inquiry)}
-                            className="text-xs px-3 py-1.5 rounded-lg font-medium inline-flex items-center gap-1 ml-auto"
-                            style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
-                          >
-                            <Trash2 className="w-3 h-3" />
-                            삭제
-                          </button>
-                        )}
-                      </div>
+                      {/* 상태 변경 버튼 */}
+                      {transitions.length > 0 && (
+                        <div className="flex gap-2">
+                          {transitions.map((next) => (
+                            <button
+                              key={next}
+                              onClick={() => handleStatusChange(inquiry, next)}
+                              disabled={savingId === inquiry.id}
+                              className="text-xs px-3 py-1.5 rounded-lg font-medium"
+                              style={{
+                                backgroundColor: next === 'RESPONDED' ? 'var(--color-success)' : 'var(--bg-card-hover)',
+                                color: next === 'RESPONDED' ? 'white' : 'var(--text-secondary)',
+                                opacity: savingId === inquiry.id ? 0.6 : 1,
+                              }}
+                            >
+                              {STATUS_CONFIG[next].label}으로 변경
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -288,17 +288,6 @@ export function AdminInquiryTab({ isSuperAdmin = false }: AdminInquiryTabProps) 
 
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />
       <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title="오류" message={alert.message} type={alert.type} />
-
-      {/* 삭제 확인 다이얼로그 (SUPER_ADMIN 전용) */}
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="문의 삭제"
-        message={`${deleteTarget?.name ?? '알 수 없음'}님의 문의를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`}
-        confirmText="삭제"
-        type="error"
-      />
     </div>
   )
 }

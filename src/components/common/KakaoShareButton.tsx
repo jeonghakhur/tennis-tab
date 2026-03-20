@@ -5,26 +5,23 @@ import { Share2 } from 'lucide-react'
 import { shareKakao } from '@/lib/kakao/share'
 import { Toast } from '@/components/common/AlertDialog'
 
-/** HTML 태그 제거 */
-function stripHtml(html: string): string {
-  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
-}
-
 interface KakaoShareButtonProps {
   title: string
-  content: string
+  /** 이미 plain text로 준비된 설명 (HTML strip은 호출부 책임) */
+  description: string
+  /** 호출부에서 완성된 절대 URL 전달 */
+  pageUrl: string
   imageUrl?: string
-  postId: string
-  /** 아이콘만 표시 (목록용) vs 텍스트 포함 (상세용) */
+  /** 아이콘만 표시 (목록용) vs 아이콘+텍스트 (상세용) */
   compact?: boolean
   className?: string
 }
 
 export function KakaoShareButton({
   title,
-  content,
+  description,
+  pageUrl,
   imageUrl,
-  postId,
   compact = false,
   className,
 }: KakaoShareButtonProps) {
@@ -34,21 +31,12 @@ export function KakaoShareButton({
     e.preventDefault()
     e.stopPropagation()
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
-    const pageUrl = `${siteUrl}/community/${postId}`
-    const description = stripHtml(content).slice(0, 100)
-
-    const result = await shareKakao({
-      title,
-      description,
-      imageUrl,
-      pageUrl,
-    })
+    const result = await shareKakao({ title, description, imageUrl, pageUrl })
 
     if (result.fallback) {
       setToast({ isOpen: true, message: '링크가 복사되었습니다.' })
     }
-  }, [title, content, imageUrl, postId])
+  }, [title, description, imageUrl, pageUrl])
 
   return (
     <>

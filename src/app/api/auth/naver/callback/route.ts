@@ -68,9 +68,9 @@ export async function GET(request: NextRequest) {
     const email = naverProfile.email
     const name = naverProfile.name || naverProfile.nickname
     const avatarUrl = naverProfile.profile_image
-    // 네이버 추가 프로필 정보 (profiles.gender CHECK: 'M' | 'F')
-    const gender: string | undefined = naverProfile.gender === 'M' || naverProfile.gender === 'F'
-      ? naverProfile.gender
+    // 네이버 추가 프로필 정보 (profiles.gender CHECK: 'MALE' | 'FEMALE')
+    const gender: string | undefined = naverProfile.gender === 'M' ? 'MALE'
+      : naverProfile.gender === 'F' ? 'FEMALE'
       : undefined
     const birthYear: string | undefined = naverProfile.birthyear || undefined
     const phone: string | undefined = naverProfile.mobile

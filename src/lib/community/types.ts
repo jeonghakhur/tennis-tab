@@ -28,6 +28,7 @@ export interface Post {
   comment_count: number
   like_count: number
   is_pinned: boolean
+  is_published: boolean
   created_at: string
   updated_at: string
   // JOIN 결과
@@ -59,6 +60,7 @@ export interface UpdatePostInput {
   content?: string
   category?: PostCategory
   attachments?: PostAttachment[]
+  is_published?: boolean
 }
 
 export interface CreateCommentInput {

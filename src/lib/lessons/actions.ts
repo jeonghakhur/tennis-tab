@@ -5,6 +5,12 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { revalidatePath } from 'next/cache'
 import { sanitizeObject, validateLessonInquiryInput, hasValidationErrors } from '@/lib/utils/validation'
 import { createNotification } from '@/lib/notifications/actions'
+import {
+  sendLessonApplyAlimtalk,
+  sendLessonReservationAlimtalk,
+  sendLessonApplyToCoachAlimtalk,
+  sendLessonConfirmAlimtalk,
+} from '@/lib/solapi/alimtalk'
 import type {
   LessonProgram,
   LessonSession,
@@ -482,6 +488,48 @@ export async function getAllLessonSessions(options?: {
 // 수강 신청
 // ============================================================================
 
+/** 수강 신청 완료 알림톡 발송 헬퍼 (고객 + 코치 fire-and-forget) */
+async function sendLessonAlimtalk(
+  user: { name?: string | null; phone?: string | null },
+  program: { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null },
+  status: string,
+) {
+  if (status === 'WAITLISTED') return
+
+  const coach = program.coach as { name?: string | null; phone?: string | null; lesson_location?: string | null } | null
+
+  // 고객에게 신청 결과 안내
+  if (user.phone) {
+    const result = await sendLessonApplyAlimtalk({
+      phone: user.phone,
+      customerName: user.name || '회원',
+      lessonName: program.title || '레슨',
+      coachName: coach?.name || '-',
+      lessonStartDate: '-',
+      lessonInfo: '-',
+      lessonDays: '-',
+      venue: coach?.lesson_location || '-',
+    })
+    if (!result.success) {
+      console.error('[Alimtalk] 레슨 신청 결과(고객) 발송 실패:', result.error)
+    }
+  }
+
+  // 코치에게 신청 알림
+  if (coach?.phone && user.phone) {
+    const coachResult = await sendLessonApplyToCoachAlimtalk({
+      coachPhone: coach.phone,
+      customerName: user.name || '회원',
+      customerPhone: user.phone,
+      lessonStartDate: '-',
+      lessonDays: '-',
+    })
+    if (!coachResult.success) {
+      console.error('[Alimtalk] 레슨 신청 알림(코치) 발송 실패:', coachResult.error)
+    }
+  }
+}
+
 /** 수강 신청 */
 export async function enrollLesson(
   programId: string
@@ -496,7 +544,7 @@ export async function enrollLesson(
 
   const { data: program } = await admin
     .from('lesson_programs')
-    .select('max_participants, status')
+    .select('max_participants, status, title, coach:coaches(name, phone, lesson_location)')
     .eq('id', programId)
     .single()
 
@@ -536,6 +584,7 @@ export async function enrollLesson(
     if (error) return { error: '수강 신청에 실패했습니다.' }
     revalidatePath('/lessons')
     revalidatePath('/my/lessons')
+    await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
     return { error: null, data: enrollment }
   }
 
@@ -549,6 +598,7 @@ export async function enrollLesson(
 
   revalidatePath('/lessons')
   revalidatePath('/my/lessons')
+  await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
   return { error: null, data: enrollment }
 }
 
@@ -726,6 +776,34 @@ export async function updateEnrollmentStatus(
 
   if (error) return { error: '수강 상태 변경에 실패했습니다.' }
 
+  // 확정 시 고객에게 알림톡 발송 (fire-and-forget)
+  if (status === 'CONFIRMED') {
+    const { data: enrollment } = await admin
+      .from('lesson_enrollments')
+      .select('user_id, program:lesson_programs(title, coach:coaches(bank_account))')
+      .eq('id', enrollmentId)
+      .single()
+
+    const { data: profile } = enrollment
+      ? await admin.from('profiles').select('name, phone').eq('id', enrollment.user_id).single()
+      : { data: null }
+
+    if (profile?.phone) {
+      const program = enrollment?.program as unknown as { title: string; coach: { bank_account: string | null } | null } | null
+      const alimtalkResult = await sendLessonConfirmAlimtalk({
+        customerPhone: profile.phone,
+        customerName: profile.name || '회원',
+        bankInfo: program?.coach?.bank_account || '-',
+        lessonStartDate: '-',
+        lessonInfo: program?.title || '-',
+        lessonDays: '-',
+      })
+      if (!alimtalkResult.success) {
+        console.error('[Alimtalk] 레슨 확정 알림(고객) 발송 실패:', alimtalkResult.error)
+      }
+    }
+  }
+
   revalidatePath('/my/lessons')
   return { error: null }
 }
@@ -835,7 +913,7 @@ export async function submitLessonInquiry(
 
   const { data: program } = await admin
     .from('lesson_programs')
-    .select('title')
+    .select('title, coach:coaches(phone)')
     .eq('id', programId)
     .single()
 
@@ -852,6 +930,21 @@ export async function submitLessonInquiry(
     })
 
   if (error) return { error: '문의 등록에 실패했습니다.' }
+
+  // 알림톡: 코치에게 예약 알림 (fire-and-forget)
+  const coachPhone = (program.coach as unknown as { phone?: string | null } | null)?.phone
+  if (coachPhone) {
+    const coachAlimtalkResult = await sendLessonReservationAlimtalk({
+      coachPhone,
+      customerName: sanitized.name,
+      customerPhone: sanitized.phone,
+      lessonStartDate: '-',
+      lessonDays: '-',
+    })
+    if (!coachAlimtalkResult.success) {
+      console.error('[Alimtalk] 레슨 예약 알림(코치) 발송 실패:', coachAlimtalkResult.error)
+    }
+  }
 
   // SUPER_ADMIN / ADMIN에게 알림 발송 (실패 무시)
   try {

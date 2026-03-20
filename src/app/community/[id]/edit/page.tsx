@@ -20,6 +20,7 @@ export default function EditPostPage() {
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [isPublished, setIsPublished] = useState(true)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
 
@@ -40,6 +41,7 @@ export default function EditPostPage() {
         return
       }
       setPost(result.data)
+      setIsPublished(result.data.is_published)
     } else {
       router.replace('/community')
     }
@@ -53,6 +55,7 @@ export default function EditPostPage() {
       title: data.title,
       content: data.content,
       attachments: data.attachments,
+      is_published: isPublished,
     })
     setSubmitting(false)
 
@@ -116,6 +119,34 @@ export default function EditPostPage() {
           >
             글 수정
           </h1>
+
+          {/* 공개/비공개 설정 */}
+          <div
+            className="glass-card rounded-xl p-5 mb-4 flex items-center justify-between"
+          >
+            <div>
+              <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>공개 설정</p>
+              <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {isPublished ? '전체 공개' : '비공개 — 나와 관리자만 볼 수 있습니다'}
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isPublished}
+              aria-label="공개/비공개 전환"
+              onClick={() => setIsPublished((prev) => !prev)}
+              className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 ${
+                isPublished ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-600'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
+                  isPublished ? 'left-6' : 'left-0.5'
+                }`}
+              />
+            </button>
+          </div>
 
           <div className="glass-card rounded-xl p-6">
             <PostForm

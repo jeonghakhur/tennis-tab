@@ -1140,7 +1140,7 @@ body {
     max-width: 100%;
     height: auto;
     border-radius: 0.5rem;
-    margin: 1rem 0;
+    margin: 1rem auto;
     cursor: pointer;
   }
 
@@ -1186,6 +1186,13 @@ body {
 
   hr {
     margin: 1rem 0;
+  }
+}
+
+/* iOS Safari 줌인 방지 — input/select 포커스 시 font-size 16px 이상 강제 */
+@media screen and (-webkit-min-device-pixel-ratio: 0) {
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }
 

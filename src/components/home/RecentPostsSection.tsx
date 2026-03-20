@@ -30,9 +30,11 @@ export function RecentPostsSection({ posts, isLoggedIn }: RecentPostsSectionProp
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="columns-1 sm:columns-2 gap-4">
         {posts.map((post) => (
-          <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
+          <div key={post.id} className="break-inside-avoid mb-4">
+            <FeedCard post={post} isLoggedIn={isLoggedIn} />
+          </div>
         ))}
       </div>
     </section>

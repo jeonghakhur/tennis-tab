@@ -1,418 +1,943 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
-import { ClipboardList, Check, X, MessageSquare, User, Trash2 } from 'lucide-react'
-import { getBookings, confirmBooking, cancelBooking, updateBookingNote, deleteBooking } from '@/lib/lessons/slot-actions'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { ClipboardList, Check, X, MessageSquare, Search, User, Calendar, RotateCcw } from 'lucide-react'
+import { getBookings, confirmBooking, cancelBooking, updateBookingNote, updateSlotSessions } from '@/lib/lessons/slot-actions'
+import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
-import { Toast, ConfirmDialog } from '@/components/common/AlertDialog'
-import type { LessonBooking, LessonBookingStatus } from '@/lib/lessons/slot-types'
-import { BOOKING_STATUS_LABEL, BOOKING_TYPE_LABEL } from '@/lib/lessons/slot-types'
+import { Toast } from '@/components/common/AlertDialog'
+import { SessionManageModal } from './SessionManageModal'
+import { CreateSlotModal, type SlotPrefill } from './CreateSlotModal'
+import { getCoaches } from '@/lib/coaches/actions'
+import type { Coach } from '@/lib/lessons/types'
+import type { LessonBooking, LessonBookingStatus, SlotSession } from '@/lib/lessons/slot-types'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<LessonBookingStatus, { label: string; variant: BadgeVariant }> = {
-  PENDING: { label: '대기', variant: 'warning' },
+  PENDING:   { label: '대기', variant: 'warning' },
   CONFIRMED: { label: '확정', variant: 'success' },
   CANCELLED: { label: '취소', variant: 'secondary' },
 }
 
 type StatusFilter = 'ALL' | LessonBookingStatus
-type GuestFilter = 'ALL' | 'MEMBER' | 'GUEST'
 
 // ─── 메인 컴포넌트 ──────────────────────────────────────────────────────────
 
 interface AdminBookingTabProps {
-  /** SUPER_ADMIN 전용 삭제 버튼 표시 여부 */
-  isSuperAdmin?: boolean
+  /** 코치 모드: 이 coachId의 예약만 표시 */
+  coachId?: string
 }
 
-export function AdminBookingTab({ isSuperAdmin = false }: AdminBookingTabProps) {
-  const [bookings, setBookings] = useState<LessonBooking[]>([])
-  const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL')
-  const [guestFilter, setGuestFilter] = useState<GuestFilter>('ALL')
+export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps = {}) {
+  const [coaches, setCoaches] = useState<Coach[]>([])
 
-  // 모달
-  const [cancelTarget, setCancelTarget] = useState<LessonBooking | null>(null)
-  const [cancelReason, setCancelReason] = useState('')
-  const [noteTarget, setNoteTarget] = useState<LessonBooking | null>(null)
-  const [noteText, setNoteText] = useState('')
-  const [deleteTarget, setDeleteTarget] = useState<LessonBooking | null>(null)
+  useEffect(() => {
+    if (fixedCoachId) return // 코치 모드: 목록 조회 불필요
+    getCoaches().then(({ data }) => setCoaches(data))
+  }, [fixedCoachId])
+  const [bookings, setBookings]             = useState<LessonBooking[]>([])
+  const [loading, setLoading]               = useState(true)
+  const [selectedCoachId, setSelectedCoachId] = useState<string>('ALL')
+  const [statusFilter, setStatusFilter]     = useState<StatusFilter>('ALL')
+  const [searchQuery, setSearchQuery]       = useState('')
 
-  // 피드백
+  // 모달 (reason/noteText는 각 모달 컴포넌트 로컬 state로 관리 — 부모 리렌더 방지)
+  const [cancelTarget, setCancelTarget]       = useState<LessonBooking | null>(null)
+  const [noteTarget, setNoteTarget]           = useState<LessonBooking | null>(null)
+  const [sessionTarget, setSessionTarget]     = useState<LessonBooking | null>(null)
+  const [extendTarget, setExtendTarget]       = useState<LessonBooking | null>(null)
+  const [quickEdit, setQuickEdit] = useState<{
+    booking: LessonBooking
+    session: SlotSession
+    x: number
+    y: number
+  } | null>(null)
+
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
+
+  // coaches → coachId:name 맵
+  const coachMap = useMemo(() => {
+    const map = new Map<string, string>()
+    coaches.forEach((c) => map.set(c.id, c.name))
+    return map
+  }, [coaches])
 
   const loadBookings = useCallback(async () => {
     setLoading(true)
-    const filters: { status?: LessonBookingStatus; isGuest?: boolean } = {}
-    if (statusFilter !== 'ALL') filters.status = statusFilter
-    if (guestFilter === 'GUEST') filters.isGuest = true
-    if (guestFilter === 'MEMBER') filters.isGuest = false
-
-    const { data } = await getBookings(filters)
+    const { data } = await getBookings(fixedCoachId ? { coachId: fixedCoachId } : undefined)
     setBookings(data)
     setLoading(false)
-  }, [statusFilter, guestFilter])
+  }, [fixedCoachId])
 
   useEffect(() => { loadBookings() }, [loadBookings])
 
-  // 수락
+  // 예약에 등장하는 코치 탭 목록
+  const coachTabs = useMemo(() => {
+    const seen = new Map<string, string>()
+    bookings.forEach((b) => {
+      const coachId = b.slots?.[0]?.coach_id
+      if (coachId && !seen.has(coachId)) {
+        seen.set(coachId, coachMap.get(coachId) ?? '알 수 없음')
+      }
+    })
+    return Array.from(seen.entries()).map(([id, name]) => ({ id, name }))
+  }, [bookings, coachMap])
+
+  // 클라이언트 사이드 필터링 (코치 탭 + 상태 드롭다운 + 이름 검색)
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    return bookings.filter((b) => {
+      if (selectedCoachId !== 'ALL' && b.slots?.[0]?.coach_id !== selectedCoachId) return false
+      if (statusFilter !== 'ALL' && b.status !== statusFilter) return false
+      if (q) {
+        const name = (b.is_guest ? b.guest_name : b.member?.name) ?? ''
+        if (!name.toLowerCase().includes(q)) return false
+      }
+      return true
+    })
+  }, [bookings, selectedCoachId, statusFilter, searchQuery])
+
+  // 탭별 대기 건수
+  const allPendingCount = bookings.filter((b) => b.status === 'PENDING').length
+  const coachPendingCount = (coachId: string) =>
+    bookings.filter((b) => b.status === 'PENDING' && b.slots?.[0]?.coach_id === coachId).length
+
+  // ── 액션 핸들러 ────────────────────────────────────────────────────────────
+
   const handleConfirm = async (booking: LessonBooking) => {
+    setBookings((prev) => prev.map((b) => b.id === booking.id ? { ...b, status: 'CONFIRMED' as const } : b))
     const result = await confirmBooking(booking.id)
     if (result.error) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings()
       return
     }
     setToast({ isOpen: true, message: '예약이 확정되었습니다.', type: 'success' })
-    loadBookings()
   }
 
-  // 거절
-  const handleCancel = async () => {
+  const handleCancel = async (reason: string) => {
     if (!cancelTarget) return
-    const result = await cancelBooking(cancelTarget.id, cancelReason)
+    const targetId = cancelTarget.id
+    const isPending = cancelTarget.status === 'PENDING'
     setCancelTarget(null)
-    setCancelReason('')
+    setBookings((prev) =>
+      prev.map((b) =>
+        b.id === targetId
+          ? { ...b, status: 'CANCELLED' as const, cancel_reason: reason, admin_note: reason || b.admin_note }
+          : b
+      )
+    )
+    const result = await cancelBooking(targetId, reason)
     if (result.error) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings()
       return
     }
-    setToast({ isOpen: true, message: '예약이 거절되었습니다. 슬롯이 복구되었습니다.', type: 'success' })
-    loadBookings()
+    if (reason) await updateBookingNote(targetId, reason)
+    setToast({
+      isOpen: true,
+      message: isPending ? '예약이 거절되었습니다. 슬롯이 복구되었습니다.' : '예약이 취소되었습니다. 슬롯이 복구되었습니다.',
+      type: 'success',
+    })
   }
 
-  // 메모 저장
-  const handleSaveNote = async () => {
-    if (!noteTarget) return
-    const result = await updateBookingNote(noteTarget.id, noteText)
-    setNoteTarget(null)
+  const handleSessionsUpdated = useCallback((slotId: string, meta: UpdatedSlotMeta) => {
+    setBookings((prev) =>
+      prev.map((b) => {
+        if (!b.slots?.[0] || b.slots[0].id !== slotId) return b
+        const updatedSlot = {
+          ...b.slots[0],
+          sessions: meta.sessions,
+          total_sessions: meta.totalSessions,
+          last_session_date: meta.lastSessionDate,
+        }
+        return { ...b, slots: [updatedSlot] }
+      })
+    )
+  }, [])
+
+  // 날짜 칩 클릭 → 해당 세션 상태 즉시 변경
+  const handleQuickStatusChange = useCallback(async (
+    booking: LessonBooking,
+    session: SlotSession,
+    nextStatus: SlotSession['status'],
+  ) => {
+    const slot = booking.slots?.[0]
+    if (!slot?.sessions) return
+
+    setQuickEdit(null)
+    const updatedSessions = slot.sessions.map((s: SlotSession) =>
+      s.slot_date === session.slot_date ? { ...s, status: nextStatus } : s,
+    )
+    // 낙관적 업데이트
+    handleSessionsUpdated(slot.id, {
+      sessions: updatedSessions,
+      totalSessions: updatedSessions.filter((s: SlotSession) => s.status !== 'CANCELLED').length,
+      lastSessionDate: [...updatedSessions].sort((a: SlotSession, b: SlotSession) => b.slot_date.localeCompare(a.slot_date))[0]?.slot_date ?? null,
+    })
+    const result = await updateSlotSessions(slot.id, updatedSessions)
     if (result.error) {
       setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings()
+    }
+  }, [handleSessionsUpdated, loadBookings])
+
+  const handleSaveNote = async (note: string) => {
+    if (!noteTarget) return
+    const targetId = noteTarget.id
+    setNoteTarget(null)
+    setBookings((prev) => prev.map((b) => b.id === targetId ? { ...b, admin_note: note } : b))
+    const result = await updateBookingNote(targetId, note)
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings()
       return
     }
     setToast({ isOpen: true, message: '메모가 저장되었습니다.', type: 'success' })
-    loadBookings()
   }
 
-  // 삭제 (SUPER_ADMIN 전용)
-  const handleDelete = async () => {
-    if (!deleteTarget) return
-    const result = await deleteBooking(deleteTarget.id)
-    setDeleteTarget(null)
-    if (result.error) {
-      setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
-      return
+  // 연장 위자드: extendTarget의 슬롯 정보를 prefill로 변환
+  const extendPrefill = useMemo((): SlotPrefill | undefined => {
+    const slot = extendTarget?.slots?.[0]
+    if (!slot?.sessions || slot.sessions.length === 0) return undefined
+
+    const activeSessions = (slot.sessions as SlotSession[]).filter(
+      (s) => s.status !== 'CANCELLED' && s.status !== 'RESCHEDULED',
+    )
+    if (activeSessions.length === 0) return undefined
+
+    // 요일별 첫 번째 시작 시간 추출
+    const dowMap = new Map<number, string>()
+    for (const s of activeSessions) {
+      const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+      if (!dowMap.has(dow)) dowMap.set(dow, s.start_time.slice(0, 5))
     }
-    setToast({ isOpen: true, message: '예약이 삭제되었습니다.', type: 'success' })
-    loadBookings()
-  }
+    const selectedDays = [...dowMap.keys()].sort((a, b) => a - b)
+    const times: [string, string] = [
+      dowMap.get(selectedDays[0]) ?? '',
+      dowMap.get(selectedDays[1]) ?? '',
+    ]
 
-  const pendingCount = bookings.filter((b) => b.status === 'PENDING').length
+    const lastSessionDate = activeSessions.map((s) => s.slot_date).sort().reverse()[0]
+
+    return {
+      frequency: (slot.frequency as 1 | 2) ?? 1,
+      duration: (slot.duration_minutes as 20 | 30) ?? 20,
+      selectedDays,
+      times,
+      lastSessionDate,
+      feeInput: slot.fee_amount != null ? String(slot.fee_amount) : '',
+    }
+  }, [extendTarget?.slots])
+
+  // ── 렌더 ───────────────────────────────────────────────────────────────────
 
   return (
     <div>
-      {/* 필터 */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {/* 상태 필터 */}
-        <div className="flex gap-1 p-0.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          {(['ALL', 'PENDING', 'CONFIRMED', 'CANCELLED'] as StatusFilter[]).map((s) => {
-            const label = s === 'ALL' ? '전체' : BOOKING_STATUS_LABEL[s]
-            const isActive = statusFilter === s
-            return (
-              <button
-                key={s}
-                onClick={() => setStatusFilter(s)}
-                className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                }}
-              >
-                {label}
-                {s === 'PENDING' && pendingCount > 0 && (
-                  <span className="ml-1 px-1 py-0.5 rounded text-xs font-bold" style={{ backgroundColor: 'var(--color-warning)', color: '#fff' }}>
-                    {pendingCount}
-                  </span>
-                )}
-              </button>
-            )
-          })}
-        </div>
-
-        {/* 회원/비회원 필터 */}
-        <div className="flex gap-1 p-0.5 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-          {(['ALL', 'MEMBER', 'GUEST'] as GuestFilter[]).map((g) => {
-            const label = g === 'ALL' ? '전체' : g === 'MEMBER' ? '회원' : '비회원'
-            const isActive = guestFilter === g
-            return (
-              <button
-                key={g}
-                onClick={() => setGuestFilter(g)}
-                className="px-2.5 py-1 rounded-md text-xs font-medium transition-colors"
-                style={{
-                  backgroundColor: isActive ? 'var(--bg-card)' : 'transparent',
-                  color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
-                }}
-              >
-                {label}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* 예약 목록 */}
-      {loading ? (
-        <div className="space-y-2 animate-pulse">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
-          ))}
-        </div>
-      ) : bookings.length === 0 ? (
-        <div className="text-center py-12">
-          <ClipboardList className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약이 없습니다.</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {bookings.map((booking) => (
-            <BookingCard
-              key={booking.id}
-              booking={booking}
-              isSuperAdmin={isSuperAdmin}
-              onConfirm={() => handleConfirm(booking)}
-              onCancel={() => { setCancelTarget(booking); setCancelReason('') }}
-              onNote={() => { setNoteTarget(booking); setNoteText(booking.admin_note || '') }}
-              onDelete={() => setDeleteTarget(booking)}
+      {/* 코치 탭 */}
+      {coachTabs.length > 0 && (
+        <div
+          className="flex gap-1 mb-4 border-b"
+          style={{ borderColor: 'var(--border-color)' }}
+          role="tablist"
+          aria-label="코치별 예약"
+        >
+          <TabButton
+            label="전체"
+            isActive={selectedCoachId === 'ALL'}
+            badgeCount={allPendingCount}
+            onClick={() => setSelectedCoachId('ALL')}
+          />
+          {coachTabs.map(({ id, name }) => (
+            <TabButton
+              key={id}
+              label={name}
+              isActive={selectedCoachId === id}
+              badgeCount={coachPendingCount(id)}
+              onClick={() => setSelectedCoachId(id)}
             />
           ))}
         </div>
       )}
 
-      {/* 거절 사유 모달 */}
-      <Modal
-        isOpen={!!cancelTarget}
-        onClose={() => setCancelTarget(null)}
-        title="예약 거절"
-        size="sm"
-      >
-        <Modal.Body>
-          <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
-            예약을 거절하면 슬롯이 다시 공개됩니다.
-          </p>
-          <label htmlFor="cancel-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
-            거절 사유 (선택)
-          </label>
-          <textarea
-            id="cancel-reason"
-            value={cancelReason}
-            onChange={(e) => setCancelReason(e.target.value)}
-            rows={3}
-            maxLength={200}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+      {/* 필터 바: 상태 드롭다운 + 이름 검색 */}
+      <div className="flex items-center gap-3 mb-4">
+        {/* 상태 드롭다운 */}
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
+          className="h-9 pl-3 pr-8 rounded-lg text-sm appearance-none cursor-pointer"
+          style={{
+            backgroundColor: 'var(--bg-card)',
+            color: 'var(--text-primary)',
+            border: '1px solid var(--border-color)',
+            backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+            backgroundRepeat: 'no-repeat',
+            backgroundPosition: 'right 10px center',
+          }}
+          aria-label="예약 상태 필터"
+        >
+          <option value="ALL">전체 상태</option>
+          <option value="PENDING">대기</option>
+          <option value="CONFIRMED">확정</option>
+          <option value="CANCELLED">취소</option>
+        </select>
+
+        {/* 이름 검색 */}
+        <div className="relative flex-1 max-w-xs">
+          <Search
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none"
+            style={{ color: 'var(--text-muted)' }}
           />
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            onClick={() => setCancelTarget(null)}
-            className="flex-1 px-4 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-          >
-            취소
-          </button>
-          <button
-            onClick={handleCancel}
-            className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white"
-            style={{ backgroundColor: 'var(--color-danger)' }}
-          >
-            거절
-          </button>
-        </Modal.Footer>
-      </Modal>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="신청자명 검색"
+            className="w-full h-9 pl-9 pr-3 rounded-lg text-sm"
+            style={{
+              backgroundColor: 'var(--bg-card)',
+              color: 'var(--text-primary)',
+              border: '1px solid var(--border-color)',
+            }}
+            aria-label="신청자명 검색"
+          />
+        </div>
+
+        {/* 결과 건수 */}
+        {!loading && (
+          <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
+            {filtered.length}건
+          </span>
+        )}
+      </div>
+
+      {/* 테이블 */}
+      {loading ? (
+        <div className="space-y-2 animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-12 rounded-lg" style={{ backgroundColor: 'var(--bg-card-hover)' }} />
+          ))}
+        </div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16">
+          <ClipboardList className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약이 없습니다.</p>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border-color)' }}>
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr style={{ backgroundColor: 'var(--bg-secondary)', borderBottom: '1px solid var(--border-color)' }}>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>신청자</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>상태</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>스케줄</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>요금</th>
+                <th className="px-4 py-3 text-left font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>신청일</th>
+                <th className="px-4 py-3 text-right font-medium whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>액션</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((booking, idx) => (
+                <BookingRow
+                  key={booking.id}
+                  booking={booking}
+                  onQuickEdit={(session, x, y) => setQuickEdit({ booking, session, x, y })}
+                  isLast={idx === filtered.length - 1}
+                  onConfirm={() => handleConfirm(booking)}
+                  onCancel={() => setCancelTarget(booking)}
+                  onNote={() => setNoteTarget(booking)}
+                  onSession={() => setSessionTarget(booking)}
+                  onExtend={() => setExtendTarget(booking)}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 취소/거절 사유 모달 */}
+      <CancelModal
+        target={cancelTarget}
+        onClose={() => setCancelTarget(null)}
+        onConfirm={handleCancel}
+      />
 
       {/* 메모 모달 */}
-      <Modal
-        isOpen={!!noteTarget}
+      <NoteModal
+        target={noteTarget}
         onClose={() => setNoteTarget(null)}
-        title="관리자 메모"
-        size="sm"
-      >
-        <Modal.Body>
-          <textarea
-            value={noteText}
-            onChange={(e) => setNoteText(e.target.value)}
-            rows={4}
-            maxLength={500}
-            className="w-full px-3 py-2 rounded-lg text-sm resize-none"
-            style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
-            aria-label="관리자 메모"
-          />
-        </Modal.Body>
-        <Modal.Footer>
-          <button
-            onClick={() => setNoteTarget(null)}
-            className="flex-1 px-4 py-2 rounded-lg text-sm"
-            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-          >
-            취소
-          </button>
-          <button
-            onClick={handleSaveNote}
-            className="flex-1 btn-primary"
-          >
-            저장
-          </button>
-        </Modal.Footer>
-      </Modal>
+        onSave={handleSaveNote}
+      />
 
-      <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type={toast.type} />
+      {/* 세션 관리 모달 */}
+      <SessionManageModal
+        booking={sessionTarget}
+        onClose={() => setSessionTarget(null)}
+        onSessionsUpdated={handleSessionsUpdated}
+      />
 
-      {/* 삭제 확인 다이얼로그 (SUPER_ADMIN 전용) */}
-      <ConfirmDialog
-        isOpen={!!deleteTarget}
-        onClose={() => setDeleteTarget(null)}
-        onConfirm={handleDelete}
-        title="예약 삭제"
-        message={`${deleteTarget?.is_guest ? deleteTarget?.guest_name : deleteTarget?.member?.name ?? '알 수 없음'}님의 예약을 완전히 삭제하시겠습니까?\n연결된 슬롯은 OPEN 상태로 복구됩니다.\n이 작업은 되돌릴 수 없습니다.`}
-        confirmText="삭제"
-        type="error"
+      {/* 연장 위자드 모달 */}
+      {extendTarget?.slots?.[0] && (
+        <CreateSlotModal
+          isOpen={!!extendTarget}
+          onClose={() => setExtendTarget(null)}
+          coachId={extendTarget.slots[0].coach_id}
+          extendSlotId={extendTarget.slots[0].id}
+          prefill={extendPrefill}
+          onSuccess={() => {
+            setExtendTarget(null)
+            setToast({ isOpen: true, message: '패키지가 연장되었습니다. 새 슬롯이 생성되었습니다.', type: 'success' })
+            loadBookings()
+          }}
+          onError={(msg) => setToast({ isOpen: true, message: msg, type: 'error' as 'success' })}
+        />
+      )}
+
+      {/* 세션 상태 빠른 변경 팝오버 */}
+      {quickEdit && (
+        <SessionQuickPopover
+          booking={quickEdit.booking}
+          session={quickEdit.session}
+          x={quickEdit.x}
+          y={quickEdit.y}
+          onClose={() => setQuickEdit(null)}
+          onChangeStatus={handleQuickStatusChange}
+        />
+      )}
+
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type={toast.type}
       />
     </div>
   )
 }
 
-// ─── BookingCard 컴포넌트 ───────────────────────────────────────────────────
+// ─── 탭 버튼 ─────────────────────────────────────────────────────────────────
 
-interface BookingCardProps {
+function TabButton({
+  label, isActive, badgeCount, onClick,
+}: {
+  label: string
+  isActive: boolean
+  badgeCount: number
+  onClick: () => void
+}) {
+  return (
+    <button
+      role="tab"
+      aria-selected={isActive}
+      onClick={onClick}
+      className="px-4 py-2 text-sm transition-colors whitespace-nowrap"
+      style={{
+        color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
+        fontWeight: isActive ? 700 : 400,
+        borderBottom: isActive ? '2px solid var(--text-primary)' : '2px solid transparent',
+        marginBottom: '-1px',
+      }}
+    >
+      {label}
+      {badgeCount > 0 && (
+        <span
+          className="ml-1 px-1 py-0.5 rounded text-xs font-bold text-white"
+          style={{ backgroundColor: 'var(--color-warning)' }}
+        >
+          {badgeCount}
+        </span>
+      )}
+    </button>
+  )
+}
+
+// ─── 요일 레이블 ──────────────────────────────────────────────────────────────
+
+const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
+
+/** sessions 배열에서 요일별 시간 그룹 추출 (DOW → start/end, 월~일 순) */
+function getSlotSchedule(sessions: { slot_date: string; start_time: string; end_time: string }[]) {
+  const map = new Map<number, { start: string; end: string }>()
+  for (const s of sessions) {
+    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+    if (!map.has(dow)) {
+      map.set(dow, { start: s.start_time.slice(0, 5), end: s.end_time.slice(0, 5) })
+    }
+  }
+  return [...map.entries()].sort((a, b) => {
+    const order = (d: number) => (d === 0 ? 7 : d)
+    return order(a[0]) - order(b[0])
+  })
+}
+
+/** 세션 상태별 날짜 칩 스타일 */
+function getSessionChipStyle(
+  status: SlotSession['status'],
+  isPast: boolean,
+): React.CSSProperties {
+  switch (status) {
+    case 'COMPLETED':
+      return { backgroundColor: '#10b98122', color: '#10b981' }
+    case 'CANCELLED':
+      return { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)', textDecoration: 'line-through' }
+    case 'RESCHEDULED':
+      return { backgroundColor: '#f59e0b18', color: '#f59e0b', textDecoration: 'line-through' }
+    default: // SCHEDULED
+      return isPast
+        ? { backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }
+        : { backgroundColor: 'var(--accent-color)', color: '#fff', opacity: 0.9 }
+  }
+}
+
+// ─── BookingRow ───────────────────────────────────────────────────────────────
+
+function BookingRow({
+  booking, isLast, onConfirm, onCancel, onNote, onSession, onExtend, onQuickEdit,
+}: {
   booking: LessonBooking
-  isSuperAdmin: boolean
+  isLast: boolean
   onConfirm: () => void
   onCancel: () => void
   onNote: () => void
-  onDelete: () => void
-}
+  onSession: () => void
+  onExtend: () => void
+  onQuickEdit: (session: SlotSession, x: number, y: number) => void
+}) {
+  const conf    = STATUS_CONFIG[booking.status]
+  const name    = booking.is_guest ? booking.guest_name : booking.member?.name
+  const slot    = booking.slots?.[0]
+  const sessions = (slot?.sessions ?? []) as SlotSession[]
 
-function BookingCard({ booking, isSuperAdmin, onConfirm, onCancel, onNote, onDelete }: BookingCardProps) {
-  const conf = STATUS_CONFIG[booking.status]
-  const name = booking.is_guest ? booking.guest_name : booking.member?.name
-  const typeLabel = BOOKING_TYPE_LABEL[booking.booking_type]
+  // 요일별 시간 헤더
+  const schedule = getSlotSchedule(sessions)
 
-  const formatSlotTime = (slot: { slot_date: string; start_time: string; end_time: string }) => {
-    const d = new Date(slot.slot_date + 'T00:00:00')
-    const dayLabel = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()]
-    return `${slot.slot_date} (${dayLabel}) ${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
+  // 요일별 세션 그룹 (날짜 오름차순, 월~일 순)
+  const sessionsByDow: [number, SlotSession[]][] = (() => {
+    const map = new Map<number, SlotSession[]>()
+    for (const s of sessions) {
+      const dow = new Date(s.slot_date + 'T00:00:00').getDay()
+      if (!map.has(dow)) map.set(dow, [])
+      map.get(dow)!.push(s)
+    }
+    return [...map.entries()]
+      .sort((a, b) => (a[0] === 0 ? 7 : a[0]) - (b[0] === 0 ? 7 : b[0]))
+      .map(([dow, ss]) => [dow, ss.sort((a, b) => a.slot_date.localeCompare(b.slot_date))])
+  })()
+
+  const formatShortDate = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    return `${d.getMonth() + 1}/${d.getDate()}`
   }
 
   const createdAt = new Date(booking.created_at).toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    month: 'short', day: 'numeric',
   })
 
   return (
-    <div
-      className="rounded-lg p-4"
-      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+    <tr
+      style={{
+        borderBottom: isLast ? 'none' : '1px solid var(--border-color)',
+        backgroundColor: 'var(--bg-card)',
+      }}
     >
-      {/* 헤더 */}
-      <div className="flex items-start justify-between mb-2">
+      {/* 신청자 */}
+      <td className="px-4 py-3">
         <div className="flex items-center gap-2">
           <div
-            className="w-8 h-8 rounded-full flex items-center justify-center"
+            className="w-7 h-7 rounded-full flex items-center justify-center shrink-0"
             style={{ backgroundColor: 'var(--bg-card-hover)' }}
           >
-            <User className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
+            <User className="w-3.5 h-3.5" style={{ color: 'var(--text-muted)' }} />
           </div>
-          <div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>{name || '이름 없음'}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-1">
+              <span className="font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                {name || '이름 없음'}
+              </span>
               {booking.is_guest && <Badge variant="orange">비회원</Badge>}
-              <Badge variant={conf.variant}>{conf.label}</Badge>
             </div>
             {booking.is_guest && booking.guest_phone && (
-              <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>{booking.guest_phone}</p>
+              <p className="text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
+                {booking.guest_phone}
+              </p>
             )}
           </div>
         </div>
+      </td>
+
+      {/* 상태 */}
+      <td className="px-4 py-3 whitespace-nowrap align-top pt-4">
+        <Badge variant={conf.variant}>{conf.label}</Badge>
+      </td>
+
+      {/* 스케줄 — 요일/시간 + 요일별 날짜 칩 (상태 색상) */}
+      <td className="px-4 py-3 min-w-[260px]">
+        {sessions.length === 0 ? (
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+        ) : (
+          <div className="space-y-1.5">
+            {/* 요일별 시간 (횟수 제거) */}
+            <div className="flex items-center gap-3 flex-wrap">
+              {schedule.map(([dow, time]) => (
+                <span key={dow} className="text-sm font-medium whitespace-nowrap" style={{ color: 'var(--text-primary)' }}>
+                  {DAY_LABELS[dow]} {time.start}~{time.end}
+                </span>
+              ))}
+            </div>
+            {/* 요일별 날짜 칩 — COMPLETED=녹색, CANCELLED=취소선+뮤트, RESCHEDULED=주황+취소선, 예정=강조/뮤트 */}
+            {sessionsByDow.map(([dow, dowSessions]) => (
+              <div key={dow} className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs font-bold shrink-0 w-4" style={{ color: 'var(--text-muted)' }}>
+                  {DAY_LABELS[dow]}
+                </span>
+                {dowSessions.map((s) => {
+                  const isPast = new Date(s.slot_date + 'T23:59:59') < new Date()
+                  return (
+                    <button
+                      key={s.slot_date}
+                      type="button"
+                      onClick={(e) => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        onQuickEdit(s, rect.left, rect.bottom + 4)
+                      }}
+                      className="inline-block px-1.5 py-0.5 rounded text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity"
+                      style={getSessionChipStyle(s.status, isPast)}
+                      aria-label={`${formatShortDate(s.slot_date)} 세션 상태 변경`}
+                    >
+                      {formatShortDate(s.slot_date)}
+                    </button>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        )}
+      </td>
+
+      {/* 요금 */}
+      <td className="px-4 py-3 whitespace-nowrap align-top pt-4">
+        {booking.fee_amount !== null ? (
+          <span className="text-sm font-medium" style={{ color: 'var(--accent-color)' }}>
+            {booking.fee_amount.toLocaleString()}원/월
+          </span>
+        ) : (
+          <span style={{ color: 'var(--text-muted)' }}>—</span>
+        )}
+      </td>
+
+      {/* 신청일 */}
+      <td className="px-4 py-3 whitespace-nowrap align-top pt-4">
         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>{createdAt}</span>
-      </div>
-
-      {/* 슬롯 정보 */}
-      <div className="mb-2 pl-10">
-        <div className="flex items-center gap-2 mb-1">
-          <Badge variant="info">{typeLabel}</Badge>
-          {booking.fee_amount !== null && (
-            <span className="text-xs font-medium" style={{ color: 'var(--accent-color)' }}>
-              {booking.fee_amount.toLocaleString()}원/월
-            </span>
-          )}
-        </div>
-        {booking.slots?.map((slot) => (
-          <p key={slot.id} className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-            {formatSlotTime(slot)}
-          </p>
-        ))}
-      </div>
-
-      {/* 메모 */}
-      {booking.admin_note && (
-        <div className="mb-2 pl-10">
-          <p className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-muted)' }}>
-            메모: {booking.admin_note}
-          </p>
-        </div>
-      )}
-
-      {/* 거절 사유 */}
-      {booking.cancel_reason && (
-        <div className="mb-2 pl-10">
-          <p className="text-xs px-2 py-1 rounded" style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}>
-            거절 사유: {booking.cancel_reason}
-          </p>
-        </div>
-      )}
+      </td>
 
       {/* 액션 */}
-      <div className="flex gap-2 pl-10">
-        {booking.status === 'PENDING' && (
-          <>
+      <td className="px-4 py-3 align-top pt-3">
+        <div className="flex items-center justify-end gap-1.5">
+          {booking.status === 'PENDING' && (
             <button
               onClick={onConfirm}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
               style={{ backgroundColor: 'var(--color-success)' }}
             >
               <Check className="w-3 h-3" />
               수락
             </button>
+          )}
+          {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') &&
+            !(booking.slots?.[0]?.sessions as SlotSession[] | null)?.some((s) => s.status === 'COMPLETED') && (
+              <button
+                onClick={onCancel}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
+                style={{ backgroundColor: 'var(--color-danger)' }}
+              >
+                <X className="w-3 h-3" />
+                {booking.status === 'PENDING' ? '거절' : '취소'}
+              </button>
+            )}
+          {/* 세션 관리 버튼 */}
+          {booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && (
             <button
-              onClick={onCancel}
-              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium text-white"
-              style={{ backgroundColor: 'var(--color-danger)' }}
+              onClick={onSession}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
             >
-              <X className="w-3 h-3" />
-              거절
+              <Calendar className="w-3 h-3" />
+              세션
             </button>
-          </>
-        )}
-        <button
-          onClick={onNote}
-          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-          style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
-        >
-          <MessageSquare className="w-3 h-3" />
-          메모
-        </button>
-        {/* SUPER_ADMIN 전용 삭제 */}
-        {isSuperAdmin && (
+          )}
+          {/* 연장 버튼: CONFIRMED + 패키지 슬롯 + 미연장 */}
+          {booking.status === 'CONFIRMED' && booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && !booking.slots[0].extended_at && (
+            <button
+              onClick={onExtend}
+              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid var(--color-success)' }}
+            >
+              <RotateCcw className="w-3 h-3" />
+              연장
+            </button>
+          )}
+          {/* 메모 버튼 */}
           <button
-            onClick={onDelete}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium"
-            style={{ backgroundColor: 'var(--color-danger-subtle, #fee2e2)', color: 'var(--color-danger)' }}
+            onClick={onNote}
+            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+            style={
+              booking.admin_note
+                ? { backgroundColor: 'var(--color-info, #3b82f6)', color: '#fff' }
+                : { backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }
+            }
           >
-            <Trash2 className="w-3 h-3" />
-            삭제
+            <MessageSquare className="w-3 h-3" />
+            메모
           </button>
-        )}
+        </div>
+      </td>
+    </tr>
+  )
+}
+
+// ─── CancelModal ─────────────────────────────────────────────────────────────
+
+function CancelModal({
+  target, onClose, onConfirm,
+}: {
+  target: LessonBooking | null
+  onClose: () => void
+  onConfirm: (reason: string) => void
+}) {
+  const [reason, setReason] = useState('')
+
+  useEffect(() => {
+    if (target) setReason('')
+  }, [target])
+
+  const isPending = target?.status === 'PENDING'
+
+  return (
+    <Modal isOpen={!!target} onClose={onClose} title={isPending ? '예약 거절' : '예약 취소'} size="sm">
+      <Modal.Body>
+        <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+          {isPending ? '예약을 거절하면 슬롯이 다시 공개됩니다.' : '예약을 취소하면 슬롯이 다시 공개됩니다.'}
+        </p>
+        <label htmlFor="cancel-reason" className="block text-xs font-medium mb-1" style={{ color: 'var(--text-secondary)' }}>
+          {isPending ? '거절 사유 (선택)' : '취소 사유 (선택)'}
+        </label>
+        <textarea
+          id="cancel-reason"
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={3}
+          maxLength={200}
+          placeholder="사유를 입력하면 메모에 저장됩니다."
+          className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+          style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+        />
+      </Modal.Body>
+      <Modal.Footer>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+          닫기
+        </button>
+        <button
+          onClick={() => onConfirm(reason.trim())}
+          className="flex-1 px-4 py-2 rounded-lg text-sm font-medium text-white"
+          style={{ backgroundColor: 'var(--color-danger)' }}
+        >
+          {isPending ? '거절' : '취소 확인'}
+        </button>
+      </Modal.Footer>
+    </Modal>
+  )
+}
+
+// ─── NoteModal ───────────────────────────────────────────────────────────────
+
+function NoteModal({
+  target, onClose, onSave,
+}: {
+  target: LessonBooking | null
+  onClose: () => void
+  onSave: (note: string) => void
+}) {
+  const [note, setNote] = useState('')
+
+  useEffect(() => {
+    if (target) setNote(target.admin_note ?? '')
+  }, [target])
+
+  return (
+    <Modal isOpen={!!target} onClose={onClose} title="관리자 메모" size="sm">
+      <Modal.Body>
+        <textarea
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          rows={4}
+          maxLength={500}
+          placeholder="메모를 입력하세요."
+          className="w-full px-3 py-2 rounded-lg text-sm resize-none"
+          style={{ backgroundColor: 'var(--bg-input)', color: 'var(--text-primary)', border: '1px solid var(--border-color)' }}
+          aria-label="관리자 메모"
+        />
+      </Modal.Body>
+      <Modal.Footer>
+        <button onClick={onClose} className="flex-1 px-4 py-2 rounded-lg text-sm" style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}>
+          취소
+        </button>
+        <button onClick={() => onSave(note)} className="flex-1 btn-primary">저장</button>
+      </Modal.Footer>
+    </Modal>
+  )
+}
+
+// ─── SessionQuickPopover ──────────────────────────────────────────────────────
+
+type SlotSessionStatus = SlotSession['status']
+
+const SESSION_STATUS_CONFIG: Record<
+  Exclude<SlotSessionStatus, undefined>,
+  { label: string; color: string; icon: string }
+> = {
+  SCHEDULED:   { label: '예정',   color: 'var(--text-muted)', icon: '○' },
+  COMPLETED:   { label: '완료',   color: '#10b981',           icon: '✓' },
+  CANCELLED:   { label: '취소',   color: '#ef4444',           icon: '✕' },
+  RESCHEDULED: { label: '연기',   color: '#f59e0b',           icon: '↻' },
+}
+
+const NEXT_STATUS_OPTIONS: Record<Exclude<SlotSessionStatus, undefined>, Exclude<SlotSessionStatus, undefined>[]> = {
+  SCHEDULED:   ['COMPLETED', 'CANCELLED'],
+  COMPLETED:   ['SCHEDULED', 'CANCELLED'],
+  CANCELLED:   ['SCHEDULED', 'COMPLETED'],
+  RESCHEDULED: ['SCHEDULED', 'CANCELLED'],
+}
+
+function SessionQuickPopover({
+  booking,
+  session,
+  x,
+  y,
+  onClose,
+  onChangeStatus,
+}: {
+  booking: LessonBooking
+  session: SlotSession
+  x: number
+  y: number
+  onClose: () => void
+  onChangeStatus: (booking: LessonBooking, session: SlotSession, next: SlotSessionStatus) => void
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const status = (session.status ?? 'SCHEDULED') as Exclude<SlotSessionStatus, undefined>
+  const conf = SESSION_STATUS_CONFIG[status]
+  const options = NEXT_STATUS_OPTIONS[status]
+
+  const d = new Date(session.slot_date + 'T00:00:00')
+  const dateLabel = `${d.getMonth() + 1}/${d.getDate()}(${DAY_LABELS[d.getDay()]})`
+  const timeLabel = `${session.start_time.slice(0, 5)}~${session.end_time.slice(0, 5)}`
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+    }
+    const escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('mousedown', handler)
+    document.addEventListener('keydown', escHandler)
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('keydown', escHandler)
+    }
+  }, [onClose])
+
+  // 뷰포트 경계 보정
+  const adjustedX = Math.min(x, window.innerWidth - 200)
+  const adjustedY = Math.min(y, window.innerHeight - 120)
+
+  return (
+    <div
+      ref={ref}
+      role="dialog"
+      aria-label="세션 상태 변경"
+      style={{
+        position: 'fixed',
+        top: adjustedY,
+        left: adjustedX,
+        zIndex: 9999,
+        width: 192,
+        backgroundColor: 'var(--bg-card)',
+        border: '1px solid var(--border-color)',
+        borderRadius: 12,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.12), 0 1px 4px rgba(0,0,0,0.08)',
+        overflow: 'hidden',
+      }}
+    >
+      {/* 헤더 */}
+      <div style={{
+        padding: '10px 12px 8px',
+        borderBottom: '1px solid var(--border-color)',
+        backgroundColor: 'var(--bg-secondary)',
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-primary)' }}>{dateLabel}</span>
+          <span style={{
+            fontSize: 11,
+            fontWeight: 600,
+            padding: '2px 7px',
+            borderRadius: 20,
+            color: conf.color,
+            backgroundColor: `${conf.color}20`,
+          }}>
+            {conf.icon} {conf.label}
+          </span>
+        </div>
+        <p style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>{timeLabel}</p>
+      </div>
+
+      {/* 액션 버튼 */}
+      <div style={{ padding: '6px 8px 8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
+        {options.map((next) => {
+          const nc = SESSION_STATUS_CONFIG[next]
+          return (
+            <button
+              key={next}
+              type="button"
+              onClick={() => onChangeStatus(booking, session, next)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                padding: '7px 10px',
+                borderRadius: 8,
+                border: 'none',
+                backgroundColor: 'transparent',
+                cursor: 'pointer',
+                width: '100%',
+                textAlign: 'left',
+                transition: 'background-color 0.12s',
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = `${nc.color}14` }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.backgroundColor = 'transparent' }}
+            >
+              <span style={{
+                width: 22,
+                height: 22,
+                borderRadius: 6,
+                backgroundColor: `${nc.color}20`,
+                color: nc.color,
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+              }}>
+                {nc.icon}
+              </span>
+              <span style={{ fontSize: 13, fontWeight: 500, color: 'var(--text-primary)' }}>
+                {nc.label}
+              </span>
+            </button>
+          )
+        })}
       </div>
     </div>
   )

@@ -577,6 +577,20 @@ src/components/admin/BracketManager/
 - 환경변수 미설정 시 throw (fallback 키 금지)
 - 입력값: `validateId()`, `validateNonNegativeInteger()`, 동점 서버 사이드 검증
 
+## 솔라피(Solapi) 카카오 알림톡
+발송 모듈: `src/lib/solapi/alimtalk.ts` — 싱글턴 서비스 + 개별 발송 함수 패턴
+
+| 함수 | 용도 | 환경변수 |
+|------|------|----------|
+| `sendTournamentConfirmAlimtalk` | 대회 참가 확정 (참가자 수신) | `SOLAPI_TEMPLATE_TOURNAMENT_CONFIRM` |
+| `sendLessonApplyAlimtalk` | 레슨 신청 완료 (고객 수신) | `SOLAPI_TEMPLATE_LESSON_APPLY` |
+| `sendExtensionRequestAlimtalk` | 레슨 연장 신청 (코치 수신) | `SOLAPI_TEMPLATE_EXTENSION_REQUEST` |
+
+- 템플릿 변수: `#{변수명}` 형식, 개수 제한 없음 (본문 1000자 제한)
+- 버튼: 웹링크(WL) 타입, URL도 변수 사용 가능 (재검수 불필요)
+- DEV 환경: 환경변수 미설정 시 mock 처리 (`DEV_MOCK`)
+- 새 알림톡 추가 시: 기존 함수 패턴(인터페이스 + 발송 함수 + 환경변수) 복제
+
 ## DEV 전용 기능
 - **자동 결과 입력** (`autoFillPreliminaryResults`, `autoFillMainBracketResults`)
   - `process.env.NODE_ENV === "development"`일 때만 UI 버튼 표시

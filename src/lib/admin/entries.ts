@@ -5,6 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { EntryStatus, PaymentStatus } from '@/lib/supabase/types'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { revalidatePath } from 'next/cache'
+import { sendTournamentConfirmAlimtalk } from '@/lib/solapi/alimtalk'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAdminClient = ReturnType<typeof createSupabaseClient<any>>
@@ -65,7 +66,7 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
 
   const { data: entry } = await supabase
     .from('tournament_entries')
-    .select('tournament_id, division_id, status, tournaments!inner(organizer_id)')
+    .select('tournament_id, division_id, status, phone, player_name, tournaments!inner(organizer_id, title, location, start_date), tournament_divisions!inner(name)')
     .eq('id', entryId)
     .single()
 
@@ -125,6 +126,24 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
   // CONFIRMED → CANCELLED 변경 시 대기자 자동 승격
   if (previousStatus === 'CONFIRMED' && dbStatus === 'CANCELLED') {
     await autoPromoteWaitlisted(supabaseAdmin, entry.division_id)
+  }
+
+  // 참가 확정 시 알림톡 발송 (fire-and-forget)
+  if (dbStatus === 'CONFIRMED' && entry.phone) {
+    const t = entry.tournaments as unknown as { title: string; location: string; start_date: string }
+    const d = entry.tournament_divisions as unknown as { name: string }
+    const alimtalkResult = await sendTournamentConfirmAlimtalk({
+      playerPhone:    entry.phone,
+      playerName:     entry.player_name,
+      tournamentName: t.title ?? '',
+      divisionName:   d.name ?? '',
+      tournamentDate: t.start_date ?? '-',
+      venue:          t.location ?? '-',
+      detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
+    })
+    if (!alimtalkResult.success) {
+      console.error('[Alimtalk] 대회 참가 확정 발송 실패:', alimtalkResult.error)
+    }
   }
 
   revalidatePath(`/admin/tournaments/${entry.tournament_id}/entries`)

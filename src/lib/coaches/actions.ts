@@ -34,6 +34,7 @@ export async function getCoaches(): Promise<{ error: string | null; data: Coach[
     .select('*')
     .eq('is_active', true)
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
 
   if (error) return { error: '코치 목록 조회에 실패했습니다.', data: [] }
   return { error: null, data: data || [] }
@@ -46,6 +47,7 @@ export async function getAllCoaches(): Promise<{ error: string | null; data: Coa
     .from('coaches')
     .select('*')
     .order('created_at', { ascending: true })
+    .order('id', { ascending: true })
 
   if (error) return { error: '코치 목록 조회에 실패했습니다.', data: [] }
   return { error: null, data: data || [] }
@@ -74,6 +76,9 @@ export async function createCoach(
       certifications: sanitized.certifications || [],
       certification_files: data.certification_files || [],
       profile_image_url: sanitized.profile_image_url || null,
+      phone: sanitized.phone || null,
+      lesson_location: sanitized.lesson_location || null,
+      bank_account: sanitized.bank_account || null,
       created_by: user.id,
     })
     .select()
@@ -104,6 +109,9 @@ export async function updateCoach(
   if (sanitized.certifications !== undefined) updateData.certifications = sanitized.certifications
   if (data.certification_files !== undefined) updateData.certification_files = data.certification_files
   if (sanitized.profile_image_url !== undefined) updateData.profile_image_url = sanitized.profile_image_url || null
+  if (sanitized.phone !== undefined) updateData.phone = sanitized.phone || null
+  if (sanitized.lesson_location !== undefined) updateData.lesson_location = sanitized.lesson_location || null
+  if (sanitized.bank_account !== undefined) updateData.bank_account = sanitized.bank_account || null
 
   const admin = createAdminClient()
   const { error } = await admin

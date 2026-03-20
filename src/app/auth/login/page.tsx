@@ -1,11 +1,12 @@
 'use client'
 
-import { signInWithEmail } from '@/lib/auth/actions'
 import { createClient } from '@/lib/supabase/client'
 import { useState, Suspense, useRef } from 'react'
 import Link from 'next/link'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { AlertDialog } from '@/components/common/AlertDialog'
+
+const isDev = process.env.NEXT_PUBLIC_APP_ENV === 'development'
 
 function LoginContent() {
   const [loading, setLoading] = useState<'google' | 'kakao' | 'naver' | 'email' | null>(null)
@@ -18,7 +19,9 @@ function LoginContent() {
   const emailRef = useRef<HTMLInputElement>(null)
   const passwordRef = useRef<HTMLInputElement>(null)
 
-  // 이메일 로그인
+  // 이메일 로그인 — 클라이언트 SDK 직접 호출
+  // 서버 액션으로 signIn하면 클라이언트 SDK가 세션 변경을 모름 → onAuthStateChange 미발동
+  // 클라이언트 SDK signInWithPassword → onAuthStateChange 자동 발동 → AuthProvider 즉시 갱신
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!email.trim()) {
@@ -32,9 +35,15 @@ function LoginContent() {
 
     setLoading('email')
     try {
-      const result = await signInWithEmail(email, password)
-      if (result?.error) {
-        setAlert({ isOpen: true, message: result.error, type: 'error' })
+      const supabase = createClient()
+      const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+      if (error) {
+        const msg = error.message.includes('Invalid login credentials')
+          ? '이메일 또는 비밀번호가 올바르지 않습니다.'
+          : error.message.includes('Email not confirmed')
+            ? '이메일 인증이 완료되지 않았습니다. 이메일을 확인해주세요.'
+            : error.message
+        setAlert({ isOpen: true, message: msg, type: 'error' })
         setLoading(null)
       } else {
         router.push(redirectTo)
@@ -94,7 +103,7 @@ function LoginContent() {
         style={{ backgroundColor: 'var(--bg-primary)' }}
       >
       <div className="w-full max-w-md px-6">
-        <div className="text-center mb-10">
+        <div className="text-center mb-10 pt-12">
           <Link href="/" className="inline-block mb-8">
             <span
               className="font-display text-3xl tracking-wider"
@@ -114,73 +123,79 @@ function LoginContent() {
           </p>
         </div>
 
-        {/* 이메일 로그인 폼 */}
-        <form onSubmit={handleEmailLogin} noValidate className="space-y-3 mb-6">
-          <div>
-            <label htmlFor="login-email" className="sr-only">이메일</label>
-            <input
-              ref={emailRef}
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              suppressHydrationWarning
-              placeholder="이메일"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              disabled={loading !== null}
-              className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-          <div>
-            <label htmlFor="login-password" className="sr-only">비밀번호</label>
-            <input
-              ref={passwordRef}
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              suppressHydrationWarning
-              placeholder="비밀번호"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              disabled={loading !== null}
-              className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
-              style={{
-                backgroundColor: 'var(--bg-secondary)',
-                borderColor: 'var(--border-color)',
-                color: 'var(--text-primary)',
-              }}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading !== null}
-            className="w-full py-3.5 rounded-xl font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading === 'email' ? '로그인 중...' : '로그인'}
-          </button>
-        </form>
+        {/* 이메일 로그인 폼 — 개발 환경에서만 노출 */}
+        {isDev && (
+          <>
+            <form onSubmit={handleEmailLogin} noValidate className="space-y-3 mb-6">
+              <div>
+                <label htmlFor="login-email" className="sr-only">이메일</label>
+                <input
+                  ref={emailRef}
+                  id="login-email"
+                  type="email"
+                  autoComplete="email"
+                  suppressHydrationWarning
+                  placeholder="이메일"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={loading !== null}
+                  className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <div>
+                <label htmlFor="login-password" className="sr-only">비밀번호</label>
+                <input
+                  ref={passwordRef}
+                  id="login-password"
+                  type="password"
+                  autoComplete="current-password"
+                  suppressHydrationWarning
+                  placeholder="비밀번호"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={loading !== null}
+                  className="w-full px-4 py-3.5 rounded-xl border outline-none transition-colors focus:ring-2 focus:ring-emerald-500/50"
+                  style={{
+                    backgroundColor: 'var(--bg-secondary)',
+                    borderColor: 'var(--border-color)',
+                    color: 'var(--text-primary)',
+                  }}
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading !== null}
+                className="w-full py-3.5 rounded-xl font-medium text-white bg-emerald-600 hover:bg-emerald-700 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loading === 'email' ? '로그인 중...' : '로그인'}
+              </button>
+            </form>
 
-        <div className="text-center mb-6">
-          <Link
-            href="/auth/reset-password"
-            className="text-sm hover:underline"
-            style={{ color: 'var(--text-muted)' }}
-          >
-            비밀번호를 잊으셨나요?
-          </Link>
-        </div>
+            <div className="text-center mb-6">
+              <Link
+                href="/auth/reset-password"
+                className="text-sm hover:underline"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                비밀번호를 잊으셨나요?
+              </Link>
+            </div>
+          </>
+        )}
 
-        {/* 구분선 */}
-        <div className="flex items-center gap-4 mb-6">
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
-          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>또는</span>
-          <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
-        </div>
+        {/* 구분선 — 이메일 폼이 있을 때만 표시 */}
+        {isDev && (
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
+            <span className="text-sm" style={{ color: 'var(--text-muted)' }}>또는</span>
+            <div className="flex-1 h-px" style={{ backgroundColor: 'var(--border-color)' }} />
+          </div>
+        )}
 
         {/* 소셜 로그인 */}
         <div className="space-y-3">
@@ -255,20 +270,22 @@ function LoginContent() {
           </button>
         </div>
 
-        {/* 회원가입 링크 */}
-        <p
-          className="text-center text-sm mt-8"
-          style={{ color: 'var(--text-muted)' }}
-        >
-          계정이 없으신가요?{' '}
-          <Link
-            href="/auth/signup"
-            className="font-medium hover:underline"
-            style={{ color: 'var(--text-primary)' }}
+        {/* 회원가입 링크 — DEV 환경에서만 노출 */}
+        {isDev && (
+          <p
+            className="text-center text-sm mt-8"
+            style={{ color: 'var(--text-muted)' }}
           >
-            회원가입
-          </Link>
-        </p>
+            계정이 없으신가요?{' '}
+            <Link
+              href="/auth/signup"
+              className="font-medium hover:underline"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              회원가입
+            </Link>
+          </p>
+        )}
 
         <p
           className="text-center text-sm mt-4 mb-8"

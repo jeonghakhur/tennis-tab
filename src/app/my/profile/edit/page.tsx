@@ -24,7 +24,7 @@ interface FormData {
   phone: string;
   start_year: StartYear | "";
   rating: string;
-  gender: "M" | "F" | "";
+  gender: "MALE" | "FEMALE" | "";
   birth_year: string;
 }
 
@@ -77,7 +77,7 @@ export default function ProfileEditPage() {
         phone: profile.phone ? formatPhoneNumber(profile.phone) : "",
         start_year: profile.start_year || "",
         rating: profile.rating ? profile.rating.toString() : "",
-        gender: (profile.gender as "M" | "F") || "",
+        gender: (profile.gender as "MALE" | "FEMALE") || "",
         birth_year: profile.birth_year || "",
       });
     }
@@ -365,8 +365,8 @@ export default function ProfileEditPage() {
               </legend>
               <div className="flex gap-4">
                 {[
-                  { value: "M" as const, label: "남성" },
-                  { value: "F" as const, label: "여성" },
+                  { value: "MALE" as const, label: "남성" },
+                  { value: "FEMALE" as const, label: "여성" },
                 ].map((option) => (
                   <label
                     key={option.value}

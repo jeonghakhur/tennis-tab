@@ -1,6 +1,6 @@
 'use client'
 
-import { User } from 'lucide-react'
+import { User, MapPin } from 'lucide-react'
 import type { Coach } from '@/lib/lessons/types'
 
 interface CoachCardProps {
@@ -57,6 +57,13 @@ export function CoachCard({ coach, onEdit, isAdmin }: CoachCardProps) {
           {coach.experience && (
             <p className="text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
               경력: {coach.experience}
+            </p>
+          )}
+
+          {coach.lesson_location && (
+            <p className="flex items-center gap-1 text-sm mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
+              {coach.lesson_location}
             </p>
           )}
 
