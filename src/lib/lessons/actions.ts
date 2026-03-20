@@ -584,7 +584,7 @@ export async function enrollLesson(
     if (error) return { error: '수강 신청에 실패했습니다.' }
     revalidatePath('/lessons')
     revalidatePath('/my/lessons')
-    await sendLessonAlimtalk(user, program, enrollStatus)
+    await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
     return { error: null, data: enrollment }
   }
 
@@ -598,7 +598,7 @@ export async function enrollLesson(
 
   revalidatePath('/lessons')
   revalidatePath('/my/lessons')
-  await sendLessonAlimtalk(user, program, enrollStatus)
+  await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
   return { error: null, data: enrollment }
 }
 
