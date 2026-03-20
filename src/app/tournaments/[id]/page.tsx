@@ -290,7 +290,7 @@ export default async function TournamentDetailPage({ params }: Props) {
                   tournament.location,
                 ].filter(Boolean).join(' · ')}
                 imageUrl={tournament.poster_url ?? undefined}
-                pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/tournaments/${tournament.id}`}
+                pageUrl={`/tournaments/${tournament.id}`}
               />
             </div>
           </div>

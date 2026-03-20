@@ -264,7 +264,7 @@ export default function CommunityPostClient({ postId: id }: Props) {
                 title={post.title}
                 description={(post.content ?? '').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim().slice(0, 100)}
                 imageUrl={allImages[0]?.src}
-                pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/community/${post.id}`}
+                pageUrl={`/community/${post.id}`}
               />
 
               {/* 액션 버튼 — 오른쪽 정렬 */}

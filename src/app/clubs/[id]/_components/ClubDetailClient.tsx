@@ -288,7 +288,7 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                 <KakaoShareButton
                   title={club.name}
                   description={club.description?.slice(0, 100) ?? `${club.name} — 마포구테니스협회 클럽`}
-                  pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/clubs/${id}`}
+                  pageUrl={`/clubs/${id}`}
                   compact
                 />
               </div>

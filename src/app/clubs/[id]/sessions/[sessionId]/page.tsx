@@ -153,7 +153,7 @@ export default function SessionDetailPage() {
                 <KakaoShareButton
                   title={session.title}
                   description={[formattedDate, session.venue_name].filter(Boolean).join(' · ')}
-                  pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/clubs/${clubId}/sessions/${sessionId}`}
+                  pageUrl={`/clubs/${clubId}/sessions/${sessionId}`}
                   compact
                 />
                 <Badge variant={config.variant}>{config.label}</Badge>

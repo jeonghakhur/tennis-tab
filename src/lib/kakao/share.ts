@@ -78,10 +78,15 @@ export async function shareKakao(params: {
   imageUrl?: string
   pageUrl: string
 }) {
+  // 상대경로 전달 시 현재 origin으로 절대경로 변환 (모든 경로에서 공통 사용)
+  const absoluteUrl = params.pageUrl.startsWith('http')
+    ? params.pageUrl
+    : `${window.location.origin}${params.pageUrl}`
+
   const appKey = process.env.NEXT_PUBLIC_KAKAO_JS_KEY
   if (!appKey) {
     // 앱 키 미설정 시 URL 복사 폴백
-    await copyToClipboard(params.pageUrl)
+    await copyToClipboard(absoluteUrl)
     return { fallback: true }
   }
 
@@ -89,19 +94,14 @@ export async function shareKakao(params: {
     await loadKakaoSdk()
   } catch {
     // SDK 로드 실패 시 URL 복사 폴백
-    await copyToClipboard(params.pageUrl)
+    await copyToClipboard(absoluteUrl)
     return { fallback: true }
   }
 
   if (!window.Kakao) {
-    await copyToClipboard(params.pageUrl)
+    await copyToClipboard(absoluteUrl)
     return { fallback: true }
   }
-
-  // 상대경로 전달 시 현재 origin으로 절대경로 변환
-  const absoluteUrl = params.pageUrl.startsWith('http')
-    ? params.pageUrl
-    : `${window.location.origin}${params.pageUrl}`
 
   window.Kakao.Share.sendDefault({
     objectType: 'feed',

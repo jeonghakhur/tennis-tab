@@ -224,7 +224,7 @@ export function FeedCard({ post, isLoggedIn }: FeedCardProps) {
           title={post.title}
           description={plainText.slice(0, 100)}
           imageUrl={images[0]?.url}
-          pageUrl={`${process.env.NEXT_PUBLIC_SITE_URL || ''}/community/${post.id}`}
+          pageUrl={`/community/${post.id}`}
           compact
         />
 
