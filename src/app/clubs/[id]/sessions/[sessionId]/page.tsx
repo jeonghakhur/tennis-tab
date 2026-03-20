@@ -152,7 +152,7 @@ export default function SessionDetailPage() {
               <div className="flex items-center gap-3 shrink-0">
                 <KakaoShareButton
                   title={session.title}
-                  description={[formattedDate, session.venue_name].filter(Boolean).join(' · ')}
+                  description={[formattedDate, session.venue_name, session._attending_count ? `${session._attending_count}명 참여` : ''].filter(Boolean).join(' · ')}
                   pageUrl={`/clubs/${clubId}/sessions/${sessionId}`}
                   compact
                 />
