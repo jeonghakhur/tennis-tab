@@ -1080,8 +1080,10 @@ export async function deleteLessonPayment(
   const idErr = validateId(paymentId, '결제 ID')
   if (idErr) return { error: idErr }
 
-  const { error: authErr } = await checkAdminAuth()
-  if (authErr) return { error: authErr }
+  // SUPER_ADMIN 전용
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+  if (user.role !== 'SUPER_ADMIN') return { error: '최고 관리자 권한이 필요합니다.' }
 
   const admin = createAdminClient()
   const { error } = await admin
