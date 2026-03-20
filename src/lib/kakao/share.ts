@@ -98,6 +98,11 @@ export async function shareKakao(params: {
     return { fallback: true }
   }
 
+  // 상대경로 전달 시 현재 origin으로 절대경로 변환
+  const absoluteUrl = params.pageUrl.startsWith('http')
+    ? params.pageUrl
+    : `${window.location.origin}${params.pageUrl}`
+
   window.Kakao.Share.sendDefault({
     objectType: 'feed',
     content: {
@@ -105,16 +110,16 @@ export async function shareKakao(params: {
       description: params.description,
       ...(params.imageUrl ? { imageUrl: params.imageUrl } : {}),
       link: {
-        mobileWebUrl: params.pageUrl,
-        webUrl: params.pageUrl,
+        mobileWebUrl: absoluteUrl,
+        webUrl: absoluteUrl,
       },
     },
     buttons: [
       {
         title: '자세히 보기',
         link: {
-          mobileWebUrl: params.pageUrl,
-          webUrl: params.pageUrl,
+          mobileWebUrl: absoluteUrl,
+          webUrl: absoluteUrl,
         },
       },
     ],
