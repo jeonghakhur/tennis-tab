@@ -3,9 +3,9 @@
 import { createClient, getUserWithTimeout } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
-import { EntryStatus } from '@/lib/supabase/types';
 import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
+import { sendTournamentApplyAlimtalk } from '@/lib/solapi/alimtalk'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
@@ -255,6 +255,22 @@ export async function createEntry(
             })
         } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
+        // 알림톡: 참가자에게 신청 완료 알림 (fire-and-forget)
+        if (initialStatus !== 'WAITLISTED' && entryData.phone) {
+            const alimtalkResult = await sendTournamentApplyAlimtalk({
+                playerPhone: entryData.phone,
+                playerName: entryData.playerName,
+                tournamentName: tournament.title ?? '',
+                divisionName: division.name ?? '',
+                tournamentDate: tournament.start_date ?? '-',
+                venue: tournament.location ?? '-',
+                tournamentId,
+            })
+            if (!alimtalkResult.success) {
+                console.error('[Alimtalk] 대회 참가 신청 발송 실패:', alimtalkResult.error)
+            }
+        }
+
         // 8. 캐시 무효화
         revalidatePath(`/tournaments/${tournamentId}`);
         revalidatePath('/tournaments');
@@ -267,84 +283,6 @@ export async function createEntry(
     }
 }
 
-/**
- * 참가 신청 상태 업데이트 (주최자용)
- */
-export async function updateEntryStatus(
-    entryId: string,
-    newStatus: EntryStatus
-): Promise<UpdateEntryResult> {
-    try {
-        const supabase = await createClient();
-
-        // 1. 사용자 인증 확인
-        const {
-            data: { user },
-            error: authError,
-        } = await supabase.auth.getUser();
-
-        if (authError || !user) {
-            return { success: false, error: '로그인이 필요합니다.' };
-        }
-
-        // 2. 신청 정보 조회 (주최자 권한 확인용)
-        const { data: entry, error: entryError } = await supabase
-            .from('tournament_entries')
-            .select(
-                `
-                *,
-                tournaments!inner(organizer_id)
-            `
-            )
-            .eq('id', entryId)
-            .single();
-
-        if (entryError || !entry) {
-            return { success: false, error: '신청 정보를 찾을 수 없습니다.' };
-        }
-
-        // 3. 주최자 권한 확인
-        if (entry.tournaments.organizer_id !== user.id) {
-            return { success: false, error: '권한이 없습니다.' };
-        }
-
-        // 4. 상태 업데이트
-        const { error: updateError } = await supabase
-            .from('tournament_entries')
-            .update({ status: newStatus })
-            .eq('id', entryId);
-
-        if (updateError) {
-            console.error('Update error:', updateError);
-            return { success: false, error: '상태 업데이트에 실패했습니다.' };
-        }
-
-        // 알림: 참가자에게 승인/거절 알림
-        try {
-            const isApproved = newStatus === 'CONFIRMED'
-            await createNotification({
-                user_id: entry.user_id,
-                type: isApproved ? NotificationType.ENTRY_APPROVED : NotificationType.ENTRY_REJECTED,
-                title: isApproved ? '참가 신청 승인' : '참가 신청 거절',
-                message: isApproved
-                    ? '참가 신청이 승인되었습니다.'
-                    : '참가 신청이 거절되었습니다.',
-                tournament_id: entry.tournament_id,
-                entry_id: entryId,
-                metadata: { link: '/my/entries' },
-            })
-        } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
-
-        // 5. 캐시 무효화
-        revalidatePath(`/tournaments/${entry.tournament_id}`);
-        revalidatePath('/my/entries');
-
-        return { success: true };
-    } catch (error) {
-        console.error('Update entry status error:', error);
-        return { success: false, error: '상태 업데이트 중 오류가 발생했습니다.' };
-    }
-}
 
 export interface RefundInfo {
     bank: string

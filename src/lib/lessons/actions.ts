@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { revalidatePath } from 'next/cache'
 import { sanitizeObject, validateLessonInquiryInput, hasValidationErrors } from '@/lib/utils/validation'
 import { createNotification } from '@/lib/notifications/actions'
+import { sendLessonApplyAlimtalk } from '@/lib/solapi/alimtalk'
 import type {
   LessonProgram,
   LessonSession,
@@ -482,6 +483,32 @@ export async function getAllLessonSessions(options?: {
 // 수강 신청
 // ============================================================================
 
+/** 수강 신청 완료 알림톡 발송 헬퍼 (fire-and-forget) */
+async function sendLessonAlimtalk(
+  user: { name?: string | null; phone?: string | null },
+  program: { title?: string | null; coach?: { name?: string | null; lesson_location?: string | null } | null },
+  status: string,
+) {
+  // 대기 중이거나 전화번호 없으면 발송 안 함
+  if (status === 'WAITLISTED' || !user.phone) return
+
+  const coach = program.coach as { name?: string | null; lesson_location?: string | null } | null
+  const result = await sendLessonApplyAlimtalk({
+    phone: user.phone,
+    customerName: user.name || '회원',
+    lessonName: program.title || '레슨',
+    coachName: coach?.name || '-',
+    lessonStartDate: '-',
+    lessonInfo: '-',
+    lessonDays: '-',
+    venue: coach?.lesson_location || '-',
+  })
+
+  if (!result.success) {
+    console.error('[Alimtalk] 레슨 신청 완료 발송 실패:', result.error)
+  }
+}
+
 /** 수강 신청 */
 export async function enrollLesson(
   programId: string
@@ -496,7 +523,7 @@ export async function enrollLesson(
 
   const { data: program } = await admin
     .from('lesson_programs')
-    .select('max_participants, status')
+    .select('max_participants, status, title, coach:coaches(name, lesson_location)')
     .eq('id', programId)
     .single()
 
@@ -536,6 +563,7 @@ export async function enrollLesson(
     if (error) return { error: '수강 신청에 실패했습니다.' }
     revalidatePath('/lessons')
     revalidatePath('/my/lessons')
+    await sendLessonAlimtalk(user, program, enrollStatus)
     return { error: null, data: enrollment }
   }
 
@@ -549,6 +577,7 @@ export async function enrollLesson(
 
   revalidatePath('/lessons')
   revalidatePath('/my/lessons')
+  await sendLessonAlimtalk(user, program, enrollStatus)
   return { error: null, data: enrollment }
 }
 
