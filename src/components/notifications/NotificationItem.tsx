@@ -17,6 +17,12 @@ import {
   UserCheck,
   Trash2,
   MessageSquare,
+  CalendarPlus,
+  CalendarCheck,
+  CalendarX,
+  Lock,
+  BookOpen,
+  BookX,
 } from 'lucide-react'
 import { NotificationType, type Notification } from '@/lib/notifications/types'
 import { markAsRead, deleteNotification } from '@/lib/notifications/actions'
@@ -42,6 +48,12 @@ const NOTIFICATION_ICON_MAP: Record<
   [NotificationType.PAYMENT_COMPLETED]: { icon: CreditCard, color: 'text-emerald-500' },
   [NotificationType.CLUB_JOIN_REQUESTED]: { icon: Users, color: 'text-amber-500' },
   [NotificationType.LESSON_INQUIRY]: { icon: MessageSquare, color: 'text-teal-500' },
+  [NotificationType.LESSON_BOOKING_NEW]: { icon: CalendarPlus, color: 'text-blue-500' },
+  [NotificationType.LESSON_BOOKING_CONFIRMED]: { icon: CalendarCheck, color: 'text-emerald-500' },
+  [NotificationType.LESSON_BOOKING_CANCELLED]: { icon: CalendarX, color: 'text-red-500' },
+  [NotificationType.LESSON_SLOT_LOCKED]: { icon: Lock, color: 'text-purple-500' },
+  [NotificationType.LESSON_ENROLLED]: { icon: BookOpen, color: 'text-blue-500' },
+  [NotificationType.LESSON_ENROLLMENT_CANCELLED]: { icon: BookX, color: 'text-orange-500' },
 }
 
 interface NotificationItemProps {

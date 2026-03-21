@@ -15,6 +15,69 @@ import type {
 } from './slot-types'
 import { getDayType, isTimeInRange, calculateBookingType, getBookingTypeForPackageSlot, getFeeFieldByBookingType } from './slot-types'
 import type { LessonInquiry, LessonInquiryStatus } from './types'
+import { createNotification } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
+import {
+  sendLessonBookingConfirmAlimtalk,
+  sendLessonBookingCancelAlimtalk,
+} from '@/lib/solapi/alimtalk'
+
+// ============================================================================
+// 알림 헬퍼 — fire-and-forget (실패해도 메인 로직 차단 안 함)
+// ============================================================================
+
+/** 예약의 코치 정보 조회 (슬롯 → 코치) */
+async function getCoachInfoForSlots(
+  admin: ReturnType<typeof createAdminClient>,
+  slotIds: string[]
+): Promise<{ coachUserId: string | null; coachName: string; coachPhone: string | null; bankAccount: string | null } | null> {
+  const { data: slot } = await admin
+    .from('lesson_slots')
+    .select('coach_id')
+    .in('id', slotIds)
+    .limit(1)
+    .maybeSingle()
+  if (!slot) return null
+
+  const { data: coach } = await admin
+    .from('coaches')
+    .select('user_id, name, phone, bank_account')
+    .eq('id', slot.coach_id)
+    .single()
+  if (!coach) return null
+
+  return {
+    coachUserId: coach.user_id,
+    coachName: coach.name || '코치',
+    coachPhone: coach.phone || null,
+    bankAccount: coach.bank_account || null,
+  }
+}
+
+/** 회원 ID → user_id + 이름 + 전화번호 조회 */
+async function getMemberInfo(
+  admin: ReturnType<typeof createAdminClient>,
+  memberId: string
+): Promise<{ userId: string; name: string; phone: string | null } | null> {
+  const { data: member } = await admin
+    .from('club_members')
+    .select('user_id, name')
+    .eq('id', memberId)
+    .single()
+  if (!member?.user_id) return null
+
+  const { data: profile } = await admin
+    .from('profiles')
+    .select('phone')
+    .eq('id', member.user_id)
+    .single()
+
+  return {
+    userId: member.user_id,
+    name: member.name || '회원',
+    phone: profile?.phone || null,
+  }
+}
 
 // ============================================================================
 // 검증 헬퍼
@@ -315,6 +378,22 @@ export async function lockSlot(
   if (error) return { error: '회원 배정에 실패했습니다.' }
 
   revalidatePath(REVALIDATE_PATH)
+
+  // 알림: 배정된 회원에게 인앱 알림 (fire-and-forget)
+  try {
+    const memberInfo = await getMemberInfo(admin, memberId)
+    const coachInfo = await getCoachInfoForSlots(admin, [slotId])
+    if (memberInfo) {
+      await createNotification({
+        user_id: memberInfo.userId,
+        type: NotificationType.LESSON_SLOT_LOCKED,
+        title: '레슨 배정 안내',
+        message: `${coachInfo?.coachName || '코치'}님의 레슨에 배정되었습니다.`,
+        metadata: { link: '/my/lessons' },
+      })
+    }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+
   return { error: null }
 }
 
@@ -673,6 +752,22 @@ export async function createBooking(
   }
 
   revalidatePath(REVALIDATE_PATH)
+
+  // 알림: 코치에게 새 예약 접수 인앱 알림 (fire-and-forget)
+  try {
+    const coachInfo = await getCoachInfoForSlots(admin, input.slot_ids)
+    const customerName = isGuest ? (input.guest_name || '비회원') : '회원'
+    if (coachInfo?.coachUserId) {
+      await createNotification({
+        user_id: coachInfo.coachUserId,
+        type: NotificationType.LESSON_BOOKING_NEW,
+        title: '새 레슨 예약 접수',
+        message: `${customerName}님이 레슨을 예약했습니다. 확인 후 확정/거절해주세요.`,
+        metadata: { link: '/admin/lessons' },
+      })
+    }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+
   return { error: null, data: booking as LessonBooking }
 }
 
@@ -703,6 +798,47 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
   if (error) return { error: '예약 확정에 실패했습니다.' }
 
   revalidatePath(REVALIDATE_PATH)
+
+  // 알림: 고객에게 확정 알림 (fire-and-forget)
+  try {
+    const slotIds = booking.slot_ids as string[]
+    const coachInfo = await getCoachInfoForSlots(admin, slotIds)
+
+    if (booking.is_guest) {
+      // 비회원: 알림톡만 발송
+      if (booking.guest_phone) {
+        await sendLessonBookingConfirmAlimtalk({
+          customerPhone: booking.guest_phone,
+          customerName: booking.guest_name || '고객',
+          coachName: coachInfo?.coachName || '-',
+          bankInfo: coachInfo?.bankAccount || '-',
+          schedule: '-',
+        })
+      }
+    } else if (booking.member_id) {
+      // 회원: 인앱 알림 + 알림톡
+      const memberInfo = await getMemberInfo(admin, booking.member_id)
+      if (memberInfo) {
+        await createNotification({
+          user_id: memberInfo.userId,
+          type: NotificationType.LESSON_BOOKING_CONFIRMED,
+          title: '레슨 예약 확정',
+          message: `${coachInfo?.coachName || '코치'}님의 레슨 예약이 확정되었습니다.`,
+          metadata: { link: '/my/lessons' },
+        })
+        if (memberInfo.phone) {
+          await sendLessonBookingConfirmAlimtalk({
+            customerPhone: memberInfo.phone,
+            customerName: memberInfo.name,
+            coachName: coachInfo?.coachName || '-',
+            bankInfo: coachInfo?.bankAccount || '-',
+            schedule: '-',
+          })
+        }
+      }
+    }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+
   return { error: null }
 }
 
@@ -748,6 +884,47 @@ export async function cancelBooking(
     .eq('status', 'BOOKED')
 
   revalidatePath(REVALIDATE_PATH)
+
+  // 알림: 고객에게 취소 알림 (fire-and-forget)
+  try {
+    const slotIds = booking.slot_ids as string[]
+    const coachInfo = await getCoachInfoForSlots(admin, slotIds)
+
+    if (booking.is_guest) {
+      // 비회원: 알림톡만 발송
+      if (booking.guest_phone) {
+        await sendLessonBookingCancelAlimtalk({
+          customerPhone: booking.guest_phone,
+          customerName: booking.guest_name || '고객',
+          coachName: coachInfo?.coachName || '-',
+          reason: reason || '사유 없음',
+        })
+      }
+    } else if (booking.member_id) {
+      // 회원: 인앱 알림 + 알림톡
+      const memberInfo = await getMemberInfo(admin, booking.member_id)
+      if (memberInfo) {
+        await createNotification({
+          user_id: memberInfo.userId,
+          type: NotificationType.LESSON_BOOKING_CANCELLED,
+          title: '레슨 예약 취소',
+          message: reason
+            ? `${coachInfo?.coachName || '코치'}님의 레슨 예약이 취소되었습니다. 사유: ${reason}`
+            : `${coachInfo?.coachName || '코치'}님의 레슨 예약이 취소되었습니다.`,
+          metadata: { link: '/my/lessons' },
+        })
+        if (memberInfo.phone) {
+          await sendLessonBookingCancelAlimtalk({
+            customerPhone: memberInfo.phone,
+            customerName: memberInfo.name,
+            coachName: coachInfo?.coachName || '-',
+            reason: reason || '사유 없음',
+          })
+        }
+      }
+    }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+
   return { error: null }
 }
 

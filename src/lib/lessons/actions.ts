@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/auth/actions'
 import { revalidatePath } from 'next/cache'
 import { sanitizeObject, validateLessonInquiryInput, hasValidationErrors } from '@/lib/utils/validation'
 import { createNotification } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 import {
   sendLessonApplyAlimtalk,
   sendLessonReservationAlimtalk,
@@ -485,6 +486,40 @@ export async function getAllLessonSessions(options?: {
 }
 
 // ============================================================================
+// 알림 헬퍼 (fire-and-forget)
+// ============================================================================
+
+/** 수강 신청 시 코치에게 인앱 알림 */
+async function sendEnrollNotificationToCoach(
+  admin: ReturnType<typeof createAdminClient>,
+  program: { coach?: unknown },
+  customerName: string,
+  programId: string,
+) {
+  try {
+    const coach = program.coach as { name?: string; phone?: string; user_id?: string } | null
+    if (!coach) return
+
+    // coaches 테이블에서 user_id 조회 (join 결과에 user_id가 없을 수 있음)
+    const { data: coachRow } = await admin
+      .from('coaches')
+      .select('user_id')
+      .eq('phone', coach.phone || '')
+      .maybeSingle()
+
+    if (coachRow?.user_id) {
+      await createNotification({
+        user_id: coachRow.user_id,
+        type: NotificationType.LESSON_ENROLLED,
+        title: '새 수강 신청',
+        message: `${customerName}님이 수강 신청했습니다.`,
+        metadata: { link: '/admin/lessons', programId },
+      })
+    }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+}
+
+// ============================================================================
 // 수강 신청
 // ============================================================================
 
@@ -585,6 +620,8 @@ export async function enrollLesson(
     revalidatePath('/lessons')
     revalidatePath('/my/lessons')
     await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
+    // 인앱 알림: 코치에게 수강 신청 알림 (fire-and-forget)
+    sendEnrollNotificationToCoach(admin, program, user.name || '회원', programId)
     return { error: null, data: enrollment }
   }
 
@@ -599,6 +636,8 @@ export async function enrollLesson(
   revalidatePath('/lessons')
   revalidatePath('/my/lessons')
   await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
+  // 인앱 알림: 코치에게 수강 신청 알림 (fire-and-forget)
+  sendEnrollNotificationToCoach(admin, program, user.name || '회원', programId)
   return { error: null, data: enrollment }
 }
 
@@ -654,6 +693,27 @@ export async function cancelEnrollment(
 
   revalidatePath('/lessons')
   revalidatePath('/my/lessons')
+
+  // 알림: 코치에게 수강 취소 인앱 알림 (fire-and-forget)
+  try {
+    const { data: program } = await admin
+      .from('lesson_programs')
+      .select('title, coach:coaches(user_id, name)')
+      .eq('id', enrollment.program_id)
+      .single()
+
+    const coach = program?.coach as { user_id?: string; name?: string } | null
+    if (coach?.user_id) {
+      await createNotification({
+        user_id: coach.user_id,
+        type: NotificationType.LESSON_ENROLLMENT_CANCELLED,
+        title: '수강 취소',
+        message: `${user.name || '회원'}님이 ${program?.title || '레슨'} 수강을 취소했습니다.`,
+        metadata: { link: '/admin/lessons' },
+      })
+    }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+
   return { error: null }
 }
 
@@ -776,33 +836,57 @@ export async function updateEnrollmentStatus(
 
   if (error) return { error: '수강 상태 변경에 실패했습니다.' }
 
-  // 확정 시 고객에게 알림톡 발송 (fire-and-forget)
-  if (status === 'CONFIRMED') {
+  // 상태 변경 시 고객에게 알림 발송 (fire-and-forget)
+  try {
     const { data: enrollment } = await admin
       .from('lesson_enrollments')
-      .select('user_id, program:lesson_programs(title, coach:coaches(bank_account))')
+      .select('user_id, program:lesson_programs(title, coach:coaches(name, bank_account))')
       .eq('id', enrollmentId)
       .single()
 
-    const { data: profile } = enrollment
-      ? await admin.from('profiles').select('name, phone').eq('id', enrollment.user_id).single()
-      : { data: null }
+    if (enrollment) {
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('name, phone')
+        .eq('id', enrollment.user_id)
+        .single()
 
-    if (profile?.phone) {
-      const program = enrollment?.program as unknown as { title: string; coach: { bank_account: string | null } | null } | null
-      const alimtalkResult = await sendLessonConfirmAlimtalk({
-        customerPhone: profile.phone,
-        customerName: profile.name || '회원',
-        bankInfo: program?.coach?.bank_account || '-',
-        lessonStartDate: '-',
-        lessonInfo: program?.title || '-',
-        lessonDays: '-',
-      })
-      if (!alimtalkResult.success) {
-        console.error('[Alimtalk] 레슨 확정 알림(고객) 발송 실패:', alimtalkResult.error)
+      const program = enrollment.program as unknown as {
+        title: string
+        coach: { name: string; bank_account: string | null } | null
+      } | null
+
+      if (status === 'CONFIRMED') {
+        // 확정: 인앱 알림 + 알림톡
+        await createNotification({
+          user_id: enrollment.user_id,
+          type: NotificationType.LESSON_BOOKING_CONFIRMED,
+          title: '수강 확정',
+          message: `${program?.title || '레슨'} 수강이 확정되었습니다.`,
+          metadata: { link: '/my/lessons' },
+        })
+        if (profile?.phone) {
+          await sendLessonConfirmAlimtalk({
+            customerPhone: profile.phone,
+            customerName: profile.name || '회원',
+            bankInfo: program?.coach?.bank_account || '-',
+            lessonStartDate: '-',
+            lessonInfo: program?.title || '-',
+            lessonDays: '-',
+          })
+        }
+      } else if (status === 'CANCELLED') {
+        // 거절/취소: 인앱 알림
+        await createNotification({
+          user_id: enrollment.user_id,
+          type: NotificationType.LESSON_BOOKING_CANCELLED,
+          title: '수강 취소',
+          message: `${program?.title || '레슨'} 수강이 취소되었습니다.`,
+          metadata: { link: '/my/lessons' },
+        })
       }
     }
-  }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
 
   revalidatePath('/my/lessons')
   return { error: null }
