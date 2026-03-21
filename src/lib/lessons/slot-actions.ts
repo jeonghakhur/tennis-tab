@@ -18,7 +18,7 @@ import type { LessonInquiry, LessonInquiryStatus } from './types'
 import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
 import {
-  sendLessonBookingConfirmAlimtalk,
+  sendLessonConfirmAlimtalk,
   sendLessonBookingCancelAlimtalk,
 } from '@/lib/solapi/alimtalk'
 
@@ -807,12 +807,13 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
     if (booking.is_guest) {
       // 비회원: 알림톡만 발송
       if (booking.guest_phone) {
-        await sendLessonBookingConfirmAlimtalk({
+        await sendLessonConfirmAlimtalk({
           customerPhone: booking.guest_phone,
           customerName: booking.guest_name || '고객',
-          coachName: coachInfo?.coachName || '-',
           bankInfo: coachInfo?.bankAccount || '-',
-          schedule: '-',
+          lessonStartDate: '-',
+          lessonInfo: coachInfo?.coachName ? `${coachInfo.coachName} 코치` : '-',
+          lessonDays: '-',
         })
       }
     } else if (booking.member_id) {
@@ -827,12 +828,13 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
           metadata: { link: '/my/lessons' },
         })
         if (memberInfo.phone) {
-          await sendLessonBookingConfirmAlimtalk({
+          await sendLessonConfirmAlimtalk({
             customerPhone: memberInfo.phone,
             customerName: memberInfo.name,
-            coachName: coachInfo?.coachName || '-',
             bankInfo: coachInfo?.bankAccount || '-',
-            schedule: '-',
+            lessonStartDate: '-',
+            lessonInfo: coachInfo?.coachName ? `${coachInfo.coachName} 코치` : '-',
+            lessonDays: '-',
           })
         }
       }
