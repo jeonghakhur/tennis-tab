@@ -892,7 +892,20 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
     const slotIds = booking.slot_ids as string[]
     const coachInfo = await getCoachInfoForSlots(admin, slotIds)
     const schedule = await getSlotScheduleInfo(admin, slotIds)
-    const lessonInfo = coachInfo?.coachName ? `${coachInfo.coachName} 코치` : '-'
+
+    // 슬롯에서 패키지 정보 가져와서 lessonInfo 구성
+    const { data: slotForInfo } = await admin
+      .from('lesson_slots')
+      .select('total_sessions, frequency, duration_minutes')
+      .in('id', slotIds)
+      .limit(1)
+      .single()
+
+    const lessonInfo = slotForInfo?.frequency
+      ? `주${slotForInfo.frequency}회 ${slotForInfo.total_sessions || ''}회 패키지 (${slotForInfo.duration_minutes || 30}분)`
+      : slotForInfo?.total_sessions
+        ? `총 ${slotForInfo.total_sessions}회 (${slotForInfo.duration_minutes || 30}분)`
+        : '-'
 
     if (booking.is_guest) {
       // 비회원: 알림톡만 발송
@@ -900,7 +913,7 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
         await sendLessonConfirmAlimtalk({
           customerPhone: booking.guest_phone,
           customerName: booking.guest_name || '고객',
-          bankInfo: coachInfo?.bankAccount || '-',
+          bankInfo: coachInfo?.bankAccount || '별도 문의',
           lessonStartDate: schedule.lessonStartDate,
           lessonInfo,
           lessonDays: schedule.lessonDays,
@@ -921,7 +934,7 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
           await sendLessonConfirmAlimtalk({
             customerPhone: memberInfo.phone,
             customerName: memberInfo.name,
-            bankInfo: coachInfo?.bankAccount || '-',
+            bankInfo: coachInfo?.bankAccount || '별도 문의',
             lessonStartDate: schedule.lessonStartDate,
             lessonInfo,
             lessonDays: schedule.lessonDays,
