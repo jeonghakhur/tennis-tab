@@ -20,6 +20,7 @@ import { NotificationType } from '@/lib/notifications/types'
 import {
   sendLessonConfirmAlimtalk,
   sendLessonBookingCancelAlimtalk,
+  sendAdminLessonNotification,
 } from '@/lib/solapi/alimtalk'
 
 // ============================================================================
@@ -766,6 +767,18 @@ export async function createBooking(
         metadata: { link: '/admin/lessons' },
       })
     }
+  } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
+
+  // 관리자에게 알림톡 발송 (fire-and-forget)
+  try {
+    const customerName = isGuest ? (input.guest_name || '비회원') : '회원'
+    const customerPhone = isGuest ? (input.guest_phone || '-') : '-'
+    await sendAdminLessonNotification({
+      customerName,
+      customerPhone,
+      lessonStartDate: '-',
+      lessonDays: '-',
+    })
   } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
 
   return { error: null, data: booking as LessonBooking }

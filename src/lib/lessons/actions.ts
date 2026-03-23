@@ -11,6 +11,7 @@ import {
   sendLessonReservationAlimtalk,
   sendLessonApplyToCoachAlimtalk,
   sendLessonConfirmAlimtalk,
+  sendAdminLessonNotification,
 } from '@/lib/solapi/alimtalk'
 import type {
   LessonProgram,
@@ -563,6 +564,19 @@ async function sendLessonAlimtalk(
       console.error('[Alimtalk] 레슨 신청 알림(코치) 발송 실패:', coachResult.error)
     }
   }
+
+  // 관리자에게 신청 알림
+  if (user.phone) {
+    const adminResult = await sendAdminLessonNotification({
+      customerName: user.name || '회원',
+      customerPhone: user.phone,
+      lessonStartDate: '-',
+      lessonDays: '-',
+    })
+    if (!adminResult.success) {
+      console.error('[Alimtalk] 레슨 신청 알림(관리자) 발송 실패:', adminResult.error)
+    }
+  }
 }
 
 /** 수강 신청 */
@@ -1028,6 +1042,17 @@ export async function submitLessonInquiry(
     if (!coachAlimtalkResult.success) {
       console.error('[Alimtalk] 레슨 예약 알림(코치) 발송 실패:', coachAlimtalkResult.error)
     }
+  }
+
+  // 관리자에게 예약 알림톡 발송 (fire-and-forget)
+  const adminAlimtalkResult = await sendAdminLessonNotification({
+    customerName: sanitized.name,
+    customerPhone: sanitized.phone,
+    lessonStartDate: '-',
+    lessonDays: '-',
+  })
+  if (!adminAlimtalkResult.success) {
+    console.error('[Alimtalk] 레슨 예약 알림(관리자) 발송 실패:', adminAlimtalkResult.error)
   }
 
   // SUPER_ADMIN / ADMIN에게 알림 발송 (실패 무시)

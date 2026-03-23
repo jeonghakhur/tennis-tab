@@ -520,6 +520,68 @@ export async function sendLessonBookingCancelAlimtalk(
   }
 }
 
+// ── 관리자 레슨 알림 (레슨 신청/예약 시 관리자에게 발송) ──────────────────
+
+export interface AdminLessonNotificationParams {
+  customerName: string
+  customerPhone: string
+  lessonStartDate: string
+  lessonDays: string
+}
+
+/**
+ * 관리자에게 레슨 신청/예약 알림 발송
+ * SOLAPI_TEMPLATE_LESSON_APPLY_COACH 템플릿 재사용 (코치용과 동일)
+ * 수신번호: ADMIN_PHONE_NUMBER 환경변수
+ */
+export async function sendAdminLessonNotification(
+  params: AdminLessonNotificationParams,
+): Promise<SendResult> {
+  const adminPhone = process.env.ADMIN_PHONE_NUMBER
+  if (!adminPhone) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 관리자 레슨 알림 (ADMIN_PHONE_NUMBER 미설정):', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: 'ADMIN_PHONE_NUMBER 환경변수가 설정되지 않았습니다.' }
+  }
+
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_LESSON_APPLY_COACH
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 관리자 레슨 알림:', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  try {
+    const result = await service.sendOne({
+      to: adminPhone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{고객명}':     params.customerName,
+          '#{연락처}':     params.customerPhone,
+          '#{레슨시작일}': params.lessonStartDate,
+          '#{레슨요일}':   params.lessonDays,
+        },
+      },
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 관리자 레슨 알림:', msg)
+    return { success: false, error: msg }
+  }
+}
+
 // ── 연장 신청 알림 ────────────────────────────────────────────────────────
 
 export interface ExtensionAlimtalkParams {
