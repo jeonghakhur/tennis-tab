@@ -2,7 +2,8 @@
 
 import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useEffect, useMemo } from 'react'
-import { Search, ChevronDown, ChevronUp, User } from 'lucide-react'
+import { Search, ChevronDown, ChevronUp, User, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
 import type { Database } from '@/lib/supabase/types'
 import type { UserRole } from '@/lib/supabase/types'
 import { ROLE_LABELS, ROLE_COLORS, isSuperAdmin, isAdmin } from '@/lib/auth/roles'
@@ -304,7 +305,7 @@ export function UsersTable({
                   return (
                     <tr
                       key={user.id}
-                      className="border-b border-(--border-color) last:border-b-0 hover:bg-(--bg-card-hover) transition-colors"
+                      className="group border-b border-(--border-color) last:border-b-0 hover:bg-(--bg-card-hover) transition-colors"
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -320,9 +321,13 @@ export function UsersTable({
                             )}
                           </div>
                           <div className="min-w-0">
-                            <p className="font-medium text-(--text-primary) truncate">
+                            <Link
+                              href={`/admin/users/${user.id}`}
+                              className="font-medium text-(--text-primary) truncate hover:text-(--accent-color) hover:underline transition-colors inline-flex items-center gap-1"
+                            >
                               {user.name}
-                            </p>
+                              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                            </Link>
                             <p className="text-xs text-(--text-muted) md:hidden truncate">
                               {user.email}
                             </p>
