@@ -771,16 +771,40 @@ export async function createBooking(
     }
   } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
 
-  // 관리자에게 알림톡 발송 (fire-and-forget)
+  // 관리자 + 코치에게 알림톡 발송 (fire-and-forget)
   try {
-    const customerName = isGuest ? (input.guest_name || '비회원') : '회원'
-    const customerPhone = isGuest ? (input.guest_phone || '-') : '-'
+    let customerName = isGuest ? (input.guest_name || '비회원') : '회원'
+    let customerPhone = isGuest ? (input.guest_phone || '-') : '-'
+
+    // 회원이면 실제 이름/전화번호 조회
+    if (!isGuest && booking.member_id) {
+      const memberInfo = await getMemberInfo(admin, booking.member_id)
+      if (memberInfo) {
+        customerName = memberInfo.name
+        customerPhone = memberInfo.phone || '-'
+      }
+    }
+
+    const coachInfo = await getCoachInfoForSlots(admin, input.slot_ids)
+
+    // 관리자 알림톡
     await sendAdminLessonNotification({
       customerName,
       customerPhone,
       lessonStartDate: '-',
       lessonDays: '-',
     })
+
+    // 코치 알림톡
+    if (coachInfo?.coachPhone) {
+      await sendLessonReservationAlimtalk({
+        coachPhone: coachInfo.coachPhone,
+        customerName,
+        customerPhone,
+        lessonStartDate: '-',
+        lessonDays: '-',
+      })
+    }
   } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
 
   return { error: null, data: booking as LessonBooking }
