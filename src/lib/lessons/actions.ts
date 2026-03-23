@@ -12,6 +12,7 @@ import {
   sendLessonApplyToCoachAlimtalk,
   sendLessonConfirmAlimtalk,
   sendAdminLessonNotification,
+  sendLessonInquiryReplyAlimtalk,
 } from '@/lib/solapi/alimtalk'
 import type {
   LessonProgram,
@@ -1120,7 +1121,50 @@ export async function updateInquiryStatus(
     .eq('id', inquiryId)
 
   if (error) return { error: '상태 변경에 실패했습니다.' }
+
+  // 답변 완료(RESPONDED) 시 고객에게 알림톡 발송 (fire-and-forget)
+  if (status === 'RESPONDED' && adminNote) {
+    sendInquiryReplyAlimtalkAsync(admin, inquiryId, adminNote)
+  }
+
   return { error: null }
+}
+
+/** 문의 답변 알림톡 비동기 발송 (fire-and-forget) */
+function sendInquiryReplyAlimtalkAsync(
+  admin: ReturnType<typeof createAdminClient>,
+  inquiryId: string,
+  adminNote: string,
+): void {
+  void (async () => {
+    try {
+      // 문의 정보 조회 (코치 이름 포함)
+      const { data: inquiry } = await admin
+        .from('lesson_inquiries')
+        .select('name, phone, message, coach_id, coach:coaches(name)')
+        .eq('id', inquiryId)
+        .single()
+
+      if (!inquiry?.phone) return
+
+      // Supabase FK join은 1:1이면 객체, 1:N이면 배열 반환
+      const coachData = inquiry.coach as { name: string } | { name: string }[] | null
+      const coachName = Array.isArray(coachData)
+        ? coachData[0]?.name || '담당 코치'
+        : coachData?.name || '담당 코치'
+
+      await sendLessonInquiryReplyAlimtalk({
+        customerPhone: inquiry.phone,
+        customerName: inquiry.name,
+        coachName,
+        inquiryContent: inquiry.message,
+        replyContent: adminNote,
+        lessonsUrl: 'https://mapo-tennis.com/lessons',
+      })
+    } catch (err) {
+      console.error('[Alimtalk] 문의 답변 알림톡 발송 실패:', err)
+    }
+  })()
 }
 
 // ============================================================================

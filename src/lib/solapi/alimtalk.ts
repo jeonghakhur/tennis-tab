@@ -9,6 +9,7 @@
  *   SOLAPI_TEMPLATE_EXTENSION_REQUEST - 연장 신청 알림 템플릿 ID
  *   SOLAPI_TEMPLATE_TOURNAMENT_CONFIRM - 대회 참가 확정 알림 템플릿 ID
  *   SOLAPI_TEMPLATE_LESSON_APPLY - 레슨 신청 완료 알림 템플릿 ID
+ *   SOLAPI_TEMPLATE_LESSON_INQUIRY_REPLY - 레슨 문의 답변 알림 템플릿 ID
  */
 
 import { SolapiMessageService } from 'solapi'
@@ -578,6 +579,87 @@ export async function sendAdminLessonNotification(
   } catch (err) {
     const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
     console.error('[Alimtalk ERROR] 관리자 레슨 알림:', msg)
+    return { success: false, error: msg }
+  }
+}
+
+// ── 레슨 문의 답변 알림 (고객 수신) ──────────────────────────────────────
+
+export interface LessonInquiryReplyAlimtalkParams {
+  /** 고객 수신 전화번호 */
+  customerPhone: string
+  /** 고객 이름 */
+  customerName: string
+  /** 코치 이름 */
+  coachName: string
+  /** 원래 문의 내용 (50자 이내 truncate) */
+  inquiryContent: string
+  /** 답변 내용 (100자 이내 truncate) */
+  replyContent: string
+  /** 레슨 페이지 URL */
+  lessonsUrl: string
+}
+
+/** 텍스트를 maxLen 이내로 잘라서 "..." 붙이기 */
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text
+  return text.slice(0, maxLen) + '...'
+}
+
+/**
+ * 레슨 문의 답변 알림톡 발송 (고객 수신)
+ * 발송 시점: 관리자가 문의 상태를 RESPONDED로 변경
+ *
+ * 알림톡 템플릿:
+ * ───────────────────────────────────────────
+ * #{고객명}님, 문의하신 내용에 답변드립니다.
+ *
+ * ■ 문의 내용
+ * #{문의내용}
+ *
+ * ■ 답변 (#{코치명} 코치)
+ * #{답변내용}
+ *
+ * 추가 문의사항은 레슨 페이지에서 확인해주세요.
+ * ───────────────────────────────────────────
+ * 버튼: [레슨 보기] → #{레슨URL}
+ */
+export async function sendLessonInquiryReplyAlimtalk(
+  params: LessonInquiryReplyAlimtalkParams,
+): Promise<SendResult> {
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_LESSON_INQUIRY_REPLY
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 레슨 문의 답변 알림톡:', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  try {
+    const result = await service.sendOne({
+      to: params.customerPhone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{고객명}':   params.customerName,
+          '#{코치명}':   params.coachName,
+          '#{문의내용}': truncate(params.inquiryContent, 50),
+          '#{답변내용}': truncate(params.replyContent, 100),
+          '#{레슨URL}':  params.lessonsUrl,
+        },
+      },
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 레슨 문의 답변:', msg)
     return { success: false, error: msg }
   }
 }
