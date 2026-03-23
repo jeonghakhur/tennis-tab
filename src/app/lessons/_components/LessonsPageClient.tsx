@@ -251,6 +251,12 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess }: BookingMo
                 총 {slot.total_sessions}회 · {slot.duration_minutes}분 · {feeText}
               </p>
             )}
+            {slot.slot_date && (
+              <p className="text-sm mt-1" style={{ color: 'var(--text-muted)' }}>
+                시작일: {new Date(slot.slot_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}
+                {slot.last_session_date && ` · 종료일: ${new Date(slot.last_session_date + 'T00:00:00').toLocaleDateString('ko-KR', { month: 'long', day: 'numeric' })}`}
+              </p>
+            )}
           </div>
 
           {/* 신청자 정보 */}
