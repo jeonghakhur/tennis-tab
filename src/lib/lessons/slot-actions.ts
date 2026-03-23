@@ -75,10 +75,21 @@ async function getMemberInfo(
     .eq('id', member.user_id)
     .single()
 
+  // 전화번호 복호화
+  let phone: string | null = null
+  if (profile?.phone) {
+    try {
+      const { decrypt } = await import('@/lib/crypto/encryption')
+      phone = decrypt(profile.phone)
+    } catch {
+      phone = null
+    }
+  }
+
   return {
     userId: member.user_id,
     name: member.name || '회원',
-    phone: profile?.phone || null,
+    phone,
   }
 }
 
