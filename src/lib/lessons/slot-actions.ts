@@ -71,7 +71,7 @@ async function getMemberInfo(
 
   const { data: profile } = await admin
     .from('profiles')
-    .select('phone')
+    .select('name, phone')
     .eq('id', member.user_id)
     .single()
 
@@ -88,9 +88,46 @@ async function getMemberInfo(
 
   return {
     userId: member.user_id,
-    name: member.name || '회원',
+    name: profile?.name || member.name || '회원',
     phone,
   }
+}
+
+/** 슬롯 ID 배열에서 레슨 시작일/요일 정보 조회 */
+const DAY_KR = ['일', '월', '화', '수', '목', '금', '토'] as const
+
+async function getSlotScheduleInfo(
+  admin: ReturnType<typeof createAdminClient>,
+  slotIds: string[],
+): Promise<{ lessonStartDate: string; lessonDays: string }> {
+  const fallback = { lessonStartDate: '-', lessonDays: '-' }
+  if (!slotIds.length) return fallback
+
+  const { data: slotData } = await admin
+    .from('lesson_slots')
+    .select('slot_date, start_time, sessions, frequency, last_session_date')
+    .in('id', slotIds)
+    .limit(1)
+    .single()
+
+  if (!slotData) return fallback
+
+  let lessonStartDate = '-'
+  let lessonDays = '-'
+
+  if (slotData.slot_date) {
+    const d = new Date(slotData.slot_date + 'T00:00:00')
+    lessonStartDate = `${d.getMonth() + 1}/${d.getDate()}(${DAY_KR[d.getDay()]}) ${slotData.start_time?.slice(0, 5) || ''}`
+  }
+  if (slotData.sessions && Array.isArray(slotData.sessions)) {
+    const days = [...new Set((slotData.sessions as { slot_date: string }[]).map(s => {
+      const d = new Date(s.slot_date + 'T00:00:00')
+      return DAY_KR[d.getDay()]
+    }))]
+    lessonDays = days.join(', ') + (slotData.frequency ? ` 주${slotData.frequency}회` : '')
+  }
+
+  return { lessonStartDate, lessonDays }
 }
 
 // ============================================================================
@@ -797,32 +834,7 @@ export async function createBooking(
     }
 
     const coachInfo = await getCoachInfoForSlots(admin, input.slot_ids)
-
-    // 슬롯에서 날짜/요일 정보 가져오기
-    const { data: slotData } = await admin
-      .from('lesson_slots')
-      .select('slot_date, start_time, sessions, frequency, last_session_date')
-      .in('id', input.slot_ids)
-      .limit(1)
-      .single()
-
-    const DAY_KR = ['일', '월', '화', '수', '목', '금', '토']
-    let lessonStartDate = '-'
-    let lessonDays = '-'
-
-    if (slotData) {
-      if (slotData.slot_date) {
-        const d = new Date(slotData.slot_date + 'T00:00:00')
-        lessonStartDate = `${d.getMonth() + 1}/${d.getDate()}(${DAY_KR[d.getDay()]}) ${slotData.start_time?.slice(0, 5) || ''}`
-      }
-      if (slotData.sessions && Array.isArray(slotData.sessions)) {
-        const days = [...new Set((slotData.sessions as { slot_date: string }[]).map(s => {
-          const d = new Date(s.slot_date + 'T00:00:00')
-          return DAY_KR[d.getDay()]
-        }))]
-        lessonDays = days.join(', ') + (slotData.frequency ? ` 주${slotData.frequency}회` : '')
-      }
-    }
+    const { lessonStartDate, lessonDays } = await getSlotScheduleInfo(admin, input.slot_ids)
 
     // 관리자 알림톡
     await sendAdminLessonNotification({
@@ -879,6 +891,8 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
   try {
     const slotIds = booking.slot_ids as string[]
     const coachInfo = await getCoachInfoForSlots(admin, slotIds)
+    const schedule = await getSlotScheduleInfo(admin, slotIds)
+    const lessonInfo = coachInfo?.coachName ? `${coachInfo.coachName} 코치` : '-'
 
     if (booking.is_guest) {
       // 비회원: 알림톡만 발송
@@ -887,9 +901,9 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
           customerPhone: booking.guest_phone,
           customerName: booking.guest_name || '고객',
           bankInfo: coachInfo?.bankAccount || '-',
-          lessonStartDate: '-',
-          lessonInfo: coachInfo?.coachName ? `${coachInfo.coachName} 코치` : '-',
-          lessonDays: '-',
+          lessonStartDate: schedule.lessonStartDate,
+          lessonInfo,
+          lessonDays: schedule.lessonDays,
         })
       }
     } else if (booking.member_id) {
@@ -908,9 +922,9 @@ export async function confirmBooking(bookingId: string): Promise<{ error: string
             customerPhone: memberInfo.phone,
             customerName: memberInfo.name,
             bankInfo: coachInfo?.bankAccount || '-',
-            lessonStartDate: '-',
-            lessonInfo: coachInfo?.coachName ? `${coachInfo.coachName} 코치` : '-',
-            lessonDays: '-',
+            lessonStartDate: schedule.lessonStartDate,
+            lessonInfo,
+            lessonDays: schedule.lessonDays,
           })
         }
       }

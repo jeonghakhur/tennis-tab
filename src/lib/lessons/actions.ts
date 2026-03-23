@@ -525,15 +525,44 @@ async function sendEnrollNotificationToCoach(
 // 수강 신청
 // ============================================================================
 
+/** 프로그램 스케줄 정보에서 알림톡용 문자열 생성 */
+const DAY_KR = ['일', '월', '화', '수', '목', '금', '토'] as const
+
+function formatProgramSchedule(program: {
+  start_date?: string | null
+  start_time?: string | null
+  days_of_week?: string[] | null
+}): { lessonStartDate: string; lessonDays: string } {
+  let lessonStartDate = '-'
+  if (program.start_date) {
+    const d = new Date(program.start_date + 'T00:00:00')
+    const time = program.start_time ? ` ${program.start_time.slice(0, 5)}` : ''
+    lessonStartDate = `${d.getMonth() + 1}/${d.getDate()}(${DAY_KR[d.getDay()]})${time}`
+  }
+
+  const lessonDays = program.days_of_week?.length
+    ? program.days_of_week.join(', ')
+    : '-'
+
+  return { lessonStartDate, lessonDays }
+}
+
 /** 수강 신청 완료 알림톡 발송 헬퍼 (고객 + 코치 fire-and-forget) */
 async function sendLessonAlimtalk(
   user: { name?: string | null; phone?: string | null },
-  program: { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null },
+  program: {
+    title?: string | null
+    start_date?: string | null
+    start_time?: string | null
+    days_of_week?: string[] | null
+    coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null
+  },
   status: string,
 ) {
   if (status === 'WAITLISTED') return
 
   const coach = program.coach as { name?: string | null; phone?: string | null; lesson_location?: string | null } | null
+  const { lessonStartDate, lessonDays } = formatProgramSchedule(program)
 
   // 고객에게 신청 결과 안내
   if (user.phone) {
@@ -542,9 +571,9 @@ async function sendLessonAlimtalk(
       customerName: user.name || '회원',
       lessonName: program.title || '레슨',
       coachName: coach?.name || '-',
-      lessonStartDate: '-',
-      lessonInfo: '-',
-      lessonDays: '-',
+      lessonStartDate,
+      lessonInfo: `${program.title || '레슨'} · ${coach?.name || '-'} 코치`,
+      lessonDays,
       venue: coach?.lesson_location || '-',
     })
     if (!result.success) {
@@ -552,8 +581,10 @@ async function sendLessonAlimtalk(
     }
   }
 
-  // 플랜명 + 코치명으로 표시 (programs 테이블에 날짜/요일 정보 없음)
-  const lessonInfo = `${program.title || '레슨'} · ${coach?.name || '-'} 코치`
+  // 플랜명 + 코치명 + 시작일로 표시
+  const lessonLabel = lessonStartDate !== '-'
+    ? `${program.title || '레슨'} · ${lessonStartDate}`
+    : `${program.title || '레슨'} · ${coach?.name || '-'} 코치`
 
   // 코치에게 신청 알림
   if (coach?.phone && user.phone) {
@@ -561,8 +592,8 @@ async function sendLessonAlimtalk(
       coachPhone: coach.phone,
       customerName: user.name || '회원',
       customerPhone: user.phone,
-      lessonStartDate: lessonInfo,
-      lessonDays: '-',
+      lessonStartDate: lessonLabel,
+      lessonDays,
     })
     if (!coachResult.success) {
       console.error('[Alimtalk] 레슨 신청 알림(코치) 발송 실패:', coachResult.error)
@@ -574,8 +605,8 @@ async function sendLessonAlimtalk(
     const adminResult = await sendAdminLessonNotification({
       customerName: user.name || '회원',
       customerPhone: user.phone,
-      lessonStartDate: lessonInfo,
-      lessonDays: '-',
+      lessonStartDate: lessonLabel,
+      lessonDays,
     })
     if (!adminResult.success) {
       console.error('[Alimtalk] 레슨 신청 알림(관리자) 발송 실패:', adminResult.error)
@@ -597,7 +628,7 @@ export async function enrollLesson(
 
   const { data: program } = await admin
     .from('lesson_programs')
-    .select('max_participants, status, title, coach:coaches(name, phone, lesson_location)')
+    .select('max_participants, status, title, start_date, start_time, days_of_week, coach:coaches(name, phone, lesson_location)')
     .eq('id', programId)
     .single()
 
@@ -637,7 +668,7 @@ export async function enrollLesson(
     if (error) return { error: '수강 신청에 실패했습니다.' }
     revalidatePath('/lessons')
     revalidatePath('/my/lessons')
-    await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
+    await sendLessonAlimtalk(user, program as Parameters<typeof sendLessonAlimtalk>[1], enrollStatus)
     // 인앱 알림: 코치에게 수강 신청 알림 (fire-and-forget)
     sendEnrollNotificationToCoach(admin, program, user.name || '회원', programId)
     return { error: null, data: enrollment }
@@ -653,7 +684,7 @@ export async function enrollLesson(
 
   revalidatePath('/lessons')
   revalidatePath('/my/lessons')
-  await sendLessonAlimtalk(user, program as unknown as { title?: string | null; coach?: { name?: string | null; phone?: string | null; lesson_location?: string | null } | null }, enrollStatus)
+  await sendLessonAlimtalk(user, program as Parameters<typeof sendLessonAlimtalk>[1], enrollStatus)
   // 인앱 알림: 코치에게 수강 신청 알림 (fire-and-forget)
   sendEnrollNotificationToCoach(admin, program, user.name || '회원', programId)
   return { error: null, data: enrollment }
@@ -858,7 +889,7 @@ export async function updateEnrollmentStatus(
   try {
     const { data: enrollment } = await admin
       .from('lesson_enrollments')
-      .select('user_id, program:lesson_programs(title, coach:coaches(name, bank_account))')
+      .select('user_id, program:lesson_programs(title, start_date, start_time, days_of_week, coach:coaches(name, bank_account))')
       .eq('id', enrollmentId)
       .single()
 
@@ -871,10 +902,17 @@ export async function updateEnrollmentStatus(
 
       const program = enrollment.program as unknown as {
         title: string
+        start_date: string | null
+        start_time: string | null
+        days_of_week: string[] | null
         coach: { name: string; bank_account: string | null } | null
       } | null
 
       if (status === 'CONFIRMED') {
+        const schedule = program
+          ? formatProgramSchedule(program)
+          : { lessonStartDate: '-', lessonDays: '-' }
+
         // 확정: 인앱 알림 + 알림톡
         await createNotification({
           user_id: enrollment.user_id,
@@ -888,9 +926,9 @@ export async function updateEnrollmentStatus(
             customerPhone: profile.phone,
             customerName: profile.name || '회원',
             bankInfo: program?.coach?.bank_account || '-',
-            lessonStartDate: '-',
+            lessonStartDate: schedule.lessonStartDate,
             lessonInfo: program?.title || '-',
-            lessonDays: '-',
+            lessonDays: schedule.lessonDays,
           })
         }
       } else if (status === 'CANCELLED') {
