@@ -166,9 +166,10 @@ interface BookingModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  memberProfile: { name: string; phone: string } | null
 }
 
-function BookingModal({ slot, coachName, isOpen, onClose, onSuccess }: BookingModalProps) {
+function BookingModal({ slot, coachName, isOpen, onClose, onSuccess, memberProfile }: BookingModalProps) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [note, setNote] = useState('')
@@ -176,22 +177,20 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess }: BookingMo
   const [submitting, setSubmitting] = useState(false)
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
 
-  // 모달 열릴 때: 회원 프로필 조회 → 자동 채움
+  // 모달 열릴 때: 프리페치된 프로필로 자동 채움
   useEffect(() => {
     if (!isOpen) return
     setNote('')
-    getCurrentMemberProfile().then((profile) => {
-      if (profile) {
-        setName(profile.name)
-        setPhone(profile.phone)
-        setIsMember(true)
-      } else {
-        setName('')
-        setPhone('')
-        setIsMember(false)
-      }
-    })
-  }, [isOpen])
+    if (memberProfile) {
+      setName(memberProfile.name)
+      setPhone(memberProfile.phone)
+      setIsMember(true)
+    } else {
+      setName('')
+      setPhone('')
+      setIsMember(false)
+    }
+  }, [isOpen, memberProfile])
 
   if (!slot) return null
 
@@ -385,6 +384,14 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
   const [bookingSuccess, setBookingSuccess] = useState(false)
   const [inquiryOpen, setInquiryOpen] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
+  const [memberProfile, setMemberProfile] = useState<{ name: string; phone: string } | null>(null)
+
+  // 페이지 로드 시 회원 프로필 1회 프리페치
+  useEffect(() => {
+    getCurrentMemberProfile().then((profile) => {
+      if (profile) setMemberProfile(profile)
+    })
+  }, [])
 
   const selectedCoach = coaches.find((c) => c.id === selectedCoachId)
 
@@ -582,6 +589,7 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
         isOpen={!!bookingSlot}
         onClose={() => setBookingSlot(null)}
         onSuccess={handleBookingSuccess}
+        memberProfile={memberProfile}
       />
 
       {/* 레슨 신청 모달 (슬롯 없을 때) */}
@@ -590,6 +598,7 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
         coachName={selectedCoach?.name ?? ''}
         isOpen={inquiryOpen}
         onClose={() => setInquiryOpen(false)}
+        memberProfile={memberProfile}
         onSuccess={() => {
           setInquiryOpen(false)
           setToast({ isOpen: true, message: '신청이 접수되었습니다! 곧 연락드리겠습니다.', type: 'success' })
@@ -621,9 +630,10 @@ interface InquiryModalProps {
   isOpen: boolean
   onClose: () => void
   onSuccess: () => void
+  memberProfile: { name: string; phone: string } | null
 }
 
-function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess }: InquiryModalProps) {
+function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess, memberProfile }: InquiryModalProps) {
   const [name, setName] = useState('')
   const [phone, setPhone] = useState('')
   const [selectedDays, setSelectedDays] = useState<string[]>([])
@@ -638,18 +648,16 @@ function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess }: Inquir
     setSelectedDays([])
     setPreferredTime('')
     setMessage('')
-    getCurrentMemberProfile().then((profile) => {
-      if (profile) {
-        setName(profile.name)
-        setPhone(profile.phone)
-        setIsMember(true)
-      } else {
-        setName('')
-        setPhone('')
-        setIsMember(false)
-      }
-    })
-  }, [isOpen])
+    if (memberProfile) {
+      setName(memberProfile.name)
+      setPhone(memberProfile.phone)
+      setIsMember(true)
+    } else {
+      setName('')
+      setPhone('')
+      setIsMember(false)
+    }
+  }, [isOpen, memberProfile])
 
   const toggleDay = (day: string) => {
     setSelectedDays((prev) =>
