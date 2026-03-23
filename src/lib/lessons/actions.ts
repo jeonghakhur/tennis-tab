@@ -581,19 +581,14 @@ async function sendLessonAlimtalk(
     }
   }
 
-  // 플랜명 + 코치명 + 시작일로 표시
-  const lessonLabel = lessonStartDate !== '-'
-    ? `${program.title || '레슨'} · ${lessonStartDate}`
-    : `${program.title || '레슨'} · ${coach?.name || '-'} 코치`
-
-  // 코치에게 신청 알림
+    // 코치에게 신청 알림
   if (coach?.phone && user.phone) {
     const coachResult = await sendLessonApplyToCoachAlimtalk({
       coachPhone: coach.phone,
       customerName: user.name || '회원',
       customerPhone: user.phone,
-      lessonStartDate: lessonLabel,
-      lessonDays,
+      lessonStartDate,   // 실제 날짜 (4/1(수) 09:00)
+      lessonDays,        // 실제 요일 (월, 수)
     })
     if (!coachResult.success) {
       console.error('[Alimtalk] 레슨 신청 알림(코치) 발송 실패:', coachResult.error)
@@ -605,8 +600,8 @@ async function sendLessonAlimtalk(
     const adminResult = await sendAdminLessonNotification({
       customerName: user.name || '회원',
       customerPhone: user.phone,
-      lessonStartDate: lessonLabel,
-      lessonDays,
+      lessonStartDate,   // 실제 날짜
+      lessonDays,        // 실제 요일
     })
     if (!adminResult.success) {
       console.error('[Alimtalk] 레슨 신청 알림(관리자) 발송 실패:', adminResult.error)
