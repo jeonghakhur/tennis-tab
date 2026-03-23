@@ -572,7 +572,7 @@ async function sendLessonAlimtalk(
       lessonName: program.title || '레슨',
       coachName: coach?.name || '-',
       lessonStartDate,
-      lessonInfo: `${program.title || '레슨'} · ${coach?.name || '-'} 코치`,
+      lessonInfo: program.title || '레슨',
       lessonDays,
       venue: coach?.lesson_location || '-',
     })
