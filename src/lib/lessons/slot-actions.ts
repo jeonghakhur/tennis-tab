@@ -21,6 +21,8 @@ import {
   sendLessonConfirmAlimtalk,
   sendLessonBookingCancelAlimtalk,
   sendAdminLessonNotification,
+  sendLessonReservationAlimtalk,
+  sendLessonInquiryReplyAlimtalk,
 } from '@/lib/solapi/alimtalk'
 
 // ============================================================================
@@ -1576,6 +1578,32 @@ export async function createLessonInquiry(input: {
     })
 
   if (error) return { error: '신청 접수에 실패했습니다. 다시 시도해주세요.' }
+
+  // 알림톡 fire-and-forget
+  const daysStr = preferredDays.join(', ')
+  const { data: coach } = await admin
+    .from('coaches')
+    .select('phone')
+    .eq('id', coachId)
+    .single()
+
+  if (coach?.phone) {
+    sendLessonReservationAlimtalk({
+      coachPhone: coach.phone,
+      customerName: name.trim(),
+      customerPhone: phone.trim(),
+      lessonStartDate: preferredTime.trim(),
+      lessonDays: daysStr,
+    }).catch(() => {})
+  }
+
+  sendAdminLessonNotification({
+    customerName: name.trim(),
+    customerPhone: phone.trim(),
+    lessonStartDate: preferredTime.trim(),
+    lessonDays: daysStr,
+  }).catch(() => {})
+
   return { error: null }
 }
 
@@ -1620,6 +1648,35 @@ export async function updateInquiryStatus(
     .eq('id', inquiryId)
 
   if (error) return { error: '문의 상태 업데이트에 실패했습니다.' }
+
+  // RESPONDED → 고객에게 답변 알림톡 fire-and-forget
+  if (status === 'RESPONDED') {
+    const { data: inquiry } = await admin
+      .from('lesson_inquiries')
+      .select('name, phone, message, coach_id')
+      .eq('id', inquiryId)
+      .single()
+
+    if (inquiry?.phone && inquiry.coach_id) {
+      const { data: coach } = await admin
+        .from('coaches')
+        .select('name')
+        .eq('id', inquiry.coach_id)
+        .single()
+
+      const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://tennistab.com'
+
+      sendLessonInquiryReplyAlimtalk({
+        customerPhone: inquiry.phone,
+        customerName: inquiry.name,
+        coachName: coach?.name || '코치',
+        inquiryContent: inquiry.message || '',
+        replyContent: adminNote || '',
+        lessonsUrl: `${baseUrl}/lessons`,
+      }).catch(() => {})
+    }
+  }
+
   revalidatePath(REVALIDATE_PATH)
   return { error: null }
 }
