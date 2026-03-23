@@ -135,8 +135,13 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
   }
 
   // 날짜 변환 헬퍼
+  // datetime-local input은 timezone 없는 naive string ("YYYY-MM-DDTHH:mm")을 반환.
+  // 서버는 UTC로 실행되므로 naive string을 KST(+09:00)로 명시적 처리.
   const toISOStringOrNull = (dateStr: string | null) => {
     if (!dateStr) return null
+    if (dateStr.length <= 16 && !dateStr.includes('+') && !dateStr.includes('Z')) {
+      return new Date(dateStr + ':00+09:00').toISOString()
+    }
     return new Date(dateStr).toISOString()
   }
 
@@ -208,7 +213,11 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
           name: div.name,
           max_teams: div.max_teams,
           team_member_limit: div.team_member_limit,
-          match_date: div.match_date ? new Date(div.match_date).toISOString() : null,
+          match_date: div.match_date
+            ? (div.match_date.length <= 16 && !div.match_date.includes('+') && !div.match_date.includes('Z')
+              ? new Date(div.match_date + ':00+09:00').toISOString()
+              : new Date(div.match_date).toISOString())
+            : null,
           match_location: div.match_location,
           prize_winner: div.prize_winner,
           prize_runner_up: div.prize_runner_up,
@@ -312,8 +321,13 @@ export async function updateTournament(
   }
 
   // 날짜 변환 헬퍼
+  // datetime-local input은 timezone 없는 naive string ("YYYY-MM-DDTHH:mm")을 반환.
+  // 서버는 UTC로 실행되므로 naive string을 KST(+09:00)로 명시적 처리.
   const toISOStringOrNull = (dateStr: string | null) => {
     if (!dateStr) return null
+    if (dateStr.length <= 16 && !dateStr.includes('+') && !dateStr.includes('Z')) {
+      return new Date(dateStr + ':00+09:00').toISOString()
+    }
     return new Date(dateStr).toISOString()
   }
 
@@ -404,7 +418,11 @@ export async function updateTournament(
           name: div.name,
           max_teams: div.max_teams,
           team_member_limit: div.team_member_limit,
-          match_date: div.match_date ? new Date(div.match_date).toISOString() : null,
+          match_date: div.match_date
+            ? (div.match_date.length <= 16 && !div.match_date.includes('+') && !div.match_date.includes('Z')
+              ? new Date(div.match_date + ':00+09:00').toISOString()
+              : new Date(div.match_date).toISOString())
+            : null,
           match_location: div.match_location,
           prize_winner: div.prize_winner,
           prize_runner_up: div.prize_runner_up,
