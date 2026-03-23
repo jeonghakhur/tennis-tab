@@ -798,12 +798,38 @@ export async function createBooking(
 
     const coachInfo = await getCoachInfoForSlots(admin, input.slot_ids)
 
+    // 슬롯에서 날짜/요일 정보 가져오기
+    const { data: slotData } = await admin
+      .from('lesson_slots')
+      .select('slot_date, start_time, sessions, frequency, last_session_date')
+      .in('id', input.slot_ids)
+      .limit(1)
+      .single()
+
+    const DAY_KR = ['일', '월', '화', '수', '목', '금', '토']
+    let lessonStartDate = '-'
+    let lessonDays = '-'
+
+    if (slotData) {
+      if (slotData.slot_date) {
+        const d = new Date(slotData.slot_date + 'T00:00:00')
+        lessonStartDate = `${d.getMonth() + 1}/${d.getDate()}(${DAY_KR[d.getDay()]}) ${slotData.start_time?.slice(0, 5) || ''}`
+      }
+      if (slotData.sessions && Array.isArray(slotData.sessions)) {
+        const days = [...new Set((slotData.sessions as { slot_date: string }[]).map(s => {
+          const d = new Date(s.slot_date + 'T00:00:00')
+          return DAY_KR[d.getDay()]
+        }))]
+        lessonDays = days.join(', ') + (slotData.frequency ? ` 주${slotData.frequency}회` : '')
+      }
+    }
+
     // 관리자 알림톡
     await sendAdminLessonNotification({
       customerName,
       customerPhone,
-      lessonStartDate: '-',
-      lessonDays: '-',
+      lessonStartDate,
+      lessonDays,
     })
 
     // 코치 알림톡
@@ -812,8 +838,8 @@ export async function createBooking(
         coachPhone: coachInfo.coachPhone,
         customerName,
         customerPhone,
-        lessonStartDate: '-',
-        lessonDays: '-',
+        lessonStartDate,
+        lessonDays,
       })
     }
   } catch { /* 알림 실패는 메인 로직에 영향 없음 */ }
