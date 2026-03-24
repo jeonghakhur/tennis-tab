@@ -634,15 +634,15 @@ function BookingRow({
       </td>
 
       {/* 액션 */}
-      <td className="px-4 py-3 align-top pt-3">
-        <div className="flex items-center justify-end gap-1.5">
+      <td className="px-3 py-3 align-top pt-3">
+        <div className="flex flex-wrap items-center justify-end gap-1">
           {booking.status === 'PENDING' && (
             <button
               onClick={onConfirm}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
+              className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium text-white whitespace-nowrap"
               style={{ backgroundColor: 'var(--color-success)' }}
             >
-              <Check className="w-3 h-3" />
+              <Check className="w-3 h-3 flex-shrink-0" />
               수락
             </button>
           )}
@@ -650,10 +650,10 @@ function BookingRow({
             !(booking.slots?.[0]?.sessions as SlotSession[] | null)?.some((s) => s.status === 'COMPLETED') && (
               <button
                 onClick={onCancel}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium text-white"
+                className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium text-white whitespace-nowrap"
                 style={{ backgroundColor: 'var(--color-danger)' }}
               >
-                <X className="w-3 h-3" />
+                <X className="w-3 h-3 flex-shrink-0" />
                 {booking.status === 'PENDING' ? '거절' : '취소'}
               </button>
             )}
@@ -661,10 +661,10 @@ function BookingRow({
           {booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && (
             <button
               onClick={onSession}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
               style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
             >
-              <Calendar className="w-3 h-3" />
+              <Calendar className="w-3 h-3 flex-shrink-0" />
               세션
             </button>
           )}
@@ -672,24 +672,24 @@ function BookingRow({
           {booking.status === 'CONFIRMED' && booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && !booking.slots[0].extended_at && (
             <button
               onClick={onExtend}
-              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+              className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
               style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid var(--color-success)' }}
             >
-              <RotateCcw className="w-3 h-3" />
+              <RotateCcw className="w-3 h-3 flex-shrink-0" />
               연장
             </button>
           )}
           {/* 메모 버튼 */}
           <button
             onClick={onNote}
-            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium"
+            className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
             style={
               booking.admin_note
                 ? { backgroundColor: 'var(--color-info, #3b82f6)', color: '#fff' }
                 : { backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }
             }
           >
-            <MessageSquare className="w-3 h-3" />
+            <MessageSquare className="w-3 h-3 flex-shrink-0" />
             메모
           </button>
         </div>
