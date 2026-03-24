@@ -218,18 +218,31 @@ export default function ClubsPage() {
                       isMine ? 'ring-1 ring-(--accent-color)/40' : ''
                     }`}
                   >
-                    {/* 상단: 클럽명 + 가입 버튼/상태 배지 */}
-                    <div className="flex items-start justify-between gap-2 mb-2">
+                    {/* 상단: 클럽명+설명 + 가입 버튼/상태 배지 */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      {/* 좌측: 클럽명 + 설명 */}
                       {isMine ? (
                         <Link href={`/clubs/${club.id}`} className="group flex-1 min-w-0">
-                          <h3 className="font-display text-lg font-semibold group-hover:text-(--accent-color) transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
+                          <h3 className="font-display text-base font-semibold group-hover:text-(--accent-color) transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
                             {club.name}
                           </h3>
+                          {club.description && (
+                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
+                              {club.description}
+                            </p>
+                          )}
                         </Link>
                       ) : (
-                        <h3 className="font-display text-lg font-semibold flex-1 min-w-0 truncate" style={{ color: 'var(--text-primary)' }}>
-                          {club.name}
-                        </h3>
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-display text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                            {club.name}
+                          </h3>
+                          {club.description && (
+                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
+                              {club.description}
+                            </p>
+                          )}
+                        </div>
                       )}
 
                       {/* 우측: 내 클럽 배지 or 가입 신청 버튼 */}
@@ -251,13 +264,6 @@ export default function ClubsPage() {
                         <span className="text-xs px-2 py-1 rounded-full flex-shrink-0" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-secondary)' }}>초대 전용</span>
                       ) : null}
                     </div>
-
-                    {/* 본문: 설명 */}
-                    {club.description && (
-                      <p className="text-sm mb-3 line-clamp-2" style={{ color: 'var(--text-secondary)' }}>
-                        {club.description}
-                      </p>
-                    )}
 
                     {/* 하단 한 줄: 운동 장소 + 회원 수 */}
                     <div className="flex items-center gap-3 mt-auto" style={{ color: 'var(--text-muted)' }}>
