@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-import { ClipboardList, Check, X, MessageSquare, Search, User, Calendar, RotateCcw } from 'lucide-react'
+import { ClipboardList, Search, User } from 'lucide-react'
 import { getBookings, confirmBooking, cancelBooking, updateBookingNote, updateSlotSessions } from '@/lib/lessons/slot-actions'
 import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
@@ -639,10 +639,9 @@ function BookingRow({
           {booking.status === 'PENDING' && (
             <button
               onClick={onConfirm}
-              className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium text-white whitespace-nowrap"
-              style={{ backgroundColor: 'var(--color-success)' }}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              style={{ backgroundColor: '#16a34a' }}
             >
-              <Check className="w-3 h-3 flex-shrink-0" />
               수락
             </button>
           )}
@@ -650,10 +649,9 @@ function BookingRow({
             !(booking.slots?.[0]?.sessions as SlotSession[] | null)?.some((s) => s.status === 'COMPLETED') && (
               <button
                 onClick={onCancel}
-                className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium text-white whitespace-nowrap"
-                style={{ backgroundColor: 'var(--color-danger)' }}
+                className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+                style={{ backgroundColor: '#dc2626' }}
               >
-                <X className="w-3 h-3 flex-shrink-0" />
                 {booking.status === 'PENDING' ? '거절' : '취소'}
               </button>
             )}
@@ -661,10 +659,9 @@ function BookingRow({
           {booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && (
             <button
               onClick={onSession}
-              className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
-              style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              style={{ backgroundColor: '#2563eb' }}
             >
-              <Calendar className="w-3 h-3 flex-shrink-0" />
               세션
             </button>
           )}
@@ -672,24 +669,18 @@ function BookingRow({
           {booking.status === 'CONFIRMED' && booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && !booking.slots[0].extended_at && (
             <button
               onClick={onExtend}
-              className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
-              style={{ backgroundColor: 'var(--color-success-subtle)', color: 'var(--color-success)', border: '1px solid var(--color-success)' }}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              style={{ backgroundColor: '#d97706' }}
             >
-              <RotateCcw className="w-3 h-3 flex-shrink-0" />
               연장
             </button>
           )}
           {/* 메모 버튼 */}
           <button
             onClick={onNote}
-            className="inline-flex items-center gap-0.5 px-2 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap"
-            style={
-              booking.admin_note
-                ? { backgroundColor: 'var(--color-info, #3b82f6)', color: '#fff' }
-                : { backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }
-            }
+            className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+            style={{ backgroundColor: booking.admin_note ? '#2563eb' : '#64748b' }}
           >
-            <MessageSquare className="w-3 h-3 flex-shrink-0" />
             메모
           </button>
         </div>
