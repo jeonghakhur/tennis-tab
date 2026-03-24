@@ -17,14 +17,14 @@ const ADMIN_TABS: { key: AdminTab; label: string; icon: React.ElementType }[] = 
   { key: 'slots',      label: '슬롯',     icon: Calendar },
   { key: 'bookings',   label: '예약',     icon: ClipboardList },
   { key: 'inquiries',  label: '문의',     icon: MessageSquare },
-  { key: 'extensions', label: '연장 신청', icon: RotateCcw },
+  { key: 'extensions', label: '연장', icon: RotateCcw },
 ]
 
 const COACH_TABS: { key: CoachTab; label: string; icon: React.ElementType }[] = [
   { key: 'slots',      label: '내 슬롯',   icon: Calendar },
-  { key: 'bookings',   label: '예약 현황', icon: ClipboardList },
+  { key: 'bookings',   label: '예약',      icon: ClipboardList },
   { key: 'inquiries',  label: '문의',      icon: MessageSquare },
-  { key: 'extensions', label: '연장 신청', icon: RotateCcw },
+  { key: 'extensions', label: '연장',      icon: RotateCcw },
 ]
 
 export default function AdminLessonsPage() {
@@ -54,7 +54,7 @@ export default function AdminLessonsPage() {
 
       {/* 탭 네비게이션 */}
       <div
-        className="flex border-b mb-6"
+        className="flex overflow-x-auto border-b mb-6"
         style={{ borderColor: 'var(--border-color)' }}
         role="tablist"
         aria-label="레슨 관리 탭"
@@ -69,7 +69,7 @@ export default function AdminLessonsPage() {
               aria-selected={isActive}
               aria-controls={`tabpanel-${t.key}`}
               onClick={() => isCoachMode ? setCoachTab(t.key as CoachTab) : setAdminTab(t.key as AdminTab)}
-              className="flex items-center gap-1.5 px-4 py-3 text-sm transition-colors"
+              className="flex items-center gap-1.5 px-4 py-3 text-sm whitespace-nowrap transition-colors"
               style={{
                 color: isActive ? 'var(--text-primary)' : 'var(--text-muted)',
                 fontWeight: isActive ? 700 : 400,

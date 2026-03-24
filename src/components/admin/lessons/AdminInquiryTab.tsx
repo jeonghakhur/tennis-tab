@@ -116,9 +116,10 @@ export function AdminInquiryTab({ coachId }: { coachId?: string } = {}) {
       </div>
 
       {filtered.length === 0 ? (
-        <p className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
-          문의가 없습니다.
-        </p>
+        <div className="text-center py-16">
+          <MessageSquare className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>접수된 문의가 없습니다.</p>
+        </div>
       ) : (
         <div className="space-y-3">
           {filtered.map((inquiry) => {

@@ -12,6 +12,11 @@ import type { LessonSlot } from '@/lib/lessons/slot-types'
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
+/** 전화번호 하이픈 포맷 (01012345678 → 010-1234-5678) */
+function formatPhone(phone: string): string {
+  return phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
+}
+
 function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
   return `${d.getMonth() + 1}/${d.getDate()}`
@@ -460,7 +465,7 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
                 fontWeight: isActive ? 700 : 400,
               }}
             >
-              {coach.name}
+              {coach.name} 코치
             </button>
           )
         })}
@@ -527,7 +532,7 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
                     style={{ color: 'var(--accent-color)' }}
                   >
                     <Phone className="w-3.5 h-3.5" />
-                    {selectedCoach.phone}
+                    {formatPhone(selectedCoach.phone)}
                   </a>
                 )}
               </div>
@@ -568,7 +573,7 @@ export function LessonsPageClient({ coaches }: LessonsPageClientProps) {
                   style={{ backgroundColor: 'var(--accent-color)' }}
                 >
                   <MessageSquare className="w-4 h-4" />
-                  레슨 신청하기
+                  레슨 문의하기
                 </button>
               </div>
             ) : (

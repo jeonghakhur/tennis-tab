@@ -324,7 +324,7 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
       ) : filtered.length === 0 ? (
         <div className="text-center py-16">
           <ClipboardList className="w-8 h-8 mx-auto mb-2" style={{ color: 'var(--text-muted)' }} />
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약이 없습니다.</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>예약 내역이 없습니다.</p>
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg" style={{ border: '1px solid var(--border-color)' }}>

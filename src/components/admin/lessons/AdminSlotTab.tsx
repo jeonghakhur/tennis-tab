@@ -392,7 +392,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
                   </button>
                   <button
                     onClick={goThisWeek}
-                    className="text-sm px-2 py-1 rounded-lg font-medium"
+                    className="text-sm px-2 py-1 rounded-lg font-medium whitespace-nowrap"
                     style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                   >
                     이번 주
@@ -422,7 +422,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
                   </button>
                   <button
                     onClick={goToday}
-                    className="text-sm px-2 py-1 rounded-lg font-medium"
+                    className="text-sm px-2 py-1 rounded-lg font-medium whitespace-nowrap"
                     style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
                   >
                     오늘
@@ -475,7 +475,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
 
               <button
                 onClick={() => setCreateModalOpen(true)}
-                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium"
+                className="inline-flex items-center gap-1.5 text-sm px-3 py-2 rounded-lg font-medium whitespace-nowrap"
                 style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
               >
                 <Plus className="w-4 h-4" />
@@ -865,7 +865,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
       {/* 슬롯 목록 */}
       {slots.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
-          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>이 날짜에 슬롯이 없습니다</p>
+          <p className="text-sm" style={{ color: 'var(--text-muted)' }}>등록된 슬롯이 없습니다. 슬롯을 등록해보세요.</p>
         </div>
       ) : (
         <div>
