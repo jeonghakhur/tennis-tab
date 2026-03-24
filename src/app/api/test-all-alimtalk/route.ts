@@ -20,7 +20,7 @@ export async function GET(req: Request) {
       lessonStartDate,
       lessonInfo: '강한 코치 레슨',
       lessonDays,
-      venue: '망원 한강공원 테니스장',
+      venue: '망원나들목 4번 코트',
     })
     const r2 = await sendLessonApplyToCoachAlimtalk({
       coachPhone: '01085891858',
