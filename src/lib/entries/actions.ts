@@ -5,7 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { revalidatePath } from 'next/cache';
 import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
-import { sendTournamentApplyAlimtalk } from '@/lib/solapi/alimtalk'
+import { sendTournamentApplyAlimtalk, sendPaymentConfirmAlimtalk } from '@/lib/solapi/alimtalk'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
@@ -533,14 +533,21 @@ export async function confirmBankTransfer(entryId: string): Promise<{
 
         // 알림: 주최자에게 결제 확인 알림
         try {
-            const { data: tournament } = await admin
-                .from('tournaments')
-                .select('organizer_id')
-                .eq('id', entry.tournament_id)
+            const { data: entryDetail } = await admin
+                .from('tournament_entries')
+                .select('profiles(name), tournament_divisions(name, tournaments(title, organizer_id))')
+                .eq('id', entryId)
                 .single()
-            if (tournament) {
+
+            const playerName = (entryDetail?.profiles as unknown as { name: string } | null)?.name ?? '참가자'
+            const division = entryDetail?.tournament_divisions as unknown as { name: string; tournaments: { title: string; organizer_id: string } | null } | null
+            const tournamentName = division?.tournaments?.title ?? '대회'
+            const divisionName = division?.name ?? '부서'
+            const organizerId = division?.tournaments?.organizer_id
+
+            if (organizerId) {
                 await createNotification({
-                    user_id: tournament.organizer_id,
+                    user_id: organizerId,
                     type: NotificationType.PAYMENT_COMPLETED,
                     title: '입금 확인',
                     message: '참가자가 입금 확인을 요청했습니다.',
@@ -549,6 +556,13 @@ export async function confirmBankTransfer(entryId: string): Promise<{
                     metadata: { link: `/admin/tournaments/${entry.tournament_id}/entries` },
                 })
             }
+
+            // 관리자 알림톡 발송
+            await sendPaymentConfirmAlimtalk({
+                playerName,
+                tournamentName,
+                divisionName,
+            })
         } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
         revalidatePath(`/tournaments/${entry.tournament_id}`)

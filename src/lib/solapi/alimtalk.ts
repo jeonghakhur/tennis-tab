@@ -10,6 +10,7 @@
  *   SOLAPI_TEMPLATE_TOURNAMENT_CONFIRM - 대회 참가 확정 알림 템플릿 ID
  *   SOLAPI_TEMPLATE_LESSON_APPLY - 레슨 신청 완료 알림 템플릿 ID
  *   SOLAPI_TEMPLATE_LESSON_INQUIRY_REPLY - 레슨 문의 답변 알림 템플릿 ID
+ *   SOLAPI_TEMPLATE_PAYMENT_CONFIRM - 대회 입금 확인 알림 템플릿 ID
  */
 
 import { SolapiMessageService } from 'solapi'
@@ -660,6 +661,81 @@ export async function sendLessonInquiryReplyAlimtalk(
   } catch (err) {
     const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
     console.error('[Alimtalk ERROR] 레슨 문의 답변:', msg)
+    return { success: false, error: msg }
+  }
+}
+
+// ── 대회 입금 확인 알림 (관리자 수신) ─────────────────────────────────────
+
+export interface PaymentConfirmAlimtalkParams {
+  /** 참가자 이름 */
+  playerName: string
+  /** 대회명 */
+  tournamentName: string
+  /** 부서명 */
+  divisionName: string
+}
+
+/**
+ * 대회 입금 확인 알림톡 발송 (관리자 수신)
+ * 발송 시점: 참가자가 입금 확인 버튼 클릭
+ *
+ * 알림톡 템플릿:
+ * ───────────────────────────────────────────
+ * #{참가자명}님이 #{대회명} 참가비 입금 확인을 요청했습니다.
+ *
+ * ■ 신청 정보
+ * - 대회: #{대회명}
+ * - 부서: #{부서명}
+ * - 참가자: #{참가자명}
+ *
+ * 관리자 페이지에서 확인해주세요.
+ * ───────────────────────────────────────────
+ * 버튼: [관리자 페이지] → https://mapo-tennis.com/admin
+ */
+export async function sendPaymentConfirmAlimtalk(
+  params: PaymentConfirmAlimtalkParams,
+): Promise<SendResult> {
+  const adminPhone = process.env.ADMIN_PHONE_NUMBER
+  if (!adminPhone) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 입금 확인 알림 (ADMIN_PHONE_NUMBER 미설정):', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: 'ADMIN_PHONE_NUMBER 환경변수가 설정되지 않았습니다.' }
+  }
+
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_PAYMENT_CONFIRM
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 입금 확인 알림톡:', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  try {
+    const result = await service.sendOne({
+      to: adminPhone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{참가자명}': params.playerName,
+          '#{대회명}':   params.tournamentName,
+          '#{부서명}':   params.divisionName,
+        },
+      },
+    })
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 입금 확인 알림:', msg)
     return { success: false, error: msg }
   }
 }
