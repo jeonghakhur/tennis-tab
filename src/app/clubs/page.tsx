@@ -214,34 +214,30 @@ export default function ClubsPage() {
                 return (
                   <div
                     key={club.id}
-                    className={`glass-card rounded-xl p-5 flex flex-col ${
+                    className={`glass-card rounded-xl p-5 flex flex-col min-h-[96px] ${
                       isMine ? 'ring-1 ring-(--accent-color)/40' : ''
                     }`}
                   >
                     {/* 상단: 클럽명+설명 + 가입 버튼/상태 배지 */}
                     <div className="flex items-start justify-between gap-3 mb-3">
-                      {/* 좌측: 클럽명 + 설명 */}
+                      {/* 좌측: 클럽명 + 설명 (항상 2줄 공간 확보) */}
                       {isMine ? (
                         <Link href={`/clubs/${club.id}`} className="group flex-1 min-w-0">
                           <h3 className="font-display text-base font-semibold group-hover:text-(--accent-color) transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
                             {club.name}
                           </h3>
-                          {club.description && (
-                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
-                              {club.description}
-                            </p>
-                          )}
+                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
+                            {club.description || '\u00A0'}
+                          </p>
                         </Link>
                       ) : (
                         <div className="flex-1 min-w-0">
                           <h3 className="font-display text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
                             {club.name}
                           </h3>
-                          {club.description && (
-                            <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
-                              {club.description}
-                            </p>
-                          )}
+                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
+                            {club.description || '\u00A0'}
+                          </p>
                         </div>
                       )}
 
