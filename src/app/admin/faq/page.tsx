@@ -353,7 +353,7 @@ export default function AdminFaqPage() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button
                     onClick={() => handleToggleActive(faq)}
-                    className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                    className="p-2.5 rounded-lg hover:bg-(--bg-card-hover) transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                     style={{ color: 'var(--text-muted)' }}
                     aria-label={faq.is_active ? '비활성화' : '활성화'}
                     title={faq.is_active ? '비활성화' : '활성화'}
@@ -362,17 +362,19 @@ export default function AdminFaqPage() {
                   </button>
                   <button
                     onClick={() => openEditModal(faq)}
-                    className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                    className="p-2.5 rounded-lg hover:bg-(--bg-card-hover) transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                     style={{ color: 'var(--text-muted)' }}
                     aria-label="수정"
+                    title="수정"
                   >
                     <Pencil className="w-4 h-4" />
                   </button>
                   <button
                     onClick={() => setConfirmDelete({ isOpen: true, id: faq.id })}
-                    className="p-2 rounded-lg hover:bg-(--bg-card-hover) transition-colors"
+                    className="p-2.5 rounded-lg hover:bg-(--bg-card-hover) transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
                     style={{ color: 'var(--court-danger)' }}
                     aria-label="삭제"
+                    title="삭제"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>

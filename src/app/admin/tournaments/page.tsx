@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
 import { TournamentsTable } from '@/components/admin/TournamentsTable'
 import { canManageTournaments } from '@/lib/auth/roles'
 
@@ -45,15 +46,24 @@ export default async function AdminTournamentsPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div>
-        <h1 className="font-display text-2xl font-bold text-(--text-primary)">
-          대회 관리
-        </h1>
-        <p className="text-(--text-secondary) mt-1">
-          {isAdminOrHigher
-            ? '모든 대회를 조회하고 관리할 수 있습니다.'
-            : '내가 등록한 대회를 조회하고 관리할 수 있습니다.'}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h1 className="font-display text-2xl font-bold text-(--text-primary)">
+            대회 관리
+          </h1>
+          <p className="text-(--text-secondary) mt-1">
+            {isAdminOrHigher
+              ? '모든 대회를 조회하고 관리할 수 있습니다.'
+              : '내가 등록한 대회를 조회하고 관리할 수 있습니다.'}
+          </p>
+        </div>
+        <Link
+          href="/tournaments/new"
+          className="px-4 py-2 rounded-lg text-sm font-medium text-white whitespace-nowrap hover:opacity-90 transition-opacity"
+          style={{ backgroundColor: 'var(--accent-color)' }}
+        >
+          대회 생성
+        </Link>
       </div>
 
       {/* Tournaments Table */}

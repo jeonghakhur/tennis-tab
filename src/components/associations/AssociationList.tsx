@@ -79,9 +79,16 @@ export function AssociationList({ associations }: Props) {
       {filtered.length === 0 ? (
         <div className="glass-card rounded-xl p-8 text-center space-y-4">
           <Building2 className="w-12 h-12 mx-auto text-(--text-muted)" />
-          <p className="text-(--text-muted)">
-            {searchQuery ? '검색 결과가 없습니다.' : '등록된 협회가 없습니다.'}
-          </p>
+          <div>
+            <p className="text-(--text-primary) font-medium">
+              {searchQuery ? '검색 결과가 없습니다.' : '등록된 협회가 없습니다.'}
+            </p>
+            {!searchQuery && (
+              <p className="text-(--text-muted) text-sm mt-1">
+                협회를 생성하면 클럽과 회원을 체계적으로 관리할 수 있습니다.
+              </p>
+            )}
+          </div>
         </div>
       ) : (
         <div className="space-y-3">

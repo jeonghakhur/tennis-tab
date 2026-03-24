@@ -31,6 +31,15 @@ type SortOrder = 'asc' | 'desc'
 
 const roles: UserRole[] = ['RESTRICTED', 'USER', 'MANAGER', 'ADMIN', 'SUPER_ADMIN']
 
+// 테이블 배지용 짧은 권한명 (전역 ROLE_LABELS와 별도)
+const ROLE_SHORT_LABELS: Record<UserRole, string> = {
+  SUPER_ADMIN: '최고관리자',
+  ADMIN: '관리자',
+  MANAGER: '운영자',
+  USER: '일반',
+  RESTRICTED: '제한',
+}
+
 const CLUB_ROLE_LABEL: Record<string, string> = {
   OWNER: '회장',
   ADMIN: '총무',
@@ -335,7 +344,7 @@ export function UsersTable({
                         </div>
                       </td>
                       <td className="p-4 hidden md:table-cell">
-                        <p className="text-(--text-secondary) truncate max-w-[200px]">
+                        <p className="text-(--text-secondary) truncate max-w-[200px]" title={user.email ?? ''}>
                           {user.email}
                         </p>
                         {user.phone && (
@@ -384,17 +393,17 @@ export function UsersTable({
                             </SelectTrigger>
                             <SelectContent>
                               {availableRoles.map((role) => (
-                                <SelectItem key={role} value={role}>{ROLE_LABELS[role]}</SelectItem>
+                                <SelectItem key={role} value={role}>{ROLE_SHORT_LABELS[role]}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
                         ) : (
                           <span
-                            className={`px-3 py-1.5 rounded-lg text-sm font-medium ${
+                            className={`inline-block min-w-[4rem] text-center px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap ${
                               ROLE_COLORS[user.role ?? 'USER']
                             }`}
                           >
-                            {ROLE_LABELS[user.role ?? 'USER']}
+                            {ROLE_SHORT_LABELS[user.role ?? 'USER']}
                             {user.id === currentUserId && ' (나)'}
                           </span>
                         )}
