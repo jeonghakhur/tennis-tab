@@ -247,7 +247,7 @@ export default function ClubsPage() {
 
                       {/* 우측: 내 클럽 배지 or 가입 신청 버튼 */}
                       {isMine ? (
-                        <div className="flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium flex-shrink-0 bg-(--accent-color) text-(--bg-primary)">
+                        <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 bg-(--accent-color) text-(--bg-primary)">
                           <Check className="w-3 h-3" />
                           {ROLE_LABEL[myRole] || '회원'}
                         </div>
