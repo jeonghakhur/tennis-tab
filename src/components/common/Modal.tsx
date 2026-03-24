@@ -17,12 +17,12 @@ interface ModalProps {
 }
 
 const SIZE_CLASSES = {
-  sm: "max-w-sm",
-  md: "max-w-md",
-  lg: "max-w-lg",
-  xl: "max-w-xl",
-  "2xl": "max-w-2xl",
-  full: "max-w-full mx-4",
+  sm: "max-w-sm mx-5",
+  md: "max-w-md mx-5",
+  lg: "max-w-lg mx-5",
+  xl: "max-w-xl mx-5",
+  "2xl": "max-w-2xl mx-5",
+  full: "max-w-full mx-5",
 } as const;
 
 /**
