@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: '마포구테니스협회',
     images: [
       {
-        url: '/og-default.jpg',
+        url: '/api/og',
         width: 1200,
         height: 630,
         alt: '마포구테니스협회 — 테니스 대회의 새로운 기준',
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    images: ['/og-default.jpg'],
+    images: ['/api/og'],
   },
 };
 

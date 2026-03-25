@@ -26,14 +26,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTournamentForMeta(id)
   if (!t) return {}
 
-  const dateStr = t.start_date
-    ? new Date(t.start_date).toLocaleDateString('ko-KR', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-      })
+  const dateStr = t.start_date && t.end_date
+    ? t.start_date === t.end_date
+      ? t.start_date.replace(/-/g, '.')
+      : `${t.start_date.replace(/-/g, '.')}-${t.end_date.replace(/-/g, '.')}`
     : ''
   const description = [dateStr, t.location, t.host].filter(Boolean).join(' · ')
+
+  // 포스터 없으면 동적 OG 이미지 생성
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mapo-tennis.com'
+  const ogImageUrl = t.poster_url
+    ? t.poster_url
+    : `${baseUrl}/api/og?type=tournament&title=${encodeURIComponent(t.title ?? '')}${dateStr ? `&date=${encodeURIComponent(dateStr)}` : ''}`
 
   return {
     title: t.title,
@@ -41,15 +45,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: t.title,
       description,
-      ...(t.poster_url && {
-        images: [{ url: t.poster_url, width: 1200, height: 630, alt: t.title }],
-      }),
+      images: [{ url: ogImageUrl, width: 1200, height: 630, alt: t.title ?? '' }],
     },
     twitter: {
       card: 'summary_large_image',
       title: t.title,
       description,
-      ...(t.poster_url && { images: [t.poster_url] }),
+      images: [ogImageUrl],
     },
   }
 }
