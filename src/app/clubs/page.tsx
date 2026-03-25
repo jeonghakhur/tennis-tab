@@ -214,46 +214,68 @@ export default function ClubsPage() {
                 return (
                   <div
                     key={club.id}
-                    className={`glass-card rounded-xl p-5 flex flex-col relative ${
+                    className={`glass-card rounded-xl p-5 flex flex-col min-h-[96px] ${
                       isMine ? 'ring-1 ring-(--accent-color)/40' : ''
                     }`}
                   >
-                    {/* 가입 표시 */}
-                    {isMine && (
-                      <div className="absolute top-3 right-3 flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-(--accent-color) text-(--bg-primary)">
-                        <Check className="w-3 h-3" />
-                        {ROLE_LABEL[myRole] || '회원'}
-                      </div>
-                    )}
+                    {/* 상단: 클럽명+설명 + 가입 버튼/상태 배지 */}
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      {/* 좌측: 클럽명 + 설명 (항상 2줄 공간 확보) */}
+                      {isMine ? (
+                        <Link href={`/clubs/${club.id}`} className="group flex-1 min-w-0">
+                          <h3 className="font-display text-base font-semibold group-hover:text-(--accent-color) transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
+                            {club.name}
+                          </h3>
+                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
+                            {club.description || '\u00A0'}
+                          </p>
+                        </Link>
+                      ) : (
+                        <div className="flex-1 min-w-0">
+                          <h3 className="font-display text-base font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+                            {club.name}
+                          </h3>
+                          <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'var(--text-muted)' }}>
+                            {club.description || '\u00A0'}
+                          </p>
+                        </div>
+                      )}
 
-                    {/* 클릭 영역: 회원이면 상세 페이지로, 비회원이면 클릭 영역만 */}
-                    {isMine ? (
-                      <Link href={`/clubs/${club.id}`} className="group flex-1 block">
-                        <ClubCardContent club={club} />
-                      </Link>
-                    ) : (
-                      <div className="flex-1">
-                        <ClubCardContent club={club} />
-                      </div>
-                    )}
+                      {/* 우측: 내 클럽 배지 or 가입 신청 버튼 */}
+                      {isMine ? (
+                        <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 bg-(--accent-color) text-(--bg-primary)">
+                          <Check className="w-3 h-3" />
+                          {ROLE_LABEL[myRole] || '회원'}
+                        </div>
+                      ) : canJoin ? (
+                        <button
+                          onClick={(e) => handleJoinClick(e, club)}
+                          disabled={joinLoading}
+                          className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 bg-(--accent-color) text-(--bg-primary) hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                          <MessageCircle className="w-3 h-3" />
+                          가입 신청
+                        </button>
+                      ) : !isMine && club.join_type === 'INVITE_ONLY' ? (
+                        <span className="text-xs px-2 py-1 rounded-full flex-shrink-0" style={{ color: 'var(--text-muted)', backgroundColor: 'var(--bg-secondary)' }}>초대 전용</span>
+                      ) : null}
+                    </div>
 
-                    {/* 하단: 가입 버튼 */}
-                    {(canJoin || (!isMine && club.join_type === 'INVITE_ONLY' && club.is_recruiting)) && (
-                      <div className="flex items-center justify-end pt-3 border-t mt-3" style={{ borderColor: 'var(--border-color)' }}>
-                        {canJoin ? (
-                          <button
-                            onClick={(e) => handleJoinClick(e, club)}
-                            disabled={joinLoading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-(--accent-color) text-(--bg-primary) hover:opacity-90 transition-opacity disabled:opacity-50"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" />
-                            가입 신청
-                          </button>
-                        ) : (
-                          <span className="text-xs" style={{ color: 'var(--text-muted)' }}>초대 전용</span>
-                        )}
+                    {/* 하단 한 줄: 운동 장소 + 회원 수 */}
+                    <div className="flex items-center gap-3 mt-auto" style={{ color: 'var(--text-muted)' }}>
+                      {(club.address || club.city || club.district) && (
+                        <div className="flex items-center gap-1 min-w-0">
+                          <MapPin className="w-3.5 h-3.5 shrink-0" />
+                          <span className="text-xs truncate">
+                            {club.address || [club.city, club.district].filter(Boolean).join(' ')}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 flex-shrink-0">
+                        <Users className="w-3.5 h-3.5 shrink-0" />
+                        <span className="text-xs">회원 {club._member_count ?? 0}명</span>
                       </div>
-                    )}
+                    </div>
                   </div>
                 )
               })}

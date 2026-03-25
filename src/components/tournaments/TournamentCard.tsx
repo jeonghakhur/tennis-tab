@@ -66,6 +66,41 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
     );
   };
 
+  const renderCtaButton = (status: string) => {
+    // DRAFT는 관리자만 볼 수 있으므로 "수정하기" 표시
+    if (status === "DRAFT") {
+      if (!canManage) return null;
+      return (
+        <span className="mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-(--bg-secondary) text-(--text-secondary)">
+          수정하기
+        </span>
+      );
+    }
+
+    if (status === "UPCOMING") {
+      return (
+        <span className="mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-(--bg-secondary) text-(--text-muted) cursor-default">
+          신청 예정
+        </span>
+      );
+    }
+
+    if (status === "OPEN") {
+      return (
+        <span className="mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-(--accent-color) text-white">
+          참가 신청
+        </span>
+      );
+    }
+
+    // CLOSED, IN_PROGRESS, COMPLETED, CANCELLED
+    return (
+      <span className="mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-(--bg-secondary) text-(--text-secondary)">
+        결과 보기
+      </span>
+    );
+  };
+
   const handleCopyTemplate = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -127,6 +162,9 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
                </div>
              )}
           </div>
+
+          {/* CTA 버튼 */}
+          {renderCtaButton(tournament.status)}
         </div>
       </div>
     </Link>
