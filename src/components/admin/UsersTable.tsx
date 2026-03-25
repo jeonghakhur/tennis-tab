@@ -335,7 +335,7 @@ export function UsersTable({
                               className="font-medium text-(--text-primary) truncate hover:text-(--accent-color) hover:underline transition-colors inline-flex items-center gap-1"
                             >
                               {user.name}
-                              <ExternalLink className="w-3 h-3 opacity-0 group-hover:opacity-50 transition-opacity" />
+                              <ExternalLink className="w-3 h-3 opacity-50" />
                             </Link>
                             <p className="text-xs text-(--text-muted) md:hidden truncate">
                               {user.email}

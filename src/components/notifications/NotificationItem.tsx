@@ -54,6 +54,7 @@ const NOTIFICATION_ICON_MAP: Record<
   [NotificationType.LESSON_SLOT_LOCKED]: { icon: Lock, color: 'text-purple-500' },
   [NotificationType.LESSON_ENROLLED]: { icon: BookOpen, color: 'text-blue-500' },
   [NotificationType.LESSON_ENROLLMENT_CANCELLED]: { icon: BookX, color: 'text-orange-500' },
+  [NotificationType.NEW_MEMBER_JOINED]: { icon: Users, color: 'text-cyan-500' },
 }
 
 interface NotificationItemProps {

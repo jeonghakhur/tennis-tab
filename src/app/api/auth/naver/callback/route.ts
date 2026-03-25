@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
+import { createNotification } from '@/lib/notifications/actions'
+import { NotificationType } from '@/lib/notifications/types'
 
 /**
  * 네이버 OAuth 콜백 핸들러
@@ -128,6 +130,25 @@ export async function GET(request: NextRequest) {
       }
 
       userId = newUser.user.id
+
+      // 신규 회원 가입 → SUPER_ADMIN에게 앱 내 알림 (fire-and-forget)
+      try {
+        const { data: superAdmins } = await serviceSupabase
+          .from('profiles')
+          .select('id')
+          .eq('role', 'SUPER_ADMIN')
+        if (superAdmins && superAdmins.length > 0) {
+          await Promise.all(superAdmins.map((admin) =>
+            createNotification({
+              user_id: admin.id,
+              type: NotificationType.NEW_MEMBER_JOINED,
+              title: '신규 회원 가입',
+              message: `${name || email}님이 새로 가입했습니다.`,
+              metadata: { link: `/admin/users/${userId}`, newUserId: userId },
+            })
+          ))
+        }
+      } catch { /* 알림 실패가 로그인을 막지 않음 */ }
     }
 
     // 신규/기존 모두: 네이버 프로필 정보로 명시적 업데이트
