@@ -76,7 +76,7 @@ export default function TournamentsClient({
                 whitespace-nowrap px-4 py-2 rounded-full text-sm font-medium transition-colors flex-shrink-0
                 ${
                   isActive
-                    ? "bg-(--accent-color) text-white"
+                    ? "bg-(--accent-color) text-(--bg-primary)"
                     : "bg-(--bg-secondary) text-(--text-primary) hover:bg-(--bg-input)"
                 }
               `}
