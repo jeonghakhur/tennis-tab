@@ -145,18 +145,6 @@ export async function GET(request: Request) {
           마포구테니스협회
         </div>
 
-        {/* 슬로건 */}
-        <div style={{
-          fontSize: '36px',
-          fontWeight: '600',
-          color: 'rgba(255,255,255,0.6)',
-          marginBottom: '56px',
-          letterSpacing: '-0.5px',
-          display: 'flex',
-        }}>
-          테니스 대회의 새로운 기준
-        </div>
-
         {/* URL 배지 */}
         <div style={{
           background: 'rgba(204,255,0,0.12)',
