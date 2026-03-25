@@ -64,7 +64,7 @@ export default function TournamentsClient({
         role="tablist"
         aria-label="대회 상태 필터"
       >
-        {FILTER_TABS.map(({ key, label }) => {
+        {FILTER_TABS.filter(({ key }) => key === "ALL" || counts[key] > 0).map(({ key, label }) => {
           const isActive = activeFilter === key;
           return (
             <button
