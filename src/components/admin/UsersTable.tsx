@@ -318,7 +318,10 @@ export function UsersTable({
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-full bg-(--accent-color)/20 flex items-center justify-center text-(--accent-color) font-display font-bold shrink-0">
+                          <Link
+                            href={`/admin/users/${user.id}`}
+                            className="w-10 h-10 rounded-full bg-(--accent-color)/20 flex items-center justify-center text-(--accent-color) font-display font-bold shrink-0 hover:ring-2 hover:ring-(--accent-color) transition-all"
+                          >
                             {user.avatar_url ? (
                               <img
                                 src={user.avatar_url}
@@ -328,7 +331,7 @@ export function UsersTable({
                             ) : (
                               user.name?.charAt(0).toUpperCase() || '?'
                             )}
-                          </div>
+                          </Link>
                           <div className="min-w-0">
                             <Link
                               href={`/admin/users/${user.id}`}
