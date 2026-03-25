@@ -77,7 +77,7 @@ export default function TournamentsClient({
                 ${
                   isActive
                     ? "bg-(--accent-color) text-white"
-                    : "bg-(--bg-secondary) text-(--text-secondary) hover:bg-(--bg-input)"
+                    : "bg-(--bg-secondary) text-(--text-primary) hover:bg-(--bg-input)"
                 }
               `}
             >
