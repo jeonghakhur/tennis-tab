@@ -15,6 +15,39 @@ interface ImageUploadProps {
 
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_SIZE = 10 * 1024 * 1024  // 10MB
+const MAX_WIDTH = 1200  // 최대 가로 1200px
+const WEBP_QUALITY = 0.82  // WebP 압축 품질
+
+/** 이미지를 WebP로 변환 + 최대 너비 리사이즈 */
+async function compressImage(file: File): Promise<File> {
+  return new Promise((resolve) => {
+    const img = new window.Image()
+    const url = URL.createObjectURL(file)
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      const scale = img.width > MAX_WIDTH ? MAX_WIDTH / img.width : 1
+      const w = Math.round(img.width * scale)
+      const h = Math.round(img.height * scale)
+      const canvas = document.createElement('canvas')
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext('2d')!
+      ctx.drawImage(img, 0, 0, w, h)
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) { resolve(file); return }
+          const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.webp'), { type: 'image/webp' })
+          // 압축 후 더 크면 원본 사용
+          resolve(compressed.size < file.size ? compressed : file)
+        },
+        'image/webp',
+        WEBP_QUALITY
+      )
+    }
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file) }
+    img.src = url
+  })
+}
 
 export default function ImageUpload({
   value,
@@ -46,8 +79,11 @@ export default function ImageUpload({
     setPreview(URL.createObjectURL(file))  // 즉시 로컬 미리보기
 
     try {
+      // WebP 변환 + 리사이즈 압축
+      const compressed = await compressImage(file)
+
       const formData = new FormData()
-      formData.append('file', file)
+      formData.append('file', compressed)
       formData.append('bucket', bucket)
       formData.append('folder', folder)
 
