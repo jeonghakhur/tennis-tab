@@ -529,14 +529,14 @@ export async function getSlotsByCoach(
 
   // slot_date <= endDate AND (last_session_date >= startDate OR slot_date >= startDate)
   // → 뷰 기간과 겹치는 패키지 모두 포함 (월 경계 넘는 패키지 지원)
+  // → slot_date IS NULL (날짜 미정 슬롯)도 항상 포함
   const { data: slots, error } = await admin
     .from('lesson_slots')
     .select('*, locked_member:club_members!locked_member_id(id, name)')
     .eq('coach_id', coachId)
-    .lte('slot_date', endDate)
-    .or(`last_session_date.gte.${startDate},slot_date.gte.${startDate}`)
+    .or(`slot_date.is.null,and(slot_date.lte.${endDate},or(last_session_date.gte.${startDate},slot_date.gte.${startDate}))`)
     .neq('status', 'CANCELLED')
-    .order('slot_date')
+    .order('slot_date', { nullsFirst: true })
     .order('start_time')
 
   if (error) return { error: '슬롯 조회에 실패했습니다.', data: [] }
