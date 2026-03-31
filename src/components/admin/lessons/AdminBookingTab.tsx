@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { ClipboardList, Search, User } from 'lucide-react'
-import { getBookings, confirmBooking, cancelBooking, updateBookingNote, updateSlotSessions } from '@/lib/lessons/slot-actions'
+import { getBookings, confirmBooking, cancelBooking, deleteBooking, updateBookingNote, updateSlotSessions } from '@/lib/lessons/slot-actions'
 import type { UpdatedSlotMeta } from '@/lib/lessons/slot-actions'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
@@ -45,6 +45,7 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
 
   // 모달 (reason/noteText는 각 모달 컴포넌트 로컬 state로 관리 — 부모 리렌더 방지)
   const [cancelTarget, setCancelTarget]       = useState<LessonBooking | null>(null)
+  const [deleteTarget, setDeleteTarget]       = useState<LessonBooking | null>(null)
   const [noteTarget, setNoteTarget]           = useState<LessonBooking | null>(null)
   const [sessionTarget, setSessionTarget]     = useState<LessonBooking | null>(null)
   const [extendTarget, setExtendTarget]       = useState<LessonBooking | null>(null)
@@ -115,6 +116,20 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
       return
     }
     setToast({ isOpen: true, message: '예약이 확정되었습니다.', type: 'success' })
+  }
+
+  const handleDelete = async () => {
+    if (!deleteTarget) return
+    const targetId = deleteTarget.id
+    setDeleteTarget(null)
+    setBookings((prev) => prev.filter((b) => b.id !== targetId))
+    const result = await deleteBooking(targetId)
+    if (result.error) {
+      setToast({ isOpen: true, message: result.error, type: 'error' as 'success' })
+      await loadBookings()
+      return
+    }
+    setToast({ isOpen: true, message: '예약이 삭제되었습니다.', type: 'success' })
   }
 
   const handleCancel = async (reason: string) => {
@@ -345,6 +360,7 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
                   isLast={idx === filtered.length - 1}
                   onConfirm={() => handleConfirm(booking)}
                   onCancel={() => setCancelTarget(booking)}
+                  onDelete={() => setDeleteTarget(booking)}
                   onNote={() => setNoteTarget(booking)}
                   onSession={() => setSessionTarget(booking)}
                   onExtend={() => setExtendTarget(booking)}
@@ -361,6 +377,42 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
         onClose={() => setCancelTarget(null)}
         onConfirm={handleCancel}
       />
+
+      {/* 삭제 확인 다이얼로그 */}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center"
+          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
+          onClick={() => setDeleteTarget(null)}
+        >
+          <div
+            className="rounded-xl p-6 w-80"
+            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>예약 삭제</h3>
+            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
+              이 예약을 완전히 삭제합니다. 삭제 후 복구할 수 없습니다.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                className="flex-1 py-2 rounded-lg text-sm"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDelete}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
+                style={{ backgroundColor: '#dc2626' }}
+              >
+                삭제
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 메모 모달 */}
       <NoteModal
@@ -492,12 +544,13 @@ function getSessionChipStyle(
 // ─── BookingRow ───────────────────────────────────────────────────────────────
 
 function BookingRow({
-  booking, isLast, onConfirm, onCancel, onNote, onSession, onExtend, onQuickEdit,
+  booking, isLast, onConfirm, onCancel, onDelete, onNote, onSession, onExtend, onQuickEdit,
 }: {
   booking: LessonBooking
   isLast: boolean
   onConfirm: () => void
   onCancel: () => void
+  onDelete: () => void
   onNote: () => void
   onSession: () => void
   onExtend: () => void
@@ -683,9 +736,9 @@ function BookingRow({
           {/* 삭제 버튼 — CANCELLED 상태만 */}
           {booking.status === 'CANCELLED' && (
             <button
-              onClick={onCancel}
-              className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
-              style={{ backgroundColor: '#64748b' }}
+              onClick={onDelete}
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap col-span-2"
+              style={{ backgroundColor: '#475569' }}
             >
               삭제
             </button>

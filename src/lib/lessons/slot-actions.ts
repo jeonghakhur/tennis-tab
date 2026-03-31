@@ -1971,3 +1971,30 @@ export async function getMyInquiries(): Promise<{
   if (error) return { error: '문의 목록 조회에 실패했습니다.', data: [] }
   return { error: null, data: (data as unknown as LessonInquiry[]) || [] }
 }
+
+/** 예약 삭제 (CANCELLED 상태만) */
+export async function deleteBooking(
+  bookingId: string
+): Promise<{ error: string | null }> {
+  const { error: authErr, isAdmin } = await checkCoachOrAdminAuth()
+  if (authErr) return { error: authErr }
+  if (!isAdmin) return { error: '관리자만 예약을 삭제할 수 있습니다.' }
+
+  const admin = createAdminClient()
+  const { data: booking } = await admin
+    .from('lesson_bookings')
+    .select('status')
+    .eq('id', bookingId)
+    .single()
+
+  if (!booking) return { error: '예약을 찾을 수 없습니다.' }
+  if (booking.status !== 'CANCELLED') return { error: '취소된 예약만 삭제할 수 있습니다.' }
+
+  const { error } = await admin
+    .from('lesson_bookings')
+    .delete()
+    .eq('id', bookingId)
+
+  if (error) return { error: '예약 삭제에 실패했습니다.' }
+  return { error: null }
+}
