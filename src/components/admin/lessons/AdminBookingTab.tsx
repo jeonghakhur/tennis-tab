@@ -220,14 +220,11 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
       dowMap.get(selectedDays[1]) ?? '',
     ]
 
-    const lastSessionDate = activeSessions.map((s) => s.slot_date).sort().reverse()[0]
-
     return {
       frequency: (slot.frequency as 1 | 2) ?? 1,
       duration: (slot.duration_minutes as 20 | 30) ?? 20,
       selectedDays,
       times,
-      lastSessionDate,
       feeInput: slot.fee_amount != null ? String(slot.fee_amount) : '',
     }
   }, [extendTarget?.slots])

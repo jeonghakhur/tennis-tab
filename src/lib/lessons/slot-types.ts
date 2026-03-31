@@ -25,10 +25,10 @@ export interface LessonSlot {
   id: string
   program_id: string | null
   coach_id: string
-  slot_date: string        // 첫 번째 세션 날짜 'YYYY-MM-DD'
-  start_time: string       // 첫 번째 세션 시작 시간 'HH:MM:SS'
-  end_time: string         // 첫 번째 세션 종료 시간 'HH:MM:SS'
-  day_type: LessonSlotDayType
+  slot_date: string | null   // 첫 번째 세션 날짜 'YYYY-MM-DD' (날짜 미정이면 null)
+  start_time: string | null  // 첫 번째 세션 시작 시간 'HH:MM:SS'
+  end_time: string | null    // 첫 번째 세션 종료 시간 'HH:MM:SS'
+  day_type: LessonSlotDayType | null
   status: LessonSlotStatus
   locked_member_id: string | null
   notes: string | null
@@ -53,8 +53,12 @@ export interface CreateSlotInput {
   frequency: 1 | 2
   duration_minutes: 20 | 30
   total_sessions: number
-  sessions: SlotSession[]   // 전체 세션 일정
+  sessions: SlotSession[]   // 전체 세션 일정 (날짜 미정이면 빈 배열)
   fee_amount: number | null  // 요금 (원). null이면 별도 협의
+  /** 날짜 미정 슬롯: 선택한 요일 (0=일~6=토) */
+  selectedDays?: number[]
+  /** 날짜 미정 슬롯: 요일별 시작 시간 ('HH:MM') */
+  times?: string[]
 }
 
 // ─── 레슨 예약 ──────────────────────────────────────────────────────────────

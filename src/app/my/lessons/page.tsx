@@ -439,10 +439,10 @@ function BookingCard({
                 style={{ backgroundColor: 'var(--bg-card-hover)' }}>
                 <Calendar className="w-4 h-4 shrink-0" style={{ color: 'var(--accent-color)' }} />
                 <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                  {fmtDateWithDay(s.slot_date)}
+                  {s.slot_date ? fmtDateWithDay(s.slot_date) : '날짜 미정'}
                 </span>
                 <span className="text-sm ml-1" style={{ color: 'var(--text-secondary)' }}>
-                  {fmt(s.start_time)} ~ {fmt(s.end_time)}
+                  {s.start_time && s.end_time ? `${fmt(s.start_time)} ~ ${fmt(s.end_time)}` : ''}
                 </span>
               </div>
             ))}

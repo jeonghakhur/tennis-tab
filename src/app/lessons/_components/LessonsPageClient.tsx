@@ -52,14 +52,19 @@ interface PublicSlotCardProps {
 }
 
 function PublicSlotCard({ slot, onBook }: PublicSlotCardProps) {
+  const isUndated = !slot.slot_date
   const sessions = slot.sessions ?? []
-  const dowTimes = getPerDowTimes(sessions)
-  const dowLabel = getPackageDowLabel(sessions, slot.slot_date)
+  // 날짜 미정 슬롯: sessions에 dow/start_time만 있음 (slot_date 없음)
+  const datedSessions = sessions.filter((s) => s.slot_date)
+  const dowTimes = getPerDowTimes(datedSessions)
+  const dowLabel = isUndated
+    ? (sessions as Array<{ dow?: number }>).filter((s) => s.dow !== undefined).map((s) => DAY_LABELS[s.dow!]).join('·')
+    : getPackageDowLabel(datedSessions, slot.slot_date ?? undefined)
   const title = slot.frequency ? `${dowLabel} 주${slot.frequency}회 레슨 패키지` : `${dowLabel} 레슨 슬롯`
   const feeText = slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'
   const today = new Date().toISOString().substring(0, 10)
   // 첫 번째 아직 지나지 않은 세션 날짜
-  const nextSession = sessions.find((s) => s.slot_date >= today)
+  const nextSession = datedSessions.find((s) => s.slot_date >= today)
 
   return (
     <div
@@ -71,12 +76,22 @@ function PublicSlotCard({ slot, onBook }: PublicSlotCardProps) {
         <p className="font-bold" style={{ color: 'var(--text-primary)', fontSize: '16px', lineHeight: '1.4' }}>
           {title}
         </p>
-        <span
-          className="shrink-0 text-sm font-semibold px-2.5 py-1 rounded-full"
-          style={{ backgroundColor: 'var(--color-success-subtle, rgba(34,197,94,0.12))', color: 'var(--color-success)' }}
-        >
-          신청 가능
-        </span>
+        <div className="flex items-center gap-1.5 shrink-0">
+          {isUndated && (
+            <span
+              className="text-sm font-semibold px-2.5 py-1 rounded-full"
+              style={{ backgroundColor: 'var(--color-warning-subtle, rgba(245,158,11,0.12))', color: 'var(--color-warning)' }}
+            >
+              날짜 미정
+            </span>
+          )}
+          <span
+            className="text-sm font-semibold px-2.5 py-1 rounded-full"
+            style={{ backgroundColor: 'var(--color-success-subtle, rgba(34,197,94,0.12))', color: 'var(--color-success)' }}
+          >
+            신청 가능
+          </span>
+        </div>
       </div>
 
       {/* 요일별 시간 */}
@@ -92,17 +107,30 @@ function PublicSlotCard({ slot, onBook }: PublicSlotCardProps) {
               {start.slice(0, 5)}~{end.slice(0, 5)}
             </span>
           </div>
-        )) : (
+        )) : isUndated ? (sessions as Array<{ dow?: number; start_time?: string }>).filter((s) => s.dow !== undefined).map((s) => (
+          <div
+            key={s.dow}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+          >
+            <span className="font-bold text-sm" style={{ color: 'var(--accent-color)' }}>{DAY_LABELS[s.dow!]}</span>
+            {s.start_time && (
+              <span className="text-sm tabular-nums" style={{ color: 'var(--text-secondary)' }}>
+                {s.start_time.slice(0, 5)}
+              </span>
+            )}
+          </div>
+        )) : slot.start_time ? (
           <div
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl"
             style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
           >
             <Clock className="w-3.5 h-3.5" />
             <span className="text-sm tabular-nums">
-              {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)}
+              {slot.start_time.slice(0, 5)}~{slot.end_time?.slice(0, 5) ?? ''}
             </span>
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* 메타 정보 */}
@@ -125,9 +153,9 @@ function PublicSlotCard({ slot, onBook }: PublicSlotCardProps) {
       </div>
 
       {/* 세션 날짜 칩 */}
-      {sessions.length > 0 && (
+      {datedSessions.length > 0 && (
         <div className="flex flex-wrap gap-1 mb-4">
-          {sessions.map((s) => (
+          {datedSessions.map((s) => (
             <span
               key={s.slot_date}
               className="text-sm px-2 py-0.5 rounded-full tabular-nums"
@@ -142,6 +170,12 @@ function PublicSlotCard({ slot, onBook }: PublicSlotCardProps) {
             </span>
           ))}
         </div>
+      )}
+      {/* 날짜 미정 안내 */}
+      {isUndated && (
+        <p className="text-sm mb-4" style={{ color: 'var(--text-muted)' }}>
+          신청 후 코치와 날짜를 협의합니다.
+        </p>
       )}
 
       {/* 요금 + 예약 버튼 */}
@@ -201,7 +235,7 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess, memberProfi
 
   const sessions = slot.sessions ?? []
   const dowTimes = getPerDowTimes(sessions)
-  const dowLabel = getPackageDowLabel(sessions, slot.slot_date)
+  const dowLabel = getPackageDowLabel(sessions, slot.slot_date ?? undefined)
   const title = slot.frequency ? `${dowLabel} 주${slot.frequency}회 레슨 패키지` : `${dowLabel} 레슨 슬롯`
   const feeText = slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'
 

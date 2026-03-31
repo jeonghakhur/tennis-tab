@@ -306,34 +306,42 @@ export async function createLessonSlot(
   const user = await getCurrentUser()
   if (!user) return { error: '로그인이 필요합니다.' }
 
-  if (!input.sessions.length) return { error: '생성할 세션이 없습니다.' }
+  const hasSessions = input.sessions.length > 0
 
-  // 각 세션 시간 범위 검증
-  for (const s of input.sessions) {
-    if (!isTimeInRange(s.slot_date, s.start_time, s.end_time)) {
-      const d = new Date(s.slot_date + 'T00:00:00')
-      const dayLabel = d.toLocaleDateString('ko-KR', { weekday: 'short' })
-      return { error: `${s.slot_date}(${dayLabel}) ${s.start_time}~${s.end_time}은 가능 시간 범위를 벗어납니다.` }
+  // 세션이 있는 경우 시간 범위 검증
+  if (hasSessions) {
+    for (const s of input.sessions) {
+      if (!isTimeInRange(s.slot_date, s.start_time, s.end_time)) {
+        const d = new Date(s.slot_date + 'T00:00:00')
+        const dayLabel = d.toLocaleDateString('ko-KR', { weekday: 'short' })
+        return { error: `${s.slot_date}(${dayLabel}) ${s.start_time}~${s.end_time}은 가능 시간 범위를 벗어납니다.` }
+      }
     }
   }
 
-  // 첫 번째 세션 기준으로 slot_date/start_time/end_time 설정
-  const first = input.sessions[0]
   const admin = createAdminClient()
+
+  // 날짜 미정 슬롯: selectedDays 기반으로 day_type 추론
+  const dayType = hasSessions
+    ? getDayType(input.sessions[0].slot_date)
+    : input.selectedDays?.some((d) => d === 0 || d === 6) ? 'WEEKEND' as const : 'WEEKDAY' as const
 
   const { error } = await admin
     .from('lesson_slots')
     .insert({
       coach_id: coachId,
-      slot_date: first.slot_date,
-      start_time: first.start_time,
-      end_time: first.end_time,
-      day_type: getDayType(first.slot_date),
+      slot_date: hasSessions ? input.sessions[0].slot_date : null,
+      start_time: hasSessions ? input.sessions[0].start_time : null,
+      end_time: hasSessions ? input.sessions[0].end_time : null,
+      day_type: dayType,
       frequency: input.frequency,
       duration_minutes: input.duration_minutes,
       total_sessions: input.total_sessions,
-      sessions: input.sessions,
-      last_session_date: input.sessions[input.sessions.length - 1].slot_date,
+      sessions: hasSessions ? input.sessions : input.selectedDays?.map((dow, i) => ({
+        dow,
+        start_time: input.times?.[i] ?? '',
+      })) ?? [],
+      last_session_date: hasSessions ? input.sessions[input.sessions.length - 1].slot_date : null,
       fee_amount: input.fee_amount,
       status: 'OPEN',
       created_by: user.id,

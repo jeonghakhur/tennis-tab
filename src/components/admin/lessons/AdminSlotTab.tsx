@@ -245,13 +245,17 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
   }
   const goThisWeek = () => setWeekStart(getWeekStart(new Date()))
 
+  // 날짜 미정 슬롯 분리
+  const undatedSlots = useMemo(() => slots.filter((s) => !s.slot_date), [slots])
+
   // 날짜별 슬롯 맵 — sessions JSONB 기반으로 확장 (패키지의 각 세션 날짜에 매핑)
   const slotsByDate = useMemo(() => {
     const map = new Map<string, LessonSlot[]>()
     for (const slot of slots) {
+      if (!slot.slot_date) continue // 날짜 미정 슬롯은 별도 섹션에 표시
       // sessions 배열이 있으면 각 세션 날짜에 매핑, 없으면 slot_date에만 매핑
       const dates = slot.sessions?.length
-        ? slot.sessions.map((s) => s.slot_date)
+        ? (slot.sessions as Array<{ slot_date?: string }>).filter((s) => s.slot_date).map((s) => s.slot_date!)
         : [slot.slot_date]
       for (const d of dates) {
         if (!map.has(d)) map.set(d, [])
@@ -492,6 +496,61 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
             </div>
           ) : viewMode === 'calendar' ? (
             // ── 달력 뷰: 모바일 세로 / 데스크탑 가로 균등 분할 ──────────
+            <div className="space-y-4">
+            {/* 날짜 미정 슬롯 섹션 */}
+            {undatedSlots.length > 0 && (
+              <div
+                className="rounded-xl p-4"
+                style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span
+                    className="text-sm font-semibold px-2.5 py-1 rounded-full"
+                    style={{ backgroundColor: 'var(--color-warning-subtle, rgba(245,158,11,0.12))', color: 'var(--color-warning)' }}
+                  >
+                    날짜 미정
+                  </span>
+                  <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    {undatedSlots.length}건
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {undatedSlots.map((slot) => {
+                    const sessions = (slot.sessions ?? []) as Array<{ dow?: number; start_time?: string }>
+                    const dowLabel = sessions
+                      .filter((s) => s.dow !== undefined)
+                      .map((s) => DAY_LABELS[s.dow!])
+                      .join('·')
+                    const timeLabel = sessions
+                      .filter((s) => s.start_time)
+                      .map((s) => s.start_time!.slice(0, 5))
+                      .join(', ')
+                    return (
+                      <div
+                        key={slot.id}
+                        className="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg"
+                        style={{ backgroundColor: 'var(--bg-secondary)' }}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Badge variant={SLOT_STATUS_CONFIG[slot.status].variant}>
+                            {SLOT_STATUS_CONFIG[slot.status].label}
+                          </Badge>
+                          <span className="text-sm font-medium truncate" style={{ color: 'var(--text-primary)' }}>
+                            {dowLabel ? `${dowLabel}요일` : ''} {timeLabel && `${timeLabel}`}
+                          </span>
+                          <span className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                            주{slot.frequency}회 · {slot.duration_minutes}분 · 총{slot.total_sessions}회
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium shrink-0" style={{ color: 'var(--text-secondary)' }}>
+                          {slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
             <div className="flex flex-col md:flex-row md:gap-6 md:items-start">
               {/* 월간 달력 */}
               <div className="md:flex-1 px-1 pb-2">
@@ -606,6 +665,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
                   />
                 )}
               </div>
+            </div>
             </div>
           ) : (
             // ── 목록 뷰: 주간 or 월간 ────────────────────────────────
@@ -780,7 +840,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
         onClose={() => setDeleteTarget(null)}
         onConfirm={handleDelete}
         title="슬롯 삭제"
-        message={deleteTarget ? `${deleteTarget.slot_date} ${deleteTarget.start_time.slice(0, 5)}~${deleteTarget.end_time.slice(0, 5)} 슬롯을 삭제하시겠습니까?` : ''}
+        message={deleteTarget ? (deleteTarget.slot_date ? `${deleteTarget.slot_date} ${deleteTarget.start_time?.slice(0, 5) ?? ''}~${deleteTarget.end_time?.slice(0, 5) ?? ''} 슬롯을 삭제하시겠습니까?` : '날짜 미정 슬롯을 삭제하시겠습니까?') : ''}
         type="error"
       />
 
@@ -900,7 +960,7 @@ interface SlotChipProps {
 
 function SlotChip({ slot, onToggle, onLock, onUnlock, onDelete, onViewBooking }: SlotChipProps) {
   const conf = SLOT_STATUS_CONFIG[slot.status]
-  const time = `${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
+  const time = slot.start_time ? `${slot.start_time.slice(0, 5)}~${slot.end_time?.slice(0, 5) ?? ''}` : '시간 미정'
   const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
   const bookedName = getBookingName(slot)
 
@@ -993,14 +1053,14 @@ function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onVi
 
   const time = currentSession
     ? `${currentSession.start_time.slice(0, 5)}~${currentSession.end_time.slice(0, 5)}`
-    : `${slot.start_time.slice(0, 5)}~${slot.end_time.slice(0, 5)}`
+    : slot.start_time ? `${slot.start_time.slice(0, 5)}~${slot.end_time?.slice(0, 5) ?? ''}` : '시간 미정'
 
   // 요일별 대표 시간 (화 11:30~11:50, 목 19:00~19:20)
   const dowTimes = getPerDowTimes(sessions)
   const todayDow = new Date(dateStr + 'T00:00:00').getDay()
 
   // 패키지 제목 (화·목 주2회 레슨 패키지)
-  const dowLabel = getPackageDowLabel(sessions, slot.slot_date)
+  const dowLabel = getPackageDowLabel(sessions, slot.slot_date ?? undefined)
   const title = slot.frequency ? `${dowLabel} 주${slot.frequency}회 레슨 패키지` : `${dowLabel} 레슨 슬롯`
 
   return (
@@ -1133,7 +1193,7 @@ function SlotRow({ slot, dateStr, isFirst, onToggle, onLock, onUnlock, onDelete,
   const todayDow = new Date(dateStr + 'T00:00:00').getDay()
   // dowTimes 없는 레거시 fallback
   const session = slot.sessions?.find((s) => s.slot_date === dateStr)
-  const fallbackTime = `${(session?.start_time ?? slot.start_time).slice(0, 5)}~${(session?.end_time ?? slot.end_time).slice(0, 5)}`
+  const fallbackTime = `${(session?.start_time ?? slot.start_time ?? '').slice(0, 5)}~${(session?.end_time ?? slot.end_time ?? '').slice(0, 5)}`
   const bookedName = getBookingName(slot)
   // 회차 번호 (이 날짜가 전체 세션 중 몇 번째인지)
   const sessionIndex = slot.sessions?.findIndex((s) => s.slot_date === dateStr) ?? -1
@@ -1353,7 +1413,7 @@ function BookedSlotDetailModal({ isOpen, onClose, slot }: BookedSlotDetailModalP
               )}
               <p className="text-sm mb-0.5" style={{ color: 'var(--text-muted)' }}>시간</p>
               <p className="text-base font-semibold tabular-nums" style={{ color: 'var(--text-primary)' }}>
-                {slot.start_time.slice(0, 5)} ~ {slot.end_time.slice(0, 5)}
+                {slot.start_time ? `${slot.start_time.slice(0, 5)} ~ ${slot.end_time?.slice(0, 5) ?? ''}` : '날짜 미정'}
               </p>
             </div>
 
@@ -1429,7 +1489,7 @@ function LockSlotModal({ isOpen, onClose, slot, onSuccess, onError }: LockSlotMo
     <Modal isOpen={isOpen} onClose={onClose} title="회원 배정" size="sm">
       <Modal.Body>
         <p className="text-sm mb-3" style={{ color: 'var(--text-muted)' }}>
-          {slot.slot_date} {slot.start_time.slice(0, 5)}~{slot.end_time.slice(0, 5)} 슬롯에 회원을 배정합니다.
+          {slot.slot_date ? `${slot.slot_date} ${slot.start_time?.slice(0, 5) ?? ''}~${slot.end_time?.slice(0, 5) ?? ''}` : '날짜 미정'} 슬롯에 회원을 배정합니다.
         </p>
         <div className="flex gap-2 mb-3">
           <input
