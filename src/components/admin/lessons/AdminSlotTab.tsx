@@ -309,6 +309,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
       return
     }
     setToast({ isOpen: true, message: '슬롯이 삭제되었습니다.', type: 'success' })
+    loadSlots(true) // 서버와 동기화
   }
 
   const todayStr = toDateStr(new Date())
