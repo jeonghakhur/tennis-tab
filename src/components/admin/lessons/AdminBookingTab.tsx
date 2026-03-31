@@ -632,11 +632,11 @@ function BookingRow({
 
       {/* 액션 */}
       <td className="px-3 py-3 align-top pt-3">
-        <div className="flex flex-wrap items-center justify-end gap-1">
+        <div className="grid grid-cols-2 gap-1" style={{ width: '112px' }}>
           {booking.status === 'PENDING' && (
             <button
               onClick={onConfirm}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap col-span-2"
               style={{ backgroundColor: '#16a34a' }}
             >
               수락
@@ -646,7 +646,7 @@ function BookingRow({
             !(booking.slots?.[0]?.sessions as SlotSession[] | null)?.some((s) => s.status === 'COMPLETED') && (
               <button
                 onClick={onCancel}
-                className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+                className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
                 style={{ backgroundColor: '#dc2626' }}
               >
                 {booking.status === 'PENDING' ? '거절' : '취소'}
@@ -656,17 +656,17 @@ function BookingRow({
           {booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && (
             <button
               onClick={onSession}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
               style={{ backgroundColor: '#2563eb' }}
             >
               세션
             </button>
           )}
-          {/* 연장 버튼: CONFIRMED + 패키지 슬롯 + 미연장 */}
+          {/* 연장 버튼 */}
           {booking.status === 'CONFIRMED' && booking.slots?.[0]?.sessions && booking.slots[0].sessions.length > 0 && !booking.slots[0].extended_at && (
             <button
               onClick={onExtend}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
               style={{ backgroundColor: '#d97706' }}
             >
               연장
@@ -675,11 +675,21 @@ function BookingRow({
           {/* 메모 버튼 */}
           <button
             onClick={onNote}
-            className="px-3 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+            className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
             style={{ backgroundColor: booking.admin_note ? '#2563eb' : '#64748b' }}
           >
             메모
           </button>
+          {/* 삭제 버튼 — CANCELLED 상태만 */}
+          {booking.status === 'CANCELLED' && (
+            <button
+              onClick={onCancel}
+              className="px-2 py-1.5 rounded-lg text-sm font-medium text-white whitespace-nowrap"
+              style={{ backgroundColor: '#64748b' }}
+            >
+              삭제
+            </button>
+          )}
         </div>
       </td>
     </tr>
