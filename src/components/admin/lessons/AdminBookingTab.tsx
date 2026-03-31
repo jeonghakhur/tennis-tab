@@ -378,41 +378,34 @@ export function AdminBookingTab({ coachId: fixedCoachId }: AdminBookingTabProps 
         onConfirm={handleCancel}
       />
 
-      {/* 삭제 확인 다이얼로그 */}
-      {deleteTarget && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}
-          onClick={() => setDeleteTarget(null)}
-        >
-          <div
-            className="rounded-xl p-6 w-80"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
-            onClick={(e) => e.stopPropagation()}
+      {/* 삭제 확인 모달 */}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="예약 삭제"
+        size="sm"
+      >
+        <Modal.Body>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+            이 예약을 완전히 삭제합니다. 삭제 후 복구할 수 없습니다.
+          </p>
+        </Modal.Body>
+        <Modal.Footer>
+          <button
+            onClick={() => setDeleteTarget(null)}
+            className="flex-1 px-4 py-2 rounded-lg text-sm"
+            style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
           >
-            <h3 className="text-base font-bold mb-2" style={{ color: 'var(--text-primary)' }}>예약 삭제</h3>
-            <p className="text-sm mb-6" style={{ color: 'var(--text-secondary)' }}>
-              이 예약을 완전히 삭제합니다. 삭제 후 복구할 수 없습니다.
-            </p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 py-2 rounded-lg text-sm"
-                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
-              >
-                취소
-              </button>
-              <button
-                onClick={handleDelete}
-                className="flex-1 py-2 rounded-lg text-sm font-medium text-white"
-                style={{ backgroundColor: '#dc2626' }}
-              >
-                삭제
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+            취소
+          </button>
+          <button
+            onClick={handleDelete}
+            className="flex-1 btn-danger btn-sm"
+          >
+            삭제
+          </button>
+        </Modal.Footer>
+      </Modal>
 
       {/* 메모 모달 */}
       <NoteModal
