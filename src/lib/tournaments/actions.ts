@@ -137,12 +137,15 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
   // 날짜 변환 헬퍼
   // datetime-local input은 timezone 없는 naive string ("YYYY-MM-DDTHH:mm")을 반환.
   // 서버는 UTC로 실행되므로 naive string을 KST(+09:00)로 명시적 처리.
-  const toISOStringOrNull = (dateStr: string | null) => {
-    if (!dateStr) return null
+  const toKSTISOString = (dateStr: string) => {
     if (dateStr.length <= 16 && !dateStr.includes('+') && !dateStr.includes('Z')) {
       return new Date(dateStr + ':00+09:00').toISOString()
     }
     return new Date(dateStr).toISOString()
+  }
+  const toISOStringOrNull = (dateStr: string | null) => {
+    if (!dateStr) return null
+    return toKSTISOString(dateStr)
   }
 
   // Admin Client 생성
@@ -154,8 +157,8 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
     title: title.trim(),
     description: (formData.get('description') as string) || null,
     poster_url: posterUrl || null,
-    start_date: new Date(startDate).toISOString(),
-    end_date: new Date(endDate).toISOString(),
+    start_date: toKSTISOString(startDate),
+    end_date: toKSTISOString(endDate),
     location: location.trim(),
     address: (formData.get('address') as string) || null,
     host: (formData.get('host') as string) || null,
@@ -323,12 +326,15 @@ export async function updateTournament(
   // 날짜 변환 헬퍼
   // datetime-local input은 timezone 없는 naive string ("YYYY-MM-DDTHH:mm")을 반환.
   // 서버는 UTC로 실행되므로 naive string을 KST(+09:00)로 명시적 처리.
-  const toISOStringOrNull = (dateStr: string | null) => {
-    if (!dateStr) return null
+  const toKSTISOString = (dateStr: string) => {
     if (dateStr.length <= 16 && !dateStr.includes('+') && !dateStr.includes('Z')) {
       return new Date(dateStr + ':00+09:00').toISOString()
     }
     return new Date(dateStr).toISOString()
+  }
+  const toISOStringOrNull = (dateStr: string | null) => {
+    if (!dateStr) return null
+    return toKSTISOString(dateStr)
   }
 
   // Admin Client 생성
@@ -340,8 +346,8 @@ export async function updateTournament(
     title: title.trim(),
     description: (formData.get('description') as string) || null,
     poster_url: posterUrl || null,
-    start_date: new Date(startDate).toISOString(),
-    end_date: new Date(endDate).toISOString(),
+    start_date: toKSTISOString(startDate),
+    end_date: toKSTISOString(endDate),
     location: location.trim(),
     address: (formData.get('address') as string) || null,
     host: (formData.get('host') as string) || null,

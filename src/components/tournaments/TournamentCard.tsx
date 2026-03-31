@@ -30,9 +30,17 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   const canManage = isAdmin(profile?.role);
 
   const formatDateRange = (startStr: string, endStr: string) => {
-    const fmt = (d: string) => d.replace(/-/g, '.').slice(0, 10);
-    if (startStr === endStr) return fmt(startStr);
-    return `${fmt(startStr)}~${fmt(endStr)}`;
+    const fmt = (d: string) =>
+      new Date(d).toLocaleDateString("ko-KR", {
+        timeZone: "Asia/Seoul",
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).replace(/\. /g, ".").replace(/\.$/, "");
+    const startFmt = fmt(startStr);
+    const endFmt = fmt(endStr);
+    if (startFmt === endFmt) return startFmt;
+    return `${startFmt}~${endFmt}`;
   };
 
   const formatMatchType = () => {

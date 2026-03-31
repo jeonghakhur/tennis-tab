@@ -19,7 +19,9 @@ function getDDayBadge(status: string, daysLeft: number): { label: string; varian
 function formatEntryEndDate(dateStr: string): string {
   if (!dateStr) return ''
   const d = new Date(dateStr)
-  return `${d.getMonth() + 1}/${d.getDate()} 마감`
+  const month = d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric" })
+  const day = d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", day: "numeric" })
+  return `${month}/${day} 마감`
 }
 
 export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) {
