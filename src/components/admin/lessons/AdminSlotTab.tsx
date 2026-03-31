@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List, User, Phone, CreditCard, Hash, Trash2 } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List, User, Phone, CreditCard, Hash, Trash2, Pencil } from 'lucide-react'
 import {
   updateSlotStatus,
   lockSlot,
@@ -19,6 +19,7 @@ import type { Coach } from '@/lib/lessons/types'
 import type { LessonSlot, LessonSlotStatus, LessonBooking } from '@/lib/lessons/slot-types'
 import { BOOKING_TYPE_LABEL, BOOKING_STATUS_LABEL } from '@/lib/lessons/slot-types'
 import { CreateSlotModal } from './CreateSlotModal'
+import { EditSlotModal } from './EditSlotModal'
 
 // ─── 상수 ────────────────────────────────────────────────────────────────────
 
@@ -177,6 +178,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [lockModalSlot, setLockModalSlot] = useState<LessonSlot | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<LessonSlot | null>(null)
+  const [editTarget, setEditTarget] = useState<LessonSlot | null>(null)
   const [bookingModalSlot, setBookingModalSlot] = useState<LessonSlot | null>(null)
 
   // 피드백
@@ -546,6 +548,16 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
                           <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
                             {slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'}
                           </span>
+                          {(slot.status === 'OPEN' || slot.status === 'BLOCKED') && (
+                            <button
+                              onClick={() => setEditTarget(slot)}
+                              className="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                              style={{ backgroundColor: 'var(--color-info-subtle, rgba(59,130,246,0.12))', color: 'var(--color-info)' }}
+                              title="슬롯 수정"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
                             onClick={() => setDeleteTarget(slot)}
                             className="p-1.5 rounded-lg transition-colors hover:opacity-80"
@@ -671,6 +683,7 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
                     onLock={(slot) => setLockModalSlot(slot)}
                     onUnlock={handleUnlock}
                     onDelete={(slot) => setDeleteTarget(slot)}
+                    onEdit={(slot) => setEditTarget(slot)}
                     onViewBooking={(slot) => setBookingModalSlot(slot)}
                   />
                 )}
@@ -820,6 +833,21 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
         />
       )}
 
+      {/* 슬롯 수정 모달 */}
+      {editTarget && (
+        <EditSlotModal
+          isOpen={!!editTarget}
+          onClose={() => setEditTarget(null)}
+          slot={editTarget}
+          onSuccess={() => {
+            setToast({ isOpen: true, message: '슬롯이 수정되었습니다.', type: 'success' })
+            setEditTarget(null)
+            loadSlots(true)
+          }}
+          onError={(msg) => setAlert({ isOpen: true, message: msg, type: 'error' })}
+        />
+      )}
+
       {/* 예약자 상세 모달 */}
       {bookingModalSlot && (
         <BookedSlotDetailModal
@@ -882,10 +910,11 @@ interface DateSlotPanelProps {
   onLock: (slot: LessonSlot) => void
   onUnlock: (slot: LessonSlot) => void
   onDelete: (slot: LessonSlot) => void
+  onEdit: (slot: LessonSlot) => void
   onViewBooking: (slot: LessonSlot) => void
 }
 
-function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, onViewBooking }: DateSlotPanelProps) {
+function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, onEdit, onViewBooking }: DateSlotPanelProps) {
   const date = new Date(dateStr + 'T00:00:00')
   const dow = date.getDay()
   const bookedCount = slots.filter((s) => s.status === 'BOOKED').length
@@ -948,6 +977,7 @@ function DateSlotPanel({ dateStr, slots, onToggle, onLock, onUnlock, onDelete, o
               onLock={() => onLock(slot)}
               onUnlock={() => onUnlock(slot)}
               onDelete={() => onDelete(slot)}
+              onEdit={() => onEdit(slot)}
               onViewBooking={() => onViewBooking(slot)}
             />
           ))}
@@ -1047,10 +1077,11 @@ interface PackageCardProps {
   onLock: () => void
   onUnlock: () => void
   onDelete: () => void
+  onEdit: () => void
   onViewBooking: () => void
 }
 
-function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onViewBooking }: PackageCardProps) {
+function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onEdit, onViewBooking }: PackageCardProps) {
   const conf = SLOT_STATUS_CONFIG[slot.status]
   const sessions = slot.sessions ?? []
   const isActionable = slot.status === 'OPEN' || slot.status === 'BLOCKED'
@@ -1095,6 +1126,9 @@ function PackageCard({ slot, dateStr, onToggle, onLock, onUnlock, onDelete, onVi
         <div className="flex items-center gap-0.5 shrink-0">
           {isActionable && (
             <>
+              <button onClick={onEdit} className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors" aria-label="수정">
+                <Pencil className="w-3.5 h-3.5" style={{ color: 'var(--color-info)' }} />
+              </button>
               <button
                 onClick={onToggle}
                 className="p-1.5 rounded-lg hover:bg-[var(--bg-card-hover)] transition-colors"

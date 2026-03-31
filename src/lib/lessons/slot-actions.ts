@@ -510,6 +510,137 @@ export async function deleteSlot(slotId: string): Promise<{ error: string | null
   return { error: null }
 }
 
+/** 슬롯 수정 (OPEN/BLOCKED 상태만) */
+export async function updateSlot(
+  slotId: string,
+  input: {
+    frequency: 1 | 2
+    duration_minutes: 20 | 30
+    selectedDays: number[]
+    times: string[]
+    fee_amount: number | null
+    start_date: string | null  // null이면 날짜 미정 유지
+  }
+): Promise<{ error: string | null }> {
+  const { error: authErr, coachId } = await checkCoachOrAdminAuth()
+  if (authErr) return { error: authErr }
+
+  const idErr = validateId(slotId, '슬롯 ID')
+  if (idErr) return { error: idErr }
+
+  const ownerErr = await assertCoachOwnsSlot(coachId, slotId)
+  if (ownerErr) return { error: ownerErr }
+
+  const admin = createAdminClient()
+
+  // 현재 상태 확인 — OPEN/BLOCKED만 수정 가능
+  const { data: current } = await admin
+    .from('lesson_slots')
+    .select('status')
+    .eq('id', slotId)
+    .single()
+
+  if (!current) return { error: '슬롯을 찾을 수 없습니다.' }
+  if (current.status !== 'OPEN' && current.status !== 'BLOCKED') {
+    return { error: '예약/배정된 슬롯은 수정할 수 없습니다.' }
+  }
+
+  const totalSessions = input.frequency * 4
+  const hasDate = !!input.start_date
+
+  // 날짜가 있으면 세션 일정 생성
+  let sessions: SlotSession[] | Array<{ dow: number; start_time: string }> = []
+  let slotDate: string | null = null
+  let startTime: string | null = null
+  let endTime: string | null = null
+  let lastSessionDate: string | null = null
+
+  if (hasDate) {
+    // 시작일 기반 세션 생성 (createLessonSlot의 날짜 있는 케이스와 동일)
+    const generatedSessions: SlotSession[] = []
+    const baseDate = new Date(input.start_date! + 'T00:00:00')
+    const sortedDays = [...input.selectedDays].sort((a, b) => a - b)
+
+    // 4주(frequency * 4회) 세션 생성
+    let count = 0
+    const maxWeeks = 8 // 안전장치
+    for (let week = 0; week < maxWeeks && count < totalSessions; week++) {
+      for (let i = 0; i < sortedDays.length && count < totalSessions; i++) {
+        const targetDow = sortedDays[i]
+        const time = input.times[input.selectedDays.indexOf(targetDow)] ?? input.times[0]
+        // 해당 주의 targetDow 날짜 계산
+        const d = new Date(baseDate)
+        d.setDate(d.getDate() + week * 7)
+        const currentDow = d.getDay()
+        const diff = targetDow - currentDow
+        d.setDate(d.getDate() + diff)
+        // 시작일 이전이면 다음 주로
+        if (d < baseDate) {
+          d.setDate(d.getDate() + 7)
+        }
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        // duration 기반 종료 시간 계산
+        const [hh, mm] = time.split(':').map(Number)
+        const endMin = hh * 60 + mm + input.duration_minutes
+        const endTimeStr = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`
+
+        // 가능 시간 범위 검증
+        if (!isTimeInRange(dateStr, time, endTimeStr)) {
+          const dayLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('ko-KR', { weekday: 'short' })
+          return { error: `${dateStr}(${dayLabel}) ${time}~${endTimeStr}은 가능 시간 범위를 벗어납니다.` }
+        }
+
+        generatedSessions.push({
+          slot_date: dateStr,
+          start_time: time,
+          end_time: endTimeStr,
+        })
+        count++
+      }
+    }
+
+    // 중복 날짜 제거 후 정렬
+    generatedSessions.sort((a, b) => a.slot_date.localeCompare(b.slot_date))
+    sessions = generatedSessions
+    slotDate = generatedSessions[0].slot_date
+    startTime = generatedSessions[0].start_time
+    endTime = generatedSessions[0].end_time
+    lastSessionDate = generatedSessions[generatedSessions.length - 1].slot_date
+  } else {
+    // 날짜 미정: 요일 + 시간 정보만
+    sessions = input.selectedDays.map((dow, i) => ({
+      dow,
+      start_time: input.times[i] ?? '',
+    }))
+  }
+
+  // day_type 추론
+  const dayType = hasDate
+    ? getDayType(slotDate!)
+    : input.selectedDays.some((d) => d === 0 || d === 6) ? 'WEEKEND' as const : 'WEEKDAY' as const
+
+  const { error } = await admin
+    .from('lesson_slots')
+    .update({
+      slot_date: slotDate,
+      start_time: startTime,
+      end_time: endTime,
+      day_type: dayType,
+      frequency: input.frequency,
+      duration_minutes: input.duration_minutes,
+      total_sessions: totalSessions,
+      sessions,
+      last_session_date: lastSessionDate,
+      fee_amount: input.fee_amount,
+    })
+    .eq('id', slotId)
+
+  if (error) return { error: '슬롯 수정에 실패했습니다.' }
+
+  revalidatePath(REVALIDATE_PATH)
+  return { error: null }
+}
+
 // ============================================================================
 // 슬롯 조회
 // ============================================================================
