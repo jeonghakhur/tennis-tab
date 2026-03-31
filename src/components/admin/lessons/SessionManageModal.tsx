@@ -170,49 +170,38 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Prop
               return (
                 <div
                   key={session.slot_date}
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg"
+                  className="px-3 py-2 rounded-lg"
                   style={{ backgroundColor: conf.bg, border: `1px solid ${conf.color}30` }}
                 >
-                  {/* 날짜 */}
-                  <span
-                    className="text-sm font-medium w-20 shrink-0"
-                    style={{
-                      color: conf.color,
-                      textDecoration: status === 'CANCELLED' || status === 'RESCHEDULED' ? 'line-through' : 'none',
-                    }}
-                  >
-                    {formatDate(session.slot_date)}
-                  </span>
-
-                  {/* 시간 */}
-                  <span className="text-sm shrink-0 w-24" style={{ color: 'var(--text-muted)' }}>
-                    {session.start_time.slice(0, 5)}~{session.end_time.slice(0, 5)}
-                  </span>
-
-                  {/* 상태 뱃지 */}
-                  <span
-                    className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
-                    style={{ color: conf.color, backgroundColor: `${conf.color}20` }}
-                  >
-                    {conf.label}
-                  </span>
-
-                  {/* 보강 원래 날짜 표시 */}
-                  {session.original_date && (
-                    <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                      (원래 {formatDate(session.original_date)})
+                  {/* 1행: 날짜 + 시간 + 상태 */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="text-sm font-medium shrink-0"
+                      style={{
+                        color: conf.color,
+                        textDecoration: status === 'CANCELLED' || status === 'RESCHEDULED' ? 'line-through' : 'none',
+                      }}
+                    >
+                      {formatDate(session.slot_date)}
                     </span>
-                  )}
-
-                  {/* 사유 */}
-                  {session.note && !session.original_date && (
-                    <span className="text-xs truncate flex-1" style={{ color: 'var(--text-muted)' }}>
-                      {session.note}
+                    <span className="text-sm shrink-0" style={{ color: 'var(--text-muted)' }}>
+                      {session.start_time.slice(0, 5)}~{session.end_time.slice(0, 5)}
                     </span>
-                  )}
+                    <span
+                      className="text-xs px-1.5 py-0.5 rounded font-medium shrink-0"
+                      style={{ color: conf.color, backgroundColor: `${conf.color}20` }}
+                    >
+                      {conf.label}
+                    </span>
+                    {session.original_date && (
+                      <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                        ← {formatDate(session.original_date)}
+                      </span>
+                    )}
+                  </div>
 
-                  {/* 액션 버튼 */}
-                  <div className="ml-auto flex items-center gap-1 shrink-0">
+                  {/* 2행: 액션 버튼 */}
+                  <div className="flex items-center gap-1 mt-1.5">
                     {status === 'SCHEDULED' && (
                       <>
                         <ActionBtn
@@ -241,7 +230,7 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Prop
                     )}
                     {status === 'COMPLETED' && (
                       <ActionBtn
-                        label="예정"
+                        label="예정으로"
                         color="var(--text-muted)"
                         onClick={() => setStatus(session.slot_date, 'SCHEDULED')}
                       />
@@ -252,6 +241,11 @@ export function SessionManageModal({ booking, onClose, onSessionsUpdated }: Prop
                         color="var(--color-success)"
                         onClick={() => setStatus(session.slot_date, 'SCHEDULED')}
                       />
+                    )}
+                    {session.note && (
+                      <span className="text-xs ml-1" style={{ color: 'var(--text-muted)' }}>
+                        {session.note}
+                      </span>
                     )}
                   </div>
                 </div>
