@@ -698,9 +698,8 @@ export async function getPublicOpenSlots(
     .select('*, locked_member:club_members!locked_member_id(id, name)')
     .eq('coach_id', coachId)
     .eq('status', 'OPEN')
-    .lte('slot_date', endDate)
-    .or(`last_session_date.gte.${startDate},slot_date.gte.${startDate}`)
-    .order('slot_date')
+    .or(`slot_date.is.null,and(slot_date.lte.${endDate},or(last_session_date.gte.${startDate},slot_date.gte.${startDate}))`)
+    .order('slot_date', { nullsFirst: true })
     .order('start_time')
 
   if (error) return { error: '슬롯 조회에 실패했습니다.', data: [] }
