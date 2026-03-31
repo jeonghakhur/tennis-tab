@@ -4,7 +4,7 @@ import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEntriesRealtime } from '@/lib/realtime/useEntriesRealtime'
-import { Search, Users, Phone, Trash2 } from 'lucide-react'
+import { Search, Users, Phone, Trash2, Download } from 'lucide-react'
 import type {
   Database,
   EntryStatus,
@@ -153,6 +153,7 @@ export function EntriesManager({
   // 일괄 변경 select controlled state
   const [bulkStatus, setBulkStatus] = useState('')
   const [bulkPayment, setBulkPayment] = useState('')
+  const [excelDownloading, setExcelDownloading] = useState(false)
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean
     title: string
@@ -328,6 +329,47 @@ export function EntriesManager({
       })
     } finally {
       setProcessing(null)
+    }
+  }
+
+  // 엑셀 다운로드
+  const handleExcelDownload = async () => {
+    setExcelDownloading(true)
+    try {
+      const res = await fetch(`/api/admin/tournaments/${tournamentId}/entries/export`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: '다운로드 실패' }))
+        setAlertDialog({
+          isOpen: true,
+          title: '다운로드 실패',
+          message: data.error || '엑셀 파일 생성에 실패했습니다.',
+          type: 'error',
+        })
+        return
+      }
+      const blob = await res.blob()
+      // Content-Disposition에서 파일명 추출
+      const disposition = res.headers.get('Content-Disposition') ?? ''
+      const filenameMatch = disposition.match(/filename\*=UTF-8''(.+)/)
+      const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : '참가신청내역.xlsx'
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setAlertDialog({
+        isOpen: true,
+        title: '다운로드 실패',
+        message: '네트워크 오류가 발생했습니다.',
+        type: 'error',
+      })
+    } finally {
+      setExcelDownloading(false)
     }
   }
 
@@ -631,18 +673,29 @@ export function EntriesManager({
 
       {/* Results count and bulk actions */}
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <span className="text-base text-(--text-secondary)">
-          검색 결과:{' '}
-          <strong className="text-(--text-primary)">
-            {filteredAndSortedEntries.length}
-          </strong>
-          명
-          {selectedEntries.length > 0 && (
-            <span className="ml-3 text-(--accent-color) font-medium">
-              {selectedEntries.length}명 선택됨
-            </span>
-          )}
-        </span>
+        <div className="flex items-center gap-3">
+          <span className="text-base text-(--text-secondary)">
+            검색 결과:{' '}
+            <strong className="text-(--text-primary)">
+              {filteredAndSortedEntries.length}
+            </strong>
+            명
+            {selectedEntries.length > 0 && (
+              <span className="ml-3 text-(--accent-color) font-medium">
+                {selectedEntries.length}명 선택됨
+              </span>
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={handleExcelDownload}
+            disabled={excelDownloading}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) text-(--text-secondary) hover:text-(--accent-color) hover:border-(--accent-color) transition-colors disabled:opacity-50"
+          >
+            <Download className="w-4 h-4" />
+            {excelDownloading ? '다운로드 중...' : '엑셀 다운로드'}
+          </button>
+        </div>
 
         {selectedEntries.length > 0 && (
           <div className="flex items-center gap-2">
