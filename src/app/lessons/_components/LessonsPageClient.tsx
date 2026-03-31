@@ -23,12 +23,17 @@ function formatDateShort(dateStr: string): string {
 }
 
 function getPerDowTimes(
-  sessions: Array<{ slot_date: string; start_time: string; end_time: string }>
+  sessions: Array<{ slot_date?: string; start_time?: string; end_time?: string; dow?: number }>
 ): Array<{ dow: number; start: string; end: string }> {
   const seen = new Map<number, { start: string; end: string }>()
   for (const s of sessions) {
-    const dow = new Date(s.slot_date + 'T00:00:00').getDay()
-    if (!seen.has(dow)) seen.set(dow, { start: s.start_time, end: s.end_time })
+    // slot_date 기반 또는 dow 기반 처리
+    const dow = s.dow !== undefined ? s.dow : (s.slot_date ? new Date(s.slot_date + 'T00:00:00').getDay() : undefined)
+    if (dow === undefined) continue
+    const start = s.start_time
+    const end = s.end_time
+    if (!start) continue
+    if (!seen.has(dow)) seen.set(dow, { start, end: end ?? '' })
   }
   return [...seen.entries()].sort(([a], [b]) => a - b).map(([dow, t]) => ({ dow, ...t }))
 }
