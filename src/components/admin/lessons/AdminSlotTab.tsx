@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List, User, Phone, CreditCard, Hash } from 'lucide-react'
+import { Plus, ChevronLeft, ChevronRight, Lock, Unlock, X, Search, CalendarDays, List, User, Phone, CreditCard, Hash, Trash2 } from 'lucide-react'
 import {
   updateSlotStatus,
   lockSlot,
@@ -542,9 +542,19 @@ export function AdminSlotTab({ fixedCoachId }: AdminSlotTabProps = {}) {
                             주{slot.frequency}회 · {slot.duration_minutes}분 · 총{slot.total_sessions}회
                           </span>
                         </div>
-                        <span className="text-sm font-medium shrink-0" style={{ color: 'var(--text-secondary)' }}>
-                          {slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'}
-                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-sm font-medium" style={{ color: 'var(--text-secondary)' }}>
+                            {slot.fee_amount != null ? `${slot.fee_amount.toLocaleString()}원` : '별도 협의'}
+                          </span>
+                          <button
+                            onClick={() => setDeleteTarget(slot)}
+                            className="p-1.5 rounded-lg transition-colors hover:opacity-80"
+                            style={{ backgroundColor: 'var(--color-danger-subtle)', color: 'var(--color-danger)' }}
+                            title="슬롯 삭제"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     )
                   })}
