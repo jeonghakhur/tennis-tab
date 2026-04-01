@@ -89,6 +89,12 @@ export async function GET(request: Request, context: RouteContext) {
   const isTeamMatch = tournament.match_type === 'TEAM_SINGLES' || tournament.match_type === 'TEAM_DOUBLES'
   const isDoubles = tournament.match_type === 'INDIVIDUAL_DOUBLES'
 
+  // 단체전: 최대 팀원 수 계산 (컬럼 순서 고정용)
+  type TeamMemberItem = { name: string; rating: number; club?: string | null }
+  const maxTeamMembers = isTeamMatch
+    ? Math.max(0, ...entries.map((e) => (e.team_members as TeamMemberItem[] | null)?.length ?? 0))
+    : 0
+
   // 엑셀 데이터 생성
   type ExcelRow = Record<string, string | number>
   const rows: ExcelRow[] = entries.map((entry, index) => {
@@ -109,12 +115,16 @@ export async function GET(request: Request, context: RouteContext) {
       row['파트너 클럽'] = partner.club || '-'
     }
 
-    // 단체전: 팀원 정보
-    if (isTeamMatch && entry.team_members) {
-      const members = entry.team_members as Array<{ name: string; rating: number; club?: string | null }>
-      members.forEach((member, i) => {
-        row[`팀원${i + 1}`] = member.name || '-'
-      })
+    // 단체전: 팀원 이름 + 점수 (최대 팀원 수만큼 빈 슬롯 포함 → 컬럼 순서 고정)
+    if (isTeamMatch) {
+      const members = (entry.team_members as TeamMemberItem[] | null) ?? []
+      const totalRating = members.reduce((sum, m) => sum + (m?.rating ?? 0), 0)
+      row['팀 총점'] = totalRating || '-'
+      for (let i = 0; i < maxTeamMembers; i++) {
+        const member = members[i]
+        row[`팀원${i + 1}`] = member?.name || '-'
+        row[`팀원${i + 1} 점수`] = member?.rating ?? '-'
+      }
     }
 
     row['참가상태'] = ENTRY_STATUS_LABELS[entry.status] || entry.status
