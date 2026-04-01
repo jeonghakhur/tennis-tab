@@ -9,6 +9,7 @@ import { TournamentPosterImage } from "@/components/tournaments/TournamentPoster
 import { TournamentStatus, MatchType } from "@/lib/supabase/types";
 import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
+import { DivisionEntryButton } from "@/components/tournaments/DivisionEntryButton";
 import { Badge, type BadgeVariant } from "@/components/common/Badge";
 import { decryptProfile } from "@/lib/crypto/profileCrypto";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
@@ -135,6 +136,49 @@ export default async function TournamentDetailPage({ params }: Props) {
       ...entry,
       current_rank: rankMap.get(entry.id) ?? null,
     }));
+  }
+
+  // 로그인 사용자에게 부서별 신청 현황 표시용 (취소/거절 제외)
+  type DivisionEntryItem = {
+    id: string
+    division_id: string | null
+    player_name: string | null
+    club_name: string | null
+    status: string
+    partner_data: { name: string; club?: string; rating?: number } | null
+    team_members: Array<{ name: string; rating?: number; club?: string }> | null
+    profile_name: string | null
+    profile_club: string | null
+  }
+  let divisionEntriesMap: Record<string, DivisionEntryItem[]> = {}
+
+  if (user) {
+    const { data: allEntries } = await supabase
+      .from('tournament_entries')
+      .select('id, division_id, player_name, club_name, status, partner_data, team_members, profiles:user_id(name, club)')
+      .eq('tournament_id', id)
+      .in('status', ['PENDING', 'CONFIRMED', 'WAITLISTED'])
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true })
+
+
+    ;(allEntries ?? []).forEach((entry) => {
+      const profile = (Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles) as { name: string; club: string | null } | null
+      const item: DivisionEntryItem = {
+        id: entry.id,
+        division_id: entry.division_id,
+        player_name: entry.player_name,
+        club_name: entry.club_name,
+        status: entry.status,
+        partner_data: entry.partner_data as DivisionEntryItem['partner_data'],
+        team_members: entry.team_members as DivisionEntryItem['team_members'],
+        profile_name: profile?.name ?? null,
+        profile_club: profile?.club ?? null,
+      }
+      const key = entry.division_id ?? '__none__'
+      if (!divisionEntriesMap[key]) divisionEntriesMap[key] = []
+      divisionEntriesMap[key].push(item)
+    })
   }
 
   const organizerName = tournament.profiles
@@ -552,7 +596,7 @@ export default async function TournamentDetailPage({ params }: Props) {
                           )}
                         </div>
                       </div>
-                      <div className="flex flex-col items-end gap-1">
+                      <div className="flex flex-col items-end gap-2">
                         <span className="text-sm" style={{ color: "var(--text-muted)" }}>
                           우승 상금
                         </span>
@@ -562,6 +606,13 @@ export default async function TournamentDetailPage({ params }: Props) {
                         >
                           {division.prize_winner || "-"}
                         </span>
+                        {user && (
+                          <DivisionEntryButton
+                            divisionName={division.name}
+                            entries={divisionEntriesMap[division.id] ?? []}
+                            matchType={tournament.match_type ?? ''}
+                          />
+                        )}
                       </div>
                     </div>
 
