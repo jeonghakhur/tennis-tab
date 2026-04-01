@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { ChevronLeft } from 'lucide-react'
 import { ClubDetailTabs } from '@/components/clubs/ClubDetailTabs'
 import type { Club, ClubMember } from '@/lib/clubs/types'
+import { decryptProfile } from '@/lib/crypto/profileCrypto'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -65,6 +66,27 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
     .order('role', { ascending: true })
     .order('name', { ascending: true })
 
+  // club_members.phone에 암호화된 값이 저장된 경우 복호화
+  // (profiles.phone은 암호화 저장 — inviteMember 버그로 인해 암호문이 복사된 케이스 대응)
+  const registeredUserIds = (members || [])
+    .filter((m) => m.user_id)
+    .map((m) => m.user_id as string)
+
+  let profilePhoneMap: Record<string, string | null> = {}
+  if (registeredUserIds.length > 0) {
+    const { data: profiles } = await admin
+      .from('profiles')
+      .select('id, phone')
+      .in('id', registeredUserIds)
+    profilePhoneMap = Object.fromEntries(
+      (profiles || []).map((p) => [p.id, decryptProfile(p).phone ?? null])
+    )
+  }
+
+  const membersWithPhone = (members || []).map((m) =>
+    m.user_id ? { ...m, phone: profilePhoneMap[m.user_id] ?? m.phone } : m
+  )
+
   // 협회 목록 fetch (시스템 관리자: 전체, 기타: 자신의 협회만)
   const isSystemAdmin = hasMinimumRole(profile?.role, 'ADMIN')
   let associations: { id: string; name: string }[] = []
@@ -105,7 +127,7 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
 
       <ClubDetailTabs
         club={club as Club}
-        initialMembers={(members || []) as ClubMember[]}
+        initialMembers={membersWithPhone as ClubMember[]}
         associations={associations}
         isSystemAdmin={isSystemAdmin}
       />

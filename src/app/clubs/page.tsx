@@ -8,6 +8,7 @@ import type { Club, ClubMemberRole } from '@/lib/clubs/types'
 import { Search, MapPin, Users, Check, MessageCircle } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { hasMinimumRole } from '@/lib/auth/roles'
 
 // 모듈 레벨 캐시: 뒤로가기 시 재조회 없이 즉시 렌더링
 type ClubsListCache = { clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; search: string }
@@ -23,7 +24,8 @@ const ROLE_LABEL: Record<string, string> = {
 }
 
 export default function ClubsPage() {
-  const { user } = useAuth()
+  const { user, profile } = useAuth()
+  const isSystemAdmin = hasMinimumRole(profile?.role, 'ADMIN')
 
   // 캐시에서 초기값 읽기
   const isCacheValid = clubsListCache && clubsListCache.search === ''
@@ -221,7 +223,8 @@ export default function ClubsPage() {
                     {/* 상단: 클럽명+설명 + 가입 버튼/상태 배지 */}
                     <div className="flex items-start justify-between gap-3 mb-3">
                       {/* 좌측: 클럽명 + 설명 (항상 2줄 공간 확보) */}
-                      {isMine ? (
+                      {/* 내 클럽이거나 시스템 관리자는 상세 페이지 링크 */}
+                      {isMine || isSystemAdmin ? (
                         <Link href={`/clubs/${club.id}`} className="group flex-1 min-w-0">
                           <h3 className="font-display text-base font-semibold group-hover:text-(--accent-color) transition-colors truncate" style={{ color: 'var(--text-primary)' }}>
                             {club.name}

@@ -16,6 +16,7 @@ import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import { MapPin, Users, Building2, Phone, Mail, ChevronLeft, User, Settings, Trophy, Calendar, BarChart3 } from 'lucide-react'
 import { KakaoShareButton } from '@/components/common/KakaoShareButton'
+import { hasMinimumRole } from '@/lib/auth/roles'
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 모듈 레벨 캐시: 뒤로가기 시 컴포넌트 remount 후에도 스켈레톤 없이 즉시 렌더링
@@ -63,6 +64,8 @@ interface Props {
 export default function ClubDetailClient({ clubId: id }: Props) {
   const searchParams = useSearchParams()
   const { user, profile, loading: authLoading } = useAuth()
+  // ADMIN 이상(시스템 관리자)은 클럽 멤버십 없이도 전체 기능 접근
+  const isSystemAdmin = hasMinimumRole(profile?.role, 'ADMIN')
 
   // 캐시에서 초기값 읽기 → 뒤로가기 시 스켈레톤 없이 즉시 렌더링
   const cachedClub = clubCache.get(id)
@@ -82,7 +85,8 @@ export default function ClubDetailClient({ clubId: id }: Props) {
   const [myMembership, setMyMembership] = useState<PublicMember | null>(cachedMembership?.membership ?? null)
 
   // 임원(OWNER/ADMIN/MATCH_DIRECTOR) 여부 + 회원 관리용 전체 멤버 데이터
-  const isOfficer = myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role)
+  // 시스템 관리자(ADMIN 이상)는 클럽 멤버십 없이도 임원 권한으로 처리
+  const isOfficer = isSystemAdmin || !!(myMembership && ['OWNER', 'ADMIN', 'MATCH_DIRECTOR'].includes(myMembership.role))
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([])
   const validTabs = ['sessions', 'rankings', 'info', 'awards', 'manage'] as const
   type ActiveTab = typeof validTabs[number]
@@ -275,8 +279,8 @@ export default function ClubDetailClient({ clubId: id }: Props) {
             클럽 목록
           </Link>
 
-          {/* 비회원: 기본 정보 + 가입 안내만 표시 */}
-          {!isMember ? (
+          {/* 비회원: 기본 정보 + 가입 안내만 표시 (시스템 관리자는 멤버십 없어도 전체 접근) */}
+          {!isMember && !isSystemAdmin ? (
             <div className="glass-card rounded-xl p-6">
               <div className="flex items-start justify-between mb-3">
                 <h1
@@ -410,9 +414,12 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                       className="block text-xs mb-2 px-3 py-1 rounded-full font-medium"
                       style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
                     >
-                      {ROLE_LABEL[myMembership?.role || 'MEMBER']}
+                      {isSystemAdmin && !myMembership
+                        ? '관리자'
+                        : ROLE_LABEL[myMembership?.role || 'MEMBER']}
                     </span>
-                    {myMembership?.role !== 'OWNER' && (
+                    {/* 시스템 관리자이거나 OWNER이면 탈퇴 버튼 미표시 */}
+                    {!isSystemAdmin && myMembership?.role !== 'OWNER' && (
                       <button
                         onClick={() => setConfirmLeave(true)}
                         className="text-xs hover:underline"
@@ -608,7 +615,7 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                         key="manage"
                         clubId={id}
                         initialMembers={fullMembers}
-                        isSystemAdmin={false}
+                        isSystemAdmin={isSystemAdmin}
                       />
                     )
                   )}

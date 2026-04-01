@@ -792,12 +792,15 @@ export async function inviteMember(clubId: string, userId: string): Promise<{ er
 
   if (!targetProfile) return { error: '사용자를 찾을 수 없습니다.' }
 
+  // profiles.phone은 암호화 저장 — club_members에 저장 전 복호화 필요
+  const decryptedProfile = decryptProfile(targetProfile)
+
   const { error } = await admin.from('club_members').insert({
     club_id: clubId,
     user_id: userId,
     is_registered: true,
-    name: targetProfile.name,
-    phone: targetProfile.phone,
+    name: decryptedProfile.name,
+    phone: decryptedProfile.phone,
     start_year: targetProfile.start_year,
     rating: targetProfile.rating,
     gender: targetProfile.gender || null,
