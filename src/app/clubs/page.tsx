@@ -94,6 +94,11 @@ export default function ClubsPage() {
       setGuestIntro('')
       return
     }
+    // 프로필에 연락처 미등록 → 가입 차단 (비가입 레코드 매칭에 phone 필수)
+    if (!profile?.phone) {
+      setAlert({ isOpen: true, message: '가입 신청에는 연락처가 필요합니다.\n프로필에서 연락처를 먼저 등록해주세요.', type: 'error' })
+      return
+    }
     if (club.join_type === 'OPEN') {
       // 로그인 + OPEN: 즉시 가입
       submitMemberJoin(club, undefined)
@@ -102,7 +107,7 @@ export default function ClubsPage() {
       setMemberJoinTarget(club)
       setMemberIntro('')
     }
-  }, [user])
+  }, [user, profile])
 
   // 로그인 회원 가입 처리
   const submitMemberJoin = async (club: Club, intro: string | undefined) => {

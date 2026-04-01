@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/components/AuthProvider'
-import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, leaveClub, getMyMembershipInClub } from '@/lib/clubs/actions'
+import { getClub, getClubPublicMembers, getClubMemberCount, getClubMembers, leaveClub, getMyMembershipInClub, getMyPendingInvitation, respondInvitation } from '@/lib/clubs/actions'
 import type { Club, ClubJoinType, ClubMemberRole, ClubMember } from '@/lib/clubs/types'
 import { ClubMemberList } from '@/components/clubs/ClubMemberList'
 import { ClubAwards } from '@/components/awards/ClubAwards'
@@ -113,6 +113,8 @@ export default function ClubDetailClient({ clubId: id }: Props) {
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
   const [confirmLeave, setConfirmLeave] = useState(false)
+  // INVITED 상태: 초대 수락/거절 대기 중
+  const [pendingInvitation, setPendingInvitation] = useState<{ id: string } | null>(null)
 
   // 클럽 기본 데이터 + 멤버십 병렬 로드
   // 캐시가 있으면 silent(백그라운드 갱신), 없으면 스켈레톤 표시
@@ -166,8 +168,11 @@ export default function ClubDetailClient({ clubId: id }: Props) {
   const checkMembership = async () => {
     if (!id) return
     try {
-      // admin 클라이언트 기반 서버 액션 사용 → 브라우저 Supabase 세션과 무관하게 안정적
-      const { data } = await getMyMembershipInClub(id)
+      // ACTIVE 멤버십 + INVITED 초대 병렬 조회
+      const [{ data }, { data: invitation }] = await Promise.all([
+        getMyMembershipInClub(id),
+        getMyPendingInvitation(id),
+      ])
       const cacheKey = `${id}:${user?.id ?? 'guest'}`
       if (data) {
         setIsMember(true)
@@ -178,6 +183,7 @@ export default function ClubDetailClient({ clubId: id }: Props) {
         setMyMembership(null)
         membershipCache.set(cacheKey, { isMember: false, membership: null })
       }
+      setPendingInvitation(invitation)
     } catch {
       setIsMember(false)
       setMyMembership(null)
@@ -207,6 +213,29 @@ export default function ClubDetailClient({ clubId: id }: Props) {
         .catch(() => setAwardsLoading(false))
     )
   }, [activeTab, id, club])
+
+  const handleInvitationResponse = async (accept: boolean) => {
+    if (!pendingInvitation) return
+    setActionLoading(true)
+    const result = await respondInvitation(pendingInvitation.id, accept)
+    setActionLoading(false)
+
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+
+    if (accept) {
+      setToast({ isOpen: true, message: `${club?.name ?? '클럽'}에 가입되었습니다!`, type: 'success' })
+      setPendingInvitation(null)
+      // 멤버십 재조회 → 회원 뷰로 전환
+      await checkMembership()
+      loadClubData(true)
+    } else {
+      setToast({ isOpen: true, message: '초대를 거절했습니다.', type: 'success' })
+      setPendingInvitation(null)
+    }
+  }
 
   const handleLeave = async () => {
     setConfirmLeave(false)
@@ -329,18 +358,46 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                 </div>
               )}
 
-              {/* 가입 안내 */}
-              <div className="mt-6 pt-4 border-t text-center space-y-3" style={{ borderColor: 'var(--border-color)' }}>
-                <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
-                  클럽 상세 정보는 가입 후 이용할 수 있습니다.
-                </p>
-                <Link
-                  href="/clubs"
-                  className="inline-block btn-primary btn-sm"
-                >
-                  클럽 목록에서 가입 신청하기
-                </Link>
-              </div>
+              {/* 초대 수락/거절 or 가입 안내 */}
+              {pendingInvitation ? (
+                <div className="mt-6 pt-4 border-t space-y-3" style={{ borderColor: 'var(--border-color)' }}>
+                  <p className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                    이 클럽에 초대되었습니다.
+                  </p>
+                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    초대를 수락하면 클럽 회원으로 등록됩니다.
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleInvitationResponse(false)}
+                      disabled={actionLoading}
+                      className="flex-1 px-4 py-2 rounded-lg text-sm disabled:opacity-50"
+                      style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)' }}
+                    >
+                      거절
+                    </button>
+                    <button
+                      onClick={() => handleInvitationResponse(true)}
+                      disabled={actionLoading}
+                      className="flex-1 btn-primary btn-sm disabled:opacity-50"
+                    >
+                      수락
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="mt-6 pt-4 border-t text-center space-y-3" style={{ borderColor: 'var(--border-color)' }}>
+                  <p className="text-sm" style={{ color: 'var(--text-muted)' }}>
+                    클럽 상세 정보는 가입 후 이용할 수 있습니다.
+                  </p>
+                  <Link
+                    href="/clubs"
+                    className="inline-block btn-primary btn-sm"
+                  >
+                    클럽 목록에서 가입 신청하기
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
             /* 회원: 전체 상세 페이지 */

@@ -612,6 +612,7 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
 
   if (!club) return { error: '클럽을 찾을 수 없습니다.' }
   if (!club.is_active) return { error: '비활성화된 클럽입니다.' }
+  if (!user.phone) return { error: '가입 신청에는 연락처가 필요합니다. 프로필에서 연락처를 먼저 등록해주세요.' }
 
   // 가입 방식에 따른 상태 결정
   let status: 'ACTIVE' | 'PENDING'
@@ -639,7 +640,81 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
   const isFirstClub = (activeCount ?? 0) === 0
   const shouldBePrimary = isFirstClub && status === 'ACTIVE'
 
-  // profiles 데이터로 club_members 자동 채움
+  // 비가입 레코드 매칭: 동일 phone으로 사전 등록된 비가입 회원이 있으면 신규 INSERT 대신 UPDATE
+  // (관리자가 수동 등록한 회원 또는 비로그인 가입 신청 후 나중에 계정을 만든 경우)
+  if (user.phone) {
+    const { data: existingUnregistered } = await admin
+      .from('club_members')
+      .select('id, introduction')
+      .eq('club_id', clubId)
+      .eq('is_registered', false)
+      .is('user_id', null)
+      .eq('phone', user.phone)
+      .neq('status', 'REMOVED')
+      .neq('status', 'LEFT')
+      .maybeSingle()
+
+    if (existingUnregistered) {
+      const { error: updateError } = await admin
+        .from('club_members')
+        .update({
+          user_id: user.id,
+          is_registered: true,
+          name: user.name,
+          start_year: user.start_year,
+          rating: user.rating,
+          gender: user.gender || null,
+          status,
+          is_primary: shouldBePrimary,
+          // 사용자가 자기소개를 새로 입력했으면 덮어쓰고, 없으면 기존 값 보존
+          introduction: sanitizedIntro ?? existingUnregistered.introduction,
+        })
+        .eq('id', existingUnregistered.id)
+
+      if (updateError) return { error: '클럽 가입에 실패했습니다.' }
+
+      // 알림 + profiles 동기화는 INSERT 경로와 동일하게 처리
+      if (status === 'PENDING') {
+        try {
+          const { data: admins } = await admin
+            .from('club_members')
+            .select('user_id')
+            .eq('club_id', clubId)
+            .in('role', ['OWNER', 'ADMIN'])
+            .eq('status', 'ACTIVE')
+          const adminUserIds = (admins ?? []).map(a => a.user_id).filter(Boolean) as string[]
+          if (adminUserIds.length > 0) {
+            await createBulkNotifications({
+              user_ids: adminUserIds,
+              type: NotificationType.CLUB_JOIN_REQUESTED,
+              title: '클럽 가입 신청',
+              message: `${user.name}님이 클럽 가입을 신청했습니다.`,
+              club_id: clubId,
+              metadata: { link: `/admin/clubs/${clubId}` },
+            })
+          }
+        } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+      }
+
+      if (shouldBePrimary) {
+        await admin
+          .from('profiles')
+          .update({
+            club: club.name,
+            club_city: club.city,
+            club_district: club.district,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
+      }
+
+      revalidatePath('/my/profile')
+      revalidatePath(`/clubs/${clubId}`)
+      return {}
+    }
+  }
+
+  // 매칭되는 비가입 레코드 없음 → 신규 INSERT
   const { error } = await admin.from('club_members').insert({
     club_id: clubId,
     user_id: user.id,
@@ -795,7 +870,7 @@ export async function inviteMember(clubId: string, userId: string): Promise<{ er
   // profiles.phone은 암호화 저장 — club_members에 저장 전 복호화 필요
   const decryptedProfile = decryptProfile(targetProfile)
 
-  const { error } = await admin.from('club_members').insert({
+  const { data: inserted, error } = await admin.from('club_members').insert({
     club_id: clubId,
     user_id: userId,
     is_registered: true,
@@ -807,14 +882,14 @@ export async function inviteMember(clubId: string, userId: string): Promise<{ er
     role: 'MEMBER',
     status: 'INVITED',
     invited_by: user.id,
-  })
+  }).select('id').single()
 
   if (error) {
     if (error.code === '23505') return { error: '이미 해당 클럽에 등록된 사용자입니다.' }
     return { error: '회원 초대에 실패했습니다.' }
   }
 
-  // 알림: 초대받은 사용자에게 클럽 초대 알림
+  // 알림: 초대받은 사용자에게 클럽 초대 알림 (member_id 포함 → 알림에서 바로 수락 가능)
   try {
     const { data: club } = await admin.from('clubs').select('name').eq('id', clubId).single()
     await createNotification({
@@ -823,7 +898,7 @@ export async function inviteMember(clubId: string, userId: string): Promise<{ er
       title: '클럽 초대',
       message: `${club?.name ?? '클럽'}에 초대되었습니다.`,
       club_id: clubId,
-      metadata: { link: `/clubs/${clubId}` },
+      metadata: { link: `/clubs/${clubId}`, member_id: inserted?.id },
     })
   } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
@@ -903,6 +978,7 @@ export async function respondInvitation(
   }
 
   revalidatePath('/my/profile')
+  revalidatePath(`/clubs/${member.club_id}`)
   return {}
 }
 
@@ -1488,6 +1564,25 @@ export async function getMyMembershipInClub(clubId: string): Promise<{
 
   if (error) return { data: null, error: error.message }
   return { data: data as { id: string; name: string; role: ClubMemberRole; is_registered: boolean } | null }
+}
+
+/** 특정 클럽에서 내 INVITED 상태 멤버십 조회 (초대 수락/거절용) */
+export async function getMyPendingInvitation(clubId: string): Promise<{
+  data: { id: string } | null
+}> {
+  const user = await getCurrentUser()
+  if (!user) return { data: null }
+
+  const admin = createAdminClient()
+  const { data } = await admin
+    .from('club_members')
+    .select('id')
+    .eq('club_id', clubId)
+    .eq('user_id', user.id)
+    .eq('status', 'INVITED')
+    .maybeSingle()
+
+  return { data: data ?? null }
 }
 
 /** 여러 클럽의 활성 회원 수를 단일 쿼리로 일괄 조회 */
