@@ -6,6 +6,7 @@ import {
   addUnregisteredMember,
   removeMember,
   restoreMember,
+  permanentlyDeleteMember,
   updateMemberRole,
   updateMemberInfo,
   respondJoinRequest,
@@ -15,7 +16,7 @@ import {
 import { useClubMembersRealtime } from '@/lib/realtime/useClubMembersRealtime'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
-import { UserPlus, UserMinus, RotateCcw, Search, Mail } from 'lucide-react'
+import { UserPlus, UserMinus, RotateCcw, Search, Mail, Trash2 } from 'lucide-react'
 import {
   sanitizeInput,
   validateMemberInput,
@@ -249,6 +250,24 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
     })
   }
 
+  // 영구 삭제 (SUPER_ADMIN 전용)
+  const handlePermanentlyDelete = (member: ClubMember) => {
+    setConfirm({
+      isOpen: true,
+      message: `${member.name}님의 레코드를 영구 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`,
+      onConfirm: async () => {
+        setConfirm((prev) => ({ ...prev, isOpen: false }))
+        const result = await permanentlyDeleteMember(member.id)
+        if (result.error) {
+          setAlert({ isOpen: true, message: result.error, type: 'error' })
+          return
+        }
+        setMembers((prev) => prev.filter((m) => m.id !== member.id))
+        setToast({ isOpen: true, message: `${member.name}님이 삭제되었습니다.`, type: 'success' })
+      },
+    })
+  }
+
   // 역할 변경
   const handleRoleChange = (member: ClubMember, newRole: ClubMemberRole) => {
     setConfirm({
@@ -478,16 +497,28 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                   </div>
                 </div>
 
-                {/* 제거/탈퇴 회원: 원복 버튼 */}
+                {/* 제거/탈퇴 회원: 원복 + 영구 삭제(SUPER_ADMIN) */}
                 {(member.status === 'REMOVED' || member.status === 'LEFT') && (
-                  <button
-                    onClick={() => handleRestoreMember(member)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                    title="원복"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    원복
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleRestoreMember(member)}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                      title="원복"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                      원복
+                    </button>
+                    {isSystemAdmin && (
+                      <button
+                        onClick={() => handlePermanentlyDelete(member)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                        title="영구 삭제"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        삭제
+                      </button>
+                    )}
+                  </div>
                 )}
 
                 {/* 활성 회원 관리 버튼 */}

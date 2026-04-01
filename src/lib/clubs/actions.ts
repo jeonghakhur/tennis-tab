@@ -1215,6 +1215,35 @@ export async function removeMember(memberId: string, reason: string): Promise<{ 
   return {}
 }
 
+/** 제거/탈퇴 회원 영구 삭제 (SUPER_ADMIN 전용) */
+export async function permanentlyDeleteMember(memberId: string): Promise<{ error?: string }> {
+  const idError = validateId(memberId, '회원 ID')
+  if (idError) return { error: idError }
+
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+  if (!hasMinimumRole(user.role, 'SUPER_ADMIN')) return { error: '최고 관리자 권한이 필요합니다.' }
+
+  const admin = createAdminClient()
+
+  const { data: member } = await admin
+    .from('club_members')
+    .select('id, club_id, status')
+    .eq('id', memberId)
+    .single()
+
+  if (!member) return { error: '회원을 찾을 수 없습니다.' }
+  if (member.status !== 'REMOVED' && member.status !== 'LEFT') {
+    return { error: '제거 또는 탈퇴 상태인 회원만 삭제할 수 있습니다.' }
+  }
+
+  const { error } = await admin.from('club_members').delete().eq('id', memberId)
+  if (error) return { error: '회원 삭제에 실패했습니다.' }
+
+  revalidatePath(`/admin/clubs/${member.club_id}`)
+  return {}
+}
+
 /** 제거/탈퇴 회원 원복 (owner/admin) */
 export async function restoreMember(memberId: string): Promise<{ error?: string }> {
   const idError = validateId(memberId, '회원 ID')
