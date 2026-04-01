@@ -203,12 +203,17 @@ export async function deleteAccount() {
   }
 
   // RESTRICT FK 사전 정리 (admin client로 RLS 우회)
-  await adminClient.from('association_admins').delete().eq('assigned_by', user.id)
+  // association_managers.assigned_by: NOT NULL이라 SET NULL 불가 → 레코드 삭제
+  await adminClient.from('association_managers').delete().eq('assigned_by', user.id)
+  // club_members.invited_by: nullable → SET NULL
   await adminClient.from('club_members').update({ invited_by: null }).eq('invited_by', user.id)
 
   // auth.users 삭제 → profiles CASCADE → 나머지 자동 처리
   const { error } = await adminClient.auth.admin.deleteUser(user.id)
-  if (error) return { error: '회원 탈퇴 처리 중 오류가 발생했습니다.' }
+  if (error) {
+    console.error('deleteAccount error:', error)
+    return { error: '회원 탈퇴 처리 중 오류가 발생했습니다.' }
+  }
 
   revalidatePath('/', 'layout')
   return { success: true }
