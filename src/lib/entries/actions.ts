@@ -550,7 +550,7 @@ export async function confirmBankTransfer(entryId: string): Promise<{
                     user_id: organizerId,
                     type: NotificationType.PAYMENT_COMPLETED,
                     title: '입금 확인',
-                    message: '참가자가 입금 확인을 요청했습니다.',
+                    message: `${playerName}이(가) 입금 확인을 요청했습니다.`,
                     tournament_id: entry.tournament_id,
                     entry_id: entryId,
                     metadata: { link: `/admin/tournaments/${entry.tournament_id}/entries` },
