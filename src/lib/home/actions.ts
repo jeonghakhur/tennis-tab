@@ -17,6 +17,8 @@ export interface ActiveTournament {
   daysLeft: number
   division_count: number
   hasBracket: boolean
+  entry_count: number
+  max_participants: number
 }
 
 /** @deprecated ActiveTournament으로 대체 */
@@ -317,7 +319,7 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
   // OPEN: 마감일 미도래인 것만 포함
   const { data, error } = await admin
     .from('tournaments')
-    .select('id, title, location, status, entry_end_date')
+    .select('id, title, location, status, entry_end_date, max_participants')
     .or(`status.eq.IN_PROGRESS,and(status.eq.OPEN,or(entry_end_date.is.null,entry_end_date.gte.${todayStr}))`)
     .order('entry_end_date', { ascending: true, nullsFirst: false })
     .limit(8)
@@ -331,6 +333,13 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
         .from('tournament_divisions')
         .select('*', { count: 'exact', head: true })
         .eq('tournament_id', t.id)
+
+      // 신청자 수 (OPEN 상태인 경우)
+      const { count: entryCount } = await admin
+        .from('tournament_entries')
+        .select('*', { count: 'exact', head: true })
+        .eq('tournament_id', t.id)
+        .in('status', ['PENDING', 'CONFIRMED'])
 
       // IN_PROGRESS는 대진표 존재 여부 확인
       let hasBracket = false
@@ -358,6 +367,8 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
         daysLeft: t.entry_end_date ? calcDaysLeft(t.entry_end_date) : 999,
         division_count: divCount ?? 0,
         hasBracket,
+        entry_count: entryCount ?? 0,
+        max_participants: t.max_participants ?? 0,
       }
     })
   )

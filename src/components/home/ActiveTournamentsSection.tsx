@@ -28,7 +28,11 @@ export function ActiveTournamentsSection({ tournaments }: ActiveTournamentsSecti
         </Link>
       </div>
 
-      <ul role="list" className="space-y-2">
+      <ul
+        role="list"
+        className="grid gap-3"
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
+      >
         {tournaments.map((t) => (
           <ActiveTournamentCard key={t.id} tournament={t} />
         ))}

@@ -1,75 +1,175 @@
 import Link from 'next/link'
-import { MapPin, CalendarDays } from 'lucide-react'
-import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import { MapPin, Trophy } from 'lucide-react'
 import type { ActiveTournament } from '@/lib/home/actions'
 
 interface ActiveTournamentCardProps {
   tournament: ActiveTournament
 }
 
-function getDDayBadge(status: string, daysLeft: number): { label: string; variant: BadgeVariant } {
-  if (status === 'IN_PROGRESS') return { label: '진행 중', variant: 'success' }
-  if (daysLeft === 0) return { label: '오늘 마감', variant: 'danger' }
-  if (daysLeft === 1) return { label: 'D-1', variant: 'danger' }
-  if (daysLeft <= 3) return { label: `D-${daysLeft}`, variant: 'warning' }
-  if (daysLeft <= 7) return { label: `D-${daysLeft}`, variant: 'info' }
-  return { label: '모집 중', variant: 'secondary' }
+type StatusBadgeInfo = {
+  label: string
+  dot: string
+  bg: string
+  text: string
 }
 
-function formatEntryEndDate(dateStr: string): string {
-  if (!dateStr) return ''
-  const d = new Date(dateStr)
-  const month = d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", month: "numeric" })
-  const day = d.toLocaleString("ko-KR", { timeZone: "Asia/Seoul", day: "numeric" })
-  return `${month}/${day} 마감`
+function getStatusBadge(status: string, daysLeft: number): StatusBadgeInfo {
+  if (status === 'IN_PROGRESS') {
+    return {
+      label: '진행중',
+      dot: '#f97316',
+      bg: 'rgba(249,115,22,0.12)',
+      text: '#f97316',
+    }
+  }
+  if (daysLeft <= 0) {
+    return {
+      label: '마감',
+      dot: '#71717a',
+      bg: 'rgba(113,113,122,0.12)',
+      text: '#71717a',
+    }
+  }
+  return {
+    label: '모집중',
+    dot: '#22c55e',
+    bg: 'rgba(34,197,94,0.12)',
+    text: '#22c55e',
+  }
+}
+
+function getDDayLabel(status: string, daysLeft: number): string | null {
+  if (status === 'IN_PROGRESS') return null
+  if (daysLeft <= 0) return null
+  if (daysLeft === 1) return 'D-1'
+  return `D-${daysLeft}`
 }
 
 export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) {
-  const { label, variant } = getDDayBadge(tournament.status, tournament.daysLeft)
+  const badge = getStatusBadge(tournament.status, tournament.daysLeft)
+  const ddayLabel = getDDayLabel(tournament.status, tournament.daysLeft)
   const isInProgress = tournament.status === 'IN_PROGRESS'
+
+  // 진행률 계산 (0~100)
+  const progressPct =
+    tournament.max_participants > 0
+      ? Math.min(100, Math.round((tournament.entry_count / tournament.max_participants) * 100))
+      : 0
 
   return (
     <li role="listitem">
       <div
-        className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3 rounded-xl"
-        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border-color)' }}
+        className="p-4 rounded-2xl flex flex-col gap-3"
+        style={{
+          backgroundColor: 'var(--bg-card)',
+          border: '1px solid var(--border-color)',
+        }}
       >
-        {/* 상태 배지 */}
-        <div className="shrink-0">
-          <Badge variant={variant}>{label}</Badge>
-        </div>
-
-        {/* 대회 정보 — 남은 공간 차지, 최소 너비 확보 */}
-        <div className="flex-1 min-w-0" style={{ flexBasis: '120px' }}>
-          <p className="text-sm font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+        {/* 1행: 제목 */}
+        <div className="flex items-start gap-2">
+          <Trophy
+            className="w-4 h-4 shrink-0 mt-0.5"
+            style={{ color: 'var(--accent-color)' }}
+            aria-hidden="true"
+          />
+          <p
+            className="text-base font-bold leading-snug"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {tournament.title}
           </p>
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            <span className="flex items-center gap-1 text-xs whitespace-nowrap">
-              <MapPin className="w-3 h-3 shrink-0" aria-hidden="true" />
-              <span className="truncate max-w-[10rem]">{tournament.location}</span>
-            </span>
-            {tournament.division_count > 0 && (
-              <span className="text-xs whitespace-nowrap">{tournament.division_count}개 부서</span>
-            )}
-          </div>
         </div>
 
-        {/* 우측 액션 */}
-        <div className="shrink-0 flex items-center gap-2 ml-auto">
-          {/* 마감일 (모집 중인 경우) */}
-          {!isInProgress && tournament.entry_end_date && (
-            <span className="flex items-center gap-1 text-xs whitespace-nowrap" style={{ color: 'var(--text-muted)' }}>
-              <CalendarDays className="w-3 h-3 shrink-0" aria-hidden="true" />
-              {formatEntryEndDate(tournament.entry_end_date)}
+        {/* 2행: 상태 배지 + D-day */}
+        <div className="flex items-center gap-2">
+          {/* 상태 배지 */}
+          <span
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold"
+            style={{ backgroundColor: badge.bg, color: badge.text }}
+          >
+            <span
+              className="w-1.5 h-1.5 rounded-full"
+              style={{ backgroundColor: badge.dot }}
+              aria-hidden="true"
+            />
+            {badge.label}
+          </span>
+
+          {/* D-day */}
+          {ddayLabel && (
+            <span
+              className="text-xs font-medium"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {ddayLabel}
             </span>
           )}
+        </div>
 
-          {/* 버튼 */}
+        {/* 3행: 진행률 바 (max_participants > 0인 경우만) */}
+        {tournament.max_participants > 0 && (
+          <div className="flex flex-col gap-1">
+            <div
+              className="w-full rounded-full overflow-hidden"
+              style={{ height: '6px', backgroundColor: 'var(--border-color)' }}
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="신청률"
+            >
+              <div
+                className="h-full rounded-full transition-all"
+                style={{
+                  width: `${progressPct}%`,
+                  backgroundColor:
+                    progressPct >= 90
+                      ? '#f97316'
+                      : 'var(--accent-color)',
+                }}
+              />
+            </div>
+            <div
+              className="flex items-center gap-1.5 text-xs"
+              style={{ color: 'var(--text-muted)' }}
+            >
+              {tournament.division_count > 0 && (
+                <span>{tournament.division_count}개 부서</span>
+              )}
+              {tournament.division_count > 0 && tournament.max_participants > 0 && (
+                <span aria-hidden="true">·</span>
+              )}
+              <span>
+                {tournament.entry_count} / {tournament.max_participants}명 신청
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* max_participants 없는 경우 부서 수만 표시 */}
+        {tournament.max_participants === 0 && tournament.division_count > 0 && (
+          <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+            {tournament.division_count}개 부서
+          </p>
+        )}
+
+        {/* 4행: 장소 */}
+        {tournament.location && (
+          <div
+            className="flex items-center gap-1 text-xs"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <MapPin className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+            <span className="truncate">{tournament.location}</span>
+          </div>
+        )}
+
+        {/* 5행: 버튼 */}
+        <div>
           {isInProgress && tournament.hasBracket ? (
             <Link
               href={`/tournaments/${tournament.id}/bracket`}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap transition-all hover:opacity-90"
+              className="block text-center text-sm font-semibold px-4 py-2 rounded-xl transition-all hover:opacity-90"
               style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
             >
               대진표 보기
@@ -77,15 +177,18 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
           ) : isInProgress ? (
             <Link
               href={`/tournaments/${tournament.id}`}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap transition-all hover:opacity-90"
-              style={{ border: '1px solid var(--border-color)', color: 'var(--text-secondary)' }}
+              className="block text-center text-sm font-semibold px-4 py-2 rounded-xl transition-all hover:opacity-90"
+              style={{
+                border: '1px solid var(--border-color)',
+                color: 'var(--text-secondary)',
+              }}
             >
               대회 보기
             </Link>
           ) : (
             <Link
               href={`/tournaments/${tournament.id}`}
-              className="text-xs font-medium px-3 py-1.5 rounded-lg whitespace-nowrap transition-all hover:opacity-90"
+              className="block text-center text-sm font-semibold px-4 py-2 rounded-xl transition-all hover:opacity-90"
               style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
             >
               신청하기
