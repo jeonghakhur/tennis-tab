@@ -7,6 +7,13 @@ import type { AttendanceStatus } from '@/lib/clubs/types'
 // 타입 정의
 // ============================================================================
 
+/** 부서별 신청 현황 */
+export interface DivisionSummary {
+  name: string
+  max_teams: number | null
+  entry_count: number
+}
+
 /** 대회 현황 카드 (모집 중 + 진행 중 통합) */
 export interface ActiveTournament {
   id: string
@@ -19,6 +26,7 @@ export interface ActiveTournament {
   hasBracket: boolean
   entry_count: number
   max_participants: number
+  divisions: DivisionSummary[]
 }
 
 /** @deprecated ActiveTournament으로 대체 */
@@ -328,18 +336,33 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
 
   const items = await Promise.all(
     data.map(async (t) => {
-      // 부서 수
-      const { count: divCount } = await admin
+      // 부서 목록 + max_teams
+      const { data: divData } = await admin
         .from('tournament_divisions')
-        .select('*', { count: 'exact', head: true })
+        .select('id, name, max_teams')
         .eq('tournament_id', t.id)
+        .order('name', { ascending: true })
 
-      // 신청자 수 (OPEN 상태인 경우)
-      const { count: entryCount } = await admin
-        .from('tournament_entries')
-        .select('*', { count: 'exact', head: true })
-        .eq('tournament_id', t.id)
-        .in('status', ['PENDING', 'CONFIRMED'])
+      const divCount = divData?.length ?? 0
+
+      // 부서별 신청 팀수
+      const divisions: DivisionSummary[] = await Promise.all(
+        (divData ?? []).map(async (div) => {
+          const { count: dc } = await admin
+            .from('tournament_entries')
+            .select('*', { count: 'exact', head: true })
+            .eq('division_id', div.id)
+            .in('status', ['PENDING', 'CONFIRMED'])
+          return {
+            name: div.name,
+            max_teams: div.max_teams ?? null,
+            entry_count: dc ?? 0,
+          }
+        })
+      )
+
+      // 전체 신청자 수
+      const entryCount = divisions.reduce((s, d) => s + d.entry_count, 0)
 
       // IN_PROGRESS는 대진표 존재 여부 확인
       let hasBracket = false
@@ -365,10 +388,11 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
         status: t.status as 'OPEN' | 'IN_PROGRESS',
         entry_end_date: t.entry_end_date ?? '',
         daysLeft: t.entry_end_date ? calcDaysLeft(t.entry_end_date) : 999,
-        division_count: divCount ?? 0,
+        division_count: divCount,
         hasBracket,
-        entry_count: entryCount ?? 0,
+        entry_count: entryCount,
         max_participants: t.max_participants ?? 0,
+        divisions,
       }
     })
   )

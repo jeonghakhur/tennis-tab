@@ -106,52 +106,50 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
           )}
         </div>
 
-        {/* 3행: 진행률 바 (max_participants > 0인 경우만) */}
+        {/* 3행: 진행률 바 */}
         {tournament.max_participants > 0 && (
-          <div className="flex flex-col gap-1">
+          <div
+            className="w-full rounded-full overflow-hidden"
+            style={{ height: '6px', backgroundColor: 'var(--border-color)' }}
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="신청률"
+          >
             <div
-              className="w-full rounded-full overflow-hidden"
-              style={{ height: '6px', backgroundColor: 'var(--border-color)' }}
-              role="progressbar"
-              aria-valuenow={progressPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="신청률"
-            >
-              <div
-                className="h-full rounded-full transition-all"
-                style={{
-                  width: `${progressPct}%`,
-                  backgroundColor:
-                    progressPct >= 90
-                      ? '#f97316'
-                      : 'var(--accent-color)',
-                }}
-              />
-            </div>
-            <div
-              className="flex items-center gap-1.5 text-xs"
-              style={{ color: 'var(--text-muted)' }}
-            >
-              {tournament.division_count > 0 && (
-                <span>{tournament.division_count}개 부서</span>
-              )}
-              {tournament.division_count > 0 && tournament.max_participants > 0 && (
-                <span aria-hidden="true">·</span>
-              )}
-              <span>
-                {tournament.entry_count} / {tournament.max_participants}명 신청
-              </span>
-            </div>
+              className="h-full rounded-full transition-all"
+              style={{
+                width: `${progressPct}%`,
+                backgroundColor: progressPct >= 90 ? '#f97316' : 'var(--accent-color)',
+              }}
+            />
           </div>
         )}
 
-        {/* max_participants 없는 경우 부서 수만 표시 */}
-        {tournament.max_participants === 0 && tournament.division_count > 0 && (
+        {/* 4행: 부서별 신청 현황 */}
+        {tournament.divisions && tournament.divisions.length > 0 ? (
+          <div className="flex flex-col gap-0.5">
+            {tournament.divisions.map((div) => (
+              <div
+                key={div.name}
+                className="flex items-center justify-between text-xs"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                <span>{div.name}</span>
+                <span>
+                  {div.max_teams != null
+                    ? `${div.entry_count} / ${div.max_teams}팀`
+                    : `${div.entry_count}팀 신청`}
+                </span>
+              </div>
+            ))}
+          </div>
+        ) : tournament.division_count > 0 ? (
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {tournament.division_count}개 부서
+            {tournament.division_count}개 부서 · {tournament.entry_count}팀 신청
           </p>
-        )}
+        ) : null}
 
         {/* 4행: 장소 */}
         {tournament.location && (
