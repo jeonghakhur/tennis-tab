@@ -93,8 +93,8 @@ export async function confirmPayment(params: {
       return { success: false, error: '결제 정보 저장 실패: ' + updateError.message }
     }
 
-    // 결제 완료 후 자동 승인: 신청 순서가 max_teams 이내이면 CONFIRMED
-    await autoConfirmIfWithinLimit(admin, entry)
+    // 결제 완료 후 자동 확정 제거 → 관리자가 자격 확인 후 직접 확정
+    // await autoConfirmIfWithinLimit(admin, entry)
 
     return { success: true }
   } catch (err) {
