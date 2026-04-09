@@ -50,10 +50,18 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
   const ddayLabel = getDDayLabel(tournament.status, tournament.daysLeft)
   const isInProgress = tournament.status === 'IN_PROGRESS'
 
-  // 진행률 계산 (0~100)
+  // 진행률: 부서별 max_teams 합계 기반 (max_teams가 있는 부서만)
+  const divisionMaxTotal = tournament.divisions.reduce(
+    (sum, d) => sum + (d.max_teams ?? 0),
+    0
+  )
+  const divisionEntryTotal = tournament.divisions.reduce(
+    (sum, d) => sum + d.entry_count,
+    0
+  )
   const progressPct =
-    tournament.max_participants > 0
-      ? Math.min(100, Math.round((tournament.entry_count / tournament.max_participants) * 100))
+    divisionMaxTotal > 0
+      ? Math.min(100, Math.round((divisionEntryTotal / divisionMaxTotal) * 100))
       : 0
 
   return (
@@ -106,8 +114,8 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
           )}
         </div>
 
-        {/* 3행: 진행률 바 */}
-        {tournament.max_participants > 0 && (
+        {/* 3행: 진행률 바 (부서별 max_teams가 있는 경우에만 표시) */}
+        {divisionMaxTotal > 0 && (
           <div
             className="w-full rounded-full overflow-hidden"
             style={{ height: '6px', backgroundColor: 'var(--border-color)' }}

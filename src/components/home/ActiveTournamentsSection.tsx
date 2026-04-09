@@ -31,7 +31,7 @@ export function ActiveTournamentsSection({ tournaments }: ActiveTournamentsSecti
       <ul
         role="list"
         className="grid gap-3"
-        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
+        style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))' }}
       >
         {tournaments.map((t) => (
           <ActiveTournamentCard key={t.id} tournament={t} />
