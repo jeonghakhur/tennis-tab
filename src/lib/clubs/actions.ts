@@ -12,6 +12,7 @@ import {
   hasValidationErrors,
 } from '@/lib/utils/validation'
 import { decryptProfile } from '@/lib/crypto/profileCrypto'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
 import { createNotification, createBulkNotifications } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
 import type {
@@ -231,7 +232,7 @@ export async function createClub(data: CreateClubInput): Promise<{ error?: strin
     user_id: user.id,
     is_registered: true,
     name: user.name,
-    phone: user.phone,
+    phone: user.phone ? (unformatPhoneNumber(user.phone) || null) : null,
     start_year: user.start_year,
     rating: user.rating,
     gender: user.gender || null,
@@ -580,7 +581,8 @@ export async function addUnregisteredMember(
     name: sanitized.name!.trim(),
     birth_year: sanitized.birth_year?.trim() || null,
     gender: sanitized.gender || null,
-    phone: sanitized.phone?.trim() || null,
+    // phone 정규화: 하이픈/공백/점 제거하여 숫자 11자리로 통일
+    phone: sanitized.phone ? (unformatPhoneNumber(sanitized.phone) || null) : null,
     start_year: sanitized.start_year?.trim() || null,
     rating: sanitized.rating || null,
     role: 'MEMBER',
@@ -642,17 +644,35 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
 
   // 비가입 레코드 매칭: 동일 phone으로 사전 등록된 비가입 회원이 있으면 신규 INSERT 대신 UPDATE
   // (관리자가 수동 등록한 회원 또는 비로그인 가입 신청 후 나중에 계정을 만든 경우)
-  if (user.phone) {
-    const { data: existingUnregistered } = await admin
+  //
+  // 정규화 전략 (Phase D 진행 중 과도기):
+  //   DB에는 하이픈 포맷 "010-1234-5678"과 숫자만 "01012345678"이 공존할 수 있음.
+  //   user.phone도 복호화된 값이 어느 포맷일지 불확실 → 정규화된 숫자로 통일 후
+  //   .or()로 양쪽 포맷 동시 매칭. Phase D 완료 + Phase F 제약 추가 후
+  //   단순 .eq(phone, normalized)로 축소 가능.
+  const normalizedUserPhone = unformatPhoneNumber(user.phone ?? '')
+  if (normalizedUserPhone) {
+    const hyphenFormatted = normalizedUserPhone.replace(
+      /^(\d{3})(\d{4})(\d{4})$/,
+      '$1-$2-$3',
+    )
+
+    const { data: existingList } = await admin
       .from('club_members')
-      .select('id, introduction')
+      .select('id, is_registered, user_id, introduction, status, phone')
       .eq('club_id', clubId)
-      .eq('is_registered', false)
-      .is('user_id', null)
-      .eq('phone', user.phone)
+      .or(`phone.eq.${normalizedUserPhone},phone.eq.${hyphenFormatted}`)
       .neq('status', 'REMOVED')
       .neq('status', 'LEFT')
-      .maybeSingle()
+
+    // 자기 자신이 이미 등록된 경우 조기 차단
+    const ownRegistered = existingList?.find((m) => m.user_id === user.id)
+    if (ownRegistered) return { error: '이미 가입된 클럽입니다.' }
+
+    // 비가입 레코드 찾기 (여러 건이어도 첫 번째만 사용 — .maybeSingle() 크래시 방지)
+    const existingUnregistered = existingList?.find(
+      (m) => !m.is_registered && m.user_id === null,
+    )
 
     if (existingUnregistered) {
       const { error: updateError } = await admin
@@ -661,6 +681,8 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
           user_id: user.id,
           is_registered: true,
           name: user.name,
+          // 매칭된 기존 레코드의 phone도 정규화된 값으로 덮어써서 마이그레이션 가속
+          phone: normalizedUserPhone,
           start_year: user.start_year,
           rating: user.rating,
           gender: user.gender || null,
@@ -720,7 +742,7 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     user_id: user.id,
     is_registered: true,
     name: user.name,
-    phone: user.phone,
+    phone: normalizedUserPhone || null,
     start_year: user.start_year,
     rating: user.rating,
     gender: user.gender || null,
@@ -787,11 +809,13 @@ export async function joinClubAsGuest(
   if (idError) return { error: idError }
 
   const sanitizedName = sanitizeInput(guestName.trim())
-  const sanitizedPhone = sanitizeInput(guestPhone.trim())
+  // 정규화: 하이픈/공백/점 전부 제거 → 숫자만
+  const normalizedPhone = unformatPhoneNumber(sanitizeInput(guestPhone.trim()))
   if (!sanitizedName) return { error: '이름을 입력해주세요.' }
-  if (!sanitizedPhone) return { error: '연락처를 입력해주세요.' }
+  if (!normalizedPhone) return { error: '연락처를 입력해주세요.' }
   if (sanitizedName.length > 50) return { error: '이름은 50자 이내로 입력해주세요.' }
-  if (!/^[0-9+\-\s]{7,20}$/.test(sanitizedPhone)) return { error: '유효한 연락처를 입력해주세요.' }
+  // 휴대폰 or 유선 9~11자리 허용
+  if (!/^[0-9]{9,11}$/.test(normalizedPhone)) return { error: '유효한 연락처를 입력해주세요.' }
 
   let sanitizedIntro: string | null = null
   if (introduction && introduction.trim()) {
@@ -816,7 +840,7 @@ export async function joinClubAsGuest(
     user_id: null,
     is_registered: false,
     name: sanitizedName,
-    phone: sanitizedPhone,
+    phone: normalizedPhone,
     role: 'MEMBER',
     status: 'PENDING',
     introduction: sanitizedIntro,
@@ -875,7 +899,7 @@ export async function inviteMember(clubId: string, userId: string): Promise<{ er
     user_id: userId,
     is_registered: true,
     name: decryptedProfile.name,
-    phone: decryptedProfile.phone,
+    phone: decryptedProfile.phone ? (unformatPhoneNumber(decryptedProfile.phone) || null) : null,
     start_year: targetProfile.start_year,
     rating: targetProfile.rating,
     gender: targetProfile.gender || null,
@@ -992,10 +1016,10 @@ export async function respondJoinRequest(
 
   const admin = createAdminClient()
 
-  // 신청 정보 조회
+  // 신청 정보 조회 (phone 포함: 좀비 감지용)
   const { data: member } = await admin
     .from('club_members')
-    .select('id, club_id, user_id, status')
+    .select('id, club_id, user_id, status, phone')
     .eq('id', memberId)
     .single()
 
@@ -1017,10 +1041,40 @@ export async function respondJoinRequest(
       isFirstClub = (activeCount ?? 0) === 0
     }
 
+    // 좀비 감지: 같은 club+phone으로 남아있는 is_registered=false 레코드 찾아 DELETE
+    // (joinClubAsRegistered의 phone 매칭이 실패했던 과거 버그의 잔재 정리)
+    if (member.phone) {
+      const normalizedPhone = unformatPhoneNumber(member.phone)
+      if (normalizedPhone) {
+        const hyphenFormatted = normalizedPhone.replace(
+          /^(\d{3})(\d{4})(\d{4})$/,
+          '$1-$2-$3',
+        )
+        const { data: zombies } = await admin
+          .from('club_members')
+          .select('id')
+          .eq('club_id', member.club_id)
+          .or(`phone.eq.${normalizedPhone},phone.eq.${hyphenFormatted}`)
+          .eq('is_registered', false)
+          .is('user_id', null)
+          .neq('id', memberId)
+          .neq('status', 'REMOVED')
+          .neq('status', 'LEFT')
+
+        if (zombies && zombies.length > 0) {
+          const zombieIds = zombies.map((z) => z.id)
+          // FK 참조 없음 전제. 운영 중 FK가 생기면 Design §7.1 헬퍼 함수 호출 필요.
+          await admin.from('club_members').delete().in('id', zombieIds)
+        }
+      }
+    }
+
     const { error } = await admin
       .from('club_members')
       .update({
         status: 'ACTIVE',
+        // 승인 시점에 phone도 정규화된 값으로 덮어쓰기 (마이그레이션 가속)
+        phone: member.phone ? (unformatPhoneNumber(member.phone) || null) : null,
         is_primary: isFirstClub,
         joined_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),

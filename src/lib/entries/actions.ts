@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
 import { sendTournamentApplyAlimtalk, sendPaymentConfirmAlimtalk } from '@/lib/solapi/alimtalk'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
@@ -255,11 +256,13 @@ export async function createEntry(
         }
 
         // 7. 참가 신청 생성 (Service Role로 INSERT → RLS 우회, 이미 본인 user_id로 검증됨)
+        // phone 정규화: UI에서 이미 unformat 되지만 서버 레이어에서도 방어적으로 재적용
+        const normalizedEntryPhone = unformatPhoneNumber(entryData.phone ?? '')
         const insertPayload: Record<string, unknown> = {
             tournament_id: tournamentId,
             user_id: user.id,
             division_id: entryData.divisionId,
-            phone: entryData.phone ?? '',
+            phone: normalizedEntryPhone,
             player_name: entryData.playerName ?? '',
             player_rating: entryData.playerRating ?? null,
             club_name: entryData.clubName ?? null,
@@ -738,7 +741,8 @@ export async function updateEntry(
             .from('tournament_entries')
             .update({
                 division_id: entryData.divisionId,
-                phone: entryData.phone,
+                // phone 정규화 재적용 (UI에서 이미 처리되지만 방어적)
+                phone: unformatPhoneNumber(entryData.phone ?? ''),
                 player_name: entryData.playerName,
                 player_rating: entryData.playerRating,
                 club_name: entryData.clubName ?? null,

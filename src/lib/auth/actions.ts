@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
 import { encryptProfile, decryptProfile } from '@/lib/crypto/profileCrypto'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 // Supabase 에러 메시지 → 한국어 변환
 function translateAuthError(message: string): string {
@@ -261,9 +262,14 @@ export async function updateProfile(data: {
     return { error: '로그인이 필요합니다.' }
   }
 
+  // phone 정규화를 암호화 전에 수행 — 저장되는 암호문은 항상 숫자 11자리 평문을 암호화한 결과
+  const normalizedPhone = data.phone
+    ? (unformatPhoneNumber(data.phone) || undefined)
+    : undefined
+
   // 민감 필드(phone, birth_year, gender) 암호화 후 저장
   const encrypted = encryptProfile({
-    phone: data.phone,
+    phone: normalizedPhone,
     birth_year: data.birth_year,
     gender: data.gender,
   })
