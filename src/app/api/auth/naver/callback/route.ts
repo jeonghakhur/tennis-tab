@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { cookies } from 'next/headers'
 import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
+import { encryptProfile } from '@/lib/crypto/profileCrypto'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 /**
  * 네이버 OAuth 콜백 핸들러
@@ -75,13 +77,21 @@ export async function GET(request: NextRequest) {
       : naverProfile.gender === 'F' ? 'FEMALE'
       : undefined
     const birthYear: string | undefined = naverProfile.birthyear || undefined
+    // 공용 유틸로 정규화 (하이픈/공백/점 등 비숫자 전부 제거)
     const phone: string | undefined = naverProfile.mobile
-      ? naverProfile.mobile.replace(/[^0-9]/g, '')
+      ? unformatPhoneNumber(naverProfile.mobile) || undefined
       : undefined
 
     if (!email) {
       throw new Error('이메일 정보를 가져올 수 없습니다.')
     }
+
+    // 민감 필드 암호화 — profiles.phone/birth_year는 암호화 저장 필수
+    // (gender는 'MALE'/'FEMALE' 두 값뿐이라 profileCrypto 정책상 암호화 제외)
+    const encryptedSensitive = encryptProfile({
+      phone,
+      birth_year: birthYear,
+    })
 
     // 3. Supabase Service Role 클라이언트 생성
     const { createClient: createServiceClient } = await import(
@@ -111,6 +121,9 @@ export async function GET(request: NextRequest) {
       userId = existingProfile.id
     } else {
       // 신규 사용자 생성 (트리거가 profiles 행을 자동 생성)
+      // 주의: handle_new_user 트리거는 email/name/avatar_url/role만 profiles에 복사하므로
+      //       phone/birth_year는 아래 explicit UPDATE에서 암호화된 값으로 확정된다.
+      //       user_metadata에는 평문을 저장하지 않기 위해 phone/birth_year 제외.
       const { data: newUser, error: createError } =
         await serviceSupabase.auth.admin.createUser({
           email,
@@ -119,8 +132,6 @@ export async function GET(request: NextRequest) {
             name,
             avatar_url: avatarUrl,
             gender,
-            birth_year: birthYear,
-            phone,
             provider: 'naver',
           },
         })
@@ -152,14 +163,15 @@ export async function GET(request: NextRequest) {
     }
 
     // 신규/기존 모두: 네이버 프로필 정보로 명시적 업데이트
+    // 민감 필드(phone, birth_year)는 암호화된 값으로 저장
     const updateData: Record<string, string> = {
       updated_at: new Date().toISOString(),
     }
     if (name) updateData.name = name
     if (avatarUrl) updateData.avatar_url = avatarUrl
     if (gender) updateData.gender = gender
-    if (birthYear) updateData.birth_year = birthYear
-    if (phone) updateData.phone = phone
+    if (encryptedSensitive.birth_year) updateData.birth_year = encryptedSensitive.birth_year
+    if (encryptedSensitive.phone) updateData.phone = encryptedSensitive.phone
 
     await serviceSupabase
       .from('profiles')

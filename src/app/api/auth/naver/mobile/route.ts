@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { encryptProfile } from '@/lib/crypto/profileCrypto'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 /**
  * 모바일 앱용 네이버 OAuth 엔드포인트
@@ -56,13 +58,20 @@ export async function POST(request: NextRequest) {
         : naverProfile.gender === 'F' ? 'FEMALE'
         : undefined
     const birthYear: string | undefined = naverProfile.birthyear || undefined
+    // 공용 유틸로 정규화 (하이픈/공백/점 등 비숫자 전부 제거)
     const phone: string | undefined = naverProfile.mobile
-      ? naverProfile.mobile.replace(/[^0-9]/g, '')
+      ? unformatPhoneNumber(naverProfile.mobile) || undefined
       : undefined
 
     if (!email) {
       throw new Error('이메일 정보를 가져올 수 없습니다.')
     }
+
+    // 민감 필드 암호화 — profiles.phone/birth_year는 암호화 저장 필수
+    const encryptedSensitive = encryptProfile({
+      phone,
+      birth_year: birthYear,
+    })
 
     // 3. Supabase Service Role 클라이언트
     const serviceSupabase = createClient(
@@ -84,6 +93,8 @@ export async function POST(request: NextRequest) {
       userId = existingProfile.id
     } else {
       // 신규 사용자 생성
+      // user_metadata에는 평문 민감정보(phone/birth_year) 저장 금지.
+      // profiles 테이블 UPDATE에서 암호화된 값으로 확정.
       const { data: newUser, error: createError } =
         await serviceSupabase.auth.admin.createUser({
           email,
@@ -92,8 +103,6 @@ export async function POST(request: NextRequest) {
             name,
             avatar_url: avatarUrl,
             gender,
-            birth_year: birthYear,
-            phone,
             provider: 'naver',
           },
         })
@@ -105,15 +114,15 @@ export async function POST(request: NextRequest) {
       userId = newUser.user.id
     }
 
-    // 프로필 업데이트
+    // 프로필 업데이트 — 민감 필드는 암호화된 값으로
     const updateData: Record<string, string> = {
       updated_at: new Date().toISOString(),
     }
     if (name) updateData.name = name
     if (avatarUrl) updateData.avatar_url = avatarUrl
     if (gender) updateData.gender = gender
-    if (birthYear) updateData.birth_year = birthYear
-    if (phone) updateData.phone = phone
+    if (encryptedSensitive.birth_year) updateData.birth_year = encryptedSensitive.birth_year
+    if (encryptedSensitive.phone) updateData.phone = encryptedSensitive.phone
 
     await serviceSupabase
       .from('profiles')
