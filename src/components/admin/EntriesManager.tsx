@@ -51,6 +51,38 @@ interface EntriesManagerProps {
   tournamentId: string
   entries: Entry[]
   divisions: Division[]
+  /**
+   * 엔트리에 등장하는 클럽들의 ACTIVE 회원 이름 맵.
+   * - 키: 소문자 정규화된 클럽명
+   * - 값: 해당 클럽의 ACTIVE 회원 이름 배열
+   * - 키가 없는 클럽(미등록 클럽)은 "검증 skip" — 빨간 표시 안 함
+   */
+  clubMembersMap?: Record<string, string[]>
+}
+
+// 비회원 이름 강조용 Tailwind 클래스 — 테마 변경 시 한 곳에서 수정
+const NON_MEMBER_CLASS = 'text-red-500 dark:text-red-400'
+
+/**
+ * 특정 이름이 해당 클럽의 ACTIVE 회원인지 검증.
+ * - 미등록 클럽(맵에 키 없음) → true (검증 skip, 빨간색 안 함)
+ * - 등록 클럽 → 회원 이름 배열에서 trim 정확 매칭
+ */
+function isClubMember(
+  clubMembersMap: Record<string, string[]>,
+  personName: string | null | undefined,
+  clubName: string | null | undefined
+): boolean {
+  if (!personName || !clubName) return true
+  const members = clubMembersMap[clubName.trim().toLowerCase()]
+  if (!members) return true
+  const target = personName.trim()
+  return members.some((m) => m.trim() === target)
+}
+
+// 이름을 렌더링하며 비회원이면 빨간색으로 표시
+function MemberName({ name, isNonMember }: { name: string; isNonMember: boolean }) {
+  return <span className={isNonMember ? NON_MEMBER_CLASS : ''}>{name}</span>
 }
 
 // 목록은 항상 참가 신청 순(created_at 오름차순)으로 고정
@@ -122,6 +154,7 @@ export function EntriesManager({
   tournamentId,
   entries,
   divisions,
+  clubMembersMap = {},
 }: EntriesManagerProps) {
   const router = useRouter()
   // 어드민 자체 뮤테이션 후 suppress — 자기 변경으로 발생한 Realtime 이벤트가
@@ -813,10 +846,18 @@ export function EntriesManager({
                         <div className="space-y-2">
                           <div className="min-w-0">
                             <p className="text-base font-semibold text-(--text-primary)">
-                              {entry.player_name}
+                              {/* applicant_participates가 명시적 false일 때만 대표 신청자는 선수 아님 → 검증 제외 */}
+                              <MemberName
+                                name={entry.player_name ?? ''}
+                                isNonMember={
+                                  entry.applicant_participates !== false &&
+                                  !isClubMember(clubMembersMap, entry.player_name, entry.club_name)
+                                }
+                              />
                               {(entry.club_name || entry.profiles?.club) && (
                                 <span className="ml-2 text-sm text-(--text-secondary)">
-                                  ({entry.club_name || entry.profiles?.club})
+                                  ({entry.club_name || entry.profiles?.club}
+                                  {entry.team_order ? ` ${entry.team_order}팀` : ''})
                                 </span>
                               )}
                               {entry.player_rating && (
@@ -830,11 +871,19 @@ export function EntriesManager({
                               {entry.phone || entry.profiles?.phone || '-'}
                             </div>
                           </div>
-                          {/* Partner/Team info */}
                           {entry.partner_data && (
                             <div className="pt-2 border-t border-(--border-color)">
                               <p className="text-base font-semibold text-(--text-primary)">
-                                {(entry.partner_data as PartnerData).name}
+                                <MemberName
+                                  name={(entry.partner_data as PartnerData).name}
+                                  isNonMember={
+                                    !isClubMember(
+                                      clubMembersMap,
+                                      (entry.partner_data as PartnerData).name,
+                                      (entry.partner_data as PartnerData).club
+                                    )
+                                  }
+                                />
                                 {(entry.partner_data as PartnerData).club && (
                                   <span className="ml-2 text-sm text-(--text-secondary)">
                                     ({(entry.partner_data as PartnerData).club})
@@ -858,7 +907,16 @@ export function EntriesManager({
                                   {teamMembers.map((member, idx) => (
                                     <span key={idx}>
                                       {idx > 0 && ', '}
-                                      {member.name}
+                                      <MemberName
+                                        name={member.name}
+                                        isNonMember={
+                                          !isClubMember(
+                                            clubMembersMap,
+                                            member.name,
+                                            member.club || entry.club_name
+                                          )
+                                        }
+                                      />
                                       {member.club && (
                                         <span className="text-sm text-(--text-secondary)">
                                           ({member.club})

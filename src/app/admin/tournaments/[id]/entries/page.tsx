@@ -1,14 +1,58 @@
 import { formatKoreanDate } from '@/lib/utils/formatDate'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { EntriesManager } from '@/components/admin/EntriesManager'
 import { TournamentStatusSelector } from '@/components/admin/TournamentStatusSelector'
 import { decryptProfile } from '@/lib/crypto/profileCrypto'
+import type { PartnerData } from '@/lib/supabase/types'
 import Link from 'next/link'
 import { ChevronLeft, Calendar, MapPin, Users, ListTree } from 'lucide-react'
 
 import { sortDivisions } from '@/lib/tournaments/divisionSort'
+
+type ActiveClubLite = { id: string; name: string }
+
+/**
+ * 어드민 뷰 전용: 엔트리 clubName 기준으로 ACTIVE 회원 이름 맵 생성.
+ * - 키: 소문자 정규화된 클럽명 (대소문자/공백 무시 매칭용)
+ * - clubs 테이블에 없는 클럽은 키 자체가 없음 → 조회 측에서 "검증 skip" 처리
+ *
+ * clubs는 호출자가 entries와 병렬로 미리 fetch하여 전달 (RTT 절약).
+ */
+async function buildClubMembersMap(
+  clubs: ActiveClubLite[],
+  clubNames: string[]
+): Promise<Record<string, string[]>> {
+  const uniqueLowerNames = new Set(
+    clubNames.map((n) => n.trim().toLowerCase()).filter(Boolean)
+  )
+  if (uniqueLowerNames.size === 0 || clubs.length === 0) return {}
+
+  const clubIdToLowerName = new Map<string, string>()
+  for (const c of clubs) {
+    const key = c.name.trim().toLowerCase()
+    if (uniqueLowerNames.has(key)) clubIdToLowerName.set(c.id, key)
+  }
+  if (clubIdToLowerName.size === 0) return {}
+
+  const admin = createAdminClient()
+  const { data: members } = await admin
+    .from('club_members')
+    .select('club_id, name')
+    .in('club_id', Array.from(clubIdToLowerName.keys()))
+    .eq('status', 'ACTIVE')
+
+  const result: Record<string, string[]> = {}
+  for (const m of members ?? []) {
+    const key = clubIdToLowerName.get(m.club_id)
+    if (!key) continue
+    if (!result[key]) result[key] = []
+    result[key].push(m.name)
+  }
+  return result
+}
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -57,23 +101,41 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
     redirect('/admin/tournaments')
   }
 
-  // 참가 신청 조회 (참가 신청 순 고정: created_at → id)
-  const { data: rawEntries } = await supabase
-    .from('tournament_entries')
-    .select(`
-      *,
-      profiles:user_id (name, email, phone, avatar_url, club),
-      tournament_divisions:division_id (name)
-    `)
-    .eq('tournament_id', id)
-    .order('created_at', { ascending: true })
-    .order('id', { ascending: true })
+  // entries와 clubs를 병렬 조회 — clubs는 entries에 의존하지 않으므로 RTT 1회 절약
+  const adminForClubs = createAdminClient()
+  const [{ data: rawEntries }, { data: activeClubs }] = await Promise.all([
+    supabase
+      .from('tournament_entries')
+      .select(`
+        *,
+        profiles:user_id (name, email, phone, avatar_url, club),
+        tournament_divisions:division_id (name)
+      `)
+      .eq('tournament_id', id)
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true }),
+    adminForClubs
+      .from('clubs')
+      .select('id, name')
+      .eq('is_active', true),
+  ])
 
-  // profiles.phone / birth_year 복호화
   const entries = (rawEntries ?? []).map((entry) => ({
     ...entry,
     profiles: entry.profiles ? decryptProfile(entry.profiles) : null,
   }))
+
+  // 엔트리 clubName을 기준으로 ACTIVE 회원 맵 생성 (profiles.club은 판정 대상 아님 — club_name만 사용)
+  const clubNamesInEntries: string[] = []
+  for (const e of entries) {
+    if (e.club_name) clubNamesInEntries.push(e.club_name)
+    const partner = e.partner_data as PartnerData | null
+    if (partner?.club) clubNamesInEntries.push(partner.club)
+  }
+  const clubMembersMap = await buildClubMembersMap(
+    activeClubs ?? [],
+    clubNamesInEntries
+  )
 
   const statusConfig: Record<string, { label: string; className: string }> = {
     DRAFT: { label: '초안', className: 'bg-gray-500/20 text-gray-400' },
@@ -175,6 +237,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         tournamentId={tournament.id}
         entries={entries}
         divisions={sortDivisions(tournament.tournament_divisions ?? [])}
+        clubMembersMap={clubMembersMap}
       />
     </div>
   )
