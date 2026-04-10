@@ -41,6 +41,7 @@ interface CurrentEntry {
   team_order: string | null;
   partner_data: { name: string; club: string; rating: number } | null;
   team_members: Array<{ name: string; rating: number }> | null;
+  applicant_participates?: boolean | null;
   current_rank?: number;
   payment_status?: string;
   refund_bank?: string | null;
@@ -983,6 +984,10 @@ export default function TournamentEntryActions({
             teamOrder: activeEntry.team_order,
             partnerData: activeEntry.partner_data,
             teamMembers: activeEntry.team_members,
+            // 저장된 신청자 참가 여부를 폼에 전달. 누락 시 TournamentEntryForm의
+            // useState 초기값이 `?? true`로 폴백되어 체크 해제 상태가 유실되는
+            // 버그를 방지 (false도 그대로 유지).
+            applicantParticipates: activeEntry.applicant_participates ?? true,
             refundBank: activeEntry.refund_bank || "",
             refundAccount: activeEntry.refund_account || "",
             refundHolder: activeEntry.refund_holder || "",
