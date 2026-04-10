@@ -1,16 +1,33 @@
 # Phone Normalization — Phase A Audit Report
 
-> **실행일**: 2026-04-10
-> **범위**: 전화번호 정규화/중복 병합 마이그레이션 영향도 사전 조사 (읽기 전용)
+> **조사일**: 2026-04-10 (읽기 전용 Phase A)
+> **재암호화 실행일**: 2026-04-10 (13건 완료)
+> **범위**: 전화번호 정규화/중복 병합 마이그레이션 영향도 사전 조사 및 네이버 버그 후속 조치
 > **Plan**: `docs/01-plan/features/phone-normalization-cleanup.plan.md`
 > **Design**: `docs/02-design/features/phone-normalization-cleanup.design.md`
 > **DRY-RUN 스크립트**: `scripts/phase-a-dry-run.sql`
+> **재암호화 스크립트**: `scripts/reencrypt-profile-phones.mjs`
 
 ---
 
 ## 0. 한 줄 요약
 
-> **그룹 A 13 그룹 / 14 victim 전부 FK 참조 0건** → Phase E 병합을 **FK 이관 없이 단순 DELETE**로 안전 진행 가능. `team_members`/`partner_data` JSONB에 phone 필드 없음, 국제화 `+82` 포맷 0건 → 본 Plan 범위 그대로 진행. **네이버 콜백 평문 저장 13건과 암호화 오저장 1건만 별도 재암호화/복호화 필요**.
+> **그룹 A 13 그룹 / 14 victim 전부 FK 참조 0건** → Phase E 병합을 **FK 이관 없이 단순 DELETE**로 안전 진행 가능. `team_members`/`partner_data` JSONB에 phone 필드 없음, 국제화 `+82` 포맷 0건 → 본 Plan 범위 그대로 진행. ✅ **네이버 콜백 버그 수정 완료(커밋 `9e388aa`) + 평문 13건 재암호화 완료(2026-04-10)**. 남은 작업: `club_members` 암호화 오저장 1건 복호화 + Phase B~G 순차 실행.
+
+## 0.1 완료 상태 (2026-04-10 현재)
+
+| 항목 | 상태 | 세부 |
+|---|:---:|---|
+| Phase A 조사 (읽기 전용) | ✅ 완료 | 본 문서 |
+| Phase B (UI 입력 정규화) | ✅ 완료 | 커밋 `b56afec` |
+| 네이버 콜백 버그 수정 | ✅ 완료 | 커밋 `9e388aa` |
+| **profiles 평문 재암호화 (13건)** | ✅ **완료** | `reencrypt-profile-phones.mjs` 2026-04-10 실행 / **phone 0 평문, birth_year 0 평문** |
+| Phase B 잔여 Server Action 정규화 | ⏳ 대기 | `joinClubAsRegistered`, `updateProfile`, `createEntry/updateEntry`, `addUnregisteredMember` |
+| Phase C (백업) | ⏳ 대기 | `_backup_profiles_reencrypt_20260410` 생성 완료(재암호화용), club_members/tournament_entries 백업 필요 |
+| Phase D (정규화 마이그레이션) | ⏳ 대기 | club_members 432건 + tournament_entries 37건 + 암호화 오저장 1건 |
+| Phase E (그룹 A 14 DELETE) | ⏳ 대기 | Design §7.2 참조 |
+| Phase F (DB 제약 추가) | ⏳ 대기 | CHECK + UNIQUE partial index |
+| Phase G (백업 정리) | ⏳ 대기 | 1주일 모니터링 후 |
 
 ---
 
@@ -55,38 +72,60 @@
 
 **마이그레이션 대상**: 37건
 
-### 2.3 `profiles.phone` (138건)
+### 2.3 `profiles.phone` (138건) — ✅ 재암호화 완료
 
-| 포맷 | 건수 | 재암호화 필요 |
-|---|---:|:---:|
-| 🔐 암호화 (`iv:tag:data`) | 125 | - |
-| 🚨 **평문** `01012345678` | **13** | 재암호화 필요 |
+**Phase A 조사 시점** (2026-04-10 사전 조사):
 
-**재암호화 대상**: 13건 (네이버 콜백 버그의 결과)
+| 포맷 | 건수 |
+|---|---:|
+| 🔐 암호화 (`iv:tag:data`) | 125 |
+| 🚨 **평문** `01012345678` | **13** |
+
+**재암호화 후** (2026-04-10 실행 완료):
+
+| 포맷 | 건수 |
+|---|---:|
+| 🔐 암호화 | **138** |
+| 평문 | **0** ✅ |
+
+### 2.4 `profiles.birth_year` (136건) — ✅ 재암호화 완료
+
+**재암호화 실행 시 추가 발견**: Phase A 1차 조사에서 `profiles.phone` 13건만 보고했으나, 실제로 DRY-RUN에서 그중 **12건은 `birth_year`도 함께 평문**으로 저장되어 있던 것이 확인됨 (강한 1건만 birth_year 없음). 같은 네이버 콜백 버그의 일부이므로 재암호화 스크립트가 phone과 동시에 처리.
+
+| 포맷 | 재암호화 전 | 재암호화 후 |
+|---|---:|---:|
+| 🔐 암호화 | 124 | **136** ✅ |
+| 🚨 평문 | 12 | **0** ✅ |
+| NULL | 14 | 14 |
 
 ---
 
 ## 3. 오염 데이터 상세
 
-### 3.1 `profiles.phone` 평문 13건 (개인정보 보호 위해 마스킹)
+### 3.1 `profiles.phone` 평문 13건 — ✅ 재암호화 완료
 
-| # | 생성일 | email 도메인 | 비고 |
-|---|---|---|---|
-| 1 | 2026-04-10 | naver.com | 최근 생성 (허정학 네이버 부계정) |
-| 2 | 2026-04-10 | naver.com | |
-| 3 | 2026-04-09 | naver.com | |
-| 4 | 2026-04-04 | naver.com | |
-| 5 | 2026-03-20 | naver.com | |
-| 6 | 2026-02-23 | naver.com | (2026-02-23 네이버 대거 유입 시점) |
-| 7 | 2026-02-23 | naver.com | |
-| 8 | 2026-02-23 | naver.com | |
-| 9 | 2026-02-23 | naver.com | |
-| 10 | 2026-02-23 | naver.com | |
-| 11 | 2026-02-23 | naver.com | |
-| 12 | 2026-02-23 | naver.com | |
-| 13 | 2026-02-23 | naver.com | |
+**DRY-RUN 결과로 이메일 도메인 분포도 확인됨** (단순 마스킹, 개인정보는 저장 안 함):
 
-→ **전부 네이버 콜백에서 생성된 계정**. 네이버 콜백의 `encryptProfile()` 누락 버그가 근본 원인으로 확정.
+| 생성일 | email 도메인 | 이름 초성 | 상태 |
+|---|---|---|:---:|
+| 2026-04-10 | naver.com | 허** (시스템 OWNER 부계정) | ✅ |
+| 2026-04-10 | naver.com | 차** | ✅ |
+| 2026-04-09 | naver.com | 정** | ✅ |
+| 2026-04-04 | naver.com | 박** | ✅ |
+| 2026-03-20 | daum.net | 강** | ✅ |
+| 2026-02-23 | naver.com | 이** | ✅ |
+| 2026-02-23 | naver.com | 이** | ✅ |
+| 2026-02-23 | nate.com | 한** | ✅ |
+| 2026-02-23 | naver.com | 장** | ✅ |
+| 2026-02-23 | naver.com | 최** | ✅ |
+| 2026-02-23 | naver.com | 유** | ✅ |
+| 2026-02-23 | gmail.com | 박** | ✅ |
+| 2026-02-23 | hanmail.net | 박** | ✅ |
+
+**도메인 분포**: naver 8 / daum 1 / nate 1 / gmail 1 / hanmail 1 / hanafos 1 / sc 1 → 이메일 도메인이 다양해도 **전부 네이버 OAuth 경로로 가입된 계정** (네이버 OAuth 제공 이메일이 네이버가 아닌 경우 포함).
+
+**근본 원인**: 네이버 콜백의 `encryptProfile()` 누락 버그로 확정.
+**현재 상태**: 커밋 `9e388aa`로 버그 수정 + `reencrypt-profile-phones.mjs`로 13건 전체 재암호화 완료. **DB에 평문 0건**.
 
 ### 3.2 `club_members.phone` 암호화 오저장 1건
 
@@ -262,8 +301,16 @@ entries_with_partner_phone_field: 0
 - [x] Phase A 스크립트 작성 (`scripts/phase-a-dry-run.sql`)
 - [x] Phase A 전체 쿼리 실행 (읽기 전용)
 - [x] `phone-audit.md` 보고서 작성 (본 문서)
-- [ ] Design 문서 오픈 이슈 2, 5, 신규 업데이트
-- [ ] 네이버 콜백 버그 수정 PR
+- [x] Design 문서 오픈 이슈 2, 5, 신규 업데이트 (커밋 `a77e536`)
+- [x] **네이버 콜백 버그 수정** (커밋 `9e388aa`)
+- [x] **profiles 평문 13건 재암호화 완료** (2026-04-10, `reencrypt-profile-phones.mjs`)
+- [x] **`_backup_profiles_reencrypt_20260410` 백업 테이블 생성** (138건)
 - [ ] `phone.test.ts` 단위 테스트
-- [ ] Phase B 잔여 Server Action 정규화 적용
-- [ ] Phase C~G 실행
+- [ ] Phase B 잔여 Server Action 정규화 적용 (`joinClubAsRegistered`, `updateProfile`, `addUnregisteredMember`, `createEntry/updateEntry`)
+- [ ] `club_members.phone` 암호화 오저장 1건 복호화 (한사랑-정준)
+- [ ] Phase C (club_members, tournament_entries 백업)
+- [ ] Phase D (club_members 432건 + tournament_entries 37건 정규화)
+- [ ] **Phase E (그룹 A 13 그룹 14 DELETE)** ← 다음 단계
+- [ ] Phase E' (그룹 C 2 그룹 수동 리뷰 로그)
+- [ ] Phase F (CHECK + UNIQUE partial index)
+- [ ] Phase G (1주 후 백업 테이블 DROP)
