@@ -42,6 +42,38 @@ describe("formatPhoneNumber", () => {
   it("비숫자 문자가 포함되어도 숫자만 추출한다", () => {
     expect(formatPhoneNumber("(010) 1234 5678")).toBe("010-1234-5678");
   });
+
+  // 다양한 구분자 — 하이픈/공백/점/언더스코어 전부 정규화되어야 함
+  it("점(.) 구분자를 처리한다", () => {
+    expect(formatPhoneNumber("010.1234.5678")).toBe("010-1234-5678");
+  });
+
+  it("언더스코어(_) 구분자를 처리한다", () => {
+    expect(formatPhoneNumber("010_1234_5678")).toBe("010-1234-5678");
+  });
+
+  it("공백만 구분자로 사용된 경우를 처리한다", () => {
+    expect(formatPhoneNumber("010 1234 5678")).toBe("010-1234-5678");
+  });
+
+  it("혼합 구분자도 처리한다", () => {
+    expect(formatPhoneNumber("010-1234 5678")).toBe("010-1234-5678");
+    expect(formatPhoneNumber("010.1234-5678")).toBe("010-1234-5678");
+  });
+
+  // idempotent 검증 — 이미 포맷된 값을 다시 포맷해도 결과가 같아야 함
+  it("idempotent: 이미 포맷된 값을 재포맷해도 동일해야 한다", () => {
+    const once = formatPhoneNumber("01012345678");
+    const twice = formatPhoneNumber(once);
+    expect(twice).toBe(once);
+    expect(twice).toBe("010-1234-5678");
+  });
+
+  // 숫자 없는 입력 → 빈 문자열
+  it("숫자가 전혀 없는 입력은 빈 문자열을 반환한다", () => {
+    expect(formatPhoneNumber("abc-def-ghij")).toBe("");
+    expect(formatPhoneNumber("---")).toBe("");
+  });
 });
 
 describe("unformatPhoneNumber", () => {
@@ -60,6 +92,24 @@ describe("unformatPhoneNumber", () => {
   it("특수문자가 포함된 입력에서 숫자만 추출한다", () => {
     expect(unformatPhoneNumber("+82-10-1234-5678")).toBe("821012345678");
     expect(unformatPhoneNumber("(010) 1234.5678")).toBe("01012345678");
+  });
+
+  // 다양한 구분자 검증
+  it("다양한 구분자를 모두 제거한다", () => {
+    expect(unformatPhoneNumber("010_1234_5678")).toBe("01012345678");
+    expect(unformatPhoneNumber("010 1234 5678")).toBe("01012345678");
+    expect(unformatPhoneNumber("010.1234.5678")).toBe("01012345678");
+  });
+
+  // idempotent — 이미 숫자만 있는 값을 다시 unformat해도 동일
+  it("idempotent: 숫자만 있는 값을 재처리해도 동일하다", () => {
+    const result = unformatPhoneNumber("01012345678");
+    expect(unformatPhoneNumber(result)).toBe(result);
+  });
+
+  it("숫자가 전혀 없는 입력은 빈 문자열을 반환한다", () => {
+    expect(unformatPhoneNumber("abc-def")).toBe("");
+    expect(unformatPhoneNumber("---")).toBe("");
   });
 });
 
