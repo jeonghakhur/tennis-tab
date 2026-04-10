@@ -5,6 +5,8 @@ import { Calendar, Clock, Phone, User, ChevronRight, Loader2, GraduationCap, Mes
 import { getPublicOpenSlots, createBooking, getCurrentMemberProfile, createLessonInquiry } from '@/lib/lessons/slot-actions'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import PhoneInput from '@/components/ui/PhoneInput'
+import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
 import type { Coach } from '@/lib/lessons/types'
 import type { LessonSlot } from '@/lib/lessons/slot-types'
 
@@ -12,10 +14,8 @@ import type { LessonSlot } from '@/lib/lessons/slot-types'
 
 const DAY_LABELS = ['일', '월', '화', '수', '목', '금', '토']
 
-/** 전화번호 하이픈 포맷 (01012345678 → 010-1234-5678) */
-function formatPhone(phone: string): string {
-  return phone.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3')
-}
+/** 전화번호 하이픈 포맷 (01012345678 → 010-1234-5678) — 표시용 */
+const formatPhone = formatPhoneNumber
 
 function formatDateShort(dateStr: string): string {
   const d = new Date(dateStr + 'T00:00:00')
@@ -227,7 +227,8 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess, memberProfi
     setNote('')
     if (memberProfile) {
       setName(memberProfile.name)
-      setPhone(memberProfile.phone)
+      // 저장된 값이 숫자만이든 하이픈이든 동일하게 표시되도록 포맷
+      setPhone(formatPhoneNumber(memberProfile.phone))
       setIsMember(true)
     } else {
       setName('')
@@ -246,10 +247,11 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess, memberProfi
 
   const handleSubmit = async () => {
     const trimName = name.trim()
-    const trimPhone = phone.trim()
+    // 숫자만 추출해서 검증/전송
+    const digitsPhone = unformatPhoneNumber(phone)
     if (!trimName) { setAlert({ isOpen: true, message: '이름을 입력해주세요.' }); return }
-    if (!trimPhone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
-    if (!isMember && !/^0\d{8,10}$/.test(trimPhone.replace(/-/g, ''))) {
+    if (!digitsPhone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
+    if (!isMember && !/^0\d{8,10}$/.test(digitsPhone)) {
       setAlert({ isOpen: true, message: '올바른 전화번호를 입력해주세요. (예: 01012345678)' })
       return
     }
@@ -257,7 +259,7 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess, memberProfi
     const result = await createBooking({
       slot_ids: [slot.id],
       // 비회원일 때만 guest 정보 전달 (회원이면 createBooking 내부에서 자동 감지)
-      ...(!isMember && { guest_name: trimName, guest_phone: trimPhone }),
+      ...(!isMember && { guest_name: trimName, guest_phone: digitsPhone }),
       note: note.trim() || undefined,
     })
     setSubmitting(false)
@@ -343,16 +345,13 @@ function BookingModal({ slot, coachName, isOpen, onClose, onSuccess, memberProfi
               </label>
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
                 <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
-                <input
+                <PhoneInput
                   id="booking-phone"
-                  type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01012345678"
+                  onChange={setPhone}
                   readOnly={isMember}
-                  className="flex-1 bg-transparent text-sm outline-none tabular-nums"
+                  inputClassName="flex-1 bg-transparent text-sm outline-none tabular-nums"
                   style={{ color: isMember ? 'var(--text-muted)' : 'var(--text-primary)' }}
-                  autoComplete="tel"
                 />
               </div>
             </div>
@@ -694,7 +693,7 @@ function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess, memberPr
     setMessage('')
     if (memberProfile) {
       setName(memberProfile.name)
-      setPhone(memberProfile.phone)
+      setPhone(formatPhoneNumber(memberProfile.phone))
       setIsMember(true)
     } else {
       setName('')
@@ -711,9 +710,9 @@ function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess, memberPr
 
   const handleSubmit = async () => {
     const trimName = name.trim()
-    const trimPhone = phone.trim()
+    const digitsPhone = unformatPhoneNumber(phone)
     if (!trimName) { setAlert({ isOpen: true, message: '이름을 입력해주세요.' }); return }
-    if (!trimPhone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
+    if (!digitsPhone) { setAlert({ isOpen: true, message: '연락처를 입력해주세요.' }); return }
     if (selectedDays.length === 0) { setAlert({ isOpen: true, message: '희망 요일을 선택해주세요.' }); return }
     if (!preferredTime) { setAlert({ isOpen: true, message: '희망 시간대를 선택해주세요.' }); return }
 
@@ -721,7 +720,7 @@ function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess, memberPr
     const result = await createLessonInquiry({
       coachId,
       name: trimName,
-      phone: trimPhone,
+      phone: digitsPhone,
       preferredDays: selectedDays,
       preferredTime,
       message,
@@ -784,14 +783,12 @@ function InquiryModal({ coachId, coachName, isOpen, onClose, onSuccess, memberPr
               </label>
               <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl" style={inputStyle}>
                 <Phone className="w-4 h-4 shrink-0" style={{ color: 'var(--text-muted)' }} />
-                <input
+                <PhoneInput
                   id="inq-phone"
-                  type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="01012345678"
+                  onChange={setPhone}
                   readOnly={isMember}
-                  className="flex-1 bg-transparent text-sm outline-none tabular-nums"
+                  inputClassName="flex-1 bg-transparent text-sm outline-none tabular-nums"
                   style={{ color: isMember ? 'var(--text-muted)' : 'var(--text-primary)' }}
                 />
               </div>

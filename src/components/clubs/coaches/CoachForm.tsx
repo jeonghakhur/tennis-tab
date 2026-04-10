@@ -4,6 +4,8 @@ import { useState, useRef, useCallback } from 'react'
 import { X, Upload, User, FileText, Loader2 } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { AlertDialog } from '@/components/common/AlertDialog'
+import PhoneInput from '@/components/ui/PhoneInput'
+import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
 import { uploadImage, uploadFile } from '@/lib/storage/actions'
 import type { Coach, CreateCoachInput } from '@/lib/lessons/types'
 
@@ -21,7 +23,8 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
   const isEdit = !!initialData
 
   const [name, setName] = useState(initialData?.name || '')
-  const [phone, setPhone] = useState(initialData?.phone || '')
+  // 초기값은 하이픈 포맷으로 정규화해서 표시 (저장된 값이 숫자만이든 하이픈이든 동일)
+  const [phone, setPhone] = useState(formatPhoneNumber(initialData?.phone || ''))
   const [bio, setBio] = useState(initialData?.bio || '')
   const [experience, setExperience] = useState(initialData?.experience || '')
   const [lessonLocation, setLessonLocation] = useState(initialData?.lesson_location || '')
@@ -111,9 +114,11 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
     }
 
     setSubmitting(true)
+    // 숫자만 저장 (하이픈/공백 등 제거). 빈 문자열이면 undefined.
+    const normalizedPhone = unformatPhoneNumber(phone)
     const result = await onSubmit({
       name: name.trim(),
-      phone: phone.trim() || undefined,
+      phone: normalizedPhone || undefined,
       bio: bio.trim() || undefined,
       experience: experience.trim() || undefined,
       lesson_location: lessonLocation.trim() || undefined,
@@ -261,14 +266,11 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
                 <label htmlFor="coach-phone" className="block text-sm font-medium mb-1" style={{ color: 'var(--text-primary)' }}>
                   연락처 <span className="font-normal text-sm" style={{ color: 'var(--text-muted)' }}>(레슨 안내 페이지 노출)</span>
                 </label>
-                <input
+                <PhoneInput
                   id="coach-phone"
-                  type="tel"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="010-0000-0000"
-                  maxLength={20}
-                  className="w-full px-3 py-2 rounded-lg text-sm"
+                  onChange={setPhone}
+                  inputClassName="w-full px-3 py-2 rounded-lg text-sm"
                   style={inputStyle}
                 />
               </div>

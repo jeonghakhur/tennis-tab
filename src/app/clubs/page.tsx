@@ -9,6 +9,8 @@ import { Search, MapPin, Users, Check, MessageCircle } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { hasMinimumRole } from '@/lib/auth/roles'
+import PhoneInput from '@/components/ui/PhoneInput'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 // 모듈 레벨 캐시: 뒤로가기 시 재조회 없이 즉시 렌더링
 type ClubsListCache = { clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; search: string }
@@ -134,7 +136,7 @@ export default function ClubsPage() {
     const result = await joinClubAsGuest(
       guestJoinTarget.id,
       guestName,
-      guestPhone,
+      unformatPhoneNumber(guestPhone),
       guestIntro || undefined,
     )
     setJoinLoading(false)
@@ -386,14 +388,11 @@ export default function ClubsPage() {
               >
                 연락처 <span style={{ color: 'var(--color-danger)' }}>*</span>
               </label>
-              <input
+              <PhoneInput
                 id="guest-phone"
-                type="tel"
                 value={guestPhone}
-                onChange={(e) => setGuestPhone(e.target.value)}
-                maxLength={20}
-                placeholder="010-0000-0000"
-                className="w-full px-3 py-2.5 rounded-lg text-sm"
+                onChange={setGuestPhone}
+                inputClassName="w-full px-3 py-2.5 rounded-lg text-sm"
                 style={{
                   backgroundColor: 'var(--bg-input)',
                   color: 'var(--text-primary)',

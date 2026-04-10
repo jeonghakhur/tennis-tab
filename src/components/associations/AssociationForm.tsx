@@ -17,6 +17,8 @@ import {
   generateAssociationDummy,
   generateAssociationInvalidDummy,
 } from '@/lib/utils/devDummy'
+import PhoneInput from '@/components/ui/PhoneInput'
+import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -36,10 +38,10 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
     district: association?.district || '',
     description: association?.description || '',
     president_name: association?.president_name || '',
-    president_phone: association?.president_phone || '',
+    president_phone: formatPhoneNumber(association?.president_phone || ''),
     president_email: association?.president_email || '',
     secretary_name: association?.secretary_name || '',
-    secretary_phone: association?.secretary_phone || '',
+    secretary_phone: formatPhoneNumber(association?.secretary_phone || ''),
     secretary_email: association?.secretary_email || '',
   })
   const [fieldErrors, setFieldErrors] = useState<AssociationValidationErrors>({})
@@ -88,9 +90,15 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
 
     setLoading(true)
     try {
+      // 서버 저장 직전에 phone 2개를 숫자만으로 정규화
+      const payload = {
+        ...form,
+        president_phone: unformatPhoneNumber(form.president_phone || ''),
+        secretary_phone: unformatPhoneNumber(form.secretary_phone || ''),
+      }
       const result = isEdit
-        ? await updateAssociation(association!.id, form)
-        : await createAssociation(form)
+        ? await updateAssociation(association!.id, payload)
+        : await createAssociation(payload)
 
       if (result.error) {
         setAlert({ isOpen: true, message: result.error, type: 'error' })
@@ -272,13 +280,11 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-(--text-muted) mb-1">연락처</label>
-                <input
-                  ref={(el) => { fieldRefs.current.president_phone = el }}
-                  type="tel"
+                <PhoneInput
+                  inputRef={(el) => { fieldRefs.current.president_phone = el }}
                   value={form.president_phone || ''}
-                  onChange={(e) => handleChange('president_phone', e.target.value)}
-                  placeholder="010-0000-0000"
-                  className={inputClass('president_phone')}
+                  onChange={(v) => handleChange('president_phone', v)}
+                  inputClassName={inputClass('president_phone')}
                 />
                 {fieldErrors.president_phone && (
                   <p className="mt-1 text-xs text-red-500">{fieldErrors.president_phone}</p>
@@ -324,13 +330,12 @@ export function AssociationForm({ association, returnUrl = '/admin/associations'
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm text-(--text-muted) mb-1">연락처</label>
-                <input
-                  ref={(el) => { fieldRefs.current.secretary_phone = el }}
-                  type="tel"
+                <PhoneInput
+                  id="secretary-phone"
+                  inputRef={(el) => { fieldRefs.current.secretary_phone = el }}
                   value={form.secretary_phone || ''}
-                  onChange={(e) => handleChange('secretary_phone', e.target.value)}
-                  placeholder="010-0000-0000"
-                  className={inputClass('secretary_phone')}
+                  onChange={(v) => handleChange('secretary_phone', v)}
+                  inputClassName={inputClass('secretary_phone')}
                 />
                 {fieldErrors.secretary_phone && (
                   <p className="mt-1 text-xs text-red-500">{fieldErrors.secretary_phone}</p>

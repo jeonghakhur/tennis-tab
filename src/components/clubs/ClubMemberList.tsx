@@ -29,6 +29,8 @@ import {
 } from '@/lib/utils/devDummy'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import PhoneInput from '@/components/ui/PhoneInput'
+import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -185,6 +187,8 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
     const result = await addUnregisteredMember(clubId, {
       ...newMember,
+      // 숫자만 저장 (하이픈/공백 등 제거)
+      phone: newMember.phone ? unformatPhoneNumber(newMember.phone) : undefined,
       rating: newMember.rating ? Number(newMember.rating) : undefined,
     })
 
@@ -295,7 +299,8 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
       name: member.name,
       birth_year: member.birth_year || '',
       gender: member.gender as GenderType | undefined,
-      phone: member.phone || '',
+      // 저장된 값이 숫자만이든 하이픈이든 동일하게 표시되도록 포맷
+      phone: formatPhoneNumber(member.phone || ''),
       start_year: member.start_year || '',
       rating: member.rating ?? undefined,
     })
@@ -323,19 +328,24 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
     setEditSaving(true)
     try {
-      const result = await updateMemberInfo(editMember.id, editForm)
+      // 숫자만 저장 (하이픈/공백 등 제거). 빈 값이면 undefined로 전달.
+      const payload = {
+        ...editForm,
+        phone: editForm.phone ? unformatPhoneNumber(editForm.phone) : undefined,
+      }
+      const result = await updateMemberInfo(editMember.id, payload)
       if (result.error) {
         setAlert({ isOpen: true, message: result.error, type: 'error' })
         return
       }
-      // 로컬 상태 즉시 반영
+      // 로컬 상태 즉시 반영 (숫자만 포맷으로 저장)
       setMembers((prev) =>
         prev.map((m) => m.id === editMember.id ? {
           ...m,
           name: editForm.name,
           birth_year: editForm.birth_year || null,
           gender: editForm.gender || null,
-          phone: editForm.phone || null,
+          phone: payload.phone ?? null,
           start_year: editForm.start_year || null,
           rating: editForm.rating ?? null,
         } : m)
@@ -645,13 +655,12 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
             </div>
             <div>
               <label className="block text-sm font-medium text-(--text-primary) mb-1">연락처</label>
-              <input
-                ref={(el) => { memberFieldRefs.current.phone = el }}
-                type="text"
+              <PhoneInput
+                id="new-member-phone"
+                inputRef={(el) => { memberFieldRefs.current.phone = el }}
                 value={newMember.phone || ''}
-                onChange={(e) => handleMemberChange('phone', e.target.value)}
-                placeholder="010-1234-5678"
-                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                onChange={(v) => handleMemberChange('phone', v)}
+                inputClassName={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
                   memberErrors.phone ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
                 }`}
               />
@@ -812,13 +821,12 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
             </div>
             <div>
               <label className="block text-sm font-medium text-(--text-primary) mb-1">연락처</label>
-              <input
-                ref={(el) => { editFieldRefs.current.phone = el }}
-                type="text"
+              <PhoneInput
+                id="edit-member-phone"
+                inputRef={(el) => { editFieldRefs.current.phone = el }}
                 value={editForm.phone || ''}
-                onChange={(e) => { setEditForm({ ...editForm, phone: e.target.value }); setEditErrors((prev) => ({ ...prev, phone: undefined })) }}
-                placeholder="010-1234-5678"
-                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                onChange={(v) => { setEditForm({ ...editForm, phone: v }); setEditErrors((prev) => ({ ...prev, phone: undefined })) }}
+                inputClassName={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
                   editErrors.phone ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
                 }`}
               />

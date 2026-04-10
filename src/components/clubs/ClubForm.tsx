@@ -17,6 +17,8 @@ import {
   generateClubInvalidDummy,
 } from '@/lib/utils/devDummy'
 import { AssociationCombobox, type AssociationValue } from './AssociationCombobox'
+import PhoneInput from '@/components/ui/PhoneInput'
+import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -42,7 +44,8 @@ export function ClubForm({ club, associations = [] }: ClubFormProps) {
     city: club?.city || '',
     district: club?.district || '',
     address: club?.address || '',
-    contact_phone: club?.contact_phone || '',
+    // 저장된 값이 숫자만이든 하이픈이든 동일하게 표시되도록 포맷 정규화
+    contact_phone: formatPhoneNumber(club?.contact_phone || ''),
     contact_email: club?.contact_email || '',
     join_type: club?.join_type || 'APPROVAL',
     max_members: club?.max_members || undefined,
@@ -115,9 +118,11 @@ export function ClubForm({ club, associations = [] }: ClubFormProps) {
 
     setLoading(true)
     try {
+      // 서버 저장 직전에 phone을 숫자만으로 정규화
+      const payload = { ...form, contact_phone: unformatPhoneNumber(form.contact_phone || '') }
       const result = isEdit
-        ? await updateClub(club!.id, { ...form, is_recruiting: isRecruiting })
-        : await createClub(form)
+        ? await updateClub(club!.id, { ...payload, is_recruiting: isRecruiting })
+        : await createClub(payload)
 
       if (result.error) {
         setAlert({ isOpen: true, message: result.error, type: 'error' })
@@ -265,14 +270,11 @@ export function ClubForm({ club, associations = [] }: ClubFormProps) {
             <label className="block text-sm font-medium text-(--text-primary) mb-1">
               연락처 <span className="text-red-500">*</span>
             </label>
-            <input
-              ref={(el) => { fieldRefs.current.contact_phone = el }}
-              type="tel"
-              inputMode="numeric"
-              value={form.contact_phone}
-              onChange={(e) => handleChange('contact_phone', e.target.value)}
-              placeholder="01012345678"
-              className={inputClass('contact_phone')}
+            <PhoneInput
+              inputRef={(el) => { fieldRefs.current.contact_phone = el }}
+              value={form.contact_phone || ''}
+              onChange={(v) => handleChange('contact_phone', v)}
+              inputClassName={inputClass('contact_phone')}
             />
             {fieldErrors.contact_phone && <p className="mt-1 text-xs text-red-500">{fieldErrors.contact_phone}</p>}
           </div>
