@@ -16,6 +16,14 @@ export interface PartnerSearchResult {
     birthYear: string | null
 }
 
+// 클럽 검색 결과 타입 (관리자 대리 신청 시 클럽 선택용)
+export interface ClubSearchResult {
+    id: string
+    name: string
+    city: string | null
+    district: string | null
+}
+
 // 결과 타입 정의
 export interface CreateEntryResult {
     success: boolean;
@@ -69,6 +77,48 @@ export async function getClubMembersByClubName(clubName: string): Promise<ClubMe
         name: m.name,
         rating: m.rating !== null ? Number(m.rating) : null,
     }));
+}
+
+/**
+ * 이름으로 클럽 검색 (관리자 대리 신청 시 클럽 선택용)
+ * - ADMIN 이상만 호출 허용
+ * - 빈 쿼리면 최근 활성 클럽 상위 20개 반환 (초기 드롭다운)
+ */
+export async function searchClubsByName(query: string): Promise<ClubSearchResult[]> {
+    // 권한 확인: ADMIN 이상만
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return []
+
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+    const role = profile?.role ?? null
+    if (role !== 'SUPER_ADMIN' && role !== 'ADMIN') return []
+
+    const admin = createAdminClient()
+    let q = admin
+        .from('clubs')
+        .select('id, name, city, district')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+        .limit(20)
+
+    const trimmed = query.trim()
+    if (trimmed.length > 0) {
+        q = q.ilike('name', `%${trimmed}%`)
+    }
+
+    const { data } = await q
+    return (data ?? []).map((c) => ({
+        id: c.id,
+        name: c.name,
+        city: c.city,
+        district: c.district,
+    }))
 }
 
 /**

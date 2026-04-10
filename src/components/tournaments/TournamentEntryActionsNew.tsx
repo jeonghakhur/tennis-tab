@@ -65,6 +65,7 @@ interface TournamentEntryActionsProps {
   entryStartDate: string | null;
   entryEndDate: string | null;
   isOrganizer: boolean;
+  isAdmin?: boolean;
 }
 
 export default function TournamentEntryActions({
@@ -82,6 +83,7 @@ export default function TournamentEntryActions({
   entryStartDate,
   entryEndDate,
   isOrganizer,
+  isAdmin = false,
 }: TournamentEntryActionsProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -953,6 +955,7 @@ export default function TournamentEntryActions({
           bankAccount={bankAccount}
           onClose={() => setShowEntryForm(false)}
           onSubmit={handleSubmit}
+          isAdmin={isAdmin}
         />
       )}
 
@@ -975,6 +978,7 @@ export default function TournamentEntryActions({
           onClose={() => { setShowEditForm(false); setActiveEntryId(null); }}
           onSubmit={handleUpdate}
           editMode={true}
+          isAdmin={isAdmin}
           initialData={{
             divisionId: activeEntry.division_id || "",
             phone: activeEntry.phone || "",

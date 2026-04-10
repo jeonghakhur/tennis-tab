@@ -102,15 +102,17 @@ export default async function TournamentDetailPage({ params }: Props) {
   // 사용자 프로필 가져오기
   let userProfile = null;
   let myEntries: unknown[] = [];
+  let isAdmin = false;
 
   if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("name, phone, rating, club")
+      .select("name, phone, rating, club, role")
       .eq("id", user.id)
       .single();
 
     userProfile = profile ? decryptProfile(profile) : null;
+    isAdmin = profile?.role === "ADMIN" || profile?.role === "SUPER_ADMIN";
 
     // 취소 제외, 신청일 오름차순 전체 조회 (여러 팀 신청 UI 지원) + 순번 계산
     const [{ data: entries }, { data: allEntryIds }] = await Promise.all([
@@ -723,6 +725,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               entryStartDate={tournament.entry_start_date}
               entryEndDate={tournament.entry_end_date}
               isOrganizer={false}
+              isAdmin={isAdmin}
             />
 
             {/* Map */}

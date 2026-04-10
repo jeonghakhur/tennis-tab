@@ -14,7 +14,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { searchPartnerByName, getClubMembersByClubName, type PartnerSearchResult, type ClubMemberInfo } from "@/lib/entries/actions";
+import { searchPartnerByName, getClubMembersByClubName, searchClubsByName, type PartnerSearchResult, type ClubMemberInfo, type ClubSearchResult } from "@/lib/entries/actions";
 
 // 입력값 변경 후 일정 시간 대기하여 안정된 값 반환 (검증 UI 깜빡임 방지)
 function useDebounce<T>(value: T, delay: number): T {
@@ -55,6 +55,8 @@ interface TournamentEntryFormProps {
   ) => Promise<{ success: boolean; error?: string }>;
   editMode?: boolean;
   initialData?: EntryFormData;
+  // 관리자 대리 신청: 단체전 클럽명을 읽기 전용 대신 검색/선택 가능한 콤보박스로 전환
+  isAdmin?: boolean;
 }
 
 export interface EntryFormData {
@@ -85,6 +87,7 @@ export default function TournamentEntryForm({
   onSubmit,
   editMode = false,
   initialData,
+  isAdmin = false,
 }: TournamentEntryFormProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,6 +152,43 @@ export default function TournamentEntryForm({
   const partnerSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const partnerDropdownRef = useRef<HTMLDivElement>(null);
 
+  // 관리자 대리 신청: 클럽 콤보박스 상태
+  const [clubSearchResults, setClubSearchResults] = useState<ClubSearchResult[]>([]);
+  const [showClubDropdown, setShowClubDropdown] = useState(false);
+  const [isSearchingClubs, setIsSearchingClubs] = useState(false);
+  const clubSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clubDropdownRef = useRef<HTMLDivElement>(null);
+
+  // 클럽 검색 핸들러 (디바운스 300ms)
+  const handleClubNameChange = (value: string) => {
+    setClubName(value);
+
+    if (clubSearchRef.current) clearTimeout(clubSearchRef.current);
+    setIsSearchingClubs(true);
+    clubSearchRef.current = setTimeout(async () => {
+      const results = await searchClubsByName(value);
+      setClubSearchResults(results);
+      setShowClubDropdown(true);
+      setIsSearchingClubs(false);
+    }, 300);
+  };
+
+  // 클럽 포커스 시 드롭다운 열기 — 비어있으면 최근 활성 클럽 상위 조회
+  const handleClubFocus = async () => {
+    if (clubSearchResults.length === 0) {
+      setIsSearchingClubs(true);
+      const results = await searchClubsByName(clubName);
+      setClubSearchResults(results);
+      setIsSearchingClubs(false);
+    }
+    setShowClubDropdown(true);
+  };
+
+  const handleSelectClub = (club: ClubSearchResult) => {
+    setClubName(club.name);
+    setShowClubDropdown(false);
+  };
+
   // 파트너 검색 입력 핸들러 (디바운스 300ms)
   const handlePartnerNameChange = (value: string) => {
     setPartnerName(value);
@@ -209,6 +249,18 @@ export default function TournamentEntryForm({
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  // 관리자 클럽 드롭다운 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!isAdmin) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (clubDropdownRef.current && !clubDropdownRef.current.contains(e.target as Node)) {
+        setShowClubDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isAdmin]);
 
   // 단체전 + clubName 확정 시 클럽 회원 목록 조회 (검증 + rating 자동 채우기용)
   useEffect(() => {
@@ -774,13 +826,64 @@ export default function TournamentEntryForm({
           {/* 단체전 - 클럽 및 팀원 정보 */}
           {(matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") && (
             <>
-              {/* 클럽명 — 항상 읽기 전용 (프로필 클럽 자동 사용) */}
-              <div>
-                <label className={labelClass}>클럽명</label>
-                <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-(--bg-input) text-(--text-muted) text-sm">
-                  {clubName || "프로필에 클럽을 등록해주세요"}
-                </p>
-              </div>
+              {/* 클럽명 — 관리자는 콤보박스로 대리 선택, 일반 사용자는 프로필 클럽 읽기 전용 */}
+              {isAdmin ? (
+                <div className="relative" ref={clubDropdownRef}>
+                  <label className={labelClass}>
+                    클럽명 <span className="text-red-500">*</span>
+                    <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      관리자 대리 신청
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={clubName}
+                      onChange={(e) => handleClubNameChange(e.target.value)}
+                      onFocus={handleClubFocus}
+                      className={inputClass}
+                      placeholder="클럽명 검색 또는 직접 입력"
+                      autoComplete="off"
+                      aria-label="클럽명"
+                    />
+                    {isSearchingClubs && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                        검색 중...
+                      </span>
+                    )}
+                  </div>
+                  {showClubDropdown && clubSearchResults.length > 0 && (
+                    <ul className="absolute z-50 w-full mt-1 bg-(--bg-input) border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                      {clubSearchResults.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectClub(c)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          >
+                            <span className="font-medium text-(--text-primary)">{c.name}</span>
+                            {(c.city || c.district) && (
+                              <span className="ml-2 text-sm text-(--text-muted)">
+                                {[c.city, c.district].filter(Boolean).join(" ")}
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <p className="text-sm mt-2 text-(--text-muted)">
+                    * 등록된 클럽을 선택하거나 직접 입력할 수 있습니다
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <label className={labelClass}>클럽명</label>
+                  <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-(--bg-input) text-(--text-muted) text-sm">
+                    {clubName || "프로필에 클럽을 등록해주세요"}
+                  </p>
+                </div>
+              )}
 
               {/* 팀 순서 — 수정 모드에서만 읽기 전용 표시 (신규 신청 시 서버에서 자동 부여) */}
               {editMode && teamOrder && (
