@@ -10,10 +10,10 @@
 | 관점 | 내용 |
 |---|---|
 | **Feature** | phone-normalization-cleanup |
-| **Phase** | Design |
-| **상태** | Phase B 완료(UI 정규화 전수 적용), Phase A/C/D/E/F/G 설계 |
+| **Phase** | Do (진행 중) |
+| **상태 (2026-04-10)** | Phase B ✅, Phase C ✅, Phase D ✅, Phase E ✅, Phase F CHECK ✅ / UNIQUE 대기. 그룹 C 2 그룹 수동 정리 대기 |
 | **저장 포맷 결정** | **숫자 11자리** (예: `01012345678`). 화면 표시는 `formatPhoneNumber()`로 하이픈 재삽입 |
-| **핵심 리스크** | Phase E(중복 병합) 되돌리기 불가 → 백업 필수 + 클럽 단위 수동 confirm |
+| **남은 작업** | 그룹 C 수동 정리 → UNIQUE partial index 생성 → Phase B 과도기 `.or()` 제거 → Phase G 백업 정리 |
 
 ### 현재 DB 상태 (Plan 재집계 기준)
 

@@ -19,14 +19,17 @@
 | 항목 | 상태 | 세부 |
 |---|:---:|---|
 | Phase A 조사 (읽기 전용) | ✅ 완료 | 본 문서 |
-| Phase B (UI 입력 정규화) | ✅ 완료 | 커밋 `b56afec` |
+| Phase B UI 입력 정규화 | ✅ 완료 | 커밋 `b56afec` |
 | 네이버 콜백 버그 수정 | ✅ 완료 | 커밋 `9e388aa` |
-| **profiles 평문 재암호화 (13건)** | ✅ **완료** | `reencrypt-profile-phones.mjs` 2026-04-10 실행 / **phone 0 평문, birth_year 0 평문** |
-| Phase B 잔여 Server Action 정규화 | ⏳ 대기 | `joinClubAsRegistered`, `updateProfile`, `createEntry/updateEntry`, `addUnregisteredMember` |
-| Phase C (백업) | ⏳ 대기 | `_backup_profiles_reencrypt_20260410` 생성 완료(재암호화용), club_members/tournament_entries 백업 필요 |
-| Phase D (정규화 마이그레이션) | ⏳ 대기 | club_members 432건 + tournament_entries 37건 + 암호화 오저장 1건 |
-| Phase E (그룹 A 14 DELETE) | ⏳ 대기 | Design §7.2 참조 |
-| Phase F (DB 제약 추가) | ⏳ 대기 | CHECK + UNIQUE partial index |
+| profiles 평문 재암호화 (13건) | ✅ 완료 | `reencrypt-profile-phones.mjs` / phone 0 평문, birth_year 0 평문 |
+| **Phase B Server Action 정규화** | ✅ **완료** | 커밋 `0fc1880` (joinClubAsRegistered, respondJoinRequest, addUnregisteredMember, joinClubAsGuest, createClub, inviteMember, updateProfile, createEntry, updateEntry) |
+| **Option C: `club_members` 암호화 오저장 1건 NULL** | ✅ **완료** | 한사랑-정준 (`dfc46a10-...`) phone → NULL, `_phone_migration_review`에 로그 |
+| **Phase C 백업** | ✅ **완료** | `_backup_club_members_20260410` (1098), `_backup_tournament_entries_20260410` (81), `_backup_profiles_reencrypt_20260410` (138) |
+| **Phase D 정규화 마이그레이션** | ✅ **완료** | club_members 431건 정규화, tournament_entries 37건 정규화, 두 테이블 invalid 0 |
+| **Phase E 그룹 A 14 DELETE** | ✅ **완료** | cf19b05a 13건 + a952af1e 1건 삭제, 동일인 중복 0건, `_backup_club_members_phase_e_20260410` (14) |
+| **Phase F CHECK 제약** | ✅ **완료** | `club_members_phone_format`, `tournament_entries_phone_format` CHECK (`^[0-9]{9,11}$`) |
+| **Phase F UNIQUE partial index** | ⏳ **대기 중** | 그룹 C 2 그룹 수동 정리 완료 후 생성 가능 |
+| **그룹 C 2 그룹 수동 정리** | ⏳ **진행 중** | `_phone_migration_review` 4건 기록 완료. SUPER_ADMIN 직접 연락 중 |
 | Phase G (백업 정리) | ⏳ 대기 | 1주일 모니터링 후 |
 
 ---
@@ -168,14 +171,53 @@
 - **강기태 (그룹 1)만 예외** — `is_registered=true` + `is_registered=false` 섞인 형태. 사용자가 직접 가입한 후 관리자가 수동 등록해서 발생한 케이스로 추정.
 - **양현선 3건** 모두 `is_registered=false` → 3개 중 첫 번째(`created_at` 최소) 보존, 나머지 2개 삭제.
 
-### 4.3 그룹 C 2 그룹 (수동 리뷰만)
+### 4.3 그룹 C 2 그룹 (수동 정리 진행 중)
 
-| 클럽 | phone (norm) | 이름 |
+#### 그룹 C.1 — 일레븐 클럽
+
+| 필드 | 회원 1 | 회원 2 |
 |---|---|---|
-| `95a65583...` | 01094038639 | 최윤하 / **유병국** |
-| `cd189c36...` | 01073821198 | 김한빛 / **김성은** |
+| member_id | `5ae9194d-...` | `fafca334-...` |
+| name | **김성은** | **김한빛** |
+| gender | MALE | FEMALE |
+| birth_year | 1988 | 1993 |
+| phone | 01073821198 | 01073821198 |
+| is_registered | true (앱 가입) | false (수동 등록) |
+| created_at | 2026-02-23 | 2026-02-23 |
 
-→ **자동 병합 금지**. Phase E'에서 `_phone_migration_review`에 로그 후 SUPER_ADMIN 수동 처리.
+**분석**: **완전히 다른 사람** (성별/출생년도 다름). 관리자 수동 등록 시 phone 오타로 보임. 김성은이 실제 사용자(is_registered), 김한빛은 수동 등록이므로 **김한빛 쪽 phone을 확인/수정** 필요.
+
+#### 그룹 C.2 — 효성 클럽
+
+| 필드 | 회원 1 | 회원 2 |
+|---|---|---|
+| member_id | `eccd0fe2-...` | `e33890ab-...` |
+| name | **유병국** | **최윤하** |
+| gender | MALE | MALE |
+| birth_year | 1980 | 1980 |
+| phone | 01094038639 | 01094038639 |
+| is_registered | false | false |
+| created_at | 2026-02-23 | 2026-02-23 |
+
+**분석**: 두 명 모두 MALE + 1980년생 + 비가입. 외형 상 유사하지만 **이름이 다름** → 관리자가 두 명 등록하면서 phone 1건을 복사했을 가능성 큼. 실제 phone을 양쪽 모두 확인 필요.
+
+### 4.3.1 처리 방침
+
+1. **자동 병합 절대 금지** — 데이터 오염 가능성
+2. `_phone_migration_review` 테이블에 4건 기록 완료 (`reason='different_names_same_phone'`)
+3. **SUPER_ADMIN이 클럽 관리자에게 직접 연락**하여 각 회원의 정확한 phone 확인
+4. 회신 후 수동 UPDATE
+5. Phase F UNIQUE partial index 생성 (그룹 C 해결 완료 전제)
+6. 리뷰 테이블 `reviewed = true` + `reviewer_note` 기록
+
+### 4.3.2 관리자 연락 정보 (SUPER_ADMIN 내부용)
+
+| 클럽 | 대상 회원 | 관리자 (OWNER/ADMIN) | 연락 방법 |
+|---|---|---|---|
+| **효성** | 유병국 / 최윤하 | 유병준 OWNER, 변형욱 ADMIN | 앱 관리자 페이지 > 효성 클럽 > 회원 관리 |
+| **일레븐** | 김성은 / 김한빛 | 이수현 ADMIN (OWNER 미등록) | 앱 관리자 페이지 > 일레븐 클럽 > 회원 관리 |
+
+> 연락처는 `admin/users` 페이지에서 user_id 검색으로 확인 가능합니다 (본 문서에는 PII 미포함).
 
 ### 4.4 **14 victim의 FK 참조 수** (핵심 발견)
 
@@ -302,15 +344,18 @@ entries_with_partner_phone_field: 0
 - [x] Phase A 전체 쿼리 실행 (읽기 전용)
 - [x] `phone-audit.md` 보고서 작성 (본 문서)
 - [x] Design 문서 오픈 이슈 2, 5, 신규 업데이트 (커밋 `a77e536`)
-- [x] **네이버 콜백 버그 수정** (커밋 `9e388aa`)
-- [x] **profiles 평문 13건 재암호화 완료** (2026-04-10, `reencrypt-profile-phones.mjs`)
-- [x] **`_backup_profiles_reencrypt_20260410` 백업 테이블 생성** (138건)
+- [x] 네이버 콜백 버그 수정 (커밋 `9e388aa`)
+- [x] profiles 평문 13건 재암호화 완료 (2026-04-10, `reencrypt-profile-phones.mjs`)
+- [x] `_backup_profiles_reencrypt_20260410` 백업 테이블 생성 (138건)
+- [x] **Phase B 잔여 Server Action 정규화 적용** (커밋 `0fc1880`)
+- [x] **`club_members.phone` 암호화 오저장 1건 NULL 처리** (한사랑-정준 + 리뷰 로그)
+- [x] **Phase C** (`_backup_club_members_20260410` 1098, `_backup_tournament_entries_20260410` 81)
+- [x] **Phase D** (club_members 431건 정규화 + tournament_entries 37건 정규화)
+- [x] **Phase E** (그룹 A 13 그룹 14 DELETE, `_backup_club_members_phase_e_20260410` 14)
+- [x] **Phase E' 그룹 C 2 그룹 리뷰 로그** (`_phone_migration_review` 4건 기록)
+- [x] **Phase F CHECK 제약** (`club_members_phone_format`, `tournament_entries_phone_format`)
+- [ ] **그룹 C 수동 정리** ← SUPER_ADMIN 직접 연락 진행 중
+- [ ] **Phase F UNIQUE partial index** ← 그룹 C 수동 정리 후 생성
+- [ ] Phase B 과도기 `.or()` 쿼리 제거 (Phase F UNIQUE 완료 후)
 - [ ] `phone.test.ts` 단위 테스트
-- [ ] Phase B 잔여 Server Action 정규화 적용 (`joinClubAsRegistered`, `updateProfile`, `addUnregisteredMember`, `createEntry/updateEntry`)
-- [ ] `club_members.phone` 암호화 오저장 1건 복호화 (한사랑-정준)
-- [ ] Phase C (club_members, tournament_entries 백업)
-- [ ] Phase D (club_members 432건 + tournament_entries 37건 정규화)
-- [ ] **Phase E (그룹 A 13 그룹 14 DELETE)** ← 다음 단계
-- [ ] Phase E' (그룹 C 2 그룹 수동 리뷰 로그)
-- [ ] Phase F (CHECK + UNIQUE partial index)
 - [ ] Phase G (1주 후 백업 테이블 DROP)
