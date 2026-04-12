@@ -11,6 +11,7 @@ import type {
   PaymentStatus,
   PartnerData,
   TeamMember,
+  MatchType,
 } from '@/lib/supabase/types'
 import {
   updateEntryStatus,
@@ -51,6 +52,10 @@ interface EntriesManagerProps {
   tournamentId: string
   entries: Entry[]
   divisions: Division[]
+  /**
+   * 대회 경기 타입 — 단체전일 때만 '본인 참가/불참' 배지/컬럼 노출
+   */
+  matchType: MatchType | null
   /**
    * 엔트리에 등장하는 클럽들의 ACTIVE 회원 이름 맵.
    * - 키: 소문자 정규화된 클럽명
@@ -154,8 +159,12 @@ export function EntriesManager({
   tournamentId,
   entries,
   divisions,
+  matchType,
   clubMembersMap = {},
 }: EntriesManagerProps) {
+  // 단체전 여부 — '본인 참가' 여부 표시 대상
+  const isTeamMatch = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES'
+
   const router = useRouter()
   // 어드민 자체 뮤테이션 후 suppress — 자기 변경으로 발생한 Realtime 이벤트가
   // 진행 중인 router.refresh()를 abort하지 않도록 2초간 외부 갱신 차단
@@ -854,6 +863,24 @@ export function EntriesManager({
                                   !isClubMember(clubMembersMap, entry.player_name, entry.club_name)
                                 }
                               />
+                              {/* 단체전: 신청자의 선수 참가 여부 배지 */}
+                              {isTeamMatch && (
+                                entry.applicant_participates === false ? (
+                                  <span
+                                    className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-subtle-warning align-middle"
+                                    title="신청자가 선수로 참가하지 않음 (대표 신청만)"
+                                  >
+                                    본인 불참
+                                  </span>
+                                ) : (
+                                  <span
+                                    className="ml-2 inline-block px-1.5 py-0.5 rounded text-xs font-medium bg-subtle-success align-middle"
+                                    title="신청자가 선수로 참가"
+                                  >
+                                    본인 참가
+                                  </span>
+                                )
+                              )}
                               {(entry.club_name || entry.profiles?.club) && (
                                 <span className="ml-2 text-sm text-(--text-secondary)">
                                   ({entry.club_name || entry.profiles?.club}

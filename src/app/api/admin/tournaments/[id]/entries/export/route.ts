@@ -103,10 +103,16 @@ export async function GET(request: Request, context: RouteContext) {
       '신청일': formatDate(entry.created_at),
       '부문': entry.tournament_divisions?.name ?? '-',
       '신청자명': entry.player_name || entry.profiles?.name || '-',
-      '이메일': entry.profiles?.email || '-',
-      '전화번호': entry.phone || entry.profiles?.phone || '-',
-      '클럽': entry.club_name || entry.profiles?.club || '-',
     }
+
+    // 단체전: 신청자 선수 참가 여부 (명시적 false만 '불참', null/true는 '참가')
+    if (isTeamMatch) {
+      row['본인참가'] = entry.applicant_participates === false ? '불참' : '참가'
+    }
+
+    row['이메일'] = entry.profiles?.email || '-'
+    row['전화번호'] = entry.phone || entry.profiles?.phone || '-'
+    row['클럽'] = entry.club_name || entry.profiles?.club || '-'
 
     // 복식: 파트너 정보
     if (isDoubles && entry.partner_data) {

@@ -237,6 +237,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         tournamentId={tournament.id}
         entries={entries}
         divisions={sortDivisions(tournament.tournament_divisions ?? [])}
+        matchType={tournament.match_type}
         clubMembersMap={clubMembersMap}
       />
     </div>
