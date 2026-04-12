@@ -10,6 +10,7 @@ interface EntryItem {
   player_name: string | null
   club_name: string | null
   status: string
+  applicant_participates: boolean | null
   partner_data: { name: string; club?: string; rating?: number } | null
   team_members: Array<{ name: string; rating?: number; club?: string }> | null
   profile_name: string | null
@@ -104,6 +105,14 @@ export function DivisionEntryButton({ divisionName, entries, matchType }: Props)
                           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                             {club}
                           </span>
+                        )}
+                        {/* 단체전: 신청자 선수 참가 여부 */}
+                        {isTeam && (
+                          entry.applicant_participates === false ? (
+                            <Badge variant="warning">본인 불참</Badge>
+                          ) : (
+                            <Badge variant="success">본인 참가</Badge>
+                          )
                         )}
                         {statusCfg && (
                           <Badge variant={statusCfg.variant}>{statusCfg.label}</Badge>

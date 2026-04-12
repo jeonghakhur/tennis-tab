@@ -147,6 +147,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     player_name: string | null
     club_name: string | null
     status: string
+    applicant_participates: boolean | null
     partner_data: { name: string; club?: string; rating?: number } | null
     team_members: Array<{ name: string; rating?: number; club?: string }> | null
     profile_name: string | null
@@ -157,7 +158,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   if (user) {
     const { data: allEntries } = await supabase
       .from('tournament_entries')
-      .select('id, division_id, player_name, club_name, status, partner_data, team_members, profiles:user_id(name, club)')
+      .select('id, division_id, player_name, club_name, status, applicant_participates, partner_data, team_members, profiles:user_id(name, club)')
       .eq('tournament_id', id)
       .in('status', ['PENDING', 'CONFIRMED', 'WAITLISTED'])
       .order('created_at', { ascending: true })
@@ -172,6 +173,7 @@ export default async function TournamentDetailPage({ params }: Props) {
         player_name: entry.player_name,
         club_name: entry.club_name,
         status: entry.status,
+        applicant_participates: entry.applicant_participates ?? null,
         partner_data: entry.partner_data as DivisionEntryItem['partner_data'],
         team_members: entry.team_members as DivisionEntryItem['team_members'],
         profile_name: profile?.name ?? null,
