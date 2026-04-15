@@ -175,6 +175,14 @@ export async function createEntry(
             return { success: false, error: '로그인이 필요합니다.' };
         }
 
+        // 어드민 여부 확인 (ADMIN·SUPER_ADMIN은 대회 상태 무관 등록 허용)
+        const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .single();
+        const isAdminUser = userProfile?.role === 'ADMIN' || userProfile?.role === 'SUPER_ADMIN';
+
         // 2. 대회 정보 확인
         const { data: tournament, error: tournamentError } = await supabase
             .from('tournaments')
@@ -186,8 +194,8 @@ export async function createEntry(
             return { success: false, error: '대회를 찾을 수 없습니다.' };
         }
 
-        // 3. 대회 상태 확인 (OPEN 상태에서만 신청 가능)
-        if (tournament.status !== 'OPEN') {
+        // 3. 대회 상태 확인 (OPEN 상태에서만 신청 가능, 어드민은 스킵)
+        if (!isAdminUser && tournament.status !== 'OPEN') {
             return { success: false, error: '현재 접수 기간이 아닙니다.' };
         }
 
@@ -204,8 +212,9 @@ export async function createEntry(
         }
 
         // 5. 정원 체크: CONFIRMED 수가 max_teams 이상이면 WAITLISTED 처리
-        let initialStatus: 'PENDING' | 'WAITLISTED' = 'PENDING';
-        if (division.max_teams) {
+        // 어드민은 정원 무관 CONFIRMED로 즉시 등록
+        let initialStatus: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' = isAdminUser ? 'CONFIRMED' : 'PENDING';
+        if (!isAdminUser && division.max_teams) {
             const { count } = await supabase
                 .from('tournament_entries')
                 .select('*', { count: 'exact', head: true })
@@ -308,8 +317,8 @@ export async function createEntry(
             })
         } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
 
-        // 알림톡: 참가자에게 신청 완료 알림 (fire-and-forget)
-        if (initialStatus !== 'WAITLISTED' && entryData.phone) {
+        // 알림톡: 참가자에게 신청 완료 알림 (어드민 직접 등록은 스킵, fire-and-forget)
+        if (!isAdminUser && initialStatus !== 'WAITLISTED' && entryData.phone) {
             const alimtalkResult = await sendTournamentApplyAlimtalk({
                 playerPhone: entryData.phone,
                 playerName: entryData.playerName,

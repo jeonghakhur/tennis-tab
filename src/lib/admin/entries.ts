@@ -3,7 +3,9 @@
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import type { EntryStatus, PaymentStatus } from '@/lib/supabase/types'
-import { canManageTournaments } from '@/lib/auth/roles'
+import { canManageTournaments, isSuperAdmin } from '@/lib/auth/roles'
+import { unformatPhoneNumber } from '@/lib/utils/phone'
+import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { sendTournamentConfirmAlimtalk } from '@/lib/solapi/alimtalk'
 
@@ -213,6 +215,64 @@ export async function updatePaymentStatus(
   }
 
   revalidatePath(`/admin/tournaments/${entry.tournament_id}/entries`)
+  return { success: true }
+}
+
+// ────────────────────────────────────────────────────────────
+// SUPER_ADMIN 전용 — 참가자 정보 수정
+// ────────────────────────────────────────────────────────────
+
+type AdminEntryData = {
+  divisionId: string
+  playerName: string
+  phone: string
+  clubName?: string | null
+  playerRating?: number | null
+  partnerData?: { name: string; club: string; rating: number } | null
+  teamMembers?: Array<{ name: string; rating: number; club?: string | null }> | null
+  applicantParticipates?: boolean
+}
+
+/** SUPER_ADMIN 전용: 기존 참가자 정보 수정 */
+export async function adminUpdateEntry(
+  entryId: string,
+  tournamentId: string,
+  data: AdminEntryData
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: '로그인이 필요합니다.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!isSuperAdmin(profile?.role)) {
+    return { success: false, error: '최고 관리자만 사용할 수 있습니다.' }
+  }
+
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('tournament_entries')
+    .update({
+      division_id: data.divisionId,
+      player_name: data.playerName.trim(),
+      phone: unformatPhoneNumber(data.phone),
+      club_name: data.clubName?.trim() || null,
+      player_rating: data.playerRating ?? null,
+      partner_data: data.partnerData ?? null,
+      team_members: data.teamMembers ?? null,
+      applicant_participates: data.applicantParticipates ?? true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', entryId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath(`/admin/tournaments/${tournamentId}/entries`)
   return { success: true }
 }
 

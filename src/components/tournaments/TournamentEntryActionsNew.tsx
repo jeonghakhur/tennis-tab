@@ -157,7 +157,8 @@ export default function TournamentEntryActions({
   };
 
   const withinPeriod = isWithinEntryPeriod();
-  const canAcceptEntry = tournamentStatus === "OPEN" && withinPeriod;
+  // 어드민은 대회 상태·기간 무관 신청 가능
+  const canAcceptEntry = (tournamentStatus === "OPEN" && withinPeriod) || isAdmin;
 
   // 참가 신청 폼 제출 처리 (신규)
   const handleSubmit = async (data: EntryFormData) => {
@@ -179,7 +180,8 @@ export default function TournamentEntryActions({
 
     if (result.success) {
       await refreshEntries();
-      if (entryFee > 0 && result.entryId) {
+      // 어드민 직접 등록은 결제 유도 생략 (user_id=null이라 내 신청 목록에도 미표시)
+      if (!isAdmin && entryFee > 0 && result.entryId) {
         setPaymentPrompt({ entryId: result.entryId });
       }
     }

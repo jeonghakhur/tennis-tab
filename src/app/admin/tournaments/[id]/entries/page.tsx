@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
-import { EntriesManager } from '@/components/admin/EntriesManager'
+import { EntriesManager, type ClubMemberInfo } from '@/components/admin/EntriesManager'
 import { TournamentStatusSelector } from '@/components/admin/TournamentStatusSelector'
 import { decryptProfile } from '@/lib/crypto/profileCrypto'
 import type { PartnerData } from '@/lib/supabase/types'
@@ -15,8 +15,9 @@ import { sortDivisions } from '@/lib/tournaments/divisionSort'
 type ActiveClubLite = { id: string; name: string }
 
 /**
- * 어드민 뷰 전용: 엔트리 clubName 기준으로 ACTIVE 회원 이름 맵 생성.
+ * 어드민 뷰 전용: 엔트리 clubName 기준으로 ACTIVE 회원 맵 생성.
  * - 키: 소문자 정규화된 클럽명 (대소문자/공백 무시 매칭용)
+ * - 값: 해당 클럽의 ACTIVE 회원 목록 (이름 + 가입일)
  * - clubs 테이블에 없는 클럽은 키 자체가 없음 → 조회 측에서 "검증 skip" 처리
  *
  * clubs는 호출자가 entries와 병렬로 미리 fetch하여 전달 (RTT 절약).
@@ -24,7 +25,7 @@ type ActiveClubLite = { id: string; name: string }
 async function buildClubMembersMap(
   clubs: ActiveClubLite[],
   clubNames: string[]
-): Promise<Record<string, string[]>> {
+): Promise<Record<string, ClubMemberInfo[]>> {
   const uniqueLowerNames = new Set(
     clubNames.map((n) => n.trim().toLowerCase()).filter(Boolean)
   )
@@ -40,16 +41,16 @@ async function buildClubMembersMap(
   const admin = createAdminClient()
   const { data: members } = await admin
     .from('club_members')
-    .select('club_id, name')
+    .select('club_id, name, joined_at')
     .in('club_id', Array.from(clubIdToLowerName.keys()))
     .eq('status', 'ACTIVE')
 
-  const result: Record<string, string[]> = {}
+  const result: Record<string, ClubMemberInfo[]> = {}
   for (const m of members ?? []) {
     const key = clubIdToLowerName.get(m.club_id)
     if (!key) continue
     if (!result[key]) result[key] = []
-    result[key].push(m.name)
+    result[key].push({ name: m.name, joinedAt: m.joined_at })
   }
   return result
 }
@@ -238,7 +239,9 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         entries={entries}
         divisions={sortDivisions(tournament.tournament_divisions ?? [])}
         matchType={tournament.match_type}
+        tournamentStartDate={tournament.start_date}
         clubMembersMap={clubMembersMap}
+        isSuperAdmin={currentProfile?.role === 'SUPER_ADMIN'}
       />
     </div>
   )

@@ -4,7 +4,8 @@ import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useState, useMemo, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useEntriesRealtime } from '@/lib/realtime/useEntriesRealtime'
-import { Search, Users, Phone, Trash2, Download } from 'lucide-react'
+import { Search, Users, Phone, Trash2, Download, Pencil } from 'lucide-react'
+import { AdminEntryModal } from '@/components/admin/AdminEntryModal'
 import type {
   Database,
   EntryStatus,
@@ -48,6 +49,12 @@ type Division = {
   max_teams: number | null
 }
 
+/** clubMembersMap 값 타입 — joined_at 포함 */
+export type ClubMemberInfo = {
+  name: string
+  joinedAt: string | null
+}
+
 interface EntriesManagerProps {
   tournamentId: string
   entries: Entry[]
@@ -57,37 +64,84 @@ interface EntriesManagerProps {
    */
   matchType: MatchType | null
   /**
-   * 엔트리에 등장하는 클럽들의 ACTIVE 회원 이름 맵.
-   * - 키: 소문자 정규화된 클럽명
-   * - 값: 해당 클럽의 ACTIVE 회원 이름 배열
-   * - 키가 없는 클럽(미등록 클럽)은 "검증 skip" — 빨간 표시 안 함
+   * 대회 시작일 — 3개월 이내 가입자 경고 표시 기준
    */
-  clubMembersMap?: Record<string, string[]>
+  tournamentStartDate?: string | null
+  /** SUPER_ADMIN 여부 — 참가자 수정 버튼 노출 */
+  isSuperAdmin?: boolean
+  /**
+   * 엔트리에 등장하는 클럽들의 ACTIVE 회원 맵.
+   * - 키: 소문자 정규화된 클럽명
+   * - 값: 해당 클럽의 ACTIVE 회원 목록 (이름 + 가입일)
+   * - 키가 없는 클럽(미등록 클럽)은 "검증 skip" — 표시 없음
+   */
+  clubMembersMap?: Record<string, ClubMemberInfo[]>
 }
 
-// 비회원 이름 강조용 Tailwind 클래스 — 테마 변경 시 한 곳에서 수정
-const NON_MEMBER_CLASS = 'text-red-500 dark:text-red-400'
+type MemberStatus = 'non-member' | 'recent-join' | 'member'
 
 /**
- * 특정 이름이 해당 클럽의 ACTIVE 회원인지 검증.
- * - 미등록 클럽(맵에 키 없음) → true (검증 skip, 빨간색 안 함)
- * - 등록 클럽 → 회원 이름 배열에서 trim 정확 매칭
+ * 특정 이름의 클럽 회원 상태 반환.
+ * - 미등록 클럽(맵에 키 없음) → 'member' (검증 skip)
+ * - 회원 미발견 → 'non-member'
+ * - 대회 시작일 3개월 이내 가입 → 'recent-join'
+ * - 그 외 → 'member'
  */
-function isClubMember(
-  clubMembersMap: Record<string, string[]>,
+function getMemberStatus(
+  clubMembersMap: Record<string, ClubMemberInfo[]>,
   personName: string | null | undefined,
-  clubName: string | null | undefined
-): boolean {
-  if (!personName || !clubName) return true
+  clubName: string | null | undefined,
+  tournamentStartDate: string | null | undefined
+): { status: MemberStatus; joinedAt: string | null } {
+  if (!personName || !clubName) return { status: 'member', joinedAt: null }
   const members = clubMembersMap[clubName.trim().toLowerCase()]
-  if (!members) return true
-  const target = personName.trim()
-  return members.some((m) => m.trim() === target)
+  if (!members) return { status: 'member', joinedAt: null } // 미등록 클럽 → skip
+
+  const found = members.find((m) => m.name.trim() === personName.trim())
+  if (!found) return { status: 'non-member', joinedAt: null }
+
+  // 대회 시작일 기준 3개월 이내 가입 여부
+  if (found.joinedAt && tournamentStartDate) {
+    const joinDate = new Date(found.joinedAt)
+    const cutoff = new Date(tournamentStartDate)
+    cutoff.setMonth(cutoff.getMonth() - 3)
+    if (joinDate > cutoff) return { status: 'recent-join', joinedAt: found.joinedAt }
+  }
+
+  return { status: 'member', joinedAt: found.joinedAt }
 }
 
-// 이름을 렌더링하며 비회원이면 빨간색으로 표시
-function MemberName({ name, isNonMember }: { name: string; isNonMember: boolean }) {
-  return <span className={isNonMember ? NON_MEMBER_CLASS : ''}>{name}</span>
+function formatJoinDate(dateStr: string): string {
+  const d = new Date(dateStr)
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+}
+
+/** 이름 + 클럽 회원 상태에 따른 스타일 + 가입일 표시 */
+function MemberName({
+  name,
+  status,
+  joinedAt,
+}: {
+  name: string
+  status: MemberStatus
+  joinedAt?: string | null
+}) {
+  if (status === 'non-member') {
+    return <span className="text-red-500 dark:text-red-400">{name}</span>
+  }
+  if (status === 'recent-join') {
+    return (
+      <span className="text-amber-500 dark:text-amber-400">
+        {name}
+        {joinedAt && (
+          <span className="ml-1 text-xs font-normal opacity-80">
+            (가입: {formatJoinDate(joinedAt)})
+          </span>
+        )}
+      </span>
+    )
+  }
+  return <span>{name}</span>
 }
 
 // 목록은 항상 참가 신청 순(created_at 오름차순)으로 고정
@@ -160,6 +214,8 @@ export function EntriesManager({
   entries,
   divisions,
   matchType,
+  tournamentStartDate,
+  isSuperAdmin = false,
   clubMembersMap = {},
 }: EntriesManagerProps) {
   // 단체전 여부 — '본인 참가' 여부 표시 대상
@@ -196,6 +252,10 @@ export function EntriesManager({
   const [bulkStatus, setBulkStatus] = useState('')
   const [bulkPayment, setBulkPayment] = useState('')
   const [excelDownloading, setExcelDownloading] = useState(false)
+  const [pdfDownloading, setPdfDownloading] = useState(false)
+  const [editModal, setEditModal] = useState<{ isOpen: boolean; entry: (typeof entries)[number] | null }>({
+    isOpen: false, entry: null,
+  })
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean
     title: string
@@ -412,6 +472,46 @@ export function EntriesManager({
       })
     } finally {
       setExcelDownloading(false)
+    }
+  }
+
+  // PDF 다운로드 (대회 요강 + 승인된 참가자 명단)
+  const handlePdfDownload = async () => {
+    setPdfDownloading(true)
+    try {
+      const res = await fetch(`/api/admin/tournaments/${tournamentId}/pdf`)
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({ error: '다운로드 실패' }))
+        setAlertDialog({
+          isOpen: true,
+          title: '다운로드 실패',
+          message: data.error || 'PDF 파일 생성에 실패했습니다.',
+          type: 'error',
+        })
+        return
+      }
+      const blob = await res.blob()
+      const disposition = res.headers.get('Content-Disposition') ?? ''
+      const filenameMatch = disposition.match(/filename\*=UTF-8''(.+)/)
+      const filename = filenameMatch ? decodeURIComponent(filenameMatch[1]) : '대회요강.pdf'
+
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch {
+      setAlertDialog({
+        isOpen: true,
+        title: '다운로드 실패',
+        message: '네트워크 오류가 발생했습니다.',
+        type: 'error',
+      })
+    } finally {
+      setPdfDownloading(false)
     }
   }
 
@@ -728,15 +828,26 @@ export function EntriesManager({
               </span>
             )}
           </span>
-          <button
-            type="button"
-            onClick={handleExcelDownload}
-            disabled={excelDownloading}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) text-(--text-secondary) hover:text-(--accent-color) hover:border-(--accent-color) transition-colors disabled:opacity-50"
-          >
-            <Download className="w-4 h-4" />
-            {excelDownloading ? '다운로드 중...' : '엑셀 다운로드'}
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePdfDownload}
+              disabled={pdfDownloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) text-(--text-secondary) hover:text-red-500 hover:border-red-400 transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {pdfDownloading ? '생성 중...' : 'PDF 다운로드'}
+            </button>
+            <button
+              type="button"
+              onClick={handleExcelDownload}
+              disabled={excelDownloading}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) text-(--text-secondary) hover:text-(--accent-color) hover:border-(--accent-color) transition-colors disabled:opacity-50"
+            >
+              <Download className="w-4 h-4" />
+              {excelDownloading ? '다운로드 중...' : '엑셀 다운로드'}
+            </button>
+          </div>
         </div>
 
         {selectedEntries.length > 0 && (
@@ -847,22 +958,33 @@ export function EntriesManager({
                         />
                       </td>
                       <td className="p-4">
-                        <span className="text-base font-semibold text-(--text-muted)">
-                          {index + 1}
-                        </span>
+                        <div className="flex flex-col items-center gap-1">
+                          <span className="text-base font-semibold text-(--text-muted)">
+                            {index + 1}
+                          </span>
+                          {isSuperAdmin && (
+                            <button
+                              type="button"
+                              onClick={() => setEditModal({ isOpen: true, entry })}
+                              className="p-1 rounded text-(--text-muted) hover:text-(--accent-color) hover:bg-(--accent-color)/10 transition-colors"
+                              title="참가자 정보 수정"
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4">
                         <div className="space-y-2">
                           <div className="min-w-0">
                             <p className="text-base font-semibold text-(--text-primary)">
                               {/* applicant_participates가 명시적 false일 때만 대표 신청자는 선수 아님 → 검증 제외 */}
-                              <MemberName
-                                name={entry.player_name ?? ''}
-                                isNonMember={
-                                  entry.applicant_participates !== false &&
-                                  !isClubMember(clubMembersMap, entry.player_name, entry.club_name)
-                                }
-                              />
+                              {(() => {
+                                const { status, joinedAt } = entry.applicant_participates !== false
+                                  ? getMemberStatus(clubMembersMap, entry.player_name, entry.club_name, tournamentStartDate)
+                                  : { status: 'member' as MemberStatus, joinedAt: null }
+                                return <MemberName name={entry.player_name ?? ''} status={status} joinedAt={joinedAt} />
+                              })()}
                               {/* 단체전: 신청자의 선수 참가 여부 배지 */}
                               {isTeamMatch && (
                                 entry.applicant_participates === false ? (
@@ -901,16 +1023,11 @@ export function EntriesManager({
                           {entry.partner_data && (
                             <div className="pt-2 border-t border-(--border-color)">
                               <p className="text-base font-semibold text-(--text-primary)">
-                                <MemberName
-                                  name={(entry.partner_data as PartnerData).name}
-                                  isNonMember={
-                                    !isClubMember(
-                                      clubMembersMap,
-                                      (entry.partner_data as PartnerData).name,
-                                      (entry.partner_data as PartnerData).club
-                                    )
-                                  }
-                                />
+                                {(() => {
+                                  const partner = entry.partner_data as PartnerData
+                                  const { status, joinedAt } = getMemberStatus(clubMembersMap, partner.name, partner.club, tournamentStartDate)
+                                  return <MemberName name={partner.name} status={status} joinedAt={joinedAt} />
+                                })()}
                                 {(entry.partner_data as PartnerData).club && (
                                   <span className="ml-2 text-sm text-(--text-secondary)">
                                     ({(entry.partner_data as PartnerData).club})
@@ -934,16 +1051,10 @@ export function EntriesManager({
                                   {teamMembers.map((member, idx) => (
                                     <span key={idx}>
                                       {idx > 0 && ', '}
-                                      <MemberName
-                                        name={member.name}
-                                        isNonMember={
-                                          !isClubMember(
-                                            clubMembersMap,
-                                            member.name,
-                                            member.club || entry.club_name
-                                          )
-                                        }
-                                      />
+                                      {(() => {
+                                        const { status, joinedAt } = getMemberStatus(clubMembersMap, member.name, member.club || entry.club_name, tournamentStartDate)
+                                        return <MemberName name={member.name} status={status} joinedAt={joinedAt} />
+                                      })()}
                                       {member.club && (
                                         <span className="text-sm text-(--text-secondary)">
                                           ({member.club})
@@ -1174,6 +1285,18 @@ export function EntriesManager({
         type="error"
         isLoading={processing !== null}
       />
+
+      {/* 참가자 수정 모달 (SUPER_ADMIN 전용) */}
+      {editModal.entry && (
+        <AdminEntryModal
+          isOpen={editModal.isOpen}
+          onClose={() => setEditModal({ isOpen: false, entry: null })}
+          tournamentId={tournamentId}
+          matchType={matchType}
+          divisions={divisions}
+          entry={editModal.entry}
+        />
+      )}
     </div>
   )
 }
