@@ -82,7 +82,9 @@ export default async function TournamentDetailPage({ params }: Props) {
     notFound();
   }
 
-  // 대진표 존재 여부 확인 (bracket_matches가 1개라도 있는 config만 카운트)
+  // 대진표 공개 여부 확인:
+  // - bracket_matches가 1개라도 존재하고
+  // - bracket_configs.status가 DRAFT가 아닌 경우(관리자가 경기 진행을 시작한 상태)만 공개
   const divisionIds = (tournament.tournament_divisions || []).map(
     (d: { id: string }) => d.id,
   );
@@ -91,7 +93,8 @@ export default async function TournamentDetailPage({ params }: Props) {
     const { count } = await supabase
       .from("bracket_configs")
       .select("id, bracket_matches!inner(id)", { count: "exact", head: true })
-      .in("division_id", divisionIds);
+      .in("division_id", divisionIds)
+      .neq("status", "DRAFT");
 
     hasBracket = (count ?? 0) > 0;
   }

@@ -133,8 +133,11 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
         setGroups(data.groups)
         setMatches(data.matches)
 
-        // 예선이 있으면 예선 탭, 없으면 본선 탭
-        if (data.config?.has_preliminaries && data.config.status === 'PRELIMINARY') {
+        // 본선 매치가 있으면 본선 탭 우선, 없으면 예선 탭
+        const hasMainMatches = data.matches?.some((m: { phase: string }) => m.phase !== 'PRELIMINARY')
+        if (hasMainMatches) {
+          setActiveTab('main')
+        } else if (data.config?.has_preliminaries) {
           setActiveTab('preliminary')
         } else {
           setActiveTab('main')
