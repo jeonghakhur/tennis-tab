@@ -232,12 +232,15 @@ export default function MyProfilePage() {
 
   useEffect(() => {
     if (user && profile) {
-      loadStats();
-      loadTournaments();
-      loadInvitedEntries();
-      loadMatches();
-      loadAwards();
-      getMyClubMemberships().then((r) => setClubMemberships(r.data || []));
+      // 독립적인 데이터를 병렬로 로드
+      Promise.all([
+        loadStats(),
+        loadTournaments(),
+        loadInvitedEntries(),
+        loadMatches(),
+        loadAwards(),
+        getMyClubMemberships().then((r) => setClubMemberships(r.data || [])),
+      ]);
     }
   }, [user, profile]);
 

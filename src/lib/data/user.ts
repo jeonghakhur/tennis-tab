@@ -51,40 +51,49 @@ export async function getMyTournaments() {
     return { error: error.message }
   }
 
-  // 공개된 대진표가 있는 division_id 집합 조회
-  // publish_groups/publish_preliminary/publish_main 중 하나라도 true인 config
+  // 대진표 공개 여부 + 대기 순번을 병렬 조회
   const divisionIds = entries
     .map((e) => (e.division as { id: string } | null)?.id)
     .filter((id): id is string => Boolean(id))
-
-  const bracketDivisionSet = new Set<string>()
-  if (divisionIds.length > 0) {
-    const { data: bracketRows } = await supabase
-      .from('bracket_configs')
-      .select('division_id')
-      .in('division_id', divisionIds)
-      .or('publish_groups.eq.true,publish_preliminary.eq.true,publish_main.eq.true')
-    bracketRows?.forEach((r) => bracketDivisionSet.add(r.division_id))
-  }
-
-  // 취소되지 않은 엔트리의 대기 순번 계산 (같은 division 내 created_at 순)
   const activeEntries = entries.filter((e) => e.status !== 'CANCELLED');
-  const rankMap: Record<string, number> = {};
-  if (activeEntries.length > 0) {
-    const rankResults = await Promise.all(
-      activeEntries.map(async (e) => {
-        const divId = (e.division as { id: string } | null)?.id;
-        if (!divId) return { id: e.id, rank: 1 };
-        const { count } = await supabase
+  const uniqueDivisionIds = [...new Set(
+    activeEntries
+      .map((e) => (e.division as { id: string } | null)?.id)
+      .filter((id): id is string => Boolean(id))
+  )];
+
+  // 두 쿼리를 병렬 실행
+  const [bracketResult, rankResult] = await Promise.all([
+    // 공개된 대진표가 있는 division_id 조회
+    divisionIds.length > 0
+      ? supabase
+          .from('bracket_configs')
+          .select('division_id')
+          .in('division_id', divisionIds)
+          .or('publish_groups.eq.true,publish_preliminary.eq.true,publish_main.eq.true')
+      : Promise.resolve({ data: null }),
+    // division별 활성 엔트리 순번 계산용 데이터
+    uniqueDivisionIds.length > 0
+      ? supabase
           .from('tournament_entries')
-          .select('*', { count: 'exact', head: true })
-          .eq('division_id', divId)
+          .select('id, division_id, created_at')
+          .in('division_id', uniqueDivisionIds)
           .neq('status', 'CANCELLED')
-          .lte('created_at', e.created_at);
-        return { id: e.id, rank: count ?? 1 };
-      })
-    );
-    rankResults.forEach((r) => { rankMap[r.id] = r.rank; });
+          .order('created_at', { ascending: true })
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const bracketDivisionSet = new Set<string>();
+  bracketResult.data?.forEach((r) => bracketDivisionSet.add(r.division_id));
+
+  const rankMap: Record<string, number> = {};
+  if (rankResult.data) {
+    const divCounter: Record<string, number> = {};
+    for (const de of rankResult.data) {
+      const divId = de.division_id;
+      divCounter[divId] = (divCounter[divId] || 0) + 1;
+      rankMap[de.id] = divCounter[divId];
+    }
   }
 
   const enrichedEntries = entries.map((e) => ({
@@ -353,19 +362,19 @@ export async function getUserStats() {
     return { error: '로그인이 필요합니다.' }
   }
 
-  // 참가 대회 수
-  const { count: tournamentCount } = await supabase
-    .from('tournament_entries')
-    .select('*', { count: 'exact', head: true })
-    .eq('user_id', user.id)
-    .eq('status', 'CONFIRMED')
-
-  // 본인 entry_ids 조회 (bracket_matches 기반 통계용)
-  const { data: entries } = await supabase
-    .from('tournament_entries')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('status', 'CONFIRMED')
+  // 참가 대회 수 + entry_ids를 병렬 조회
+  const [{ count: tournamentCount }, { data: entries }] = await Promise.all([
+    supabase
+      .from('tournament_entries')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', user.id)
+      .eq('status', 'CONFIRMED'),
+    supabase
+      .from('tournament_entries')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('status', 'CONFIRMED'),
+  ])
 
   const entryIds = entries?.map(e => e.id) || []
 
@@ -373,24 +382,24 @@ export async function getUserStats() {
   let wins = 0
 
   if (entryIds.length > 0) {
-    // bracket_matches에서 완료된 경기 수
     const matchFilter = entryIds.map(id => `team1_entry_id.eq.${id},team2_entry_id.eq.${id}`).join(',')
-    const { count: bracketTotal } = await supabase
-      .from('bracket_matches')
-      .select('*', { count: 'exact', head: true })
-      .or(matchFilter)
-      .eq('status', 'COMPLETED')
+    const winFilter = entryIds.map(id => `winner_entry_id.eq.${id}`).join(',')
+
+    // 완료 경기 수 + 승리 경기 수 병렬 조회
+    const [{ count: bracketTotal }, { count: bracketWins }] = await Promise.all([
+      supabase
+        .from('bracket_matches')
+        .select('*', { count: 'exact', head: true })
+        .or(matchFilter)
+        .eq('status', 'COMPLETED'),
+      supabase
+        .from('bracket_matches')
+        .select('*', { count: 'exact', head: true })
+        .or(winFilter)
+        .eq('status', 'COMPLETED'),
+    ])
 
     totalMatches = bracketTotal || 0
-
-    // bracket_matches에서 승리 경기 수 (COMPLETED만 — BYE 제외)
-    const winFilter = entryIds.map(id => `winner_entry_id.eq.${id}`).join(',')
-    const { count: bracketWins } = await supabase
-      .from('bracket_matches')
-      .select('*', { count: 'exact', head: true })
-      .or(winFilter)
-      .eq('status', 'COMPLETED')
-
     wins = bracketWins || 0
   }
 
