@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
-import { batchMoveTeamsToGroups } from "@/lib/bracket/actions";
+import { batchSaveGroupTeams } from "@/lib/bracket/actions";
 import type { PreliminaryGroup, GroupTeam } from "./types";
 
 interface GroupsTabProps {
@@ -147,26 +147,34 @@ export function GroupsTab({
 
   const handleSave = async () => {
     try {
-      // 변경된 팀만 추출 (인증/검증 1회로 일괄 처리)
-      const moves: Array<{ teamId: string; groupId: string }> = [];
+      // 변경된 팀만 추출 — 조 이동 또는 순서 변경 감지
+      const updates: Array<{ teamId: string; groupId: string; seedNumber: number }> = [];
 
       localGroups.forEach((group) => {
-        group.group_teams?.forEach((team) => {
+        group.group_teams?.forEach((team, index) => {
+          const newSeedNumber = index + 1;
           const originalGroup = groups.find((g) =>
             g.group_teams?.some((t) => t.id === team.id),
           );
-          if (originalGroup && originalGroup.id !== group.id) {
-            moves.push({ teamId: team.id, groupId: group.id });
+          const originalIndex = originalGroup?.group_teams?.findIndex(
+            (t) => t.id === team.id,
+          ) ?? -1;
+          const originalSeedNumber = originalIndex + 1;
+          const groupChanged = originalGroup && originalGroup.id !== group.id;
+          const orderChanged = newSeedNumber !== originalSeedNumber;
+
+          if (groupChanged || orderChanged) {
+            updates.push({ teamId: team.id, groupId: group.id, seedNumber: newSeedNumber });
           }
         });
       });
 
-      if (moves.length === 0) {
+      if (updates.length === 0) {
         setHasChanges(false);
         return;
       }
 
-      const result = await batchMoveTeamsToGroups(moves);
+      const result = await batchSaveGroupTeams(updates);
 
       if (result.error) {
         onError(result.error);

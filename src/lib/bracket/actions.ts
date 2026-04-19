@@ -568,6 +568,7 @@ export async function getPreliminaryGroups(configId: string) {
     `)
     .eq('bracket_config_id', configId)
     .order('display_order', { ascending: true })
+    .order('seed_number', { ascending: true, referencedTable: 'group_teams' })
 
   return { data, error }
 }
@@ -609,19 +610,20 @@ export async function moveTeamToGroup(teamId: string, newGroupId: string) {
 }
 
 /**
- * 팀 일괄 조 이동 — 인증/검증 1회 + batch UPDATE
+ * 조편성 일괄 저장 — 조 이동 + 순서(seed_number) 변경을 한 번에 처리
+ * 인증/검증 1회 + batch UPDATE
  */
-export async function batchMoveTeamsToGroups(
-  moves: Array<{ teamId: string; groupId: string }>
+export async function batchSaveGroupTeams(
+  updates: Array<{ teamId: string; groupId: string; seedNumber: number }>
 ): Promise<{ error: string | null }> {
-  if (moves.length === 0) return { error: null }
+  if (updates.length === 0) return { error: null }
 
   const authResult = await checkBracketManagementAuth()
   if (authResult.error) return { error: authResult.error }
 
   // 입력 검증
-  for (const m of moves) {
-    const idError = validateId(m.teamId, '팀 ID') || validateId(m.groupId, '조 ID')
+  for (const u of updates) {
+    const idError = validateId(u.teamId, '팀 ID') || validateId(u.groupId, '조 ID')
     if (idError) return { error: idError }
   }
 
@@ -631,7 +633,7 @@ export async function batchMoveTeamsToGroups(
   const { data: group } = await supabaseAdmin
     .from('preliminary_groups')
     .select('bracket_config_id')
-    .eq('id', moves[0].groupId)
+    .eq('id', updates[0].groupId)
     .single()
 
   if (group?.bracket_config_id) {
@@ -639,19 +641,19 @@ export async function batchMoveTeamsToGroups(
     if (closedCheck.error) return { error: closedCheck.error }
   }
 
-  // 병렬 UPDATE (인증/검증 없이 순수 DB 작업만)
+  // 병렬 UPDATE — group_id + seed_number 모두 갱신
   const results = await Promise.all(
-    moves.map((m) =>
+    updates.map((u) =>
       supabaseAdmin
         .from('group_teams')
-        .update({ group_id: m.groupId })
-        .eq('id', m.teamId)
+        .update({ group_id: u.groupId, seed_number: u.seedNumber })
+        .eq('id', u.teamId)
     )
   )
 
   const errors = results.filter((r) => r.error)
   if (errors.length > 0) {
-    return { error: `${errors.length}건 이동 실패` }
+    return { error: `${errors.length}건 저장 실패` }
   }
 
   revalidatePath('/admin/tournaments')
@@ -1590,6 +1592,7 @@ export async function getAdvancingTeams(configId: string): Promise<{
     `)
     .eq('bracket_config_id', configId)
     .order('display_order', { ascending: true })
+    .order('seed_number', { ascending: true, referencedTable: 'group_teams' })
 
   if (!groups || groups.length === 0) {
     return { data: { teams: [], allPrelimsDone }, error: null }
@@ -2509,6 +2512,7 @@ export async function getBracketData(divisionId: string) {
       `)
       .eq('bracket_config_id', config.id)
       .order('display_order', { ascending: true })
+      .order('seed_number', { ascending: true, referencedTable: 'group_teams' })
     groups = data
   }
 
