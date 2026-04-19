@@ -51,6 +51,7 @@ interface GroupTeam {
     id: string
     player_name: string
     club_name: string | null
+    team_order: string | null
     partner_data?: { name: string; rating: number; club: string | null } | null
   }
 }
@@ -78,8 +79,8 @@ interface BracketMatch {
   sets_detail: SetDetail[] | null
   court_location: string | null
   court_number: string | null
-  team1?: { id: string; player_name: string; club_name: string | null; partner_data?: { name: string; rating: number; club: string | null } | null; team_members?: { name: string; rating: number }[] | null }
-  team2?: { id: string; player_name: string; club_name: string | null; partner_data?: { name: string; rating: number; club: string | null } | null; team_members?: { name: string; rating: number }[] | null }
+  team1?: { id: string; player_name: string; club_name: string | null; team_order: string | null; partner_data?: { name: string; rating: number; club: string | null } | null; team_members?: { name: string; rating: number }[] | null }
+  team2?: { id: string; player_name: string; club_name: string | null; team_order: string | null; partner_data?: { name: string; rating: number; club: string | null } | null; team_members?: { name: string; rating: number }[] | null }
 }
 
 const phaseLabels: Record<MatchPhase, string> = {
@@ -476,7 +477,7 @@ function PreliminaryView({
                         <td className="py-2 px-2">
                           {matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES' ? (
                             <p className={`font-medium ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
-                              {team.entry?.club_name || team.entry?.player_name}{isMe ? ' (나)' : ''}
+                              {team.entry?.club_name || team.entry?.player_name}{team.entry?.team_order ? `(${team.entry.team_order}팀)` : ''}{isMe ? ' (나)' : ''}
                             </p>
                           ) : (
                             <>
@@ -755,8 +756,10 @@ function isMyEntry(entryId: string | null, currentUserEntryIds?: string[]): bool
 // 참가자 이름 — 단체전: 팀명(club_name), 복식: "선수 & 파트너", 단식: 선수명
 function teamName(team: BracketMatch['team1'], matchType?: MatchType | null): string {
   if (!team) return 'TBD'
+  const orderSuffix = team.team_order ? `(${team.team_order}팀)` : ''
   if (matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES') {
-    return team.club_name || team.player_name
+    const label = team.club_name || team.player_name
+    return orderSuffix ? `${label}${orderSuffix}` : label
   }
   if (team.partner_data) {
     return `${team.player_name} & ${team.partner_data.name}`

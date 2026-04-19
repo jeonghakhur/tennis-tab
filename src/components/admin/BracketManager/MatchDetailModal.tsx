@@ -195,9 +195,11 @@ export function MatchDetailModal({
     onSave(match.id, team1Wins, team2Wins, validSets);
   };
 
-  // 단체전 모달: 팀명만 표시
-  const team1Label = match?.team1?.club_name || match?.team1?.player_name || "TBD";
-  const team2Label = match?.team2?.club_name || match?.team2?.player_name || "TBD";
+  // 단체전 모달: 팀명 + 팀 순번 표시
+  const team1Base = match?.team1?.club_name || match?.team1?.player_name || "TBD";
+  const team1Label = match?.team1?.team_order ? `${team1Base}(${match.team1.team_order}팀)` : team1Base;
+  const team2Base = match?.team2?.club_name || match?.team2?.player_name || "TBD";
+  const team2Label = match?.team2?.team_order ? `${team2Base}(${match.team2.team_order}팀)` : team2Base;
 
   if (!match) return null;
 

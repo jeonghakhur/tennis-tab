@@ -198,12 +198,22 @@ export function PreliminaryTab({
                             {isTeamMatch ? (
                               <p className="text-sm font-medium">
                                 {team.entry?.club_name || team.entry?.player_name}
+                                {team.entry?.team_order && (
+                                  <span className="ml-1 text-xs text-(--text-muted)">
+                                    ({team.entry.team_order}팀)
+                                  </span>
+                                )}
                               </p>
                             ) : (
                               <>
                                 {team.entry?.club_name && (
                                   <p className="text-sm font-medium">
                                     {team.entry.club_name}
+                                    {team.entry.team_order && (
+                                      <span className="ml-1 text-xs text-(--text-muted)">
+                                        ({team.entry.team_order}팀)
+                                      </span>
+                                    )}
                                   </p>
                                 )}
                                 <p

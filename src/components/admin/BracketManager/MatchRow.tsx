@@ -53,12 +53,16 @@ export function MatchRow({
       return `${team.player_name} & ${team.partner_data.name}`;
     }
 
+    // 팀 순번 접미사 (가팀, 나팀 등)
+    const orderSuffix = team.team_order ? `(${team.team_order}팀)` : "";
+
     if (isTeamMatch) {
-      return team.club_name || team.player_name || "TBD";
+      const label = team.club_name || team.player_name || "TBD";
+      return orderSuffix ? `${label} ${orderSuffix}` : label;
     }
 
     return team.club_name
-      ? `${team.club_name} ${team.player_name}`
+      ? `${team.club_name}${orderSuffix ? ` ${orderSuffix}` : ""} ${team.player_name}`
       : team.player_name || "TBD";
   };
 

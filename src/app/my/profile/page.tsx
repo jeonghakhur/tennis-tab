@@ -524,8 +524,8 @@ export default function MyProfilePage() {
     team2_score: m.team2Score,
     status: m.status,
     sets_detail: m.setsDetail,
-    team1: { id: m.team1.entryId || '', player_name: m.team1.name, club_name: null, partner_data: m.team1.partnerData ? { name: m.team1.partnerData.name, rating: 0, club: m.team1.partnerData.club || null } : null },
-    team2: { id: m.team2.entryId || '', player_name: m.team2.name, club_name: null, partner_data: m.team2.partnerData ? { name: m.team2.partnerData.name, rating: 0, club: m.team2.partnerData.club || null } : null },
+    team1: { id: m.team1.entryId || '', player_name: m.team1.name, club_name: null, team_order: null, partner_data: m.team1.partnerData ? { name: m.team1.partnerData.name, rating: 0, club: m.team1.partnerData.club || null } : null },
+    team2: { id: m.team2.entryId || '', player_name: m.team2.name, club_name: null, team_order: null, partner_data: m.team2.partnerData ? { name: m.team2.partnerData.name, rating: 0, club: m.team2.partnerData.club || null } : null },
   });
 
   const entryStatusLabels: Record<string, string> = {

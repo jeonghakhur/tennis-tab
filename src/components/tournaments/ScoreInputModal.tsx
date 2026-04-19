@@ -19,6 +19,7 @@ interface BracketMatch {
     id: string
     player_name: string
     club_name: string | null
+    team_order: string | null
     partner_data?: { name: string; rating: number; club: string | null } | null
     team_members?: { name: string; rating: number }[] | null
   }
@@ -26,6 +27,7 @@ interface BracketMatch {
     id: string
     player_name: string
     club_name: string | null
+    team_order: string | null
     partner_data?: { name: string; rating: number; club: string | null } | null
     team_members?: { name: string; rating: number }[] | null
   }
@@ -56,7 +58,8 @@ function getTeamLabel(team: BracketMatch['team1']): string {
   if (team.partner_data) {
     return `${team.player_name} & ${team.partner_data.name}`
   }
-  return team.club_name || team.player_name || 'TBD'
+  const base = team.club_name || team.player_name || 'TBD'
+  return team.team_order ? `${base}(${team.team_order}팀)` : base
 }
 
 export function ScoreInputModal({

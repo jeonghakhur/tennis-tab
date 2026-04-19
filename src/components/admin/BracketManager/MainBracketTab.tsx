@@ -324,6 +324,11 @@ export function MainBracketTab({
                   <div key={team.id} className="flex-1 px-3 py-2 rounded-lg bg-(--bg-secondary) text-sm">
                     <p className="font-medium text-(--text-primary) truncate">
                       {team.entry?.club_name || team.entry?.player_name}
+                      {team.entry?.team_order && (
+                        <span className="ml-1 text-xs text-(--text-muted)">
+                          ({team.entry.team_order}팀)
+                        </span>
+                      )}
                     </p>
                     {team.entry?.club_name && (
                       <p className="text-xs text-(--text-muted) truncate">{team.entry.player_name}</p>
