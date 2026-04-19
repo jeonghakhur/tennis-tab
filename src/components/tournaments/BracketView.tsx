@@ -469,7 +469,7 @@ function PreliminaryView({
                       <tr key={team.id} className={`border-b border-(--border-color) ${isMe ? 'bg-(--accent-color)/10' : ''}`}>
                         <td className="py-2 px-2">
                           <span className={`w-6 h-6 inline-flex items-center justify-center rounded-full text-xs font-bold ${
-                            index < 2 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-(--bg-secondary) text-(--text-muted)'
+                            index < 2 ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400' : 'bg-(--bg-secondary) text-(--text-secondary)'
                           }`}>
                             {index + 1}
                           </span>
@@ -492,8 +492,8 @@ function PreliminaryView({
                             </>
                           )}
                         </td>
-                        <td className="py-2 px-2 text-center text-emerald-400 font-medium">{team.wins}</td>
-                        <td className="py-2 px-2 text-center text-rose-400 font-medium">{team.losses}</td>
+                        <td className="py-2 px-2 text-center text-emerald-700 dark:text-emerald-400 font-medium">{team.wins}</td>
+                        <td className="py-2 px-2 text-center text-rose-600 dark:text-rose-400 font-medium">{team.losses}</td>
                         <td className="py-2 px-2 text-center text-(--text-secondary)">
                           {team.points_for}/{team.points_against}
                         </td>
@@ -701,7 +701,7 @@ function MainBracketView({
               </span>
               <span
                 className="text-[10px] mt-0.5"
-                style={{ opacity: isSelected ? 0.6 : 0.45 }}
+                style={{ opacity: isSelected ? 0.7 : 0.55 }}
               >
                 {s.completed}/{s.total}
               </span>
@@ -710,7 +710,7 @@ function MainBracketView({
         })}
         {nextLockedPhase && (
           <span
-            className="shrink-0 flex flex-col items-center px-4 py-2.5 whitespace-nowrap opacity-30"
+            className="shrink-0 flex flex-col items-center px-4 py-2.5 whitespace-nowrap opacity-40"
             style={{
               fontSize: '13px',
               color: 'var(--text-muted)',
@@ -828,7 +828,7 @@ function MatchCard({
         isMyMatch
           ? 'border-2 border-(--accent-color) bg-(--accent-color)/5'
           : isCompleted
-            ? 'bg-(--bg-secondary) border border-(--border-color) opacity-80'
+            ? 'bg-(--bg-secondary) border border-(--border-color) opacity-90'
             : 'bg-(--bg-secondary) border border-(--border-color)'
       }`}
     >
