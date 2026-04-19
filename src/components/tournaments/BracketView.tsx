@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
-import { Trophy, Users, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
+import { Trophy, Users, Play, RefreshCw, Lock, ChevronRight, MapPin } from 'lucide-react'
 import { getBracketData, submitPlayerScore } from '@/lib/bracket/actions'
 import { useMatchesRealtime, type RealtimeMatchPayload } from '@/lib/realtime/useMatchesRealtime'
 import { useBracketConfigRealtime } from '@/lib/realtime/useBracketConfigRealtime'
@@ -35,7 +35,9 @@ interface BracketConfig {
   third_place_match: boolean
   bracket_size: number | null
   status: BracketStatus
-  is_published: boolean
+  publish_groups: boolean
+  publish_preliminary: boolean
+  publish_main: boolean
   active_phase: string | null
   active_round: number | null
 }
@@ -106,7 +108,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
   const [groups, setGroups] = useState<PreliminaryGroup[] | null>(null)
   const [matches, setMatches] = useState<BracketMatch[] | null>(null)
   const [loading, setLoading] = useState(false)
-  const [activeTab, setActiveTab] = useState<'preliminary' | 'main'>('main')
+  const [activeTab, setActiveTab] = useState<'groups' | 'preliminary' | 'main'>('main')
 
   // 점수 입력 모달 상태
   const [scoreModalMatch, setScoreModalMatch] = useState<BracketMatch | null>(null)
@@ -134,12 +136,14 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
         setGroups(data.groups)
         setMatches(data.matches)
 
-        // 본선 매치가 있으면 본선 탭 우선, 없으면 예선 탭
+        // 공개된 탭 중 우선순위: 본선 > 예선 > 조편성
         const hasMainMatches = data.matches?.some((m: { phase: string }) => m.phase !== 'PRELIMINARY')
-        if (hasMainMatches) {
+        if (data.config?.publish_main && hasMainMatches) {
           setActiveTab('main')
-        } else if (data.config?.has_preliminaries) {
+        } else if (data.config?.publish_preliminary && data.config?.has_preliminaries) {
           setActiveTab('preliminary')
+        } else if (data.config?.publish_groups) {
+          setActiveTab('groups')
         } else {
           setActiveTab('main')
         }
@@ -318,7 +322,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
             이 부서의 대진표가 아직 생성되지 않았습니다.
           </p>
         </div>
-      ) : !config.is_published ? (
+      ) : !(config.publish_groups || config.publish_preliminary || config.publish_main) ? (
         <div className="glass-card rounded-xl p-8 text-center">
           <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
           <p className="text-(--text-secondary)">
@@ -327,31 +331,44 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
         </div>
       ) : (
         <>
-          {/* Phase Tabs (if has preliminaries) */}
-          {config.has_preliminaries && (
-            <div className="flex overflow-x-auto scrollbar-none border-b border-(--border-color)" style={{ WebkitOverflowScrolling: "touch" }}>
-              {[
-                { key: 'preliminary', label: '예선', icon: <Users className="w-4 h-4" /> },
-                { key: 'main', label: '본선', icon: <Trophy className="w-4 h-4" /> },
-              ].map(({ key, label, icon }) => (
-                <button
-                  key={key}
-                  onClick={() => setActiveTab(key as 'preliminary' | 'main')}
-                  className="relative shrink-0 flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium transition-colors whitespace-nowrap"
-                  style={{
-                    color: activeTab === key ? 'var(--text-primary)' : 'var(--text-muted)',
-                    borderBottom: activeTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
-                    marginBottom: '-1px',
-                  }}
-                >
-                  {icon}{label}
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Phase Tabs — 공개된 탭만 표시 */}
+          {(() => {
+            const tabs: { key: 'groups' | 'preliminary' | 'main'; label: string; icon: React.ReactNode }[] = []
+            if (config.publish_groups) tabs.push({ key: 'groups', label: '조편성', icon: <Users className="w-4 h-4" /> })
+            if (config.publish_preliminary && config.has_preliminaries) tabs.push({ key: 'preliminary', label: '예선', icon: <Play className="w-4 h-4" /> })
+            if (config.publish_main) tabs.push({ key: 'main', label: '본선', icon: <Trophy className="w-4 h-4" /> })
+
+            // 탭이 1개뿐이면 탭 바 숨김
+            if (tabs.length <= 1) return null
+
+            return (
+              <div className="flex overflow-x-auto scrollbar-none border-b border-(--border-color)" style={{ WebkitOverflowScrolling: "touch" }}>
+                {tabs.map(({ key, label, icon }) => (
+                  <button
+                    key={key}
+                    onClick={() => setActiveTab(key)}
+                    className="relative shrink-0 flex items-center gap-1.5 px-5 py-2.5 text-sm font-medium transition-colors whitespace-nowrap"
+                    style={{
+                      color: activeTab === key ? 'var(--text-primary)' : 'var(--text-muted)',
+                      borderBottom: activeTab === key ? '2px solid var(--accent-color)' : '2px solid transparent',
+                      marginBottom: '-1px',
+                    }}
+                  >
+                    {icon}{label}
+                  </button>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Content */}
-          {activeTab === 'preliminary' && config.has_preliminaries ? (
+          {activeTab === 'groups' && config.publish_groups ? (
+            <GroupsView
+              groups={groups || []}
+              currentUserEntryIds={currentUserEntryIds}
+              matchType={matchType}
+            />
+          ) : activeTab === 'preliminary' && config.publish_preliminary && config.has_preliminaries ? (
             <PreliminaryView
               groups={groups || []}
               matches={preliminaryMatches}
@@ -360,7 +377,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               isMatchInProgress={isMatchInProgress}
               matchType={matchType}
             />
-          ) : (
+          ) : config.publish_main ? (
             <MainBracketView
               config={config}
               matches={mainMatches}
@@ -369,7 +386,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               isMatchInProgress={isMatchInProgress}
               matchType={matchType}
             />
-          )}
+          ) : null}
         </>
       )}
 
@@ -392,6 +409,85 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
         message={toast.message}
         type={toast.type}
       />
+    </div>
+  )
+}
+
+// ============================================================================
+// 조편성 뷰 (사용자용)
+// ============================================================================
+function GroupsView({
+  groups,
+  currentUserEntryIds,
+  matchType,
+}: {
+  groups: PreliminaryGroup[]
+  currentUserEntryIds?: string[]
+  matchType?: MatchType | null
+}) {
+  const isTeamMatch = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES'
+
+  if (groups.length === 0) {
+    return (
+      <div className="glass-card rounded-xl p-8 text-center">
+        <Users className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+        <p className="text-(--text-secondary)">조편성이 아직 완료되지 않았습니다.</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {groups.map((group) => (
+        <div key={group.id} className="glass-card rounded-xl p-5">
+          <h3 className="font-display text-base font-semibold text-(--text-primary) mb-3">
+            {group.name}조
+          </h3>
+          <div className="space-y-2">
+            {group.group_teams?.map((team, index) => {
+              const isMe = currentUserEntryIds?.includes(team.entry_id)
+              return (
+                <div
+                  key={team.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg ${
+                    isMe ? 'bg-(--accent-color)/10 border border-(--accent-color)/30' : 'bg-(--bg-secondary)'
+                  }`}
+                >
+                  <span className={`w-6 h-6 flex items-center justify-center rounded-full text-xs font-bold shrink-0 ${
+                    isMe ? 'bg-(--accent-color)/20 text-(--accent-color)' : 'bg-(--bg-card) text-(--text-muted)'
+                  }`}>
+                    {index + 1}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    {isTeamMatch ? (
+                      <p className={`text-sm font-medium truncate ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
+                        {team.entry?.club_name || team.entry?.player_name}
+                        {team.entry?.team_order && (
+                          <span className="ml-1 text-xs text-(--text-muted)">({team.entry.team_order}팀)</span>
+                        )}
+                        {isMe && <span className="ml-1 text-xs">(나)</span>}
+                      </p>
+                    ) : team.entry?.partner_data ? (
+                      <p className={`text-sm font-medium truncate ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
+                        {team.entry.player_name} & {team.entry.partner_data.name}
+                        {isMe && <span className="ml-1 text-xs">(나)</span>}
+                      </p>
+                    ) : (
+                      <p className={`text-sm font-medium truncate ${isMe ? 'text-(--accent-color)' : 'text-(--text-primary)'}`}>
+                        {team.entry?.player_name}
+                        {isMe && <span className="ml-1 text-xs">(나)</span>}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+            {(!group.group_teams || group.group_teams.length === 0) && (
+              <p className="text-sm text-(--text-muted) text-center py-2">배정된 팀이 없습니다</p>
+            )}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }

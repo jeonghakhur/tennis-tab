@@ -27,8 +27,12 @@ export interface BracketConfig {
   group_size: number;
   bracket_size: number | null;
   status: BracketStatus;
-  /** 대진표 공개 여부 — true일 때만 사용자에게 노출 */
-  is_published: boolean;
+  /** 조편성 공개 여부 */
+  publish_groups: boolean;
+  /** 예선 공개 여부 */
+  publish_preliminary: boolean;
+  /** 본선 공개 여부 */
+  publish_main: boolean;
   /** 현재 점수 입력 가능한 페이즈 (NULL = 비활성) */
   active_phase: string | null;
   /** 현재 점수 입력 가능한 라운드 (NULL = 해당 페이즈 전체) */

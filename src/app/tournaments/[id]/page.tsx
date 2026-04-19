@@ -82,7 +82,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     notFound();
   }
 
-  // 대진표 공개 여부 확인: 관리자가 is_published=true로 설정한 config만 카운트
+  // 대진표 공개 여부 확인: 조편성/예선/본선 중 하나라도 공개된 config가 있으면 버튼 노출
   const divisionIds = (tournament.tournament_divisions || []).map(
     (d: { id: string }) => d.id,
   );
@@ -92,7 +92,7 @@ export default async function TournamentDetailPage({ params }: Props) {
       .from("bracket_configs")
       .select("id", { count: "exact", head: true })
       .in("division_id", divisionIds)
-      .eq("is_published", true);
+      .or("publish_groups.eq.true,publish_preliminary.eq.true,publish_main.eq.true");
 
     hasBracket = (count ?? 0) > 0;
   }

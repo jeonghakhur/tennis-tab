@@ -860,31 +860,43 @@ export function BracketManager({
               </button>
             </div>
 
-            {/* 대진표 공개/비공개 토글 */}
+            {/* 단계별 공개/비공개 토글 */}
             {!isClosed && (
-              <button
-                onClick={async () => {
-                  const next = !config.is_published;
-                  const result = await toggleBracketPublish(config.id, next);
-                  if (result.success) {
-                    setConfig((c) => c ? { ...c, is_published: next } : c);
-                    showSuccess(next ? "대진표가 공개되었습니다." : "대진표가 비공개로 전환되었습니다.");
-                  } else {
-                    showError("공개 설정 실패", result.error);
-                  }
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all shrink-0 ${
-                  config.is_published
-                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-                    : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) hover:border-(--text-muted)"
-                }`}
-              >
-                {config.is_published ? (
-                  <><Eye className="w-4 h-4" /> 공개 중</>
-                ) : (
-                  <><EyeOff className="w-4 h-4" /> 비공개</>
-                )}
-              </button>
+              <div className="flex items-center gap-1.5 shrink-0">
+                {([
+                  { field: 'publish_groups' as const, label: '조편성' },
+                  ...(config.has_preliminaries
+                    ? [{ field: 'publish_preliminary' as const, label: '예선' }]
+                    : []),
+                  { field: 'publish_main' as const, label: '본선' },
+                ] as const).map(({ field, label }) => {
+                  const isOn = config[field];
+                  return (
+                    <button
+                      key={field}
+                      onClick={async () => {
+                        const next = !isOn;
+                        const result = await toggleBracketPublish(config.id, field, next);
+                        if (result.success) {
+                          setConfig((c) => c ? { ...c, [field]: next } : c);
+                          showSuccess(`${label}이(가) ${next ? '공개' : '비공개'}로 변경되었습니다.`);
+                        } else {
+                          showError("공개 설정 실패", result.error);
+                        }
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                        isOn
+                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
+                          : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) hover:border-(--text-muted)"
+                      }`}
+                      title={`${label} ${isOn ? '비공개로 전환' : '공개로 전환'}`}
+                    >
+                      {isOn ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
 

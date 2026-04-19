@@ -3011,10 +3011,12 @@ export async function setActiveRound(
 }
 
 /**
- * 대진표 공개/비공개 토글
+ * 대진표 단계별 공개/비공개 토글
+ * @param field 공개 대상: 'publish_groups' | 'publish_preliminary' | 'publish_main'
  */
 export async function toggleBracketPublish(
   configId: string,
+  field: 'publish_groups' | 'publish_preliminary' | 'publish_main',
   publish: boolean,
 ): Promise<{ success: true } | { success: false; error: string }> {
   const authResult = await checkBracketManagementAuth()
@@ -3027,7 +3029,7 @@ export async function toggleBracketPublish(
 
   const { error } = await supabaseAdmin
     .from('bracket_configs')
-    .update({ is_published: publish, updated_at: new Date().toISOString() })
+    .update({ [field]: publish, updated_at: new Date().toISOString() })
     .eq('id', configId)
 
   if (error) return { success: false, error: error.message }
