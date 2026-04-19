@@ -2498,10 +2498,10 @@ export async function getBracketData(divisionId: string) {
     return { config: null, groups: null, matches: null }
   }
 
-  // 예선 조 (예선이 있는 경우)
-  let groups = null
-  if (config.has_preliminaries) {
-    const { data } = await supabase
+  // 조편성 + 경기를 병렬 조회 (직렬 → 병렬로 RTT 절약)
+  const [groupsResult, matchesResult] = await Promise.all([
+    // 조편성 — 예선 여부와 무관하게 항상 로드 (조편성 공개 탭용)
+    supabase
       .from('preliminary_groups')
       .select(`
         *,
@@ -2512,23 +2512,25 @@ export async function getBracketData(divisionId: string) {
       `)
       .eq('bracket_config_id', config.id)
       .order('display_order', { ascending: true })
-      .order('seed_number', { ascending: true, referencedTable: 'group_teams' })
-    groups = data
+      .order('seed_number', { ascending: true, referencedTable: 'group_teams' }),
+    // 모든 경기
+    supabase
+      .from('bracket_matches')
+      .select(`
+        *,
+        team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members),
+        team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members)
+      `)
+      .eq('bracket_config_id', config.id)
+      .order('phase', { ascending: true })
+      .order('match_number', { ascending: true }),
+  ])
+
+  return {
+    config,
+    groups: groupsResult.data ?? null,
+    matches: matchesResult.data ?? null,
   }
-
-  // 모든 경기
-  const { data: matches } = await supabase
-    .from('bracket_matches')
-    .select(`
-      *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members)
-    `)
-    .eq('bracket_config_id', config.id)
-    .order('phase', { ascending: true })
-    .order('match_number', { ascending: true })
-
-  return { config, groups, matches }
 }
 
 /**

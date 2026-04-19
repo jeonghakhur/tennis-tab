@@ -110,9 +110,35 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
   const [loading, setLoading] = useState(false)
   const [activeTab, setActiveTab] = useState<'groups' | 'preliminary' | 'main'>('main')
 
+  // 부서별 데이터 캐시 — 같은 부서 재클릭 시 네트워크 요청 생략
+  const cacheRef = useRef<Record<string, {
+    config: BracketConfig | null
+    groups: PreliminaryGroup[] | null
+    matches: BracketMatch[] | null
+  }>>({})
+
   // 점수 입력 모달 상태
   const [scoreModalMatch, setScoreModalMatch] = useState<BracketMatch | null>(null)
   const [toast, setToast] = useState<{ isOpen: boolean; message: string; type: 'success' | 'error' }>({ isOpen: false, message: '', type: 'success' })
+
+  // 캐시된 데이터를 적용하고 기본 탭 선택
+  const applyData = useCallback((data: { config: BracketConfig | null; groups: PreliminaryGroup[] | null; matches: BracketMatch[] | null }) => {
+    setConfig(data.config)
+    setGroups(data.groups)
+    setMatches(data.matches)
+
+    // 공개된 탭 중 우선순위: 본선 > 예선 > 조편성
+    const hasMainMatches = data.matches?.some((m) => m.phase !== 'PRELIMINARY')
+    if (data.config?.publish_main && hasMainMatches) {
+      setActiveTab('main')
+    } else if (data.config?.publish_preliminary && data.config?.has_preliminaries) {
+      setActiveTab('preliminary')
+    } else if (data.config?.publish_groups) {
+      setActiveTab('groups')
+    } else {
+      setActiveTab('main')
+    }
+  }, [])
 
   useEffect(() => {
     if (selectedDivision) {
@@ -122,33 +148,27 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
 
   const loadBracketData = async () => {
     if (!selectedDivision) return
+
+    // 캐시 히트 — 즉시 적용 (로딩 스피너 없음)
+    const cached = cacheRef.current[selectedDivision.id]
+    if (cached) {
+      applyData(cached)
+      return
+    }
+
     setLoading(true)
 
     try {
-      // 10초 타임아웃: Server Action hang 시 무한 스피너 방지
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort('bracket_data_timeout'), 10000)
+      const timeoutId = setTimeout(() => {}, 10000)
 
       try {
         const data = await getBracketData(selectedDivision.id)
         clearTimeout(timeoutId)
-        setConfig(data.config)
-        setGroups(data.groups)
-        setMatches(data.matches)
 
-        // 공개된 탭 중 우선순위: 본선 > 예선 > 조편성
-        const hasMainMatches = data.matches?.some((m: { phase: string }) => m.phase !== 'PRELIMINARY')
-        if (data.config?.publish_main && hasMainMatches) {
-          setActiveTab('main')
-        } else if (data.config?.publish_preliminary && data.config?.has_preliminaries) {
-          setActiveTab('preliminary')
-        } else if (data.config?.publish_groups) {
-          setActiveTab('groups')
-        } else {
-          setActiveTab('main')
-        }
+        // 캐시 저장
+        cacheRef.current[selectedDivision.id] = data
+        applyData(data)
       } catch {
-        // 데이터 로딩 실패 또는 타임아웃 — 빈 상태 유지
         clearTimeout(timeoutId)
       }
     } finally {
@@ -165,8 +185,9 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
     const requestId = ++requestCounterRef.current
     try {
       const data = await getBracketData(selectedDivision.id)
-      // 이 요청 이후 새 요청이 발생했으면 stale 응답이므로 무시
       if (requestId !== requestCounterRef.current) return
+      // 캐시도 갱신
+      cacheRef.current[selectedDivision.id] = data
       setConfig(data.config)
       setGroups(data.groups)
       setMatches(data.matches)
