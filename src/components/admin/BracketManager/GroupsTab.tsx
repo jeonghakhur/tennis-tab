@@ -18,7 +18,7 @@ import {
   verticalListSortingStrategy,
   useSortable,
 } from "@dnd-kit/sortable";
-import { moveTeamToGroup } from "@/lib/bracket/actions";
+import { batchMoveTeamsToGroups } from "@/lib/bracket/actions";
 import type { PreliminaryGroup, GroupTeam } from "./types";
 
 interface GroupsTabProps {
@@ -147,7 +147,8 @@ export function GroupsTab({
 
   const handleSave = async () => {
     try {
-      const promises: Promise<{ error: unknown }>[] = [];
+      // 변경된 팀만 추출 (인증/검증 1회로 일괄 처리)
+      const moves: Array<{ teamId: string; groupId: string }> = [];
 
       localGroups.forEach((group) => {
         group.group_teams?.forEach((team) => {
@@ -155,21 +156,20 @@ export function GroupsTab({
             g.group_teams?.some((t) => t.id === team.id),
           );
           if (originalGroup && originalGroup.id !== group.id) {
-            promises.push(moveTeamToGroup(team.id, group.id));
+            moves.push({ teamId: team.id, groupId: group.id });
           }
         });
       });
 
-      if (promises.length === 0) {
+      if (moves.length === 0) {
         setHasChanges(false);
         return;
       }
 
-      const results = await Promise.all(promises);
-      const errors = results.filter((r) => r.error);
+      const result = await batchMoveTeamsToGroups(moves);
 
-      if (errors.length > 0) {
-        onError("일부 팀 이동에 실패했습니다.");
+      if (result.error) {
+        onError(result.error);
       }
 
       await onTeamMove?.();

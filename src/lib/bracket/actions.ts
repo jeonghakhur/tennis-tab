@@ -608,6 +608,56 @@ export async function moveTeamToGroup(teamId: string, newGroupId: string) {
   return { error }
 }
 
+/**
+ * 팀 일괄 조 이동 — 인증/검증 1회 + batch UPDATE
+ */
+export async function batchMoveTeamsToGroups(
+  moves: Array<{ teamId: string; groupId: string }>
+): Promise<{ error: string | null }> {
+  if (moves.length === 0) return { error: null }
+
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  // 입력 검증
+  for (const m of moves) {
+    const idError = validateId(m.teamId, '팀 ID') || validateId(m.groupId, '조 ID')
+    if (idError) return { error: idError }
+  }
+
+  const supabaseAdmin = createAdminClient()
+
+  // 첫 번째 그룹으로 마감 체크 (같은 config 내 이동이므로 1회만)
+  const { data: group } = await supabaseAdmin
+    .from('preliminary_groups')
+    .select('bracket_config_id')
+    .eq('id', moves[0].groupId)
+    .single()
+
+  if (group?.bracket_config_id) {
+    const closedCheck = await checkTournamentNotClosed(group.bracket_config_id)
+    if (closedCheck.error) return { error: closedCheck.error }
+  }
+
+  // 병렬 UPDATE (인증/검증 없이 순수 DB 작업만)
+  const results = await Promise.all(
+    moves.map((m) =>
+      supabaseAdmin
+        .from('group_teams')
+        .update({ group_id: m.groupId })
+        .eq('id', m.teamId)
+    )
+  )
+
+  const errors = results.filter((r) => r.error)
+  if (errors.length > 0) {
+    return { error: `${errors.length}건 이동 실패` }
+  }
+
+  revalidatePath('/admin/tournaments')
+  return { error: null }
+}
+
 // ============================================================================
 // 예선 경기 관련
 // ============================================================================
