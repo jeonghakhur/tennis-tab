@@ -6,18 +6,12 @@ import type { BracketConfig } from "./types";
 
 interface SettingsTabProps {
   config: BracketConfig;
-  groupCount?: number;
-  teamCount?: number;
-  onStartGrouping?: () => void;
   onUpdate?: (updates: Partial<BracketConfig>) => void;
   onDelete?: () => void;
 }
 
 export function SettingsTab({
   config,
-  groupCount = 0,
-  teamCount = 0,
-  onStartGrouping,
   onUpdate,
   onDelete,
 }: SettingsTabProps) {
@@ -188,31 +182,6 @@ export function SettingsTab({
                 ? "본선 진행중"
                 : "완료"}
         </span>
-      </div>
-
-      {/* ── 조편성 ── */}
-      <div
-        className="flex items-center justify-between rounded-xl p-4"
-        style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}
-      >
-        <div>
-          <p className="text-sm font-medium text-(--text-primary)">조편성</p>
-          <p className="text-xs text-(--text-muted) mt-0.5">
-            {groupCount > 0
-              ? `${groupCount}개 조 · ${teamCount}팀 편성됨`
-              : "아직 조편성이 없습니다"}
-          </p>
-        </div>
-        {onStartGrouping && (
-          <button
-            type="button"
-            onClick={onStartGrouping}
-            className="text-xs font-semibold px-4 py-2 rounded-lg transition-all hover:opacity-80"
-            style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
-          >
-            {groupCount > 0 ? "조편성 수정" : "조편성 시작"}
-          </button>
-        )}
       </div>
 
       {/* ── 삭제 ── */}

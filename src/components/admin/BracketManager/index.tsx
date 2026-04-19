@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Settings, Play, Trophy, ChevronLeft, Eye, EyeOff } from "lucide-react";
+import { Settings, Users, Play, Trophy, Eye, EyeOff } from "lucide-react";
 import {
   AlertDialog,
   ConfirmDialog,
@@ -51,8 +51,7 @@ import type {
 } from "./types";
 import { CLOSED_TOURNAMENT_STATUSES, phaseLabels } from "./types";
 
-type TabType = "settings" | "preliminary" | "main";
-type SettingsView = "form" | "groups";
+type TabType = "settings" | "groups" | "preliminary" | "main";
 
 export function BracketManager({
   tournamentId,
@@ -78,8 +77,6 @@ export function BracketManager({
   const [loading, setLoading] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("불러오는 중...");
   const [activeTab, setActiveTab] = useState<TabType>("settings");
-  // 설정 탭 내부 뷰: form(설정 폼) | groups(조편성)
-  const [settingsView, setSettingsView] = useState<SettingsView>("form");
 
   // Dialog states
   const [showAutoGenerateConfirm, setShowAutoGenerateConfirm] = useState(false);
@@ -254,7 +251,6 @@ export function BracketManager({
   useEffect(() => {
     if (selectedDivision) {
       loadBracketData();
-      setSettingsView("form"); // 부서 변경 시 설정 폼으로 초기화
     }
   }, [selectedDivision, loadBracketData]);
 
@@ -396,35 +392,7 @@ export function BracketManager({
         showError("조 편성 실패", error);
       } else {
         await loadBracketData();
-        setActiveTab("settings");
-        setSettingsView("groups");
-        showSuccess("자동 조 편성이 완료되었습니다.");
-      }
-    } catch {
-      showError("오류", "조 편성 중 오류가 발생했습니다.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 설정 탭 "조편성 시작/수정" 버튼 핸들러
-  // - 기존 조편성 없음: 즉시 자동 편성 후 groups 뷰로 이동
-  // - 기존 조편성 있음: groups 뷰로 바로 이동 (재편성은 내부 버튼 사용)
-  const handleStartGrouping = async () => {
-    if (groups.length > 0) {
-      setSettingsView("groups");
-      return;
-    }
-    if (!config || !selectedDivision) return;
-    setLoadingMessage("조 편성 중...");
-    setLoading(true);
-    try {
-      const { error } = await autoGenerateGroups(config.id, selectedDivision.id);
-      if (error) {
-        showError("조 편성 실패", error);
-      } else {
-        await loadBracketData();
-        setSettingsView("groups");
+        setActiveTab("groups");
         showSuccess("자동 조 편성이 완료되었습니다.");
       }
     } catch {
@@ -635,7 +603,7 @@ export function BracketManager({
         showError("삭제 실패", error);
       } else {
         await loadBracketData();
-        setSettingsView("form");
+        setActiveTab("settings");
         showSuccess("조 편성이 삭제되었습니다.");
       }
     } catch {
@@ -833,6 +801,17 @@ export function BracketManager({
                 <Settings className="w-4 h-4" />
                 설정
               </button>
+              <button
+                onClick={() => setActiveTab("groups")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                  activeTab === "groups"
+                    ? "bg-(--accent-color)"
+                    : "hover:bg-white/10 text-(--text-secondary)"
+                }`}
+              >
+                <Users className="w-4 h-4" />
+                조편성
+              </button>
               {/* 예선 탭은 예선 사용 시에만 */}
               {config.has_preliminaries && (
                 <button
@@ -901,10 +880,10 @@ export function BracketManager({
           </div>
 
           {/* Tab Content */}
-          {/* 조 편성 탭과 본선 시드 배치 모드에서는 bg-(--bg-card)로 통일 (DnD 시 glass-card hover 방지) */}
+          {/* 조편성 탭과 본선 시드 배치 모드에서는 bg-(--bg-card)로 통일 (DnD 시 glass-card hover 방지) */}
           <div
             className={`rounded-xl p-6 border border-(--border-color) ${
-              (activeTab === "settings" && settingsView === "groups") ||
+              activeTab === "groups" ||
               (activeTab === "main" && seedingGroups.length > 0)
                 ? "bg-(--bg-card)"
                 : "glass-card"
@@ -916,15 +895,9 @@ export function BracketManager({
               </div>
             )}
 
-            {activeTab === "settings" && settingsView === "form" && (
+            {activeTab === "settings" && (
               <SettingsTab
                 config={config}
-                groupCount={groups.length}
-                teamCount={groups.reduce(
-                  (sum, g) => sum + (g.group_teams?.length ?? 0),
-                  0,
-                )}
-                onStartGrouping={isClosed ? undefined : handleStartGrouping}
                 onUpdate={isClosed ? undefined : handleConfigUpdate}
                 onDelete={
                   isClosed ||
@@ -937,17 +910,8 @@ export function BracketManager({
               />
             )}
 
-            {activeTab === "settings" && settingsView === "groups" && (
-              <div className="space-y-4">
-                {/* 뒤로가기 */}
-                <button
-                  onClick={() => setSettingsView("form")}
-                  className="flex items-center gap-1.5 text-sm text-(--text-muted) hover:text-(--text-primary) transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  설정으로 돌아가기
-                </button>
-                <GroupsTab
+            {activeTab === "groups" && (
+              <GroupsTab
                   groups={groups}
                   hasPreliminary={config.has_preliminaries}
                   onAutoGenerate={
@@ -980,7 +944,6 @@ export function BracketManager({
                   onTeamMove={isClosed ? undefined : loadBracketData}
                   onError={(msg) => showError("오류", msg)}
                 />
-              </div>
             )}
 
             {activeTab === "preliminary" && (
