@@ -46,6 +46,7 @@ export interface GroupTeam {
     id: string;
     player_name: string;
     club_name: string | null;
+    team_order: string | null;
     partner_data: { name: string; rating: number; club: string | null } | null;
   };
 }

@@ -353,6 +353,11 @@ export function GroupsTab({
                   {activeTeam.entry?.club_name && (
                     <p className="text-sm font-medium text-(--text-primary) truncate">
                       {activeTeam.entry.club_name}
+                      {activeTeam.entry.team_order && (
+                        <span className="ml-1 text-xs text-(--text-muted)">
+                          ({activeTeam.entry.team_order}팀)
+                        </span>
+                      )}
                     </p>
                   )}
                   <p
@@ -437,11 +442,16 @@ function SortableTeam({ team, index }: { team: GroupTeam; index: number }) {
             {team.entry.player_name} & {team.entry.partner_data.name}
           </p>
         ) : (
-          // 단식/단체전: 기존 형식 유지
+          // 단식/단체전: 클럽명 + 팀 순번 표시
           <>
             {team.entry?.club_name && (
               <p className="text-sm font-medium text-(--text-primary) truncate">
                 {team.entry.club_name}
+                {team.entry.team_order && (
+                  <span className="ml-1 text-xs text-(--text-muted)">
+                    ({team.entry.team_order}팀)
+                  </span>
+                )}
               </p>
             )}
             <p

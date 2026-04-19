@@ -563,7 +563,7 @@ export async function getPreliminaryGroups(configId: string) {
       *,
       group_teams (
         *,
-        entry:tournament_entries (id, player_name, club_name, partner_data)
+        entry:tournament_entries (id, player_name, club_name, team_order, partner_data)
       )
     `)
     .eq('bracket_config_id', configId)
@@ -1499,6 +1499,7 @@ export interface AdvancingTeam {
     id: string
     player_name: string
     club_name: string | null
+    team_order: string | null
     partner_data: { name: string; rating: number; club: string | null } | null
   }
 }
@@ -1534,7 +1535,7 @@ export async function getAdvancingTeams(configId: string): Promise<{
       *,
       group_teams (
         *,
-        entry:tournament_entries (id, player_name, club_name, partner_data)
+        entry:tournament_entries (id, player_name, club_name, team_order, partner_data)
       )
     `)
     .eq('bracket_config_id', configId)
@@ -1710,7 +1711,7 @@ export async function getNextRoundTeams(configId: string): Promise<{
   // 승자 엔트리 정보 JOIN
   const { data: entries } = await supabase
     .from('tournament_entries')
-    .select('id, player_name, club_name, partner_data')
+    .select('id, player_name, club_name, team_order, partner_data')
     .in('id', winnerIds)
 
   const entryMap = new Map(entries?.map(e => [e.id, e]) || [])
@@ -2453,7 +2454,7 @@ export async function getBracketData(divisionId: string) {
         *,
         group_teams (
           *,
-          entry:tournament_entries (id, player_name, club_name, partner_data)
+          entry:tournament_entries (id, player_name, club_name, team_order, partner_data)
         )
       `)
       .eq('bracket_config_id', config.id)
