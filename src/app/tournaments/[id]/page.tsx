@@ -348,7 +348,7 @@ export default async function TournamentDetailPage({ params }: Props) {
           </div>
 
           <div className="flex-shrink-0 flex flex-col gap-3">
-            {hasBracket && (tournament.status === 'CLOSED' || tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') && (
+            {hasBracket && (tournament.status === 'IN_PROGRESS' || tournament.status === 'COMPLETED') && (
               <Link
                 href={`/tournaments/${tournament.id}/bracket`}
                 className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-opacity hover:opacity-80"
