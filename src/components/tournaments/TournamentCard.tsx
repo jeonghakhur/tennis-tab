@@ -101,7 +101,16 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
       );
     }
 
-    // CLOSED, IN_PROGRESS, COMPLETED, CANCELLED
+    // CLOSED: 마감 (아직 경기 전) → 대회 상세
+    if (status === "CLOSED") {
+      return (
+        <span className="mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-(--bg-secondary) text-(--text-secondary)">
+          대회 상세 보기
+        </span>
+      );
+    }
+
+    // IN_PROGRESS, COMPLETED, CANCELLED → 결과 보기
     return (
       <span className="mt-3 block w-full text-center py-2.5 rounded-lg text-sm font-semibold bg-(--bg-secondary) text-(--text-secondary)">
         결과 보기
