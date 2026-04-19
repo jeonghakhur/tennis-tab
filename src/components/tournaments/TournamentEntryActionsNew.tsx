@@ -101,7 +101,7 @@ export default function TournamentEntryActions({
   // 취소 확인 모달 대상 entry id
   const [cancelEntryId, setCancelEntryId] = useState<string | null>(null);
   // 모바일 플로팅 바 — 다중 신청 시 접힘/펼침
-  const [isFloatingExpanded, setIsFloatingExpanded] = useState(true);
+  const [isFloatingExpanded, setIsFloatingExpanded] = useState(false);
   // 참가 신청 완료 후 결제 유도 모달 (entryFee > 0인 경우)
   const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
@@ -383,10 +383,33 @@ export default function TournamentEntryActions({
     if (entries.length > 0) {
       // 2건 이상: 탭 핸들로 접힘/펼침 가능
       if (entries.length >= 2) {
-        if (!isFloatingExpanded) return null;
+        // 접힌 상태: 요약 + 펼치기 버튼
+        if (!isFloatingExpanded) {
+          return (
+            <div className="flex-1 flex items-center gap-3">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                  내 신청 {entries.length}팀
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                  {entries.filter((e) => !["CANCELLED", "REJECTED"].includes(e.status)).length}팀 활성
+                </p>
+              </div>
+              {canAcceptEntry && (
+                <button
+                  onClick={() => setShowEntryForm(true)}
+                  className="rounded-xl px-4 py-2.5 text-sm font-medium transition-all hover:opacity-80"
+                  style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                >
+                  + 추가 신청
+                </button>
+              )}
+            </div>
+          );
+        }
 
         return (
-          <div className="flex-1 flex flex-col gap-3">
+          <div className="flex-1 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "60vh" }}>
             <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
               내 신청 {entries.length}팀
             </span>
