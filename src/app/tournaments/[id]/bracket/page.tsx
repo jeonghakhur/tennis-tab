@@ -7,6 +7,7 @@ import { TournamentRealtimeRefresher } from '@/components/tournaments/Tournament
 import { getPlayerEntryIds } from '@/lib/bracket/actions'
 import type { MatchType, TournamentStatus } from '@/lib/supabase/types'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
+import { KakaoShareButton } from '@/components/common/KakaoShareButton'
 import { sortDivisions } from '@/lib/tournaments/divisionSort'
 
 const STATUS_BADGE: Record<string, { label: string; variant: BadgeVariant; className?: string }> = {
@@ -83,7 +84,20 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
             )
           })()}
         </div>
-        <p className="text-(--text-secondary) ml-11">대진표</p>
+        <div className="flex items-center gap-3 ml-11">
+          <p className="text-(--text-secondary)">대진표</p>
+          <KakaoShareButton
+            title={`${tournament.title} 대진표`}
+            description={[
+              tournament.start_date
+                ? new Date(tournament.start_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                : '',
+              tournament.location,
+            ].filter(Boolean).join(' · ')}
+            imageUrl={tournament.poster_url ?? undefined}
+            pageUrl={`/tournaments/${tournament.id}/bracket`}
+          />
+        </div>
       </div>
 
       {/* Bracket View */}
