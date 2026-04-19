@@ -364,7 +364,9 @@ export default function MyProfilePage() {
           const row = (isDelete ? payload.old : payload.new) as {
             division_id?: string;
             id?: string;
-            status?: string;
+            publish_groups?: boolean;
+            publish_preliminary?: boolean;
+            publish_main?: boolean;
           };
           if (!row.division_id || !myDivisionIds.includes(row.division_id)) return;
 
@@ -380,9 +382,8 @@ export default function MyProfilePage() {
             return;
           }
 
-          // INSERT/UPDATE: status가 PRELIMINARY 또는 MAIN이면 hasBracket=true
-          // (match count 조회 시 config 업데이트와 match 삽입 사이 타이밍 문제 발생)
-          const hasBracket = row.status === "PRELIMINARY" || row.status === "MAIN" || row.status === "COMPLETED";
+          // INSERT/UPDATE: publish_* 중 하나라도 true이면 hasBracket=true
+          const hasBracket = !!(row.publish_groups || row.publish_preliminary || row.publish_main);
           setTournaments((prev) =>
             prev.map((e) =>
               e.division?.id === divisionId ? { ...e, hasBracket } : e,
@@ -1237,7 +1238,7 @@ export default function MyProfilePage() {
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
-                        {(entry.tournament.status === "IN_PROGRESS" || entry.tournament.status === "COMPLETED") && entry.status === "CONFIRMED" && (() => {
+                        {entry.status === "CONFIRMED" && (() => {
                           const label = entry.tournament.status === "COMPLETED" ? "대진표/결과 보기" : "대진표 보기";
                           if (entry.hasBracket) {
                             return (

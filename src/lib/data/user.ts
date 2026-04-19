@@ -51,8 +51,8 @@ export async function getMyTournaments() {
     return { error: error.message }
   }
 
-  // 실제 대진 경기가 존재하는 division_id 집합 조회
-  // bracket_configs!inner(bracket_matches!inner) → 경기가 1개라도 있는 config만 반환
+  // 공개된 대진표가 있는 division_id 집합 조회
+  // publish_groups/publish_preliminary/publish_main 중 하나라도 true인 config
   const divisionIds = entries
     .map((e) => (e.division as { id: string } | null)?.id)
     .filter((id): id is string => Boolean(id))
@@ -61,8 +61,9 @@ export async function getMyTournaments() {
   if (divisionIds.length > 0) {
     const { data: bracketRows } = await supabase
       .from('bracket_configs')
-      .select('division_id, bracket_matches!inner(id)')
+      .select('division_id')
       .in('division_id', divisionIds)
+      .or('publish_groups.eq.true,publish_preliminary.eq.true,publish_main.eq.true')
     bracketRows?.forEach((r) => bracketDivisionSet.add(r.division_id))
   }
 
