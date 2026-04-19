@@ -3009,3 +3009,29 @@ export async function setActiveRound(
   revalidatePath('/admin/tournaments')
   return { success: true }
 }
+
+/**
+ * 대진표 공개/비공개 토글
+ */
+export async function toggleBracketPublish(
+  configId: string,
+  publish: boolean,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { success: false, error: authResult.error }
+
+  const idError = validateId(configId, '설정 ID')
+  if (idError) return { success: false, error: idError }
+
+  const supabaseAdmin = createAdminClient()
+
+  const { error } = await supabaseAdmin
+    .from('bracket_configs')
+    .update({ is_published: publish, updated_at: new Date().toISOString() })
+    .eq('id', configId)
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath('/admin/tournaments')
+  return { success: true }
+}

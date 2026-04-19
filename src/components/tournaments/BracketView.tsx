@@ -35,6 +35,7 @@ interface BracketConfig {
   third_place_match: boolean
   bracket_size: number | null
   status: BracketStatus
+  is_published: boolean
   active_phase: string | null
   active_round: number | null
 }
@@ -315,6 +316,13 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
           <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
           <p className="text-(--text-secondary)">
             이 부서의 대진표가 아직 생성되지 않았습니다.
+          </p>
+        </div>
+      ) : !config.is_published ? (
+        <div className="glass-card rounded-xl p-8 text-center">
+          <Trophy className="w-12 h-12 mx-auto text-(--text-muted) mb-4" />
+          <p className="text-(--text-secondary)">
+            대진표가 아직 공개되지 않았습니다.
           </p>
         </div>
       ) : (

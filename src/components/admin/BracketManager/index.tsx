@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Settings, Play, Trophy, ChevronLeft } from "lucide-react";
+import { Settings, Play, Trophy, ChevronLeft, Eye, EyeOff } from "lucide-react";
 import {
   AlertDialog,
   ConfirmDialog,
@@ -29,6 +29,7 @@ import {
   deleteMainBracket,
   deleteLatestRound,
   setActiveRound,
+  toggleBracketPublish,
 } from "@/lib/bracket/actions";
 import {
   useMatchesRealtime,
@@ -818,45 +819,73 @@ export function BracketManager({
 
       {selectedDivision && config && (
         <>
-          {/* Tabs */}
-          <div className="flex items-center gap-1 p-1 bg-(--bg-card) rounded-xl">
-            <button
-              onClick={() => setActiveTab("settings")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                activeTab === "settings"
-                  ? "bg-(--accent-color)"
-                  : "hover:bg-white/10 text-(--text-secondary)"
-              }`}
-            >
-              <Settings className="w-4 h-4" />
-              설정
-            </button>
-            {/* 예선 탭은 예선 사용 시에만 */}
-            {config.has_preliminaries && (
+          {/* Tabs + 공개 토글 */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-1 p-1 bg-(--bg-card) rounded-xl flex-1">
               <button
-                onClick={() => setActiveTab("preliminary")}
+                onClick={() => setActiveTab("settings")}
                 className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                  activeTab === "preliminary"
+                  activeTab === "settings"
                     ? "bg-(--accent-color)"
                     : "hover:bg-white/10 text-(--text-secondary)"
                 }`}
               >
-                <Play className="w-4 h-4" />
-                예선
+                <Settings className="w-4 h-4" />
+                설정
+              </button>
+              {/* 예선 탭은 예선 사용 시에만 */}
+              {config.has_preliminaries && (
+                <button
+                  onClick={() => setActiveTab("preliminary")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                    activeTab === "preliminary"
+                      ? "bg-(--accent-color)"
+                      : "hover:bg-white/10 text-(--text-secondary)"
+                  }`}
+                >
+                  <Play className="w-4 h-4" />
+                  예선
+                </button>
+              )}
+              <button
+                onClick={() => setActiveTab("main")}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                  activeTab === "main"
+                    ? "bg-(--accent-color)"
+                    : "hover:bg-white/10 text-(--text-secondary)"
+                }`}
+              >
+                <Trophy className="w-4 h-4" />
+                본선
+              </button>
+            </div>
+
+            {/* 대진표 공개/비공개 토글 */}
+            {!isClosed && (
+              <button
+                onClick={async () => {
+                  const next = !config.is_published;
+                  const result = await toggleBracketPublish(config.id, next);
+                  if (result.success) {
+                    setConfig((c) => c ? { ...c, is_published: next } : c);
+                    showSuccess(next ? "대진표가 공개되었습니다." : "대진표가 비공개로 전환되었습니다.");
+                  } else {
+                    showError("공개 설정 실패", result.error);
+                  }
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all shrink-0 ${
+                  config.is_published
+                    ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
+                    : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) hover:border-(--text-muted)"
+                }`}
+              >
+                {config.is_published ? (
+                  <><Eye className="w-4 h-4" /> 공개 중</>
+                ) : (
+                  <><EyeOff className="w-4 h-4" /> 비공개</>
+                )}
               </button>
             )}
-            <button
-              onClick={() => setActiveTab("main")}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                activeTab === "main"
-                  ? "bg-(--accent-color)"
-                  : "hover:bg-white/10 text-(--text-secondary)"
-              }`}
-            >
-              <Trophy className="w-4 h-4" />
-              본선
-            </button>
-
           </div>
 
           {/* Tab Content */}

@@ -387,6 +387,7 @@ export interface Database {
           third_place_match: boolean
           bracket_size: number | null
           status: BracketStatus
+          is_published: boolean
           active_phase: string | null
           active_round: number | null
           created_at: string
@@ -399,6 +400,7 @@ export interface Database {
           third_place_match?: boolean
           bracket_size?: number | null
           status?: BracketStatus
+          is_published?: boolean
           active_phase?: string | null
           active_round?: number | null
           created_at?: string
@@ -411,6 +413,7 @@ export interface Database {
           third_place_match?: boolean
           bracket_size?: number | null
           status?: BracketStatus
+          is_published?: boolean
           active_phase?: string | null
           active_round?: number | null
           updated_at?: string
