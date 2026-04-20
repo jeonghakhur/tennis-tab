@@ -61,62 +61,68 @@ export default async function TournamentDetailPage({ params }: Props) {
   const { id } = await params;
   const supabase = await createClient();
 
-  // 현재 사용자 정보 가져오기 (3초 타임아웃: 네트워크 지연 시 hang 방지)
-  const {
-    data: { user },
-  } = await getUserWithTimeout(supabase, 3000);
-
-  const { data: tournament, error } = await supabase
-    .from("tournaments")
-    .select(
-      `
-      *,
-      profiles (name, email),
-      tournament_divisions (*)
-    `,
-    )
-    .eq("id", id)
-    .single();
+  // 사용자 + 대회 데이터 병렬 조회
+  const [{ data: { user } }, { data: tournament, error }] = await Promise.all([
+    getUserWithTimeout(supabase, 3000),
+    supabase
+      .from("tournaments")
+      .select(
+        `
+        *,
+        profiles (name, email),
+        tournament_divisions (*)
+      `,
+      )
+      .eq("id", id)
+      .single(),
+  ]);
 
   if (error || !tournament) {
     notFound();
   }
 
-  // 대진표 공개 여부 확인: 조편성/예선/본선 중 하나라도 공개된 config가 있으면 버튼 노출
   const divisionIds = (tournament.tournament_divisions || []).map(
     (d: { id: string }) => d.id,
   );
-  let hasBracket = false;
-  if (divisionIds.length > 0) {
-    const { count } = await supabase
-      .from("bracket_configs")
-      .select("id", { count: "exact", head: true })
-      .in("division_id", divisionIds)
-      .or("publish_groups.eq.true,publish_preliminary.eq.true,publish_main.eq.true");
 
-    hasBracket = (count ?? 0) > 0;
+  // 대진표 공개 여부 + 사용자 관련 데이터를 병렬 조회
+  type DivisionEntryItem = {
+    id: string
+    division_id: string | null
+    player_name: string | null
+    club_name: string | null
+    status: string
+    applicant_participates: boolean | null
+    partner_data: { name: string; club?: string; rating?: number } | null
+    team_members: Array<{ name: string; rating?: number; club?: string }> | null
+    profile_name: string | null
+    profile_club: string | null
   }
 
-  // 주최자 본인인지 확인
-  const isOrganizer = user && tournament.organizer_id === user.id;
-
-  // 사용자 프로필 가져오기
+  let hasBracket = false;
   let userProfile = null;
   let myEntries: unknown[] = [];
   let isAdmin = false;
+  let divisionEntriesMap: Record<string, DivisionEntryItem[]> = {};
+
+  // 대진표 조회 (divisionIds가 있을 때만)
+  const bracketPromise = divisionIds.length > 0
+    ? supabase
+        .from("bracket_configs")
+        .select("id", { count: "exact", head: true })
+        .in("division_id", divisionIds)
+        .or("publish_groups.eq.true,publish_preliminary.eq.true,publish_main.eq.true")
+    : Promise.resolve({ count: 0 });
 
   if (user) {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("name, phone, rating, club, role")
-      .eq("id", user.id)
-      .single();
-
-    userProfile = profile ? decryptProfile(profile) : null;
-    isAdmin = profile?.role === "ADMIN" || profile?.role === "SUPER_ADMIN";
-
-    // 취소 제외, 신청일 오름차순 전체 조회 (여러 팀 신청 UI 지원) + 순번 계산
-    const [{ data: entries }, { data: allEntryIds }] = await Promise.all([
+    // 프로필 + 내 신청 + 전체 신청순번 + 부서별 신청현황 + 대진표 여부를 한번에 병렬 조회
+    const [bracketResult, { data: profile }, { data: entries }, { data: allEntryIds }, { data: allEntries }] = await Promise.all([
+      bracketPromise,
+      supabase
+        .from("profiles")
+        .select("name, phone, rating, club, role")
+        .eq("id", user.id)
+        .single(),
       supabase
         .from("tournament_entries")
         .select("*")
@@ -130,7 +136,18 @@ export default async function TournamentDetailPage({ params }: Props) {
         .eq("tournament_id", id)
         .order("created_at", { ascending: true })
         .order("id", { ascending: true }),
+      supabase
+        .from('tournament_entries')
+        .select('id, division_id, player_name, club_name, status, applicant_participates, partner_data, team_members, profiles:user_id(name, club)')
+        .eq('tournament_id', id)
+        .in('status', ['PENDING', 'CONFIRMED', 'WAITLISTED'])
+        .order('created_at', { ascending: true })
+        .order('id', { ascending: true }),
     ]);
+
+    hasBracket = (bracketResult.count ?? 0) > 0;
+    userProfile = profile ? decryptProfile(profile) : null;
+    isAdmin = profile?.role === "ADMIN" || profile?.role === "SUPER_ADMIN";
 
     const rankMap = new Map(
       (allEntryIds ?? []).map((e, idx) => [e.id, idx + 1])
@@ -139,35 +156,9 @@ export default async function TournamentDetailPage({ params }: Props) {
       ...entry,
       current_rank: rankMap.get(entry.id) ?? null,
     }));
-  }
-
-  // 로그인 사용자에게 부서별 신청 현황 표시용 (취소/거절 제외)
-  type DivisionEntryItem = {
-    id: string
-    division_id: string | null
-    player_name: string | null
-    club_name: string | null
-    status: string
-    applicant_participates: boolean | null
-    partner_data: { name: string; club?: string; rating?: number } | null
-    team_members: Array<{ name: string; rating?: number; club?: string }> | null
-    profile_name: string | null
-    profile_club: string | null
-  }
-  let divisionEntriesMap: Record<string, DivisionEntryItem[]> = {}
-
-  if (user) {
-    const { data: allEntries } = await supabase
-      .from('tournament_entries')
-      .select('id, division_id, player_name, club_name, status, applicant_participates, partner_data, team_members, profiles:user_id(name, club)')
-      .eq('tournament_id', id)
-      .in('status', ['PENDING', 'CONFIRMED', 'WAITLISTED'])
-      .order('created_at', { ascending: true })
-      .order('id', { ascending: true })
-
 
     ;(allEntries ?? []).forEach((entry) => {
-      const profile = (Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles) as { name: string; club: string | null } | null
+      const entryProfile = (Array.isArray(entry.profiles) ? entry.profiles[0] : entry.profiles) as { name: string; club: string | null } | null
       const item: DivisionEntryItem = {
         id: entry.id,
         division_id: entry.division_id,
@@ -177,14 +168,21 @@ export default async function TournamentDetailPage({ params }: Props) {
         applicant_participates: entry.applicant_participates ?? null,
         partner_data: entry.partner_data as DivisionEntryItem['partner_data'],
         team_members: entry.team_members as DivisionEntryItem['team_members'],
-        profile_name: profile?.name ?? null,
-        profile_club: profile?.club ?? null,
+        profile_name: entryProfile?.name ?? null,
+        profile_club: entryProfile?.club ?? null,
       }
       const key = entry.division_id ?? '__none__'
       if (!divisionEntriesMap[key]) divisionEntriesMap[key] = []
       divisionEntriesMap[key].push(item)
     })
+  } else {
+    // 비로그인 사용자: 대진표 여부만 조회
+    const bracketResult = await bracketPromise;
+    hasBracket = (bracketResult.count ?? 0) > 0;
   }
+
+  // 주최자 본인인지 확인
+  const isOrganizer = user && tournament.organizer_id === user.id;
 
   const organizerName = tournament.profiles
     ? // @ts-ignore: Supabase types join

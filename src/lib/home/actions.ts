@@ -241,55 +241,75 @@ export async function getLiveResults(): Promise<LiveTournament[]> {
 
   if (tErr || !tournaments || tournaments.length === 0) return []
 
-  const result = await Promise.all(
-    tournaments.map(async (t) => {
-      // tournaments → tournament_divisions → bracket_configs 경로로 조회
-      const { data: divisions } = await admin
-        .from('tournament_divisions')
-        .select('id')
-        .eq('tournament_id', t.id)
+  const tournamentIds = tournaments.map((t) => t.id)
 
-      if (!divisions || divisions.length === 0) {
-        return { id: t.id, title: t.title, bracketExists: false, recentMatches: [] }
-      }
+  // 1단계: 모든 대회의 부서 + bracket_config를 일괄 조회
+  const { data: allDivs } = await admin
+    .from('tournament_divisions')
+    .select('id, tournament_id')
+    .in('tournament_id', tournamentIds)
 
-      const divisionIds = divisions.map((d) => d.id)
-      const { data: config } = await admin
-        .from('bracket_configs')
-        .select('id')
-        .in('division_id', divisionIds)
-        .limit(1)
-        .maybeSingle()
+  const allDivisionIds = (allDivs ?? []).map((d) => d.id)
+  if (allDivisionIds.length === 0) return []
 
-      if (!config) return { id: t.id, title: t.title, bracketExists: false, recentMatches: [] }
+  const { data: allConfigs } = await admin
+    .from('bracket_configs')
+    .select('id, division_id')
+    .in('division_id', allDivisionIds)
 
-      // 최근 완료된 경기 3건 조회
-      const { data: matches } = await admin
-        .from('bracket_matches')
-        .select('id, team1_entry_id, team2_entry_id, team1_score, team2_score, winner_entry_id')
-        .eq('bracket_config_id', config.id)
-        .eq('status', 'COMPLETED')
-        .not('team1_entry_id', 'is', null)
-        .not('team2_entry_id', 'is', null)
-        .order('updated_at', { ascending: false })
-        .limit(3)
+  if (!allConfigs || allConfigs.length === 0) return []
 
-      if (!matches || matches.length === 0) {
-        return { id: t.id, title: t.title, bracketExists: true, recentMatches: [] }
-      }
+  // tournament_id → config_id 매핑
+  const divToTournament = new Map((allDivs ?? []).map((d) => [d.id, d.tournament_id]))
+  const tournamentConfigMap = new Map<string, string>()
+  for (const c of allConfigs) {
+    const tId = divToTournament.get(c.division_id)
+    if (tId && !tournamentConfigMap.has(tId)) {
+      tournamentConfigMap.set(tId, c.id)
+    }
+  }
 
-      // entry id 목록 수집 후 player_name 일괄 조회
-      const entryIds = [...new Set(
-        matches.flatMap((m) => [m.team1_entry_id!, m.team2_entry_id!])
-      )]
+  // 2단계: config가 있는 대회만 최근 경기 조회 (대회별 병렬)
+  const configIds = [...new Set(tournamentConfigMap.values())]
+  const { data: allMatches } = await admin
+    .from('bracket_matches')
+    .select('id, bracket_config_id, team1_entry_id, team2_entry_id, team1_score, team2_score, winner_entry_id, updated_at')
+    .in('bracket_config_id', configIds)
+    .eq('status', 'COMPLETED')
+    .not('team1_entry_id', 'is', null)
+    .not('team2_entry_id', 'is', null)
+    .order('updated_at', { ascending: false })
 
-      const { data: entries } = await admin
-        .from('tournament_entries')
-        .select('id, player_name')
-        .in('id', entryIds)
+  // config별 최근 3건만 추출
+  const matchesByConfig = new Map<string, typeof allMatches>()
+  for (const m of allMatches ?? []) {
+    const list = matchesByConfig.get(m.bracket_config_id) ?? []
+    if (list.length < 3) {
+      list.push(m)
+      matchesByConfig.set(m.bracket_config_id, list)
+    }
+  }
 
-      const nameMap = new Map((entries ?? []).map((e) => [e.id, e.player_name]))
+  // 3단계: 모든 경기의 entry id → player_name 일괄 조회
+  const allEntryIds = [...new Set(
+    (allMatches ?? []).flatMap((m) => [m.team1_entry_id!, m.team2_entry_id!])
+  )]
 
+  const nameMap = new Map<string, string>()
+  if (allEntryIds.length > 0) {
+    const { data: entries } = await admin
+      .from('tournament_entries')
+      .select('id, player_name')
+      .in('id', allEntryIds)
+    ;(entries ?? []).forEach((e) => nameMap.set(e.id, e.player_name))
+  }
+
+  // 결과 조합
+  return tournaments
+    .filter((t) => tournamentConfigMap.has(t.id))
+    .map((t) => {
+      const configId = tournamentConfigMap.get(t.id)!
+      const matches = matchesByConfig.get(configId) ?? []
       return {
         id: t.id,
         title: t.title,
@@ -306,10 +326,6 @@ export async function getLiveResults(): Promise<LiveTournament[]> {
         })),
       }
     })
-  )
-
-  // 대진표(bracket_config)가 없는 대회만 제외
-  return result.filter((t) => t.bracketExists)
 }
 
 /**
@@ -334,68 +350,75 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
 
   if (error || !data) return []
 
-  const items = await Promise.all(
-    data.map(async (t) => {
-      // 부서 목록 + max_teams
-      const { data: divData } = await admin
-        .from('tournament_divisions')
-        .select('id, name, max_teams')
-        .eq('tournament_id', t.id)
-        .order('name', { ascending: true })
+  const tournamentIds = data.map((t) => t.id)
 
-      const divCount = divData?.length ?? 0
+  // 1단계: 전체 부서 목록 일괄 조회
+  const { data: allDivisions } = await admin
+    .from('tournament_divisions')
+    .select('id, name, max_teams, tournament_id')
+    .in('tournament_id', tournamentIds)
+    .order('name', { ascending: true })
 
-      // 부서별 신청 팀수
-      const divisions: DivisionSummary[] = await Promise.all(
-        (divData ?? []).map(async (div) => {
-          const { count: dc } = await admin
-            .from('tournament_entries')
-            .select('*', { count: 'exact', head: true })
-            .eq('division_id', div.id)
-            .in('status', ['PENDING', 'CONFIRMED'])
-          return {
-            name: div.name,
-            max_teams: div.max_teams ?? null,
-            entry_count: dc ?? 0,
-          }
-        })
-      )
+  const divisionList = allDivisions ?? []
+  const allDivisionIds = divisionList.map((d) => d.id)
 
-      // 전체 신청자 수
-      const entryCount = divisions.reduce((s, d) => s + d.entry_count, 0)
+  // 2단계: 엔트리 수 + 대진표 여부를 병렬 조회
+  const [entryResult, bracketResult] = await Promise.all([
+    // 해당 부서들의 활성 엔트리만 조회
+    allDivisionIds.length > 0
+      ? admin
+          .from('tournament_entries')
+          .select('division_id')
+          .in('division_id', allDivisionIds)
+          .in('status', ['PENDING', 'CONFIRMED'])
+      : Promise.resolve({ data: [] as { division_id: string }[] }),
+    // IN_PROGRESS 대회의 대진표 존재 여부
+    allDivisionIds.length > 0
+      ? admin
+          .from('bracket_configs')
+          .select('division_id')
+          .in('division_id', allDivisionIds)
+      : Promise.resolve({ data: [] as { division_id: string }[] }),
+  ])
 
-      // IN_PROGRESS는 대진표 존재 여부 확인
-      let hasBracket = false
-      if (t.status === 'IN_PROGRESS') {
-        const { data: divs } = await admin
-          .from('tournament_divisions')
-          .select('id')
-          .eq('tournament_id', t.id)
+  // division_id별 엔트리 수 집계
+  const entryCountMap = new Map<string, number>()
+  for (const e of entryResult.data ?? []) {
+    if (e.division_id) {
+      entryCountMap.set(e.division_id, (entryCountMap.get(e.division_id) ?? 0) + 1)
+    }
+  }
 
-        if (divs && divs.length > 0) {
-          const { count } = await admin
-            .from('bracket_configs')
-            .select('id, bracket_matches!inner(id)', { count: 'exact', head: true })
-            .in('division_id', divs.map((d) => d.id))
-          hasBracket = (count ?? 0) > 0
-        }
-      }
+  // 대진표가 있는 division_id 집합
+  const bracketDivisionSet = new Set<string>()
+  ;(bracketResult.data ?? []).forEach((r) => bracketDivisionSet.add(r.division_id))
 
-      return {
-        id: t.id,
-        title: t.title,
-        location: t.location,
-        status: t.status as 'OPEN' | 'IN_PROGRESS',
-        entry_end_date: t.entry_end_date ?? '',
-        daysLeft: t.entry_end_date ? calcDaysLeft(t.entry_end_date) : 999,
-        division_count: divCount,
-        hasBracket,
-        entry_count: entryCount,
-        max_participants: t.max_participants ?? 0,
-        divisions,
-      }
-    })
-  )
+  const items = data.map((t) => {
+    const divs = divisionList.filter((d) => d.tournament_id === t.id)
+    const divisions: DivisionSummary[] = divs.map((div) => ({
+      name: div.name,
+      max_teams: div.max_teams ?? null,
+      entry_count: entryCountMap.get(div.id) ?? 0,
+    }))
+    const entryCount = divisions.reduce((s, d) => s + d.entry_count, 0)
+    const hasBracket = t.status === 'IN_PROGRESS'
+      ? divs.some((d) => bracketDivisionSet.has(d.id))
+      : false
+
+    return {
+      id: t.id,
+      title: t.title,
+      location: t.location,
+      status: t.status as 'OPEN' | 'IN_PROGRESS',
+      entry_end_date: t.entry_end_date ?? '',
+      daysLeft: t.entry_end_date ? calcDaysLeft(t.entry_end_date) : 999,
+      division_count: divs.length,
+      hasBracket,
+      entry_count: entryCount,
+      max_participants: t.max_participants ?? 0,
+      divisions,
+    }
+  })
 
   // IN_PROGRESS 먼저, 그 다음 OPEN (entry_end_date 오름차순 유지)
   return items.sort((a, b) => {

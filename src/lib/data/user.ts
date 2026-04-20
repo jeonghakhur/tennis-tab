@@ -362,21 +362,15 @@ export async function getUserStats() {
     return { error: '로그인이 필요합니다.' }
   }
 
-  // 참가 대회 수 + entry_ids를 병렬 조회
-  const [{ count: tournamentCount }, { data: entries }] = await Promise.all([
-    supabase
-      .from('tournament_entries')
-      .select('*', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('status', 'CONFIRMED'),
-    supabase
-      .from('tournament_entries')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('status', 'CONFIRMED'),
-  ])
+  // 확정 엔트리 목록 조회 (count는 length로 대체 — 동일 조건 중복 쿼리 제거)
+  const { data: entries } = await supabase
+    .from('tournament_entries')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('status', 'CONFIRMED')
 
   const entryIds = entries?.map(e => e.id) || []
+  const tournamentCount = entryIds.length
 
   let totalMatches = 0
   let wins = 0
