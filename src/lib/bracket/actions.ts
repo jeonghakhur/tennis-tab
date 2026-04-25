@@ -1195,8 +1195,9 @@ export async function submitPlayerScore(
 
   const supabaseAdmin = createAdminClient()
 
-  // match + config + tournament 상태 를 1 JOIN 쿼리로 조회, entries 는 병렬 실행
-  const [matchResult, entriesResult] = await Promise.all([
+  // match + config + tournament 상태/조직자 를 1 JOIN 쿼리로 조회
+  // entries (본인 경기 검증), profile (관리자 검증) 병렬 실행
+  const [matchResult, entriesResult, profileResult] = await Promise.all([
     supabaseAdmin
       .from('bracket_matches')
       .select(`
@@ -1204,7 +1205,7 @@ export async function submitPlayerScore(
         bracket_configs!inner(
           active_phase,
           active_round,
-          tournament_divisions!inner(tournaments!inner(status))
+          tournament_divisions!inner(tournaments!inner(status, organizer_id))
         )
       `)
       .eq('id', matchId)
@@ -1213,6 +1214,11 @@ export async function submitPlayerScore(
       .from('tournament_entries')
       .select('id')
       .eq('user_id', user.id),
+    supabaseAdmin
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single(),
   ])
 
   if (matchResult.error || !matchResult.data) {
@@ -1224,27 +1230,42 @@ export async function submitPlayerScore(
   type BracketConfigJoin = {
     active_phase: string | null
     active_round: number | null
-    tournament_divisions: { tournaments: { status: string } }
+    tournament_divisions: { tournaments: { status: string; organizer_id: string | null } }
   }
   const cfg = match.bracket_configs as unknown as BracketConfigJoin
   const tournamentStatus = cfg?.tournament_divisions?.tournaments?.status
+  const organizerId = cfg?.tournament_divisions?.tournaments?.organizer_id
 
   // 마감 대회 검증
   if (tournamentStatus && CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus as TournamentStatus)) {
     return { error: '마감된 대회의 대진표는 수정할 수 없습니다.' }
   }
 
-  // active_phase 검증: 관리자가 활성화한 라운드에서만 점수 입력 가능
-  const { active_phase, active_round } = cfg ?? {}
-  if (!active_phase) {
-    return { error: '현재 점수 입력이 활성화된 라운드가 없습니다.' }
-  }
-  if (active_phase !== match.phase) {
-    return { error: '현재 활성화된 페이즈의 경기가 아닙니다.' }
-  }
-  // MAIN 페이즈이고 특정 라운드가 지정된 경우
-  if (active_phase === 'MAIN' && active_round !== null && match.round_number !== active_round) {
-    return { error: '현재 활성화된 라운드의 경기가 아닙니다.' }
+  // 본인 경기 확인 (참가자 권한 분기용)
+  const myEntryIds = (entriesResult.data || []).map(e => e.id)
+  const isMyMatch = myEntryIds.includes(match.team1_entry_id ?? '') || myEntryIds.includes(match.team2_entry_id ?? '')
+
+  // 대회 관리 권한 확인:
+  // - SUPER_ADMIN/ADMIN: 모든 대회
+  // - MANAGER: 본인이 만든 대회만
+  // 관리자는 active_phase 검증과 본인 경기 검증을 모두 우회 (admin 페이지와 동일 권한)
+  const role = profileResult.data?.role
+  const isAdminLevel = role === 'ADMIN' || role === 'SUPER_ADMIN'
+  const isOrganizerManager = role === 'MANAGER' && organizerId === user.id
+  const canManageThisTournament = isAdminLevel || isOrganizerManager
+
+  if (!canManageThisTournament) {
+    // 일반 사용자: active_phase 검증
+    const { active_phase, active_round } = cfg ?? {}
+    if (!active_phase) {
+      return { error: '현재 점수 입력이 활성화된 라운드가 없습니다.' }
+    }
+    if (active_phase !== match.phase) {
+      return { error: '현재 활성화된 페이즈의 경기가 아닙니다.' }
+    }
+    if (active_phase === 'MAIN' && active_round !== null && match.round_number !== active_round) {
+      return { error: '현재 활성화된 라운드의 경기가 아닙니다.' }
+    }
   }
 
   // SCHEDULED 또는 COMPLETED 상태에서만 입력/수정 가능
@@ -1252,11 +1273,7 @@ export async function submitPlayerScore(
     return { error: '점수를 입력할 수 없는 경기 상태입니다.' }
   }
 
-  // 본인 경기 확인
-  const myEntryIds = (entriesResult.data || []).map(e => e.id)
-  const isMyMatch = myEntryIds.includes(match.team1_entry_id ?? '') || myEntryIds.includes(match.team2_entry_id ?? '')
-
-  if (!isMyMatch) {
+  if (!canManageThisTournament && !isMyMatch) {
     return { error: '본인이 참가한 경기만 점수를 입력할 수 있습니다.' }
   }
 
@@ -1264,26 +1281,32 @@ export async function submitPlayerScore(
   const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
   if (result.error) return { error: result.error }
 
-  // 알림: 상대방에게 경기 결과 알림
+  // 알림: 본인 입력 시 상대방, 관리자 입력 시 양 팀 모두에게 알림
   try {
-    const opponentEntryId = myEntryIds.includes(match.team1_entry_id ?? '')
-      ? match.team2_entry_id
-      : match.team1_entry_id
-    if (opponentEntryId) {
-      const { data: opponentEntry } = await supabaseAdmin
+    const notifyEntryIds = canManageThisTournament
+      ? [match.team1_entry_id, match.team2_entry_id].filter((id): id is string => !!id)
+      : (() => {
+          const opponentId = myEntryIds.includes(match.team1_entry_id ?? '')
+            ? match.team2_entry_id
+            : match.team1_entry_id
+          return opponentId ? [opponentId] : []
+        })()
+
+    if (notifyEntryIds.length > 0) {
+      const { data: notifyEntries } = await supabaseAdmin
         .from('tournament_entries')
         .select('user_id, tournament_id')
-        .eq('id', opponentEntryId)
-        .single()
-      if (opponentEntry?.user_id) {
+        .in('id', notifyEntryIds)
+      for (const entry of notifyEntries ?? []) {
+        if (!entry.user_id) continue
         await createNotification({
-          user_id: opponentEntry.user_id,
+          user_id: entry.user_id,
           type: NotificationType.MATCH_RESULT_UPDATED,
           title: '경기 결과 입력',
           message: `경기 결과: ${team1Score} - ${team2Score}`,
-          tournament_id: opponentEntry.tournament_id,
+          tournament_id: entry.tournament_id,
           match_id: matchId,
-          metadata: { link: opponentEntry.tournament_id ? `/tournaments/${opponentEntry.tournament_id}` : undefined },
+          metadata: { link: entry.tournament_id ? `/tournaments/${entry.tournament_id}` : undefined },
         })
       }
     }

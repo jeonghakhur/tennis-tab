@@ -29,30 +29,47 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
   const { divisionId } = await searchParams
   const supabase = await createClient()
 
-  // 대회 정보 조회
-  const { data: tournament, error } = await supabase
-    .from('tournaments')
-    .select(`
-      *,
-      tournament_divisions (
-        id,
-        name,
-        max_teams
-      )
-    `)
-    .eq('id', id)
-    .single()
+  // 대회 정보 + 현재 유저 + 참가 entry_ids 병렬 조회
+  const [tournamentResult, userResult, { entryIds }] = await Promise.all([
+    supabase
+      .from('tournaments')
+      .select(`
+        *,
+        tournament_divisions (
+          id,
+          name,
+          max_teams
+        )
+      `)
+      .eq('id', id)
+      .single(),
+    supabase.auth.getUser(),
+    getPlayerEntryIds(id),
+  ])
 
+  const { data: tournament, error } = tournamentResult
   if (error || !tournament) {
     notFound()
+  }
+
+  // 관리자 여부 판정 (ADMIN/SUPER_ADMIN: 전체, MANAGER: 본인 대회만)
+  const user = userResult.data.user
+  let canManageThisTournament = false
+  if (user) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    const role = profile?.role
+    const isAdminLevel = role === 'ADMIN' || role === 'SUPER_ADMIN'
+    const isOrganizerManager = role === 'MANAGER' && tournament.organizer_id === user.id
+    canManageThisTournament = isAdminLevel || isOrganizerManager
   }
 
   const divisions = sortDivisions(
     (tournament.tournament_divisions || []) as Array<{ id: string; name: string; max_teams: number | null }>
   )
-
-  // 로그인 유저의 참가 entry_ids 조회 (본인 경기 하이라이트용)
-  const { entryIds } = await getPlayerEntryIds(id)
 
   return (
     <div className="max-w-content mx-auto px-4 py-8">
@@ -109,6 +126,7 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
         matchType={tournament.match_type as MatchType | null}
         teamMatchCount={tournament.team_match_count}
         tournamentStatus={tournament.status}
+        canManageThisTournament={canManageThisTournament}
       />
     </div>
   )

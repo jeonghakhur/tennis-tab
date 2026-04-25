@@ -27,6 +27,8 @@ interface BracketViewProps {
   matchType?: MatchType | null
   teamMatchCount?: number | null
   tournamentStatus: TournamentStatus
+  /** 이 대회의 관리자 권한 (ADMIN/SUPER_ADMIN 전체, MANAGER는 본인 대회만) */
+  canManageThisTournament?: boolean
 }
 
 interface BracketConfig {
@@ -98,7 +100,7 @@ const phaseLabels: Record<MatchPhase, string> = {
   THIRD_PLACE: '3/4위전',
 }
 
-export function BracketView({ tournamentId, divisions, initialDivisionId, currentUserEntryIds, matchType, teamMatchCount, tournamentStatus }: BracketViewProps) {
+export function BracketView({ tournamentId, divisions, initialDivisionId, currentUserEntryIds, matchType, teamMatchCount, tournamentStatus, canManageThisTournament }: BracketViewProps) {
   const isClosed = CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus)
   const [selectedDivision, setSelectedDivision] = useState<Division | null>(() => {
     if (divisions.length === 0) return null
@@ -397,6 +399,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               onScoreInput={isClosed ? undefined : setScoreModalMatch}
               isMatchInProgress={isMatchInProgress}
               matchType={matchType}
+              canManageThisTournament={canManageThisTournament}
             />
           ) : config.publish_main ? (
             <MainBracketView
@@ -406,6 +409,7 @@ export function BracketView({ tournamentId, divisions, initialDivisionId, curren
               onScoreInput={isClosed ? undefined : setScoreModalMatch}
               isMatchInProgress={isMatchInProgress}
               matchType={matchType}
+              canManageThisTournament={canManageThisTournament}
             />
           ) : null}
         </>
@@ -523,6 +527,7 @@ function PreliminaryView({
   onScoreInput,
   isMatchInProgress,
   matchType,
+  canManageThisTournament,
 }: {
   groups: PreliminaryGroup[]
   matches: BracketMatch[]
@@ -530,6 +535,7 @@ function PreliminaryView({
   onScoreInput?: (match: BracketMatch) => void
   isMatchInProgress?: (match: BracketMatch) => boolean
   matchType?: MatchType | null
+  canManageThisTournament?: boolean
 }) {
   // 내 조를 맨 위로 정렬 (early return 전에 위치해야 Rules of Hooks 위반 방지)
   const sortedGroups = useMemo(() => {
@@ -643,6 +649,7 @@ function PreliminaryView({
                   onScoreInput={onScoreInput}
                   isMatchInProgress={isMatchInProgress}
                   matchType={matchType}
+                  canManageThisTournament={canManageThisTournament}
                 />
               ))}
             </div>
@@ -663,6 +670,7 @@ function MainBracketView({
   onScoreInput,
   isMatchInProgress,
   matchType,
+  canManageThisTournament,
 }: {
   config: BracketConfig
   matches: BracketMatch[]
@@ -670,6 +678,7 @@ function MainBracketView({
   onScoreInput?: (match: BracketMatch) => void
   isMatchInProgress?: (match: BracketMatch) => boolean
   matchType?: MatchType | null
+  canManageThisTournament?: boolean
 }) {
   // 라운드별로 그룹화
   const matchesByPhase = useMemo(() => {
@@ -865,6 +874,7 @@ function MainBracketView({
               onScoreInput={onScoreInput}
               isMatchInProgress={isMatchInProgress}
               matchType={matchType}
+              canManageThisTournament={canManageThisTournament}
             />
           ))}
         </div>
@@ -901,12 +911,14 @@ function MatchCard({
   onScoreInput,
   isMatchInProgress,
   matchType,
+  canManageThisTournament,
 }: {
   match: BracketMatch
   currentUserEntryIds?: string[]
   onScoreInput?: (match: BracketMatch) => void
   isMatchInProgress?: (match: BracketMatch) => boolean
   matchType?: MatchType | null
+  canManageThisTournament?: boolean
 }) {
   const isCompleted = match.status === 'COMPLETED'
   const isBye = match.status === 'BYE'
@@ -914,10 +926,10 @@ function MatchCard({
   const isMyMatch = isMyEntry(match.team1_entry_id, currentUserEntryIds) || isMyEntry(match.team2_entry_id, currentUserEntryIds)
   // isMatchInProgress: 관리자가 활성화한 라운드에 해당하는 경기만 점수 입력 가능
   const inProgress = isMatchInProgress?.(match) ?? false
-  const canInputScore = isMyMatch
+  // 관리자는 본인 경기 + active_phase 검증을 모두 우회 (admin 페이지와 동일 권한)
+  const canInputScore = (canManageThisTournament || (isMyMatch && inProgress))
     && (match.status === 'SCHEDULED' || match.status === 'COMPLETED')
     && match.team1_entry_id && match.team2_entry_id
-    && inProgress
 
   const team1Text = teamName(match.team1, matchType)
   const team2Text = teamName(match.team2, matchType)
