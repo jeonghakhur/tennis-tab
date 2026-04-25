@@ -22,6 +22,7 @@ interface BracketMatch {
     team_order: string | null
     partner_data?: { name: string; rating: number; club: string | null } | null
     team_members?: { name: string; rating: number }[] | null
+    applicant_participates?: boolean
   }
   team2?: {
     id: string
@@ -30,6 +31,7 @@ interface BracketMatch {
     team_order: string | null
     partner_data?: { name: string; rating: number; club: string | null } | null
     team_members?: { name: string; rating: number }[] | null
+    applicant_participates?: boolean
   }
 }
 
@@ -286,10 +288,10 @@ function TeamScoreInput({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, match.id])
 
-  // 팀별 선수 목록
+  // 팀별 선수 목록 — 신청자 미참가(applicant_participates=false) 시 대표선수 제외
   const team1Players = useMemo(() => {
     if (!match.team1) return []
-    const players = [match.team1.player_name]
+    const players = match.team1.applicant_participates === false ? [] : [match.team1.player_name]
     if (match.team1.team_members) {
       players.push(...match.team1.team_members.map((m) => m.name))
     }
@@ -298,7 +300,7 @@ function TeamScoreInput({
 
   const team2Players = useMemo(() => {
     if (!match.team2) return []
-    const players = [match.team2.player_name]
+    const players = match.team2.applicant_participates === false ? [] : [match.team2.player_name]
     if (match.team2.team_members) {
       players.push(...match.team2.team_members.map((m) => m.name))
     }

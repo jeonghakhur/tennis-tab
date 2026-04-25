@@ -80,8 +80,8 @@ export interface BracketMatch {
   sets_detail: SetDetail[] | null;
   court_location: string | null;
   court_number: string | null;
-  team1?: { id: string; player_name: string; club_name: string | null; team_order: string | null; partner_data: { name: string; rating: number; club: string | null } | null; team_members: TeamMember[] | null };
-  team2?: { id: string; player_name: string; club_name: string | null; team_order: string | null; partner_data: { name: string; rating: number; club: string | null } | null; team_members: TeamMember[] | null };
+  team1?: { id: string; player_name: string; club_name: string | null; team_order: string | null; partner_data: { name: string; rating: number; club: string | null } | null; team_members: TeamMember[] | null; applicant_participates: boolean };
+  team2?: { id: string; player_name: string; club_name: string | null; team_order: string | null; partner_data: { name: string; rating: number; club: string | null } | null; team_members: TeamMember[] | null; applicant_participates: boolean };
 }
 
 export const phaseLabels: Record<MatchPhase, string> = {

@@ -250,12 +250,13 @@ async function getTeamMatchInfo(
   }
 }
 
-/** 엔트리에서 선수 이름 목록 추출 (대표 선수 + 팀원) */
+/** 엔트리에서 선수 이름 목록 추출 (대표 선수 + 팀원) — 신청자 미참가 시 대표선수 제외 */
 function getPlayerNames(entry: {
   player_name: string
   team_members: { name: string; rating: number }[] | null
+  applicant_participates?: boolean | null
 }): string[] {
-  const players = [entry.player_name]
+  const players = entry.applicant_participates === false ? [] : [entry.player_name]
   if (entry.team_members) {
     players.push(...entry.team_members.map((m) => m.name))
   }
@@ -271,7 +272,7 @@ async function buildEntriesMap(
 
   const { data: entries } = await supabaseAdmin
     .from('tournament_entries')
-    .select('id, player_name, team_members')
+    .select('id, player_name, team_members, applicant_participates')
     .eq('division_id', divisionId)
     .in('status', ['CONFIRMED', 'APPROVED'])
 
@@ -758,8 +759,8 @@ export async function getPreliminaryMatches(configId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members, applicant_participates),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members, applicant_participates)
     `)
     .eq('bracket_config_id', configId)
     .eq('phase', 'PRELIMINARY')
@@ -2470,8 +2471,8 @@ export async function getMainBracketMatches(configId: string) {
     .from('bracket_matches')
     .select(`
       *,
-      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members),
-      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members)
+      team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members, applicant_participates),
+      team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members, applicant_participates)
     `)
     .eq('bracket_config_id', configId)
     .neq('phase', 'PRELIMINARY')
@@ -2518,8 +2519,8 @@ export async function getBracketData(divisionId: string) {
       .from('bracket_matches')
       .select(`
         *,
-        team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members),
-        team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members)
+        team1:tournament_entries!bracket_matches_team1_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members, applicant_participates),
+        team2:tournament_entries!bracket_matches_team2_entry_id_fkey (id, player_name, club_name, team_order, partner_data, team_members, applicant_participates)
       `)
       .eq('bracket_config_id', config.id)
       .order('phase', { ascending: true })
