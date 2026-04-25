@@ -804,106 +804,122 @@ export function BracketManager({
 
       {selectedDivision && config && (
         <>
-          {/* Tabs + 공개 토글 */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1 p-1 bg-(--bg-card) rounded-xl flex-1">
-              <button
-                onClick={() => setActiveTab("settings")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                  activeTab === "settings"
-                    ? "bg-(--accent-color)"
-                    : "hover:bg-white/10 text-(--text-secondary)"
-                }`}
-              >
-                <Settings className="w-4 h-4" />
-                설정
-              </button>
-              <button
-                onClick={() => setActiveTab("groups")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                  activeTab === "groups"
-                    ? "bg-(--accent-color)"
-                    : "hover:bg-white/10 text-(--text-secondary)"
-                }`}
-              >
-                <Users className="w-4 h-4" />
-                조편성
-              </button>
-              {/* 예선 탭은 예선 사용 시에만 */}
-              {config.has_preliminaries && (
+          {/* Tabs (모바일: 아이콘 숨김) + 공개 토글 (데스크톱: 우측, 모바일: 아래) */}
+          {(() => {
+            const publishItems = ([
+              { field: 'publish_groups' as const, label: '조편성' },
+              ...(config.has_preliminaries
+                ? [{ field: 'publish_preliminary' as const, label: '예선' }]
+                : []),
+              { field: 'publish_main' as const, label: '본선' },
+            ] as const);
+            const handleTogglePublish = async (field: typeof publishItems[number]['field'], label: string) => {
+              const next = !config[field];
+              const result = await toggleBracketPublish(config.id, field, next);
+              if (result.success) {
+                setConfig((c) => c ? { ...c, [field]: next } : c);
+                showSuccess(`${label}이(가) ${next ? '공개' : '비공개'}로 변경되었습니다.`);
+              } else {
+                showError("공개 설정 실패", result.error);
+              }
+            };
+            const togglesContent = publishItems.map(({ field, label }) => {
+              const isOn = config[field];
+              return (
                 <button
-                  onClick={() => setActiveTab("preliminary")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                    activeTab === "preliminary"
-                      ? "bg-(--accent-color)"
-                      : "hover:bg-white/10 text-(--text-secondary)"
+                  key={field}
+                  onClick={() => handleTogglePublish(field, label)}
+                  className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    isOn
+                      ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
+                      : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) hover:border-(--text-muted)"
                   }`}
+                  title={`${label} ${isOn ? '비공개로 전환' : '공개로 전환'}`}
                 >
-                  <Play className="w-4 h-4" />
-                  예선
+                  {isOn ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                  {label}
                 </button>
-              )}
-              <button
-                onClick={() => setActiveTab("main")}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
-                  activeTab === "main"
-                    ? "bg-(--accent-color)"
-                    : "hover:bg-white/10 text-(--text-secondary)"
-                }`}
-              >
-                <Trophy className="w-4 h-4" />
-                본선
-              </button>
-            </div>
-
-            {/* 단계별 공개/비공개 토글 */}
-            {!isClosed && (
-              <div className="flex items-center gap-1.5 shrink-0">
-                {([
-                  { field: 'publish_groups' as const, label: '조편성' },
-                  ...(config.has_preliminaries
-                    ? [{ field: 'publish_preliminary' as const, label: '예선' }]
-                    : []),
-                  { field: 'publish_main' as const, label: '본선' },
-                ] as const).map(({ field, label }) => {
-                  const isOn = config[field];
-                  return (
+              );
+            });
+            return (
+              <>
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-1 p-1 bg-(--bg-card) rounded-xl flex-1">
                     <button
-                      key={field}
-                      onClick={async () => {
-                        const next = !isOn;
-                        const result = await toggleBracketPublish(config.id, field, next);
-                        if (result.success) {
-                          setConfig((c) => c ? { ...c, [field]: next } : c);
-                          showSuccess(`${label}이(가) ${next ? '공개' : '비공개'}로 변경되었습니다.`);
-                        } else {
-                          showError("공개 설정 실패", result.error);
-                        }
-                      }}
-                      className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
-                        isOn
-                          ? "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/25"
-                          : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) hover:border-(--text-muted)"
+                      onClick={() => setActiveTab("settings")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                        activeTab === "settings"
+                          ? "bg-(--accent-color)"
+                          : "hover:bg-white/10 text-(--text-secondary)"
                       }`}
-                      title={`${label} ${isOn ? '비공개로 전환' : '공개로 전환'}`}
                     >
-                      {isOn ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
-                      {label}
+                      <Settings className="hidden sm:inline-block w-4 h-4" />
+                      설정
                     </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                    <button
+                      onClick={() => setActiveTab("groups")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                        activeTab === "groups"
+                          ? "bg-(--accent-color)"
+                          : "hover:bg-white/10 text-(--text-secondary)"
+                      }`}
+                    >
+                      <Users className="hidden sm:inline-block w-4 h-4" />
+                      조편성
+                    </button>
+                    {config.has_preliminaries && (
+                      <button
+                        onClick={() => setActiveTab("preliminary")}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                          activeTab === "preliminary"
+                            ? "bg-(--accent-color)"
+                            : "hover:bg-white/10 text-(--text-secondary)"
+                        }`}
+                      >
+                        <Play className="hidden sm:inline-block w-4 h-4" />
+                        예선
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setActiveTab("main")}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                        activeTab === "main"
+                          ? "bg-(--accent-color)"
+                          : "hover:bg-white/10 text-(--text-secondary)"
+                      }`}
+                    >
+                      <Trophy className="hidden sm:inline-block w-4 h-4" />
+                      본선
+                    </button>
+                  </div>
+
+                  {/* 공개 토글 — 데스크톱 우측 */}
+                  {!isClosed && (
+                    <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                      {togglesContent}
+                    </div>
+                  )}
+                </div>
+
+                {/* 공개 토글 — 모바일은 탭 아래 */}
+                {!isClosed && (
+                  <div className="flex sm:hidden items-center gap-1.5 flex-wrap">
+                    {togglesContent}
+                  </div>
+                )}
+              </>
+            );
+          })()}
 
           {/* Tab Content */}
-          {/* 조편성 탭과 본선 시드 배치 모드에서는 bg-(--bg-card)로 통일 (DnD 시 glass-card hover 방지) */}
+          {/* 데스크톱: 카드 (조편성/본선 시드 모드는 bg-(--bg-card)로 통일 — DnD 시 glass-card hover 방지)
+              모바일: 카드 제거하고 콘텐츠만 노출 */}
           <div
-            className={`rounded-xl p-6 border border-(--border-color) ${
+            className={`sm:rounded-xl sm:p-6 sm:border sm:border-(--border-color) ${
               activeTab === "groups" ||
               (activeTab === "main" && seedingGroups.length > 0)
-                ? "bg-(--bg-card)"
-                : "glass-card"
+                ? "sm:bg-(--bg-card)"
+                : "sm:glass-card"
             }`}
           >
             {isClosed && (
