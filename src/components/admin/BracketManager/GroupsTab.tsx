@@ -32,7 +32,12 @@ interface GroupsTabProps {
   onDelete?: () => void;
   onTeamMove?: () => Promise<void>;
   onError: (message: string) => void;
+  /** 단체전 여부 — 출전 선수 명단 표시에 영향 */
+  isTeamMatch?: boolean;
 }
+
+/** 단체전 카드에 표시할 출전 선수 최대 인원 */
+const MAX_VISIBLE_TEAM_PLAYERS = 3;
 
 export function GroupsTab({
   groups,
@@ -45,6 +50,7 @@ export function GroupsTab({
   onDelete,
   onTeamMove,
   onError,
+  isTeamMatch,
 }: GroupsTabProps) {
   const [localGroups, setLocalGroups] = useState(groups);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -347,7 +353,7 @@ export function GroupsTab({
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {localGroups.map((group) => (
-              <DroppableGroup key={group.id} group={group} />
+              <DroppableGroup key={group.id} group={group} isTeamMatch={isTeamMatch} />
             ))}
           </div>
           <DragOverlay>
@@ -358,21 +364,7 @@ export function GroupsTab({
                   •
                 </span>
                 <div className="flex-1 min-w-0">
-                  {activeTeam.entry?.club_name && (
-                    <p className="text-sm font-medium text-(--text-primary) truncate">
-                      {activeTeam.entry.club_name}
-                      {activeTeam.entry.team_order && (
-                        <span className="ml-1 text-xs text-(--text-muted)">
-                          ({activeTeam.entry.team_order}팀)
-                        </span>
-                      )}
-                    </p>
-                  )}
-                  <p
-                    className={`truncate ${activeTeam.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
-                  >
-                    {activeTeam.entry?.player_name}
-                  </p>
+                  <TeamCardContent team={activeTeam} isTeamMatch={isTeamMatch} />
                 </div>
               </div>
             ) : null}
@@ -384,7 +376,7 @@ export function GroupsTab({
 }
 
 // Droppable 조 컴포넌트
-function DroppableGroup({ group }: { group: PreliminaryGroup }) {
+function DroppableGroup({ group, isTeamMatch }: { group: PreliminaryGroup; isTeamMatch?: boolean }) {
   const teamIds = group.group_teams?.map((t) => t.id) || [];
 
   const { setNodeRef } = useSortable({
@@ -405,7 +397,7 @@ function DroppableGroup({ group }: { group: PreliminaryGroup }) {
       <SortableContext items={teamIds} strategy={verticalListSortingStrategy}>
         <div className="space-y-2 min-h-[100px]">
           {group.group_teams?.map((team, index) => (
-            <SortableTeam key={team.id} team={team} index={index} />
+            <SortableTeam key={team.id} team={team} index={index} isTeamMatch={isTeamMatch} />
           ))}
           {(!group.group_teams || group.group_teams.length === 0) && (
             <div className="text-center py-4 text-(--text-muted) text-sm">
@@ -419,7 +411,7 @@ function DroppableGroup({ group }: { group: PreliminaryGroup }) {
 }
 
 // Sortable 팀 컴포넌트
-function SortableTeam({ team, index }: { team: GroupTeam; index: number }) {
+function SortableTeam({ team, index, isTeamMatch }: { team: GroupTeam; index: number; isTeamMatch?: boolean }) {
   const { attributes, listeners, setNodeRef, isDragging } = useSortable({
     id: team.id,
     data: {
@@ -444,32 +436,84 @@ function SortableTeam({ team, index }: { team: GroupTeam; index: number }) {
         {index + 1}
       </span>
       <div className="flex-1 min-w-0">
-        {team.entry?.partner_data ? (
-          // 복식: 파트너 이름만 표시 (클럽명 제외)
-          <p className="text-sm font-medium text-(--text-primary) truncate">
-            {team.entry.player_name} & {team.entry.partner_data.name}
-          </p>
-        ) : (
-          // 단식/단체전: 클럽명 + 팀 순번 표시
-          <>
-            {team.entry?.club_name && (
-              <p className="text-sm font-medium text-(--text-primary) truncate">
-                {team.entry.club_name}
-                {team.entry.team_order && (
-                  <span className="ml-1 text-xs text-(--text-muted)">
-                    ({team.entry.team_order}팀)
-                  </span>
-                )}
-              </p>
-            )}
-            <p
-              className={`truncate ${team.entry?.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
-            >
-              {team.entry?.player_name}
-            </p>
-          </>
-        )}
+        <TeamCardContent team={team} isTeamMatch={isTeamMatch} />
       </div>
     </div>
+  );
+}
+
+/**
+ * 팀 카드 본문 표시 헬퍼
+ *
+ * 표시 규칙:
+ * - 복식 (partner_data 있음): 신청자 미참가면 파트너만, 아니면 "신청자 & 파트너"
+ * - 단체전 (isTeamMatch): 클럽명 강조 + 출전 선수 최대 N명 (신청자 미참가 시 신청자 제외) + "외 K명"
+ * - 단식: 클럽명 + 신청자명
+ */
+function TeamCardContent({ team, isTeamMatch }: { team: GroupTeam; isTeamMatch?: boolean }) {
+  const entry = team.entry;
+  if (!entry) return <p className="text-sm text-(--text-muted) truncate">TBD</p>;
+
+  const applicantParticipates = entry.applicant_participates !== false;
+
+  // 복식
+  if (entry.partner_data) {
+    return (
+      <p className="text-sm font-medium text-(--text-primary) truncate">
+        {applicantParticipates
+          ? `${entry.player_name} & ${entry.partner_data.name}`
+          : entry.partner_data.name}
+      </p>
+    );
+  }
+
+  // 단체전: 클럽명 + 출전 선수 명단 (최대 N명)
+  if (isTeamMatch) {
+    const memberNames = (entry.team_members ?? []).map((m) => m.name);
+    const allPlayers = applicantParticipates
+      ? [entry.player_name, ...memberNames]
+      : memberNames;
+    const visible = allPlayers.slice(0, MAX_VISIBLE_TEAM_PLAYERS);
+    const overflow = allPlayers.length - visible.length;
+
+    return (
+      <>
+        <p className="text-sm font-medium text-(--text-primary) truncate">
+          {entry.club_name || entry.player_name}
+          {entry.team_order && (
+            <span className="ml-1 text-xs text-(--text-muted)">
+              ({entry.team_order}팀)
+            </span>
+          )}
+        </p>
+        {visible.length > 0 && (
+          <p className="text-xs text-(--text-muted) truncate" title={allPlayers.join(", ")}>
+            {visible.join(", ")}
+            {overflow > 0 && <span className="ml-1">외 {overflow}명</span>}
+          </p>
+        )}
+      </>
+    );
+  }
+
+  // 단식
+  return (
+    <>
+      {entry.club_name && (
+        <p className="text-sm font-medium text-(--text-primary) truncate">
+          {entry.club_name}
+          {entry.team_order && (
+            <span className="ml-1 text-xs text-(--text-muted)">
+              ({entry.team_order}팀)
+            </span>
+          )}
+        </p>
+      )}
+      <p
+        className={`truncate ${entry.club_name ? "text-xs text-(--text-muted)" : "text-sm font-medium text-(--text-primary)"}`}
+      >
+        {applicantParticipates ? entry.player_name : "—"}
+      </p>
+    </>
   );
 }

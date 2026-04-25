@@ -952,6 +952,7 @@ export function BracketManager({
                   }
                   onTeamMove={isClosed ? undefined : loadBracketData}
                   onError={(msg) => showError("오류", msg)}
+                  isTeamMatch={isTeamMatch}
                 />
             )}
 

@@ -54,6 +54,8 @@ export interface GroupTeam {
     club_name: string | null;
     team_order: string | null;
     partner_data: { name: string; rating: number; club: string | null } | null;
+    team_members: TeamMember[] | null;
+    applicant_participates: boolean;
   };
 }
 

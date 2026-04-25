@@ -311,6 +311,7 @@ export function MainBracketTab({
               allPrelimsDone ? onGenerateBracketWithSeeds : undefined
             }
             onError={() => {}}
+            isTeamMatch={isTeamMatch}
           />
         </div>
       )}
