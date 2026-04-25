@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { Play, Save } from "lucide-react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { Play, Save, ChevronRight } from "lucide-react";
 import { MatchRow } from "./MatchRow";
 import type { BracketConfig, PreliminaryGroup, BracketMatch } from "./types";
 import type { CourtInfoUpdate } from "@/lib/bracket/actions";
@@ -22,6 +22,8 @@ interface PreliminaryTabProps {
   onOpenDetail?: (match: BracketMatch) => void;
   onCourtBatchSave?: (updates: CourtInfoUpdate[]) => void;
   onToggleActive?: () => void;
+  /** 본선 조편성 화면으로 진입 — 모든 예선 완료 시 활성화 */
+  onProceedToSeeding?: () => void;
 }
 
 export function PreliminaryTab({
@@ -36,9 +38,17 @@ export function PreliminaryTab({
   onOpenDetail,
   onCourtBatchSave,
   onToggleActive,
+  onProceedToSeeding,
 }: PreliminaryTabProps) {
   const isActive = config?.active_phase === "PRELIMINARY";
   const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
+  // 모든 예선 경기 완료 여부 (본선 조편성 진입 활성화 조건)
+  const allMatchesCompleted = useMemo(
+    () =>
+      matches.length > 0 &&
+      matches.every((m) => m.status === "COMPLETED" || m.status === "BYE"),
+    [matches],
+  );
 
   // 코트 정보 상태: matchId → { location, number }
   const [courtData, setCourtData] = useState<
@@ -119,6 +129,25 @@ export function PreliminaryTab({
               className="btn-outline-danger"
             >
               예선 경기 삭제
+            </button>
+          )}
+          {onProceedToSeeding && matches.length > 0 && (
+            <button
+              onClick={onProceedToSeeding}
+              disabled={!allMatchesCompleted}
+              title={
+                allMatchesCompleted
+                  ? "본선 조편성 화면으로 이동합니다"
+                  : "모든 예선 경기 결과를 입력해야 합니다"
+              }
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                allMatchesCompleted
+                  ? "bg-(--accent-color) text-(--bg-primary) hover:opacity-90 shadow-sm"
+                  : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) cursor-not-allowed opacity-60"
+              }`}
+            >
+              본선 조편성 진행
+              <ChevronRight className="w-4 h-4" />
             </button>
           )}
         </div>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Trophy, Save, AlertTriangle } from "lucide-react";
+import { Trophy, Save, AlertTriangle, ChevronRight } from "lucide-react";
 import { MatchRow } from "./MatchRow";
 import { GroupsTab } from "./GroupsTab";
 import type { BracketConfig, BracketMatch, PreliminaryGroup } from "./types";
@@ -31,6 +31,11 @@ interface MainBracketTabProps {
   onGenerateBracketWithSeeds?: (seedOrder: (string | null)[]) => void;
   /** 라운드별 경기 진행 토글 */
   onToggleRoundActive?: (round: number) => void;
+  /**
+   * 외부에서 조편성 탭 강제 활성화 트리거 (Date.now() 등 증가하는 값).
+   * 값이 변경될 때마다 시드 탭으로 이동.
+   */
+  seedingNavRequest?: number;
 }
 
 // round_number → 라운드 라벨 (8강, 준결승, 결승 등)
@@ -71,6 +76,7 @@ export function MainBracketTab({
   nextPhaseLabel,
   onGenerateBracketWithSeeds,
   onToggleRoundActive,
+  seedingNavRequest,
 }: MainBracketTabProps) {
 
   // 코트 정보 상태
@@ -151,6 +157,13 @@ export function MainBracketTab({
       setActiveTab("seeding");
     }
   }, [maxRound, showSeedingTab]);
+
+  // 외부 트리거: 조편성 탭 강제 활성화 (예선 탭/이전 라운드의 "조편성 진행" 버튼)
+  useEffect(() => {
+    if (seedingNavRequest && showSeedingTab) {
+      setActiveTab("seeding");
+    }
+  }, [seedingNavRequest, showSeedingTab]);
 
   // 선택된 라운드 번호
   const selectedRoundNum = activeTab.startsWith("round-")
@@ -451,15 +464,39 @@ export function MainBracketTab({
             );
           })}
 
-          {/* 최신 라운드 하단에 라운드 삭제 버튼 */}
-          {selectedRoundNum === maxRound && onDeleteLatestRound && latestPhase && (
-            <div className="flex justify-end pt-2 border-t border-(--border-color)">
-              <button
-                onClick={onDeleteLatestRound}
-                className="btn-outline-warning btn-sm"
-              >
-                {getRoundLabel(selectedRoundNum, config.bracket_size)} 삭제
-              </button>
+          {/* 최신 라운드 하단: 다음 라운드 조편성 진행 + 라운드 삭제 */}
+          {selectedRoundNum === maxRound && (
+            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-(--border-color)">
+              {/* 다음 라운드 조편성 진행 (조편성 탭이 노출 가능한 상태일 때만) */}
+              {showSeedingTab ? (
+                <button
+                  onClick={() => setActiveTab("seeding")}
+                  disabled={!allPrelimsDone}
+                  title={
+                    allPrelimsDone
+                      ? `${nextPhaseLabel || "다음 라운드"} 조편성 화면으로 이동합니다`
+                      : "현재 라운드 경기를 모두 입력해야 합니다"
+                  }
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    allPrelimsDone
+                      ? "bg-(--accent-color) text-(--bg-primary) hover:opacity-90 shadow-sm"
+                      : "bg-(--bg-secondary) text-(--text-muted) border border-(--border-color) cursor-not-allowed opacity-60"
+                  }`}
+                >
+                  {nextPhaseLabel || "다음 라운드"} 조편성 진행
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <span />
+              )}
+              {onDeleteLatestRound && latestPhase && (
+                <button
+                  onClick={onDeleteLatestRound}
+                  className="btn-outline-warning btn-sm"
+                >
+                  {getRoundLabel(selectedRoundNum, config.bracket_size)} 삭제
+                </button>
+              )}
             </div>
           )}
         </div>

@@ -124,6 +124,15 @@ export function BracketManager({
   // 단체전 세트별 결과 입력 모달
   const [detailMatch, setDetailMatch] = useState<BracketMatch | null>(null);
 
+  // MainBracketTab에 "조편성 탭으로 이동" 신호를 보내는 트리거 (값이 변경될 때마다 시드 탭 활성화)
+  const [seedingNavRequest, setSeedingNavRequest] = useState(0);
+
+  // 예선 → 본선 진입: 본선 탭으로 전환 + 시드 탭 강제 활성화
+  const handleProceedToSeeding = useCallback(() => {
+    setActiveTab("main");
+    setSeedingNavRequest(Date.now());
+  }, []);
+
   // 본선 시드 배치 미리보기 상태
   const [seedingGroups, setSeedingGroups] = useState<PreliminaryGroup[]>([]);
   const [allPrelimsDone, setAllPrelimsDone] = useState(false);
@@ -961,6 +970,7 @@ export function BracketManager({
                 onOpenDetail={isClosed ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
                 onToggleActive={isClosed ? undefined : handleTogglePreliminaryActive}
+                onProceedToSeeding={isClosed ? undefined : handleProceedToSeeding}
               />
             )}
 
@@ -991,6 +1001,7 @@ export function BracketManager({
                   isClosed ? undefined : handleRequestGenerateMainWithSeeds
                 }
                 onToggleRoundActive={isClosed ? undefined : handleToggleRoundActive}
+                seedingNavRequest={seedingNavRequest}
               />
             )}
           </div>
