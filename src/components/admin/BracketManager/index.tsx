@@ -151,6 +151,76 @@ export function BracketManager({
     setToast({ isOpen: true, message, type: "success" });
   }, []);
 
+  // 시드 데이터 (seedingGroups/allPrelimsDone/nextPhaseLabel) 갱신
+  // loadBracketData / refetchMatchesSilently 양쪽에서 사용 — 점수 입력 직후에도
+  // "다음 조편성 진행" 버튼 활성화가 즉시 반영되도록 분리
+  const refreshSeedingData = useCallback(
+    async (cfg: BracketConfig, mainData: BracketMatch[]) => {
+      const hasFinal = mainData.some((m) => m.phase === "FINAL");
+      if (hasFinal) {
+        setSeedingGroups([]);
+        setNextPhaseLabel("");
+        return;
+      }
+      const { data: nextData } = await getNextRoundTeams(cfg.id);
+      if (nextData && nextData.teams.length > 0 && !nextData.isComplete) {
+        const teamCount = nextData.teams.length;
+        const bracketSize =
+          nextData.nextRound === 1
+            ? teamCount <= 4
+              ? 4
+              : teamCount <= 8
+                ? 8
+                : teamCount <= 16
+                  ? 16
+                  : teamCount <= 32
+                    ? 32
+                    : teamCount <= 64
+                      ? 64
+                      : 128
+            : cfg.bracket_size!;
+        const totalRounds = Math.log2(bracketSize);
+        const matchesInNextRound = Math.pow(
+          2,
+          totalRounds - nextData.nextRound,
+        );
+
+        const virtualGroups: PreliminaryGroup[] = [];
+        for (let i = 0; i < matchesInNextRound; i++) {
+          const team1 = nextData.teams[i * 2];
+          const team2 = nextData.teams[i * 2 + 1];
+          const groupTeams = [team1, team2]
+            .filter((t): t is NonNullable<typeof t> => !!t)
+            .map((t) => ({
+              id: `seeding-team-${t.entryId}`,
+              entry_id: t.entryId,
+              seed_number: t.seed,
+              final_rank: null,
+              wins: 0,
+              losses: 0,
+              points_for: 0,
+              points_against: 0,
+              entry: t.entry,
+            }));
+          virtualGroups.push({
+            id: `seeding-group-${i}`,
+            name: `${i + 1}`,
+            display_order: i + 1,
+            group_teams: groupTeams,
+          });
+        }
+        setSeedingGroups(virtualGroups);
+        setAllPrelimsDone(nextData.allDone);
+        setNextPhaseLabel(phaseLabels[nextData.nextPhase] || "");
+      } else {
+        setSeedingGroups([]);
+        setAllPrelimsDone(nextData?.allDone ?? false);
+        setNextPhaseLabel("");
+      }
+    },
+    [],
+  );
+
   // 데이터 로드
   const loadBracketData = useCallback(async () => {
     if (!selectedDivision) return;
@@ -181,80 +251,15 @@ export function BracketManager({
         const { data: mainData } = await getMainBracketMatches(configData.id);
         setMainMatches(mainData || []);
 
-        // 시드 배치 데이터 로딩 조건:
-        // 결승이 없으면 항상 로드 (1R 조편성 필수, 라운드별 순차 생성)
-        const hasFinal = (mainData || []).some((m) => m.phase === "FINAL");
-        const shouldLoadSeeds = !hasFinal;
-
-        if (shouldLoadSeeds) {
-          const { data: nextData } = await getNextRoundTeams(configData.id);
-          if (nextData && nextData.teams.length > 0 && !nextData.isComplete) {
-            // bracketSize 계산 (1R: 팀 수 기반, 2R+: config에서)
-            const teamCount = nextData.teams.length;
-            const bracketSize =
-              nextData.nextRound === 1
-                ? teamCount <= 4
-                  ? 4
-                  : teamCount <= 8
-                    ? 8
-                    : teamCount <= 16
-                      ? 16
-                      : teamCount <= 32
-                        ? 32
-                        : teamCount <= 64
-                          ? 64
-                          : 128
-                : configData.bracket_size!;
-            const totalRounds = Math.log2(bracketSize);
-            // 다음 라운드 매치 수
-            const matchesInNextRound = Math.pow(
-              2,
-              totalRounds - nextData.nextRound,
-            );
-
-            const virtualGroups: PreliminaryGroup[] = [];
-            for (let i = 0; i < matchesInNextRound; i++) {
-              const team1 = nextData.teams[i * 2];
-              const team2 = nextData.teams[i * 2 + 1];
-              const groupTeams = [team1, team2]
-                .filter((t): t is NonNullable<typeof t> => !!t)
-                .map((t) => ({
-                  id: `seeding-team-${t.entryId}`,
-                  entry_id: t.entryId,
-                  seed_number: t.seed,
-                  final_rank: null,
-                  wins: 0,
-                  losses: 0,
-                  points_for: 0,
-                  points_against: 0,
-                  entry: t.entry,
-                }));
-              virtualGroups.push({
-                id: `seeding-group-${i}`,
-                name: `${i + 1}`,
-                display_order: i + 1,
-                group_teams: groupTeams,
-              });
-            }
-            setSeedingGroups(virtualGroups);
-            setAllPrelimsDone(nextData.allDone);
-            setNextPhaseLabel(phaseLabels[nextData.nextPhase] || "");
-          } else {
-            setSeedingGroups([]);
-            setAllPrelimsDone(nextData?.allDone ?? false);
-            setNextPhaseLabel("");
-          }
-        } else {
-          setSeedingGroups([]);
-          setNextPhaseLabel("");
-        }
+        // 시드 데이터 갱신 (refetchMatchesSilently와 동일 헬퍼 사용)
+        await refreshSeedingData(configData, mainData || []);
       }
     } catch {
       showError("오류", "데이터를 불러오는 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
     }
-  }, [selectedDivision, showError]);
+  }, [selectedDivision, showError, refreshSeedingData]);
 
   // 부서 변경 시 데이터 로드
   useEffect(() => {
@@ -295,13 +300,16 @@ export function BracketManager({
         if (requestId !== requestCounterRef.current) return;
         if (data) setPreliminaryMatches(data);
       }
-      const { data } = await getMainBracketMatches(config.id);
+      const { data: mainData } = await getMainBracketMatches(config.id);
       if (requestId !== requestCounterRef.current) return;
-      if (data) setMainMatches(data);
+      if (mainData) setMainMatches(mainData);
+      // 시드 데이터도 함께 갱신: 마지막 점수 입력 후 "다음 조편성 진행" 버튼이
+      // 새로고침 없이 활성화되도록
+      await refreshSeedingData(config, mainData ?? []);
     } catch {
       // silent — Realtime 보조 refetch이므로 에러 무시
     }
-  }, [config]);
+  }, [config, refreshSeedingData]);
 
   // ref로 최신 함수 참조 유지 (stale closure 방지)
   const refetchMatchesRef = useRef(refetchMatchesSilently);
