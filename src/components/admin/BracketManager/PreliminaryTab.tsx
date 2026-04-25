@@ -97,11 +97,11 @@ export function PreliminaryTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <h3 className="font-display text-lg font-semibold text-(--text-primary)">
           예선 경기
         </h3>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {onToggleActive && matches.length > 0 && (
             <button
               onClick={onToggleActive}
