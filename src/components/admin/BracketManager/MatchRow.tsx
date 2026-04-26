@@ -17,6 +17,11 @@ interface MatchRowProps {
   courtLocation?: string;
   courtNumber?: string;
   onCourtChange?: (matchId: string, field: "location" | "number", value: string) => void;
+  /**
+   * 목록 모드 — 카드 박스 제거, 평면 행으로 표시 (구분선은 부모의 divide-y로).
+   * true면 승자가 좌측(첫 번째)에 오도록 정렬도 적용.
+   */
+  listMode?: boolean;
 }
 
 export function MatchRow({
@@ -29,6 +34,7 @@ export function MatchRow({
   courtLocation,
   courtNumber,
   onCourtChange,
+  listMode,
 }: MatchRowProps) {
   const [winnerMenuOpen, setWinnerMenuOpen] = useState(false);
   const [team1Score, setTeam1Score] = useState(
@@ -74,9 +80,30 @@ export function MatchRow({
   const team1Label = getTeamLabel(match.team1);
   const team2Label = getTeamLabel(match.team2);
 
+  // 표시 순서: 결과 확정된 매치는 승자가 좌측(첫 번째), 패자가 우측(두 번째)
+  // 편집 모드에서는 데이터 매핑(team1Score state)과 일치하도록 swap 안 함
+  const swapped =
+    !editing &&
+    !!match.winner_entry_id &&
+    match.winner_entry_id === match.team2_entry_id;
+  const firstLabel = swapped ? team2Label : team1Label;
+  const secondLabel = swapped ? team1Label : team2Label;
+  const firstScore = swapped ? match.team2_score : match.team1_score;
+  const secondScore = swapped ? match.team1_score : match.team2_score;
+  const firstEntryId = swapped ? match.team2_entry_id : match.team1_entry_id;
+  const secondEntryId = swapped ? match.team1_entry_id : match.team2_entry_id;
+  const firstIsWinner = !!match.winner_entry_id && match.winner_entry_id === firstEntryId;
+  const secondIsWinner = !!match.winner_entry_id && match.winner_entry_id === secondEntryId;
+
   if (match.status === "BYE") {
     return (
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-(--bg-secondary) border border-(--border-color)">
+      <div
+        className={
+          listMode
+            ? "flex items-center gap-3 px-2 py-2.5"
+            : "flex items-center gap-3 p-3 rounded-xl bg-(--bg-secondary) border border-(--border-color)"
+        }
+      >
         <span className="text-sm text-(--text-muted)">
           #{match.match_number}
         </span>
@@ -88,29 +115,33 @@ export function MatchRow({
     );
   }
 
-  return (
-    <div
-      className={`rounded-xl border overflow-hidden ${
+  // 컨테이너 styling: listMode는 평면 행, 아니면 카드
+  const containerClass = listMode
+    ? "overflow-hidden"
+    : `rounded-xl border overflow-hidden ${
         match.status === "COMPLETED"
           ? "bg-(--color-success-subtle) border-(--color-success-border)"
           : "bg-(--bg-secondary) border-(--border-color)"
-      }`}
-    >
+      }`;
+  const matchRowPadding = listMode ? "px-2 py-2.5" : "p-3";
+
+  return (
+    <div className={containerClass}>
       {/* 매치 정보 행 */}
-      <div className="flex items-center gap-3 p-3">
+      <div className={`flex items-center gap-3 ${matchRowPadding}`}>
         <span className="text-sm text-(--text-muted) w-8">
           #{match.match_number}
         </span>
 
-        {/* Team 1 */}
+        {/* 첫 번째 팀 (결과 확정 시 승자) */}
         <div
           className={`flex-1 text-right ${
-            match.winner_entry_id === match.team1_entry_id
+            firstIsWinner
               ? "font-bold text-(--color-success)"
               : "text-(--text-primary)"
           }`}
         >
-          <span className="text-sm">{team1Label}</span>
+          <span className="text-sm">{firstLabel}</span>
         </div>
 
         {/* Score — 편집 중: 입력 필드 / 승자 직접 지정(score null+winner): "승" 표시 / 그 외: 점수 */}
@@ -138,21 +169,21 @@ export function MatchRow({
           </span>
         ) : (
           <div className="flex items-center gap-1 px-3 py-1 font-mono text-sm text-(--text-primary)">
-            <span>{match.team1_score ?? "-"}</span>
+            <span>{firstScore ?? "-"}</span>
             <span className="text-(--text-muted)">:</span>
-            <span>{match.team2_score ?? "-"}</span>
+            <span>{secondScore ?? "-"}</span>
           </div>
         )}
 
-        {/* Team 2 */}
+        {/* 두 번째 팀 (결과 확정 시 패자) */}
         <div
           className={`flex-1 text-left ${
-            match.winner_entry_id === match.team2_entry_id
+            secondIsWinner
               ? "font-bold text-(--color-success)"
               : "text-(--text-primary)"
           }`}
         >
-          <span className="text-sm">{team2Label}</span>
+          <span className="text-sm">{secondLabel}</span>
         </div>
 
         {/* 액션 버튼 — 우측 고정 */}
@@ -237,7 +268,13 @@ export function MatchRow({
 
       {/* 코트 정보 — 항상 입력 가능 (부모가 상태 관리) */}
       {onCourtChange && (
-        <div className="border-t border-(--border-color)/50 px-3 py-2">
+        <div
+          className={
+            listMode
+              ? "px-2 pb-2.5 pl-12"
+              : "border-t border-(--border-color)/50 px-3 py-2"
+          }
+        >
           <div className="flex items-center gap-2">
             <MapPin className="w-4 h-4 text-(--court-info) shrink-0" />
             <input

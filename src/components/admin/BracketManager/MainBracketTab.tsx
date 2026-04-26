@@ -449,7 +449,7 @@ export function MainBracketTab({
                     )}
                   </div>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                <div className="rounded-xl border border-(--border-color) divide-y divide-(--border-color) bg-(--bg-secondary)/30 overflow-hidden">
                   {phaseMatches.map((match) => (
                     <MatchRow
                       key={match.id}
@@ -462,6 +462,7 @@ export function MainBracketTab({
                       courtLocation={courtData[match.id]?.location}
                       courtNumber={courtData[match.id]?.number}
                       onCourtChange={onCourtBatchSave ? handleCourtChange : undefined}
+                      listMode
                     />
                   ))}
                 </div>
