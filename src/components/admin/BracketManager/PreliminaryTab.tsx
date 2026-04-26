@@ -15,6 +15,8 @@ interface PreliminaryTabProps {
     team1Score: number,
     team2Score: number,
   ) => void;
+  /** 점수 없이 승자 직접 지정 (관리자 전용) */
+  onSetWinner?: (matchId: string, winnerEntryId: string) => void;
   onAutoFill?: () => void;
   onDelete?: () => void;
   onTieWarning: () => void;
@@ -39,6 +41,7 @@ export function PreliminaryTab({
   onCourtBatchSave,
   onToggleActive,
   onProceedToSeeding,
+  onSetWinner,
 }: PreliminaryTabProps) {
   const isActive = config?.active_phase === "PRELIMINARY";
   const hasScheduledMatches = matches.some((m) => m.status === "SCHEDULED");
@@ -282,6 +285,7 @@ export function PreliminaryTab({
                       key={match.id}
                       match={match}
                       onResult={onMatchResult}
+                      onSetWinner={onSetWinner}
                       onTieWarning={onTieWarning}
                       isTeamMatch={isTeamMatch}
                       onOpenDetail={onOpenDetail}

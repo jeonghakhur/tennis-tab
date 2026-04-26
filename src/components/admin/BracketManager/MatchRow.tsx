@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Check, MapPin } from "lucide-react";
+import { Check, MapPin, MoreVertical } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { BracketMatch } from "./types";
 
 interface MatchRowProps {
   match: BracketMatch;
   onResult?: (matchId: string, team1Score: number, team2Score: number) => void;
+  /** 점수 없이 승자 직접 지정 (관리자 전용) */
+  onSetWinner?: (matchId: string, winnerEntryId: string) => void;
   onTieWarning: () => void;
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
@@ -19,6 +22,7 @@ interface MatchRowProps {
 export function MatchRow({
   match,
   onResult,
+  onSetWinner,
   onTieWarning,
   isTeamMatch,
   onOpenDetail,
@@ -26,6 +30,7 @@ export function MatchRow({
   courtNumber,
   onCourtChange,
 }: MatchRowProps) {
+  const [winnerMenuOpen, setWinnerMenuOpen] = useState(false);
   const [team1Score, setTeam1Score] = useState(
     match.team1_score?.toString() || "",
   );
@@ -108,7 +113,7 @@ export function MatchRow({
           <span className="text-sm">{team1Label}</span>
         </div>
 
-        {/* Score — 개인전 편집 중이면 입력 필드, 아니면 점수 표시 */}
+        {/* Score — 편집 중: 입력 필드 / 승자 직접 지정(score null+winner): "승" 표시 / 그 외: 점수 */}
         {editing ? (
           <div className="flex items-center gap-1">
             <input
@@ -127,6 +132,10 @@ export function MatchRow({
               min="0"
             />
           </div>
+        ) : match.team1_score === null && match.team2_score === null && match.winner_entry_id ? (
+          <span className="px-3 py-1 rounded-md text-xs font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+            승자 지정
+          </span>
         ) : (
           <div className="flex items-center gap-1 px-3 py-1 font-mono text-sm text-(--text-primary)">
             <span>{match.team1_score ?? "-"}</span>
@@ -154,12 +163,12 @@ export function MatchRow({
             className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
               !(onResult && match.team1_entry_id && match.team2_entry_id)
                 ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
-                : match.team1_score !== null
+                : match.team1_score !== null || match.winner_entry_id
                   ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
                   : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             }`}
           >
-            {match.team1_score !== null ? "수정" : "점수 입력"}
+            {match.team1_score !== null || match.winner_entry_id ? "수정" : "점수 입력"}
           </button>
         ) : editing ? (
           <button
@@ -175,13 +184,54 @@ export function MatchRow({
             className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
               !(onResult && match.team1_entry_id && match.team2_entry_id)
                 ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
-                : match.team1_score !== null
+                : match.team1_score !== null || match.winner_entry_id
                   ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
                   : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
             }`}
           >
-            {match.team1_score !== null ? "수정" : "점수 입력"}
+            {match.team1_score !== null || match.winner_entry_id ? "수정" : "점수 입력"}
           </button>
+        )}
+
+        {/* 승자 직접 지정 메뉴 — 양 팀 배정됨 + 편집 모드 아닐 때 */}
+        {onSetWinner && !editing && match.team1_entry_id && match.team2_entry_id && (
+          <Popover open={winnerMenuOpen} onOpenChange={setWinnerMenuOpen}>
+            <PopoverTrigger asChild>
+              <button
+                type="button"
+                aria-label="승자 직접 지정"
+                title="점수 없이 승자 지정"
+                className="shrink-0 p-1.5 rounded-lg text-(--text-muted) hover:bg-(--bg-card) hover:text-(--text-primary) transition-colors"
+              >
+                <MoreVertical className="w-4 h-4" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-56 p-1">
+              <div className="px-2 py-1.5 text-xs text-(--text-muted)">
+                승자 지정 (점수 없이)
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setWinnerMenuOpen(false);
+                  onSetWinner(match.id, match.team1_entry_id!);
+                }}
+                className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-(--bg-card-hover) text-(--text-primary) truncate"
+              >
+                {team1Label} 승
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setWinnerMenuOpen(false);
+                  onSetWinner(match.id, match.team2_entry_id!);
+                }}
+                className="w-full text-left px-2 py-1.5 rounded text-sm hover:bg-(--bg-card-hover) text-(--text-primary) truncate"
+              >
+                {team2Label} 승
+              </button>
+            </PopoverContent>
+          </Popover>
         )}
       </div>
 

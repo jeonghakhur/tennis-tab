@@ -18,6 +18,8 @@ interface MainBracketTabProps {
     team1Score: number,
     team2Score: number,
   ) => void;
+  /** 점수 없이 승자 직접 지정 (관리자 전용) */
+  onSetWinner?: (matchId: string, winnerEntryId: string) => void;
   onDelete?: () => void;
   onDeleteLatestRound?: () => void;
   onTieWarning: () => void;
@@ -65,6 +67,7 @@ export function MainBracketTab({
   matches,
   onAutoFillPhase,
   onMatchResult,
+  onSetWinner,
   onDelete,
   onDeleteLatestRound,
   onTieWarning,
@@ -452,6 +455,7 @@ export function MainBracketTab({
                       key={match.id}
                       match={match}
                       onResult={onMatchResult}
+                      onSetWinner={onSetWinner}
                       onTieWarning={onTieWarning}
                       isTeamMatch={isTeamMatch}
                       onOpenDetail={onOpenDetail}

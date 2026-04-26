@@ -20,6 +20,7 @@ import {
   getAdvancingTeams,
   getNextRoundTeams,
   updateMatchResult,
+  setMatchWinner,
   autoFillPreliminaryResults,
   autoFillMainBracketResults,
   batchUpdateMatchCourtInfo,
@@ -567,6 +568,21 @@ export function BracketManager({
     }
   };
 
+  // 점수 없이 승자 직접 지정 (관리자 전용)
+  const handleSetWinner = async (matchId: string, winnerEntryId: string) => {
+    try {
+      const { error } = await setMatchWinner(matchId, winnerEntryId);
+      if (error) {
+        showError("승자 지정 실패", error);
+      } else {
+        showSuccess("승자가 지정되었습니다.");
+        refetchMatchesRef.current();
+      }
+    } catch {
+      showError("오류", "승자 지정 중 오류가 발생했습니다.");
+    }
+  };
+
   const handleTieWarning = useCallback(() => {
     setAlertDialog({
       isOpen: true,
@@ -986,6 +1002,7 @@ export function BracketManager({
                 groups={groups}
                 matches={preliminaryMatches}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
+                onSetWinner={isClosed ? undefined : handleSetWinner}
                 onAutoFill={isClosed ? undefined : handleAutoFillPreliminary}
                 onDelete={
                   isClosed ? undefined : () => setShowDeletePrelimConfirm(true)
@@ -1005,6 +1022,7 @@ export function BracketManager({
                 matches={mainMatches}
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
                 onMatchResult={isClosed ? undefined : handleMatchResult}
+                onSetWinner={isClosed ? undefined : handleSetWinner}
                 onDelete={
                   isClosed ? undefined : () => setShowDeleteMainConfirm(true)
                 }

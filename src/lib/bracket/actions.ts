@@ -997,7 +997,8 @@ async function updateMatchResultCore(
   matchId: string,
   team1Score: number,
   team2Score: number,
-  setsDetail?: SetDetail[]
+  setsDetail?: SetDetail[],
+  winnerOverride?: string,
 ): Promise<{ winnerId?: string | null; error?: string }> {
   // 경기 정보 조회
   const { data: match, error: matchError } = await supabaseAdmin
@@ -1010,12 +1011,19 @@ async function updateMatchResultCore(
     return { error: '경기 정보 조회에 실패했습니다.' }
   }
 
-  // partial 저장 모드: 동점(0-0 포함) — 매치 미결, sets_detail (선수 정보)만 저장
-  // 한 게임만 진행해도 한쪽이 이겼으면 정상 저장 (1-0, 2-1 등)
-  const isPartial = team1Score === team2Score
+  // 모드 분기:
+  // - isManualWinner: 점수 없이 관리자가 승자 직접 지정 (score null, status COMPLETED)
+  // - isPartial: 동점(0-0 포함) — 매치 미결, sets_detail(선수 정보)만 저장
+  // - 정상: 점수 비교로 winner 결정 (한 게임만 진행해도 1-0이면 COMPLETED)
+  const isManualWinner = !!winnerOverride
+  const isPartial = !isManualWinner && team1Score === team2Score
+
   let winnerId: string | null = null
   let loserId: string | null = null
-  if (team1Score > team2Score) {
+  if (isManualWinner) {
+    winnerId = winnerOverride!
+    loserId = winnerOverride === match.team1_entry_id ? match.team2_entry_id : match.team1_entry_id
+  } else if (team1Score > team2Score) {
     winnerId = match.team1_entry_id
     loserId = match.team2_entry_id
   } else if (team2Score > team1Score) {
@@ -1030,9 +1038,10 @@ async function updateMatchResultCore(
   }
 
   // 경기 결과 업데이트
+  const useScore = !isManualWinner && !isPartial
   const updatePayload: Record<string, unknown> = {
-    team1_score: isPartial ? null : team1Score,
-    team2_score: isPartial ? null : team2Score,
+    team1_score: useScore ? team1Score : null,
+    team2_score: useScore ? team2Score : null,
     winner_entry_id: winnerId,
     status: isPartial ? 'SCHEDULED' : 'COMPLETED',
     completed_at: isPartial ? null : new Date().toISOString(),
@@ -1167,6 +1176,66 @@ export async function updateMatchResult(
             metadata: { link: tournamentId ? `/tournaments/${tournamentId}` : undefined },
           })
         }
+      }
+    }
+  } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+
+  revalidatePath('/admin/tournaments')
+  revalidatePath('/tournaments')
+  return { data: { winnerId: result.winnerId }, error: null }
+}
+
+/**
+ * 관리자 — 점수 없이 승자 직접 지정
+ * 기권/노쇼 등 점수 없이 결과만 확정해야 할 때 사용
+ */
+export async function setMatchWinner(matchId: string, winnerEntryId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(matchId, '경기 ID') || validateId(winnerEntryId, '승자 entry ID')
+  if (idError) return { error: idError }
+
+  const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
+  if (closedCheck.error) return { error: closedCheck.error }
+
+  const supabaseAdmin = createAdminClient()
+
+  // winner가 이 경기 참가팀 중 하나인지 검증
+  const { data: match } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('team1_entry_id, team2_entry_id')
+    .eq('id', matchId)
+    .single()
+  if (!match) return { error: '경기를 찾을 수 없습니다.' }
+  if (winnerEntryId !== match.team1_entry_id && winnerEntryId !== match.team2_entry_id) {
+    return { error: '승자는 이 경기에 참가한 팀 중 하나여야 합니다.' }
+  }
+
+  // 점수 없이 winner 지정 — score 인자(0,0)는 무시되고 winnerOverride로 대체
+  const result = await updateMatchResultCore(supabaseAdmin, matchId, 0, 0, undefined, winnerEntryId)
+  if (result.error) return { error: result.error }
+
+  // 알림: 양 팀에 결과 지정 안내
+  try {
+    const entryIds = [match.team1_entry_id, match.team2_entry_id].filter(Boolean) as string[]
+    if (entryIds.length > 0) {
+      const { data: entries } = await supabaseAdmin
+        .from('tournament_entries')
+        .select('user_id, tournament_id')
+        .in('id', entryIds)
+      const userIds = [...new Set((entries ?? []).map(e => e.user_id).filter(Boolean))] as string[]
+      const tournamentId = entries?.[0]?.tournament_id
+      if (userIds.length > 0) {
+        await createBulkNotifications({
+          user_ids: userIds,
+          type: NotificationType.MATCH_RESULT_UPDATED,
+          title: '경기 결과 확정',
+          message: '관리자가 경기 결과를 지정했습니다.',
+          tournament_id: tournamentId ?? null,
+          match_id: matchId,
+          metadata: { link: tournamentId ? `/tournaments/${tournamentId}` : undefined },
+        })
       }
     }
   } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
