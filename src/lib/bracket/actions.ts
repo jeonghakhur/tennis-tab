@@ -1010,24 +1010,34 @@ async function updateMatchResultCore(
     return { error: '경기 정보 조회에 실패했습니다.' }
   }
 
-  const winnerId = team1Score > team2Score ? match.team1_entry_id : match.team2_entry_id
-  const loserId = team1Score > team2Score ? match.team2_entry_id : match.team1_entry_id
+  // partial 저장 모드: 동점(0-0 포함) — 매치 미결, sets_detail (선수 정보)만 저장
+  // 한 게임만 진행해도 한쪽이 이겼으면 정상 저장 (1-0, 2-1 등)
+  const isPartial = team1Score === team2Score
+  let winnerId: string | null = null
+  let loserId: string | null = null
+  if (team1Score > team2Score) {
+    winnerId = match.team1_entry_id
+    loserId = match.team2_entry_id
+  } else if (team2Score > team1Score) {
+    winnerId = match.team2_entry_id
+    loserId = match.team1_entry_id
+  }
   const previousWinnerId = match.winner_entry_id
 
-  // 이미 완료된 경기의 승자가 변경되는 경우, 하위 경기 무효화
+  // 이미 완료된 경기의 승자가 변경되는 경우(partial 되돌림 포함), 하위 경기 무효화
   if (match.status === 'COMPLETED' && previousWinnerId && previousWinnerId !== winnerId) {
     await invalidateDownstreamMatches(supabaseAdmin, match, previousWinnerId)
   }
 
   // 경기 결과 업데이트
   const updatePayload: Record<string, unknown> = {
-    team1_score: team1Score,
-    team2_score: team2Score,
+    team1_score: isPartial ? null : team1Score,
+    team2_score: isPartial ? null : team2Score,
     winner_entry_id: winnerId,
-    status: 'COMPLETED',
-    completed_at: new Date().toISOString(),
+    status: isPartial ? 'SCHEDULED' : 'COMPLETED',
+    completed_at: isPartial ? null : new Date().toISOString(),
   }
-  // 단체전 세트 상세 결과 (있으면 함께 저장)
+  // 단체전 세트 상세 결과 (있으면 함께 저장 — partial일 때도 선수 정보 보존)
   if (setsDetail) {
     updatePayload.sets_detail = setsDetail
   }
@@ -1080,7 +1090,8 @@ async function updateMatchResultCore(
   await Promise.all(postUpdateTasks)
 
   // 결승/3·4위전 결과 입력 시 대회 자동 완료 체크 + 입상 기록 자동 생성
-  if (match.phase === 'FINAL' || match.phase === 'THIRD_PLACE') {
+  // partial 저장(winnerId null)일 때는 우승 처리 보류
+  if (!isPartial && (match.phase === 'FINAL' || match.phase === 'THIRD_PLACE')) {
     await checkAndCompleteTournament(supabaseAdmin, match.bracket_config_id)
     await createAwardRecords(supabaseAdmin, {
       phase: match.phase,
@@ -1118,16 +1129,18 @@ export async function updateMatchResult(
   const score2Error = validateNonNegativeInteger(team2Score, '팀2 점수')
   if (score2Error) return { error: score2Error }
 
-  // 동점 거부 (서버 사이드 검증)
-  if (team1Score === team2Score) {
-    return { error: '동점은 허용되지 않습니다. 승패가 결정되어야 합니다.' }
-  }
+  // 동점/0-0은 partial 저장으로 처리 (선수만 등록 등) — 거부하지 않음
 
   const supabaseAdmin = createAdminClient()
   const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
   if (result.error) return { error: result.error }
 
-  // 알림: 양측 참가자에게 경기 결과 알림
+  // 알림: winner가 결정된 경우에만 양측 참가자에게 결과 알림 (partial은 알림 생략)
+  if (!result.winnerId) {
+    revalidatePath('/admin/tournaments')
+    revalidatePath('/tournaments')
+    return { data: { winnerId: null }, error: null }
+  }
   try {
     const { data: matchData } = await supabaseAdmin
       .from('bracket_matches')
@@ -1189,9 +1202,7 @@ export async function submitPlayerScore(
   const score2Error = validateNonNegativeInteger(team2Score, '팀2 점수')
   if (score2Error) return { error: score2Error }
 
-  if (team1Score === team2Score) {
-    return { error: '동점은 허용되지 않습니다. 승패가 결정되어야 합니다.' }
-  }
+  // 동점/0-0은 partial 저장으로 처리 (한 게임만 진행 / 선수만 등록 등)
 
   const supabaseAdmin = createAdminClient()
 
@@ -1280,6 +1291,12 @@ export async function submitPlayerScore(
   // 점수 저장 + 승자 전파 (공유 로직)
   const result = await updateMatchResultCore(supabaseAdmin, matchId, team1Score, team2Score, setsDetail)
   if (result.error) return { error: result.error }
+
+  // partial 저장이면 알림 생략 (winner 결정될 때만 결과 알림)
+  if (!result.winnerId) {
+    revalidatePath('/tournaments')
+    return { data: { winnerId: null }, error: null }
+  }
 
   // 알림: 본인 입력 시 상대방, 관리자 입력 시 양 팀 모두에게 알림
   try {

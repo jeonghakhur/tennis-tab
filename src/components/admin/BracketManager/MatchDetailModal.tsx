@@ -167,32 +167,41 @@ export function MatchDetailModal({
     );
   };
 
-  // 저장 가능 여부: 승부 결정 + 입력된 세트는 모두 유효
+  // 저장 가능 여부:
+  // - 한 게임만 진행해도 저장 OK (matchDecided 강제 X)
+  // - 점수 미입력 + 선수만 작성해도 저장 OK (서버에서 partial 저장 처리)
+  // - 단 점수가 입력된 세트는 양쪽 점수 + 선수 모두 완성되어야 함
+  // - 모든 세트가 완전히 빈 경우는 저장 의미 없음
   const canSave = useMemo(() => {
-    if (!matchDecided) return false;
-
-    // 점수가 하나라도 입력된 세트는 모두 유효해야 함 (동점 없음, 선수 선택 완료)
+    let hasMeaningfulData = false;
     for (const set of sets) {
-      const hasAnyScore = set.team1_score !== null || set.team2_score !== null;
-      if (!hasAnyScore) continue;
-      if (set.team1_score === null || set.team2_score === null) return false;
-      if (set.team1_score === set.team2_score) return false;
-      if (set.team1_players.some((p) => !p)) return false;
-      if (set.team2_players.some((p) => !p)) return false;
+      const hasScore = set.team1_score !== null || set.team2_score !== null;
+      const hasPlayers =
+        set.team1_players.some((p) => p) || set.team2_players.some((p) => p);
+      if (hasScore || hasPlayers) hasMeaningfulData = true;
+      if (hasScore) {
+        if (set.team1_score === null || set.team2_score === null) return false;
+        if (set.team1_score === set.team2_score) return false;
+        if (set.team1_players.some((p) => !p)) return false;
+        if (set.team2_players.some((p) => !p)) return false;
+      }
     }
-
-    return true;
-  }, [sets, matchDecided]);
+    return hasMeaningfulData;
+  }, [sets]);
 
   const handleSave = () => {
     if (!match || !canSave) return;
 
-    // 점수가 입력된 세트만 저장 (미입력 세트 제외)
-    const validSets = sets.filter(
-      (s) => s.team1_score !== null && s.team2_score !== null,
+    // 점수 또는 선수가 입력된 세트만 저장 (완전히 빈 세트 제외)
+    const meaningfulSets = sets.filter(
+      (s) =>
+        s.team1_score !== null ||
+        s.team2_score !== null ||
+        s.team1_players.some((p) => p) ||
+        s.team2_players.some((p) => p),
     );
 
-    onSave(match.id, team1Wins, team2Wins, validSets);
+    onSave(match.id, team1Wins, team2Wins, meaningfulSets);
   };
 
   // 단체전 모달: 팀명 + 팀 순번 표시

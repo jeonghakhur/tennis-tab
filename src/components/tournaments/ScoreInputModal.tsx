@@ -379,28 +379,44 @@ function TeamScoreInput({
     )
   }
 
-  // 저장 가능 여부
+  // 저장 가능 여부:
+  // - 한 게임만 진행해도 저장 OK (matchDecided 강제 X)
+  // - 점수 미입력 + 선수만 작성해도 저장 OK (서버에서 partial 저장 처리)
+  // - 점수 입력된 세트는 양쪽 점수 + 선수 모두 완성되어야 함
+  // - 모든 세트가 비어있으면 저장 의미 없음
   const canSave = useMemo(() => {
-    if (!matchDecided) return false
-
+    let hasMeaningfulData = false
     for (const set of sets) {
       if (isSetDisabled(set.set_number - 1)) break
-      if (set.team1_score === null || set.team2_score === null) return false
-      if (set.team1_score === set.team2_score) return false
-      if (set.team1_players.some((p) => !p)) return false
-      if (set.team2_players.some((p) => !p)) return false
+      const hasScore = set.team1_score !== null || set.team2_score !== null
+      const hasPlayers =
+        set.team1_players.some((p) => p) || set.team2_players.some((p) => p)
+      if (hasScore || hasPlayers) hasMeaningfulData = true
+      if (hasScore) {
+        if (set.team1_score === null || set.team2_score === null) return false
+        if (set.team1_score === set.team2_score) return false
+        if (set.team1_players.some((p) => !p)) return false
+        if (set.team2_players.some((p) => !p)) return false
+      }
     }
-
-    return true
+    return hasMeaningfulData
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sets, matchDecided])
+  }, [sets])
 
   const handleSave = async () => {
     if (!canSave || submitting) return
     setSubmitting(true)
     try {
-      const validSets = sets.filter((_, i) => !isSetDisabled(i))
-      await onSubmit(team1Wins, team2Wins, validSets)
+      // 비활성 세트 제외 + 점수/선수 중 하나라도 입력된 세트만 저장
+      const meaningfulSets = sets.filter(
+        (s, i) =>
+          !isSetDisabled(i) &&
+          (s.team1_score !== null ||
+            s.team2_score !== null ||
+            s.team1_players.some((p) => p) ||
+            s.team2_players.some((p) => p)),
+      )
+      await onSubmit(team1Wins, team2Wins, meaningfulSets)
     } finally {
       setSubmitting(false)
     }
