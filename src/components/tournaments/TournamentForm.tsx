@@ -202,7 +202,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     // 로그인하지 않은 경우
     if (!user) {
         return (
-            <div className="max-w-4xl mx-auto p-6">
+            <div className="max-w-4xl mx-auto sm:p-6">
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 p-4 rounded-lg">
                     대회를 만들려면 로그인이 필요합니다.
                 </div>
@@ -210,12 +210,12 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
         );
     }
 
-    // 권한이 없는 경우
-    if (!canCreateTournament) {
+    // 권한이 없는 경우 (수정 모드는 organizer 검증을 페이지에서 하므로 여기는 신규 생성만 차단)
+    if (!canCreateTournament && !isEditMode) {
         return (
-            <div className="max-w-4xl mx-auto p-6">
+            <div className="max-w-4xl mx-auto sm:p-6">
                 <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-4 rounded-lg">
-                    대회를 생성할 권한이 없습니다. 관리자(ADMIN) 이상의 권한이 필요합니다.
+                    대회를 생성할 권한이 없습니다. 최고 관리자(SUPER_ADMIN) 권한이 필요합니다.
                 </div>
             </div>
         );
@@ -225,7 +225,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const labelClass = "block text-sm font-medium mb-1";
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto p-6">
+        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8 max-w-4xl mx-auto sm:p-6">
             <div className="space-y-2">
                 <h2 className="text-2xl font-bold">{isEditMode ? '대회 수정' : '대회 만들기'}</h2>
                 <p className="text-gray-500">
@@ -240,7 +240,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             )}
 
             {/* 대표 이미지 섹션 */}
-            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+            <section className="space-y-4 p-4 sm:p-6 bg-(--bg-secondary) rounded-xl">
                 <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">대표 이미지</h3>
                 <ImageUpload
                     value={posterUrl}
@@ -252,7 +252,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 기본 정보 섹션 */}
-            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+            <section className="space-y-4 p-4 sm:p-6 bg-(--bg-secondary) rounded-xl">
                 <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">기본 정보</h3>
 
                 <div>
@@ -354,7 +354,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 일정 섹션 */}
-            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+            <section className="space-y-4 p-4 sm:p-6 bg-(--bg-secondary) rounded-xl">
                 <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">대회 일정</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -438,7 +438,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 참가 정보 섹션 */}
-            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+            <section className="space-y-4 p-4 sm:p-6 bg-(--bg-secondary) rounded-xl">
                 <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">참가 정보</h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -486,7 +486,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 참가부서 섹션 */}
-            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+            <section className="space-y-4 p-4 sm:p-6 bg-(--bg-secondary) rounded-xl">
                 <div className="flex items-center justify-between border-b border-(--border-color) pb-2">
                     <h3 className="text-lg font-semibold">참가 부서</h3>
                     <button
@@ -627,7 +627,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             </section>
 
             {/* 상세 설명 섹션 */}
-            <section className="space-y-4 p-6 bg-(--bg-secondary) rounded-xl">
+            <section className="space-y-4 p-4 sm:p-6 bg-(--bg-secondary) rounded-xl">
                 <h3 className="text-lg font-semibold border-b border-(--border-color) pb-2">상세 설명</h3>
                 <input type="hidden" name="description" value={description} />
                 <RichTextEditor
