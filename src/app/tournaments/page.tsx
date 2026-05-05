@@ -27,8 +27,10 @@ export default async function TournamentsPage() {
   const role = profileResult.data?.role ?? null;
   const canCreateTournament = !!role && ALLOWED_ROLES.includes(role as UserRole);
 
-  // 관리자가 아닌 경우 DRAFT 대회 제외
-  const tournaments = (canCreateTournament
+  // DRAFT 대회는 SUPER_ADMIN만 노출 — ADMIN/MANAGER는 자신이 작성 중인 DRAFT를
+  // 확인하려면 admin 대회 관리 페이지(/admin/tournaments)를 사용
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const tournaments = (isSuperAdmin
     ? allTournaments
     : allTournaments?.filter((t) => t.status !== "DRAFT")) ?? [];
 
