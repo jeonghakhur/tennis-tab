@@ -1,5 +1,6 @@
 import TournamentForm, { TournamentFormData } from '@/components/tournaments/TournamentForm';
 import { createClient } from '@/lib/supabase/server';
+import { redirect } from 'next/navigation';
 
 interface Props {
     searchParams: Promise<{ template?: string }>;
@@ -9,11 +10,25 @@ export default async function NewTournamentPage({ searchParams }: Props) {
     const params = await searchParams;
     const templateId = params.template;
 
+    // 권한 체크 — 대회 생성은 SUPER_ADMIN만 가능
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+        redirect('/auth/login');
+    }
+    const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single();
+    if (profile?.role !== 'SUPER_ADMIN') {
+        redirect('/tournaments');
+    }
+
     let templateData: TournamentFormData | undefined = undefined;
 
     // 템플릿 ID가 있으면 해당 대회 정보를 가져옴
     if (templateId) {
-        const supabase = await createClient();
         const { data: tournament } = await supabase
             .from('tournaments')
             .select(`

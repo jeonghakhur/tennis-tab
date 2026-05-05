@@ -26,6 +26,8 @@ export default async function AdminTournamentsPage() {
 
   // MANAGER는 자신이 만든 대회만, ADMIN 이상은 모든 대회
   const isAdminOrHigher = ['ADMIN', 'SUPER_ADMIN'].includes(currentProfile?.role ?? '')
+  // 대회 생성은 SUPER_ADMIN만 가능
+  const canCreateTournament = currentProfile?.role === 'SUPER_ADMIN'
 
   let query = supabase
     .from('tournaments')
@@ -57,13 +59,15 @@ export default async function AdminTournamentsPage() {
               : '내가 등록한 대회를 조회하고 관리할 수 있습니다.'}
           </p>
         </div>
-        <Link
-          href="/tournaments/new"
-          className="px-4 py-2 rounded-lg text-sm font-medium text-white whitespace-nowrap hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: 'var(--accent-color)' }}
-        >
-          대회 생성
-        </Link>
+        {canCreateTournament && (
+          <Link
+            href="/tournaments/new"
+            className="px-4 py-2 rounded-lg text-sm font-medium text-white whitespace-nowrap hover:opacity-90 transition-opacity"
+            style={{ backgroundColor: 'var(--accent-color)' }}
+          >
+            대회 생성
+          </Link>
+        )}
       </div>
 
       {/* Tournaments Table */}

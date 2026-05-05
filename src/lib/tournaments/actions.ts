@@ -28,7 +28,8 @@ const VALID_TRANSITIONS: Readonly<Record<string, readonly string[]>> = {
 }
 
 // 대회 생성 권한이 있는 역할
-const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER']
+// 대회 생성 권한 — SUPER_ADMIN만 (수정/삭제는 별도 분기)
+const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN']
 
 export type CreateTournamentResult =
   | { success: true; tournamentId: string }

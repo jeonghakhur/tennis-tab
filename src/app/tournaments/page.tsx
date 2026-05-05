@@ -5,7 +5,8 @@ import { UserRole } from "@/lib/supabase/types";
 import type { Database } from "@/lib/supabase/types";
 import TournamentsClient from "./_components/TournamentsClient";
 
-const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN", "ADMIN", "MANAGER"];
+// 대회 생성 권한 — SUPER_ADMIN만
+const ALLOWED_ROLES: UserRole[] = ["SUPER_ADMIN"];
 
 export default async function TournamentsPage() {
   const supabase = await createClient();

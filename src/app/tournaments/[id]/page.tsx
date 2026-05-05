@@ -103,6 +103,7 @@ export default async function TournamentDetailPage({ params }: Props) {
   let userProfile = null;
   let myEntries: unknown[] = [];
   let isAdmin = false;
+  let isSuperAdmin = false;
   let divisionEntriesMap: Record<string, DivisionEntryItem[]> = {};
 
   // 대진표 조회 (divisionIds가 있을 때만)
@@ -148,6 +149,7 @@ export default async function TournamentDetailPage({ params }: Props) {
     hasBracket = (bracketResult.count ?? 0) > 0;
     userProfile = profile ? decryptProfile(profile) : null;
     isAdmin = profile?.role === "ADMIN" || profile?.role === "SUPER_ADMIN";
+    isSuperAdmin = profile?.role === "SUPER_ADMIN";
 
     const rankMap = new Map(
       (allEntryIds ?? []).map((e, idx) => [e.id, idx + 1])
@@ -376,6 +378,7 @@ export default async function TournamentDetailPage({ params }: Props) {
               <TournamentActions
                 tournamentId={tournament.id}
                 currentStatus={tournament.status as 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'}
+                canCreate={isSuperAdmin}
                 hideStatusChange
               />
             )}

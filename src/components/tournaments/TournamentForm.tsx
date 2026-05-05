@@ -10,7 +10,8 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Modal } from '@/components/common/Modal';
 
-const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN', 'ADMIN', 'MANAGER'];
+// 대회 생성 권한 — SUPER_ADMIN만 (수정 모드는 별도 검증)
+const ALLOWED_ROLES: UserRole[] = ['SUPER_ADMIN'];
 
 const MATCH_TYPES: { value: MatchType; label: string }[] = [
     { value: 'INDIVIDUAL_SINGLES', label: '개인전 단식' },
