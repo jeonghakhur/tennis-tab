@@ -144,7 +144,10 @@ export default function SessionDetailPage() {
           </Link>
 
           {/* 모임 헤더 */}
-          <div className="glass-card rounded-xl p-6">
+          <div
+            className="pb-6 border-b"
+            style={{ borderColor: 'var(--border-color)' }}
+          >
             <div className="flex items-start justify-between mb-3">
               <h1 className="text-xl font-display" style={{ color: 'var(--text-primary)' }}>
                 {session.title}

@@ -403,7 +403,7 @@ export default function ClubDetailClient({ clubId: id }: Props) {
 
           {/* 비회원: 기본 정보 + 가입 안내만 표시 (시스템 관리자는 멤버십 없어도 전체 접근) */}
           {!isMember && !isSystemAdmin ? (
-            <div className="glass-card rounded-xl p-6">
+            <div>
               <div className="flex items-start justify-between mb-3">
                 <h1
                   className="text-2xl font-display"
@@ -535,7 +535,10 @@ export default function ClubDetailClient({ clubId: id }: Props) {
             /* 회원: 전체 상세 페이지 */
             <>
               {/* 클럽 헤더 */}
-              <div className="glass-card rounded-xl p-6 mb-6">
+              <div
+                className="pb-6 mb-6 border-b"
+                style={{ borderColor: 'var(--border-color)' }}
+              >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
                   <div>
                     <h1
@@ -789,7 +792,7 @@ export default function ClubDetailClient({ clubId: id }: Props) {
               {/* 회원 탭 */}
               <div className={`${activeTab !== "info" ? "hidden" : ""}`}>
                 {mountedTabs.has("info") && (
-                  <div className="glass-card rounded-xl p-6">
+                  <div className="mt-4">
                     <h2
                       className="font-display text-lg mb-4"
                       style={{ color: "var(--text-primary)" }}
