@@ -230,7 +230,7 @@ export default function CommunityPostClient({ postId: id }: Props) {
           </Link>
 
           {/* 포스트 헤더 */}
-          <article className="glass-card rounded-xl p-5 mb-5">
+          <article>
             {/* 카테고리 + 고정 + 비공개 배지 */}
             <div className="flex items-center gap-2 mb-1.5">
               <Badge variant={CATEGORY_VARIANT[post.category]}>
@@ -387,7 +387,10 @@ export default function CommunityPostClient({ postId: id }: Props) {
           </article>
 
           {/* 댓글 영역 */}
-          <div className="glass-card rounded-xl p-6">
+          <div
+            className="mt-8 pt-8 border-t"
+            style={{ borderColor: 'var(--border-color)' }}
+          >
             <CommentSection
               postId={post.id}
               currentUserId={user?.id}
