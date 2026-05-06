@@ -122,7 +122,8 @@ export default function EditPostPage() {
 
           {/* 공개/비공개 설정 */}
           <div
-            className="glass-card rounded-xl p-5 mb-4 flex items-center justify-between"
+            className="flex items-center justify-between pb-5 mb-5 border-b"
+            style={{ borderColor: 'var(--border-color)' }}
           >
             <div>
               <p className="font-medium text-sm" style={{ color: 'var(--text-primary)' }}>공개 설정</p>
@@ -148,20 +149,18 @@ export default function EditPostPage() {
             </button>
           </div>
 
-          <div className="glass-card rounded-xl p-6">
-            <PostForm
-              mode="edit"
-              initialData={{
-                category: post.category,
-                title: post.title,
-                content: post.content,
-                attachments: post.attachments,
-              }}
-              onSubmit={handleSubmit}
-              isAdmin={isAdminUser}
-              isSubmitting={submitting}
-            />
-          </div>
+          <PostForm
+            mode="edit"
+            initialData={{
+              category: post.category,
+              title: post.title,
+              content: post.content,
+              attachments: post.attachments,
+            }}
+            onSubmit={handleSubmit}
+            isAdmin={isAdminUser}
+            isSubmitting={submitting}
+          />
       </div>
 
       <Toast

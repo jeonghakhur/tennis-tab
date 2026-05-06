@@ -81,14 +81,12 @@ export default function NewPostPage() {
             글쓰기
           </h1>
 
-          <div className="glass-card rounded-xl p-6">
-            <PostForm
-              mode="create"
-              onSubmit={handleSubmit}
-              isAdmin={isAdminUser}
-              isSubmitting={submitting}
-            />
-          </div>
+          <PostForm
+            mode="create"
+            onSubmit={handleSubmit}
+            isAdmin={isAdminUser}
+            isSubmitting={submitting}
+          />
       </div>
 
       <Toast

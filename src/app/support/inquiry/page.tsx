@@ -85,9 +85,7 @@ export default function InquiryCreatePage() {
             1:1 문의하기
           </h1>
 
-          <div className="glass-card rounded-xl p-6">
-            <InquiryForm onSubmit={handleSubmit} isSubmitting={submitting} />
-          </div>
+          <InquiryForm onSubmit={handleSubmit} isSubmitting={submitting} />
         </div>
       </div>
 
