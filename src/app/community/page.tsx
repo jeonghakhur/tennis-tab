@@ -224,13 +224,22 @@ export default function CommunityPage() {
           </p>
         </div>
       ) : (
-        <div className="columns-1 md:columns-2 gap-5">
-          {posts.map((post) => (
-            <div key={post.id} className="break-inside-avoid mb-5">
-              <FeedCard post={post} isLoggedIn={isLoggedIn} />
-            </div>
-          ))}
-        </div>
+        <>
+          <div className="hidden md:flex gap-5 items-start">
+            {[posts.filter((_, i) => i % 2 === 0), posts.filter((_, i) => i % 2 === 1)].map((col, ci) => (
+              <div key={ci} className="flex-1 flex flex-col gap-5">
+                {col.map((post) => (
+                  <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-col gap-5 md:hidden">
+            {posts.map((post) => (
+              <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
+            ))}
+          </div>
+        </>
       )}
 
       {/* 무한 스크롤 sentinel */}

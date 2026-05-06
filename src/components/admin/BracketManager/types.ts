@@ -17,6 +17,7 @@ export interface BracketManagerProps {
   teamMatchCount: number | null;
   matchType: MatchType | null;
   tournamentStatus: TournamentStatus;
+  userRole?: string;
 }
 
 export interface BracketConfig {

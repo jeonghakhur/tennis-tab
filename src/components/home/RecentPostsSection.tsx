@@ -30,11 +30,18 @@ export function RecentPostsSection({ posts, isLoggedIn }: RecentPostsSectionProp
         </Link>
       </div>
 
-      <div className="columns-1 sm:columns-2 gap-4">
-        {posts.map((post) => (
-          <div key={post.id} className="break-inside-avoid mb-4">
-            <FeedCard post={post} isLoggedIn={isLoggedIn} />
+      <div className="hidden sm:flex gap-4 items-start">
+        {[posts.filter((_, i) => i % 2 === 0), posts.filter((_, i) => i % 2 === 1)].map((col, ci) => (
+          <div key={ci} className="flex-1 flex flex-col gap-4">
+            {col.map((post) => (
+              <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
+            ))}
           </div>
+        ))}
+      </div>
+      <div className="flex flex-col gap-4 sm:hidden">
+        {posts.map((post) => (
+          <FeedCard key={post.id} post={post} isLoggedIn={isLoggedIn} />
         ))}
       </div>
     </section>

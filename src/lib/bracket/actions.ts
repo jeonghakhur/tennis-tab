@@ -96,7 +96,7 @@ export interface BracketMatch {
  * 대진표 관리 권한 검증 (MANAGER 이상)
  * 모든 mutation 함수 시작부에서 호출
  */
-async function checkBracketManagementAuth(): Promise<{ error: string | null }> {
+async function checkBracketManagementAuth(): Promise<{ error: string | null; role?: string }> {
   const user = await getCurrentUser()
   if (!user) {
     return { error: '로그인이 필요합니다.' }
@@ -104,7 +104,7 @@ async function checkBracketManagementAuth(): Promise<{ error: string | null }> {
   if (!canManageTournaments(user.role)) {
     return { error: '대회 관리 권한이 없습니다.' }
   }
-  return { error: null }
+  return { error: null, role: user.role }
 }
 
 // ============================================================================
@@ -1128,9 +1128,11 @@ export async function updateMatchResult(
   const idError = validateId(matchId, '경기 ID')
   if (idError) return { error: idError }
 
-  // 마감된 대회 검증
-  const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
-  if (closedCheck.error) return { error: closedCheck.error }
+  // 마감된 대회 검증 — SUPER_ADMIN은 마감 후에도 점수 수정 가능
+  if (authResult.role !== 'SUPER_ADMIN') {
+    const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
+    if (closedCheck.error) return { error: closedCheck.error }
+  }
 
   const score1Error = validateNonNegativeInteger(team1Score, '팀1 점수')
   if (score1Error) return { error: score1Error }
@@ -1196,8 +1198,11 @@ export async function setMatchWinner(matchId: string, winnerEntryId: string) {
   const idError = validateId(matchId, '경기 ID') || validateId(winnerEntryId, '승자 entry ID')
   if (idError) return { error: idError }
 
-  const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
-  if (closedCheck.error) return { error: closedCheck.error }
+  // 마감된 대회 검증 — SUPER_ADMIN은 마감 후에도 점수 수정 가능
+  if (authResult.role !== 'SUPER_ADMIN') {
+    const closedCheck = await checkTournamentNotClosedByMatchId(matchId)
+    if (closedCheck.error) return { error: closedCheck.error }
+  }
 
   const supabaseAdmin = createAdminClient()
 

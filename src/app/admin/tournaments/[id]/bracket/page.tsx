@@ -79,6 +79,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
         teamMatchCount={tournament.team_match_count ?? null}
         matchType={tournament.match_type ?? null}
         tournamentStatus={tournament.status}
+        userRole={currentProfile?.role}
       />
     </div>
   )

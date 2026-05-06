@@ -60,12 +60,15 @@ export function BracketManager({
   teamMatchCount,
   matchType,
   tournamentStatus,
+  userRole,
 }: BracketManagerProps) {
   // 단체전 여부 판별
   const isTeamMatch =
     matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES";
   // 마감된 대회 여부 — 마감 시 모든 수정 UI 비활성화
   const isClosed = CLOSED_TOURNAMENT_STATUSES.includes(tournamentStatus);
+  // SUPER_ADMIN은 마감된 대회의 경기 점수만 수정 가능 (설정 변경은 불가)
+  const isSuperAdmin = userRole === 'SUPER_ADMIN';
   const [selectedDivision, setSelectedDivision] = useState(
     divisions.length > 0 ? divisions[0] : null,
   );
@@ -1001,15 +1004,15 @@ export function BracketManager({
                 config={config}
                 groups={groups}
                 matches={preliminaryMatches}
-                onMatchResult={isClosed ? undefined : handleMatchResult}
-                onSetWinner={isClosed ? undefined : handleSetWinner}
+                onMatchResult={(isClosed && !isSuperAdmin) ? undefined : handleMatchResult}
+                onSetWinner={(isClosed && !isSuperAdmin) ? undefined : handleSetWinner}
                 onAutoFill={isClosed ? undefined : handleAutoFillPreliminary}
                 onDelete={
                   isClosed ? undefined : () => setShowDeletePrelimConfirm(true)
                 }
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
-                onOpenDetail={isClosed ? undefined : handleOpenDetail}
+                onOpenDetail={(isClosed && !isSuperAdmin) ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
                 onToggleActive={isClosed ? undefined : handleTogglePreliminaryActive}
                 onProceedToSeeding={isClosed ? undefined : handleProceedToSeeding}
@@ -1021,8 +1024,8 @@ export function BracketManager({
                 config={config}
                 matches={mainMatches}
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
-                onMatchResult={isClosed ? undefined : handleMatchResult}
-                onSetWinner={isClosed ? undefined : handleSetWinner}
+                onMatchResult={(isClosed && !isSuperAdmin) ? undefined : handleMatchResult}
+                onSetWinner={(isClosed && !isSuperAdmin) ? undefined : handleSetWinner}
                 onDelete={
                   isClosed ? undefined : () => setShowDeleteMainConfirm(true)
                 }
@@ -1033,7 +1036,7 @@ export function BracketManager({
                 }
                 onTieWarning={handleTieWarning}
                 isTeamMatch={isTeamMatch}
-                onOpenDetail={isClosed ? undefined : handleOpenDetail}
+                onOpenDetail={(isClosed && !isSuperAdmin) ? undefined : handleOpenDetail}
                 onCourtBatchSave={isClosed ? undefined : handleCourtBatchSave}
                 seedingGroups={
                   seedingGroups.length > 0 ? seedingGroups : undefined
