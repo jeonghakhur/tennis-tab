@@ -8,30 +8,30 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tennis-tab.com'
+    process.env.NEXT_PUBLIC_SITE_URL ?? "https://tennis-tab.com",
   ),
   title: {
-    template: '%s | 마포구테니스협회',
-    default: '마포구테니스협회 | 테니스 대회의 새로운 기준',
+    template: "%s | 마포구테니스협회",
+    default: "마포구테니스협회",
   },
   description:
-    '대회 생성부터 참가 신청, 클럽 관리까지. 테니스 커뮤니티를 위한 올인원 플랫폼',
+    "마포구테니스협회 공식 웹앱. 대회 생성부터 참가 신청, 클럽 관리까지. 테니스 커뮤니티를 위한 올인원 플랫폼",
   openGraph: {
-    type: 'website',
-    locale: 'ko_KR',
-    siteName: '마포구테니스협회',
+    type: "website",
+    locale: "ko_KR",
+    siteName: "마포구테니스협회",
     images: [
       {
-        url: '/api/og',
+        url: "/api/og",
         width: 1200,
         height: 630,
-        alt: '마포구테니스협회 — 테니스 대회의 새로운 기준',
+        alt: "마포구테니스협회 — 테니스 대회의 새로운 기준",
       },
     ],
   },
   twitter: {
-    card: 'summary_large_image',
-    images: ['/api/og'],
+    card: "summary_large_image",
+    images: ["/api/og"],
   },
 };
 
@@ -44,9 +44,27 @@ export default function RootLayout({
     <html lang="ko" data-scroll-behavior="smooth" suppressHydrationWarning>
       <head>
         {/* 주요 폰트 preload - FOUT 방지 */}
-        <link rel="preload" href="/font/SUIT-Variable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/font/Paperlogy-7Bold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/font/Paperlogy-6SemiBold.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link
+          rel="preload"
+          href="/font/SUIT-Variable.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/font/Paperlogy-7Bold.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/font/Paperlogy-6SemiBold.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         {/* 테마 깜빡임 방지: React 로드 전에 테마 미리 적용 */}
         <script
           dangerouslySetInnerHTML={{
@@ -72,9 +90,7 @@ export default function RootLayout({
           <FontSizeProvider>
             <AuthProvider>
               <Navigation />
-              <main className="flex-1 pt-20">
-                {children}
-              </main>
+              <main className="flex-1 pt-20">{children}</main>
               <Footer />
             </AuthProvider>
           </FontSizeProvider>
