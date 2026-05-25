@@ -529,8 +529,7 @@ export default async function TournamentDetailPage({ params }: Props) {
                   { label: "경기 방식", value: formattedMatchType || "-", alt: false },
                   { label: "사용구", value: tournament.ball_type || "-", alt: true },
                   { label: "참가 자격", value: tournament.eligibility || "-", alt: false },
-                  { label: "개회식", value: formatDate(tournament.opening_ceremony), alt: true },
-                  { label: "문의", value: `${tournament.host} / ${organizerName}`, alt: false },
+                  { label: "개회식", value: formatDate(tournament.opening_ceremony), alt: false },
                 ].map((item) => (
                   <div
                     key={item.label}
