@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { sortDivisions } from "@/lib/tournaments/divisionSort";
 import TournamentActions from "@/components/tournaments/TournamentActions";
 import { createClient, getUserWithTimeout } from "@/lib/supabase/server";
 import { getTournamentForMeta } from "@/lib/meta/fetchers";
@@ -573,7 +574,7 @@ export default async function TournamentDetailPage({ params }: Props) {
             {tournament.tournament_divisions &&
             tournament.tournament_divisions.length > 0 ? (
               <div className="grid gap-4">
-                {tournament.tournament_divisions.map((division: any) => (
+                {sortDivisions(tournament.tournament_divisions as Array<{ name: string; display_order?: number | null }>).map((division: any) => (
                   <div
                     key={division.id}
                     className="rounded-xl p-6 transition-colors"
@@ -585,10 +586,15 @@ export default async function TournamentDetailPage({ params }: Props) {
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
                       <div>
                         <h3
-                          className="text-xl font-bold mb-1"
+                          className="text-xl font-bold mb-1 flex items-center gap-2"
                           style={{ color: "var(--text-primary)" }}
                         >
                           {division.name}
+                          {division.solo_entry && tournament.match_type === "INDIVIDUAL_DOUBLES" && (
+                            <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30">
+                              개인 접수
+                            </span>
+                          )}
                         </h3>
                         <div
                           className="flex items-center gap-3 text-sm"

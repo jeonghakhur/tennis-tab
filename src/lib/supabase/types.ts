@@ -207,6 +207,8 @@ export interface Database {
           prize_runner_up: string | null
           prize_third: string | null
           notes: string | null
+          display_order: number
+          solo_entry: boolean
           created_at: string
           updated_at: string
         }
@@ -222,6 +224,8 @@ export interface Database {
           prize_runner_up?: string | null
           prize_third?: string | null
           notes?: string | null
+          display_order?: number
+          solo_entry?: boolean
           created_at?: string
           updated_at?: string
         }
@@ -237,6 +241,8 @@ export interface Database {
           prize_runner_up?: string | null
           prize_third?: string | null
           notes?: string | null
+          display_order?: number
+          solo_entry?: boolean
           updated_at?: string
         }
       }

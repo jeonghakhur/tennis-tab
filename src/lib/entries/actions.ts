@@ -267,6 +267,8 @@ export async function createEntry(
         // 7. 참가 신청 생성 (Service Role로 INSERT → RLS 우회, 이미 본인 user_id로 검증됨)
         // phone 정규화: UI에서 이미 unformat 되지만 서버 레이어에서도 방어적으로 재적용
         const normalizedEntryPhone = unformatPhoneNumber(entryData.phone ?? '')
+        // 개인 접수 부서: 파트너 정보 강제 NULL (클라이언트가 우회해도 서버에서 차단)
+        const isSoloEntry = (division as { solo_entry?: boolean }).solo_entry === true;
         const insertPayload: Record<string, unknown> = {
             tournament_id: tournamentId,
             user_id: user.id,
@@ -276,8 +278,8 @@ export async function createEntry(
             player_rating: entryData.playerRating ?? null,
             club_name: entryData.clubName ?? null,
             team_order: finalTeamOrder ?? null,
-            partner_data: entryData.partnerData ?? null,
-            partner_user_id: entryData.partnerUserId ?? null,
+            partner_data: isSoloEntry ? null : (entryData.partnerData ?? null),
+            partner_user_id: isSoloEntry ? null : (entryData.partnerUserId ?? null),
             team_members: entryData.teamMembers ?? null,
             applicant_participates: entryData.applicantParticipates ?? true,
             status: initialStatus,
@@ -744,6 +746,9 @@ export async function updateEntry(
             }
         }
 
+        // 개인 접수 부서: 파트너 정보 강제 NULL
+        const isSoloEntry = (division as { solo_entry?: boolean }).solo_entry === true;
+
         // 8. 신청 정보 업데이트 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
         const admin = createAdminClient();
         const { error: updateError } = await admin
@@ -756,8 +761,8 @@ export async function updateEntry(
                 player_rating: entryData.playerRating,
                 club_name: entryData.clubName ?? null,
                 team_order: finalTeamOrder ?? null,
-                partner_data: entryData.partnerData ?? null,
-                partner_user_id: entryData.partnerUserId ?? null,
+                partner_data: isSoloEntry ? null : (entryData.partnerData ?? null),
+                partner_user_id: isSoloEntry ? null : (entryData.partnerUserId ?? null),
                 team_members: entryData.teamMembers ?? null,
                 applicant_participates: entryData.applicantParticipates ?? true,
                 refund_bank: entryData.refundBank ?? null,

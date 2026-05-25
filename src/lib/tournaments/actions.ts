@@ -46,6 +46,10 @@ export type DivisionInput = {
   prize_runner_up: string | null
   prize_third: string | null
   notes: string | null
+  /** 표시 순서 (작은 값이 먼저, 0/null은 뒤로) */
+  display_order?: number | null
+  /** 개인 접수 — INDIVIDUAL_DOUBLES 대회에서 파트너 없이 본인만 신청 가능 */
+  solo_entry?: boolean
 }
 
 // 대회 데이터 타입 (DB Insert/Update용)
@@ -227,6 +231,9 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
           prize_runner_up: div.prize_runner_up,
           prize_third: div.prize_third,
           notes: div.notes,
+          display_order: div.display_order ?? 0,
+          // solo_entry는 INDIVIDUAL_DOUBLES에서만 의미. 다른 매치 타입이면 강제 false
+          solo_entry: matchType === 'INDIVIDUAL_DOUBLES' ? !!div.solo_entry : false,
         }))
 
         // Use supabaseAdmin
@@ -435,6 +442,9 @@ export async function updateTournament(
           prize_runner_up: div.prize_runner_up,
           prize_third: div.prize_third,
           notes: div.notes,
+          display_order: div.display_order ?? 0,
+          // solo_entry는 INDIVIDUAL_DOUBLES에서만 의미
+          solo_entry: matchType === 'INDIVIDUAL_DOUBLES' ? !!div.solo_entry : false,
         }
 
         if (div.id && existingIds.includes(div.id)) {

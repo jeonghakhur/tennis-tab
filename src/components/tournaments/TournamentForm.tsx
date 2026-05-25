@@ -30,6 +30,8 @@ const emptyDivision: DivisionInput = {
     prize_runner_up: null,
     prize_third: null,
     notes: null,
+    display_order: null,
+    solo_entry: false,
 };
 
 // 날짜를 datetime-local input 형식으로 변환
@@ -87,6 +89,8 @@ export interface TournamentFormData {
         prize_runner_up: string | null;
         prize_third: string | null;
         notes: string | null;
+        display_order?: number | null;
+        solo_entry?: boolean;
     }>;
 }
 
@@ -117,6 +121,8 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
             prize_runner_up: div.prize_runner_up,
             prize_third: div.prize_third,
             notes: div.notes,
+            display_order: div.display_order ?? null,
+            solo_entry: div.solo_entry ?? false,
         })) || []
     );
 
@@ -124,6 +130,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
 
     const canCreateTournament = profile?.role && ALLOWED_ROLES.includes(profile.role);
     const isTeamMatch = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES';
+    const isIndividualDoubles = matchType === 'INDIVIDUAL_DOUBLES';
 
     const addDivision = () => {
         // 기존 부서가 있으면 마지막 부서를 복사, 없으면 빈 부서
@@ -517,7 +524,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                     </button>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
                                         <label className={labelClass}>부서명 *</label>
                                         <input
@@ -539,6 +546,17 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                             placeholder="예: 16"
                                         />
                                     </div>
+                                    <div>
+                                        <label className={labelClass} title="작은 값이 먼저 노출됩니다 (0/빈 값은 뒤로)">정렬 순서</label>
+                                        <input
+                                            type="text"
+                                            inputMode="numeric"
+                                            value={division.display_order ?? ''}
+                                            onChange={(e) => updateDivision(index, 'display_order', e.target.value ? parseInt(e.target.value) : null)}
+                                            className={inputClass}
+                                            placeholder="예: 1"
+                                        />
+                                    </div>
                                 </div>
 
                                 {isTeamMatch && (
@@ -553,6 +571,24 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                             placeholder="예: 5"
                                         />
                                     </div>
+                                )}
+
+                                {/* 개인 접수: INDIVIDUAL_DOUBLES 전용 — 파트너 없이 본인만 신청 가능 */}
+                                {isIndividualDoubles && (
+                                    <label className="flex items-start gap-2 p-3 rounded-lg bg-(--bg-card) border border-(--border-color) cursor-pointer">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!division.solo_entry}
+                                            onChange={(e) => updateDivision(index, 'solo_entry', e.target.checked)}
+                                            className="mt-0.5"
+                                        />
+                                        <div>
+                                            <div className="text-sm font-medium text-(--text-primary)">개인 접수</div>
+                                            <div className="text-xs text-(--text-muted) mt-0.5">
+                                                체크 시 이 부서는 파트너 정보 없이 본인만 신청 가능합니다.
+                                            </div>
+                                        </div>
+                                    </label>
                                 )}
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

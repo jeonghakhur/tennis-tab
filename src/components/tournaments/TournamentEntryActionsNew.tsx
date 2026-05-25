@@ -21,6 +21,7 @@ interface Division {
   name: string;
   max_teams: number | null;
   team_member_limit: number | null;
+  solo_entry?: boolean;
 }
 
 interface UserProfile {

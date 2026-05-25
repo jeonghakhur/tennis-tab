@@ -31,6 +31,8 @@ interface Division {
   name: string;
   max_teams: number | null;
   team_member_limit: number | null;
+  /** 개인 접수 부서 — INDIVIDUAL_DOUBLES에서 파트너 없이 본인만 신청 가능 */
+  solo_entry?: boolean;
 }
 
 interface UserProfile {
@@ -472,8 +474,8 @@ export default function TournamentEntryForm({
       }
     }
 
-    // 경기 타입별 유효성 검사
-    if (matchType === "INDIVIDUAL_DOUBLES") {
+    // 경기 타입별 유효성 검사 (개인 접수 부서는 파트너 검증 건너뜀)
+    if (matchType === "INDIVIDUAL_DOUBLES" && !selectedDivision?.solo_entry) {
       if (!partnerName || !partnerClub || partnerRating === null) {
         setAlertDialog({
           isOpen: true,
@@ -545,8 +547,8 @@ export default function TournamentEntryForm({
       refundHolder: entryFee > 0 ? (refundHolder || null) : null,
     };
 
-    // 경기 타입별 추가 데이터
-    if (matchType === "INDIVIDUAL_DOUBLES") {
+    // 경기 타입별 추가 데이터 (개인 접수 부서는 파트너 데이터 생략)
+    if (matchType === "INDIVIDUAL_DOUBLES" && !selectedDivision?.solo_entry) {
       formData.partnerData = {
         name: partnerName,
         club: partnerClub,
@@ -710,8 +712,8 @@ export default function TournamentEntryForm({
             </div>
           )}
 
-          {/* 개인전 복식 - 파트너 정보 */}
-          {matchType === "INDIVIDUAL_DOUBLES" && (
+          {/* 개인전 복식 - 파트너 정보 (개인 접수 부서는 파트너 불필요) */}
+          {matchType === "INDIVIDUAL_DOUBLES" && !selectedDivision?.solo_entry && (
             <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
               <h3 className="font-semibold text-(--text-primary)">
                 파트너 정보
