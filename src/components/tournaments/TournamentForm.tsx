@@ -232,7 +232,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const labelClass = "block text-sm font-medium mb-1";
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8 max-w-4xl mx-auto sm:p-6">
+        <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8 max-w-4xl mx-auto sm:p-6 pb-24 sm:pb-0">
             <div className="space-y-2">
                 <h2 className="text-2xl font-bold">{isEditMode ? '대회 수정' : '대회 만들기'}</h2>
                 <p className="text-gray-500">
@@ -673,12 +673,24 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                 />
             </section>
 
-            <div className="flex justify-end gap-3 pt-4">
+            {/* 액션 버튼 영역 — 모바일은 하단 플로팅(fixed), 데스크톱은 기존 인라인 */}
+            <div
+                className="
+                    fixed sm:static bottom-0 left-0 right-0 z-20
+                    flex sm:justify-end items-stretch gap-3
+                    px-4 sm:px-0 py-3 sm:py-0 sm:pt-4
+                    bg-(--bg-primary)/95 sm:bg-transparent
+                    backdrop-blur sm:backdrop-blur-none
+                    border-t sm:border-t-0 border-(--border-color)
+                    shadow-[0_-2px_8px_rgba(0,0,0,0.08)] sm:shadow-none
+                    pb-[max(env(safe-area-inset-bottom),0.75rem)] sm:pb-0
+                "
+            >
                 {isEditMode && (
                     <button
                         type="button"
                         onClick={() => router.back()}
-                        className="bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-(--text-primary) font-medium py-3 px-8 rounded-lg transition-colors"
+                        className="flex-1 sm:flex-none bg-gray-200 hover:bg-gray-300 dark:bg-gray-700 dark:hover:bg-gray-600 text-(--text-primary) font-medium py-3 px-6 sm:px-8 rounded-lg transition-colors"
                     >
                         취소
                     </button>
@@ -686,7 +698,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                 <button
                     type="submit"
                     disabled={loading}
-                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-8 rounded-lg transition-colors disabled:opacity-50"
+                    className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-6 sm:px-8 rounded-lg transition-colors disabled:opacity-50"
                 >
                     {loading ? (isEditMode ? '수정 중...' : '저장 중...') : (isEditMode ? '대회 수정하기' : '초안으로 저장하기')}
                 </button>
