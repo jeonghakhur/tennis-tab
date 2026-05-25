@@ -465,9 +465,10 @@ export async function updateTournament(
     }
   }
 
-  // 8. 캐시 무효화
+  // 8. 캐시 무효화 — 수정 페이지 재진입 시 stale 데이터로 보이지 않도록 edit 경로도 포함
   revalidatePath('/tournaments')
   revalidatePath(`/tournaments/${tournamentId}`)
+  revalidatePath(`/tournaments/${tournamentId}/edit`)
 
   return { success: true, tournamentId }
 }
