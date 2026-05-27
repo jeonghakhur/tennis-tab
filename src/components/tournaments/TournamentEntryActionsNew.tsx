@@ -90,13 +90,17 @@ export default function TournamentEntryActions({
   const pathname = usePathname();
   const [isSubmitting, setIsSubmitting] = useState(false);
   // 입금 완료 처리 중인 entry id (카드별 독립 로딩 상태)
-  const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(null);
+  const [submittingPaymentId, setSubmittingPaymentId] = useState<string | null>(
+    null,
+  );
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showEntryForm, setShowEntryForm] = useState(false);
   const [showEditForm, setShowEditForm] = useState(false);
   const [mounted, setMounted] = useState(false);
   // 서버에서 전달된 entries를 초기값으로, 클라이언트에서도 최신 데이터로 갱신
-  const [entries, setEntries] = useState<CurrentEntry[]>(myEntries as CurrentEntry[]);
+  const [entries, setEntries] = useState<CurrentEntry[]>(
+    myEntries as CurrentEntry[],
+  );
   // 수정/취소 대상 entry id
   const [activeEntryId, setActiveEntryId] = useState<string | null>(null);
   // 취소 확인 모달 대상 entry id
@@ -104,7 +108,9 @@ export default function TournamentEntryActions({
   // 모바일 플로팅 바 — 다중 신청 시 접힘/펼침
   const [isFloatingExpanded, setIsFloatingExpanded] = useState(false);
   // 참가 신청 완료 후 결제 유도 모달 (entryFee > 0인 경우)
-  const [paymentPrompt, setPaymentPrompt] = useState<{ entryId: string } | null>(null);
+  const [paymentPrompt, setPaymentPrompt] = useState<{
+    entryId: string;
+  } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{
     isOpen: boolean;
     title: string;
@@ -159,7 +165,8 @@ export default function TournamentEntryActions({
 
   const withinPeriod = isWithinEntryPeriod();
   // 어드민은 대회 상태·기간 무관 신청 가능
-  const canAcceptEntry = (tournamentStatus === "OPEN" && withinPeriod) || isAdmin;
+  const canAcceptEntry =
+    (tournamentStatus === "OPEN" && withinPeriod) || isAdmin;
 
   // 참가 신청 폼 제출 처리 (신규)
   const handleSubmit = async (data: EntryFormData) => {
@@ -192,7 +199,8 @@ export default function TournamentEntryActions({
 
   // 참가 신청 수정 처리 (activeEntryId 기준)
   const handleUpdate = async (data: EntryFormData) => {
-    if (!activeEntryId) return { success: false, error: "수정 대상 신청 정보가 없습니다." };
+    if (!activeEntryId)
+      return { success: false, error: "수정 대상 신청 정보가 없습니다." };
 
     const result = await updateEntry(activeEntryId, {
       divisionId: data.divisionId,
@@ -260,7 +268,7 @@ export default function TournamentEntryActions({
         title: "입금 확인 완료",
         message:
           result.status === "CONFIRMED"
-            ? "입금이 확인되었습니다. 참가가 확정되었습니다!"
+            ? "입금이 확인되었습니다. 참가자 정보 확인 후 확정으로 변경됩니다."
             : "입금이 확인되었습니다. 정원 초과로 대기자 명단에 등록되었습니다.",
         type: result.status === "CONFIRMED" ? "success" : "warning",
       });
@@ -280,7 +288,7 @@ export default function TournamentEntryActions({
     if (isSubmitting) return;
 
     setIsSubmitting(true);
-    const result = await updateTournamentStatus(tournamentId, 'CLOSED');
+    const result = await updateTournamentStatus(tournamentId, "CLOSED");
     setIsSubmitting(false);
     setShowCloseModal(false);
 
@@ -304,38 +312,39 @@ export default function TournamentEntryActions({
 
   // 신청 상태 배지 — alpha 기반으로 다크/라이트 모두 호환
   const getStatusBadge = (status: string) => {
-    const badges: Record<string, { text: string; bg: string; color: string }> = {
-      PENDING: {
-        text: "승인 대기중",
-        bg: "rgba(245, 158, 11, 0.15)",
-        color: "#d97706",
-      },
-      APPROVED: {
-        text: "승인됨",
-        bg: "rgba(16, 185, 129, 0.15)",
-        color: "#059669",
-      },
-      REJECTED: {
-        text: "거절됨",
-        bg: "rgba(239, 68, 68, 0.15)",
-        color: "#dc2626",
-      },
-      CONFIRMED: {
-        text: "확정",
-        bg: "rgba(16, 185, 129, 0.15)",
-        color: "#059669",
-      },
-      WAITLISTED: {
-        text: "대기자",
-        bg: "rgba(245, 158, 11, 0.15)",
-        color: "#d97706",
-      },
-      CANCELLED: {
-        text: "취소됨",
-        bg: "var(--bg-card-hover)",
-        color: "var(--text-muted)",
-      },
-    };
+    const badges: Record<string, { text: string; bg: string; color: string }> =
+      {
+        PENDING: {
+          text: "승인 대기중",
+          bg: "rgba(245, 158, 11, 0.15)",
+          color: "#d97706",
+        },
+        APPROVED: {
+          text: "승인됨",
+          bg: "rgba(16, 185, 129, 0.15)",
+          color: "#059669",
+        },
+        REJECTED: {
+          text: "거절됨",
+          bg: "rgba(239, 68, 68, 0.15)",
+          color: "#dc2626",
+        },
+        CONFIRMED: {
+          text: "확정",
+          bg: "rgba(16, 185, 129, 0.15)",
+          color: "#059669",
+        },
+        WAITLISTED: {
+          text: "대기자",
+          bg: "rgba(245, 158, 11, 0.15)",
+          color: "#d97706",
+        },
+        CANCELLED: {
+          text: "취소됨",
+          bg: "var(--bg-card-hover)",
+          color: "var(--text-muted)",
+        },
+      };
 
     const badge = badges[status] || badges.PENDING;
 
@@ -372,9 +381,14 @@ export default function TournamentEntryActions({
     if (!isLoggedIn) {
       return (
         <button
-          onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)}
+          onClick={() =>
+            router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)
+          }
           className="flex-1 rounded-xl py-3 font-medium transition-all hover:opacity-80"
-          style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+          style={{
+            backgroundColor: "var(--bg-card-hover)",
+            color: "var(--text-secondary)",
+          }}
         >
           로그인하기
         </button>
@@ -389,18 +403,32 @@ export default function TournamentEntryActions({
           return (
             <div className="flex-1 flex items-center gap-3">
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   내 신청 {entries.length}팀
                 </p>
-                <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
-                  {entries.filter((e) => !["CANCELLED", "REJECTED"].includes(e.status)).length}팀 활성
+                <p
+                  className="text-xs mt-0.5"
+                  style={{ color: "var(--text-muted)" }}
+                >
+                  {
+                    entries.filter(
+                      (e) => !["CANCELLED", "REJECTED"].includes(e.status),
+                    ).length
+                  }
+                  팀 활성
                 </p>
               </div>
               {canAcceptEntry && (
                 <button
                   onClick={() => setShowEntryForm(true)}
                   className="rounded-xl px-4 py-2.5 text-sm font-medium transition-all hover:opacity-80"
-                  style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                  style={{
+                    backgroundColor: "var(--accent-color)",
+                    color: "var(--bg-primary)",
+                  }}
                 >
                   + 추가 신청
                 </button>
@@ -410,24 +438,46 @@ export default function TournamentEntryActions({
         }
 
         return (
-          <div className="flex-1 flex flex-col gap-3 overflow-y-auto" style={{ maxHeight: "60vh" }}>
-            <span className="text-xs font-medium" style={{ color: "var(--text-muted)" }}>
+          <div
+            className="flex-1 flex flex-col gap-3 overflow-y-auto"
+            style={{ maxHeight: "60vh" }}
+          >
+            <span
+              className="text-xs font-medium"
+              style={{ color: "var(--text-muted)" }}
+            >
               내 신청 {entries.length}팀
             </span>
             {entries.map((e, idx) => {
               const isActive = !["CANCELLED", "REJECTED"].includes(e.status);
               const canModify = canAcceptEntry && isActive;
-              const isPendingPayment = entryFee > 0 && e.payment_status === "PENDING" && isActive;
-              const divisionName = divisions.find((d) => d.id === e.division_id)?.name;
+              const isPendingPayment =
+                entryFee > 0 && e.payment_status === "PENDING" && isActive;
+              const divisionName = divisions.find(
+                (d) => d.id === e.division_id,
+              )?.name;
               return (
-                <div key={e.id} className="flex flex-col gap-1.5 rounded-xl p-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
+                <div
+                  key={e.id}
+                  className="flex flex-col gap-1.5 rounded-xl p-3"
+                  style={{
+                    backgroundColor: "var(--bg-card)",
+                    border: "1px solid var(--border-color)",
+                  }}
+                >
                   <div className="flex items-center gap-2">
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                      <p
+                        className="text-sm font-medium truncate"
+                        style={{ color: "var(--text-primary)" }}
+                      >
                         {e.player_name || `팀 ${idx + 1}`}
                       </p>
                       {divisionName && (
-                        <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                        <p
+                          className="text-xs mt-0.5"
+                          style={{ color: "var(--text-muted)" }}
+                        >
                           {divisionName}
                         </p>
                       )}
@@ -441,16 +491,31 @@ export default function TournamentEntryActions({
                           onClick={() => handleConfirmPayment(e.id)}
                           disabled={submittingPaymentId === e.id}
                           className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                          style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                          style={{
+                            backgroundColor: "var(--accent-color)",
+                            color: "var(--bg-primary)",
+                          }}
                         >
-                          {submittingPaymentId === e.id ? "처리 중..." : "입금 완료"}
+                          {submittingPaymentId === e.id
+                            ? "처리 중..."
+                            : "입금 완료"}
                         </button>
                       )}
                       <button
-                        onClick={() => { setActiveEntryId(e.id); setShowEditForm(true); }}
+                        onClick={() => {
+                          setActiveEntryId(e.id);
+                          setShowEditForm(true);
+                        }}
                         disabled={submittingPaymentId === e.id || isSubmitting}
                         className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
-                        style={{ backgroundColor: isPendingPayment ? "var(--bg-card-hover)" : "var(--accent-color)", color: isPendingPayment ? "var(--text-secondary)" : "var(--bg-primary)" }}
+                        style={{
+                          backgroundColor: isPendingPayment
+                            ? "var(--bg-card-hover)"
+                            : "var(--accent-color)",
+                          color: isPendingPayment
+                            ? "var(--text-secondary)"
+                            : "var(--bg-primary)",
+                        }}
                       >
                         수정하기
                       </button>
@@ -458,7 +523,10 @@ export default function TournamentEntryActions({
                         onClick={() => setCancelEntryId(e.id)}
                         disabled={submittingPaymentId === e.id || isSubmitting}
                         className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
-                        style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+                        style={{
+                          backgroundColor: "var(--bg-card-hover)",
+                          color: "var(--text-secondary)",
+                        }}
                       >
                         취소하기
                       </button>
@@ -471,7 +539,11 @@ export default function TournamentEntryActions({
               <button
                 onClick={() => setShowEntryForm(true)}
                 className="w-full rounded-xl py-3 text-sm font-medium transition-all hover:opacity-80"
-                style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)", border: "1px dashed var(--border-color)" }}
+                style={{
+                  backgroundColor: "var(--bg-card-hover)",
+                  color: "var(--text-secondary)",
+                  border: "1px dashed var(--border-color)",
+                }}
               >
                 + 추가 신청
               </button>
@@ -484,20 +556,37 @@ export default function TournamentEntryActions({
       const entry = entries[0];
       const isActive = !["CANCELLED", "REJECTED"].includes(entry.status);
       const canModify = canAcceptEntry && isActive;
-      const divisionName = divisions.find((d) => d.id === entry.division_id)?.name;
-      const isPendingPayment = entryFee > 0 && entry.payment_status === "PENDING" && isActive;
+      const divisionName = divisions.find(
+        (d) => d.id === entry.division_id,
+      )?.name;
+      const isPendingPayment =
+        entryFee > 0 && entry.payment_status === "PENDING" && isActive;
 
       if (isActive) {
         return (
           <div className="flex-1 flex flex-col gap-2">
             {/* 이름 + 부서 + 상태 */}
-            <div className="flex items-center gap-2 rounded-xl p-3" style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}>
+            <div
+              className="flex items-center gap-2 rounded-xl p-3"
+              style={{
+                backgroundColor: "var(--bg-card)",
+                border: "1px solid var(--border-color)",
+              }}
+            >
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>
+                <p
+                  className="text-sm font-medium truncate"
+                  style={{ color: "var(--text-primary)" }}
+                >
                   {entry.player_name || "신청"}
                 </p>
                 {divisionName && (
-                  <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>{divisionName}</p>
+                  <p
+                    className="text-xs mt-0.5"
+                    style={{ color: "var(--text-muted)" }}
+                  >
+                    {divisionName}
+                  </p>
                 )}
               </div>
               {getStatusBadge(entry.status)}
@@ -511,16 +600,31 @@ export default function TournamentEntryActions({
                     onClick={() => handleConfirmPayment(entry.id)}
                     disabled={submittingPaymentId === entry.id}
                     className="flex-1 rounded-xl py-2.5 text-sm font-bold transition-all hover:opacity-90 disabled:opacity-50"
-                    style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                    style={{
+                      backgroundColor: "var(--accent-color)",
+                      color: "var(--bg-primary)",
+                    }}
                   >
-                    {submittingPaymentId === entry.id ? "처리 중..." : "입금 완료"}
+                    {submittingPaymentId === entry.id
+                      ? "처리 중..."
+                      : "입금 완료"}
                   </button>
                 )}
                 <button
-                  onClick={() => { setActiveEntryId(entry.id); setShowEditForm(true); }}
+                  onClick={() => {
+                    setActiveEntryId(entry.id);
+                    setShowEditForm(true);
+                  }}
                   disabled={isSubmitting}
                   className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
-                  style={{ backgroundColor: isPendingPayment ? "var(--bg-card-hover)" : "var(--accent-color)", color: isPendingPayment ? "var(--text-secondary)" : "var(--bg-primary)" }}
+                  style={{
+                    backgroundColor: isPendingPayment
+                      ? "var(--bg-card-hover)"
+                      : "var(--accent-color)",
+                    color: isPendingPayment
+                      ? "var(--text-secondary)"
+                      : "var(--bg-primary)",
+                  }}
                 >
                   수정하기
                 </button>
@@ -528,7 +632,10 @@ export default function TournamentEntryActions({
                   onClick={() => setCancelEntryId(entry.id)}
                   disabled={isSubmitting}
                   className="flex-1 rounded-xl py-2.5 text-sm font-medium transition-all disabled:opacity-50 hover:opacity-80"
-                  style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+                  style={{
+                    backgroundColor: "var(--bg-card-hover)",
+                    color: "var(--text-secondary)",
+                  }}
                 >
                   취소하기
                 </button>
@@ -540,7 +647,11 @@ export default function TournamentEntryActions({
               <button
                 onClick={() => setShowEntryForm(true)}
                 className="w-full rounded-xl py-2.5 text-sm font-medium transition-all hover:opacity-80"
-                style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)", border: "1px dashed var(--border-color)" }}
+                style={{
+                  backgroundColor: "var(--bg-card-hover)",
+                  color: "var(--text-secondary)",
+                  border: "1px dashed var(--border-color)",
+                }}
               >
                 + 추가 팀 신청하기
               </button>
@@ -557,7 +668,10 @@ export default function TournamentEntryActions({
         <button
           onClick={() => setShowEntryForm(true)}
           className="flex-1 rounded-xl py-3 font-bold transition-all hover:opacity-90"
-          style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+          style={{
+            backgroundColor: "var(--accent-color)",
+            color: "var(--bg-primary)",
+          }}
         >
           참가 신청하기
         </button>
@@ -565,7 +679,10 @@ export default function TournamentEntryActions({
     }
 
     return (
-      <span className="flex-1 text-center text-sm py-3" style={{ color: "var(--text-muted)" }}>
+      <span
+        className="flex-1 text-center text-sm py-3"
+        style={{ color: "var(--text-muted)" }}
+      >
         {tournamentStatus === "UPCOMING" && "접수 예정"}
         {tournamentStatus === "CLOSED" && "접수 마감"}
         {tournamentStatus === "IN_PROGRESS" && "대회 진행 중"}
@@ -600,12 +717,19 @@ export default function TournamentEntryActions({
             // 로그인하지 않은 경우
             <>
               <div className="text-center py-4">
-                <p className="text-sm mb-4" style={{ color: "var(--text-muted)" }}>
+                <p
+                  className="text-sm mb-4"
+                  style={{ color: "var(--text-muted)" }}
+                >
                   참가 신청을 하려면 로그인이 필요합니다.
                 </p>
               </div>
               <button
-                onClick={() => router.push(`/auth/login?redirect=${encodeURIComponent(pathname)}`)}
+                onClick={() =>
+                  router.push(
+                    `/auth/login?redirect=${encodeURIComponent(pathname)}`,
+                  )
+                }
                 className="w-full rounded-xl py-3 font-medium transition-all hover:opacity-80"
                 style={{
                   backgroundColor: "var(--bg-card-hover)",
@@ -619,7 +743,9 @@ export default function TournamentEntryActions({
             // 신청 내역 있는 경우: 카드 목록 + 추가 신청 버튼
             <>
               {entries.map((entry) => {
-                const isActive = !["CANCELLED", "REJECTED"].includes(entry.status);
+                const isActive = !["CANCELLED", "REJECTED"].includes(
+                  entry.status,
+                );
                 const canModify = canAcceptEntry && isActive;
                 const teamLabel = entry.club_name
                   ? entry.team_order
@@ -627,22 +753,33 @@ export default function TournamentEntryActions({
                     : entry.club_name
                   : entry.player_name || "신청";
 
-                const divisionName = divisions.find((d) => d.id === entry.division_id)?.name;
+                const divisionName = divisions.find(
+                  (d) => d.id === entry.division_id,
+                )?.name;
 
                 return (
                   <div
                     key={entry.id}
                     className="rounded-xl p-4 space-y-3"
-                    style={{ backgroundColor: "var(--bg-card)", border: "1px solid var(--border-color)" }}
+                    style={{
+                      backgroundColor: "var(--bg-card)",
+                      border: "1px solid var(--border-color)",
+                    }}
                   >
                     {/* 팀명 + 신청 상태 */}
                     <div className="flex justify-between items-center">
                       <div>
-                        <span className="font-medium text-sm" style={{ color: "var(--text-primary)" }}>
+                        <span
+                          className="font-medium text-sm"
+                          style={{ color: "var(--text-primary)" }}
+                        >
                           {teamLabel}
                         </span>
                         {divisionName && (
-                          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                          <p
+                            className="text-xs mt-0.5"
+                            style={{ color: "var(--text-muted)" }}
+                          >
                             {divisionName}
                           </p>
                         )}
@@ -666,7 +803,10 @@ export default function TournamentEntryActions({
                     {/* 결제 상태 (참가비 있을 때만) */}
                     {entryFee > 0 && (
                       <div className="flex justify-between items-center">
-                        <span className="text-sm" style={{ color: "var(--text-muted)" }}>
+                        <span
+                          className="text-sm"
+                          style={{ color: "var(--text-muted)" }}
+                        >
                           결제 여부
                         </span>
                         {getPaymentBadge(entry.payment_status)}
@@ -674,39 +814,65 @@ export default function TournamentEntryActions({
                     )}
 
                     {/* 입금 계좌 + 입금 완료 버튼 */}
-                    {entryFee > 0 && entry.payment_status === "PENDING" && isActive && (
-                      <div className="space-y-2">
-                        {bankAccount && (
-                          <div
-                            className="rounded-lg p-3 text-sm"
-                            style={{ backgroundColor: "var(--bg-secondary)" }}
+                    {entryFee > 0 &&
+                      entry.payment_status === "PENDING" &&
+                      isActive && (
+                        <div className="space-y-2">
+                          {bankAccount && (
+                            <div
+                              className="rounded-lg p-3 text-sm"
+                              style={{ backgroundColor: "var(--bg-secondary)" }}
+                            >
+                              <p
+                                style={{ color: "var(--text-muted)" }}
+                                className="mb-1"
+                              >
+                                입금 계좌
+                              </p>
+                              <p
+                                className="font-medium"
+                                style={{ color: "var(--text-primary)" }}
+                              >
+                                {bankAccount}
+                              </p>
+                              <p
+                                className="mt-1 text-xs"
+                                style={{ color: "var(--text-muted)" }}
+                              >
+                                입금자명: {entry.player_name || "신청자 이름"}
+                              </p>
+                            </div>
+                          )}
+                          <button
+                            onClick={() => handleConfirmPayment(entry.id)}
+                            disabled={submittingPaymentId === entry.id}
+                            className="w-full rounded-xl py-2.5 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                            style={{
+                              backgroundColor: "var(--accent-color)",
+                              color: "var(--bg-primary)",
+                            }}
                           >
-                            <p style={{ color: "var(--text-muted)" }} className="mb-1">입금 계좌</p>
-                            <p className="font-medium" style={{ color: "var(--text-primary)" }}>{bankAccount}</p>
-                            <p className="mt-1 text-xs" style={{ color: "var(--text-muted)" }}>
-                              입금자명: {entry.player_name || "신청자 이름"}
-                            </p>
-                          </div>
-                        )}
-                        <button
-                          onClick={() => handleConfirmPayment(entry.id)}
-                          disabled={submittingPaymentId === entry.id}
-                          className="w-full rounded-xl py-2.5 font-bold transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                          style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
-                        >
-                          {submittingPaymentId === entry.id ? "처리 중..." : `입금 완료 (${entryFee.toLocaleString('ko-KR')}원)`}
-                        </button>
-                      </div>
-                    )}
+                            {submittingPaymentId === entry.id
+                              ? "처리 중..."
+                              : `입금 완료 (${entryFee.toLocaleString("ko-KR")}원)`}
+                          </button>
+                        </div>
+                      )}
 
                     {/* 수정/취소 버튼 */}
                     {canModify && (
                       <div className="flex gap-2 pt-1">
                         <button
-                          onClick={() => { setActiveEntryId(entry.id); setShowEditForm(true); }}
+                          onClick={() => {
+                            setActiveEntryId(entry.id);
+                            setShowEditForm(true);
+                          }}
                           disabled={isSubmitting}
                           className="flex-1 rounded-xl py-2 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
-                          style={{ backgroundColor: "var(--accent-color)", color: "var(--bg-primary)" }}
+                          style={{
+                            backgroundColor: "var(--accent-color)",
+                            color: "var(--bg-primary)",
+                          }}
                         >
                           수정하기
                         </button>
@@ -714,7 +880,10 @@ export default function TournamentEntryActions({
                           onClick={() => setCancelEntryId(entry.id)}
                           disabled={isSubmitting}
                           className="flex-1 rounded-xl py-2 text-sm font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-80"
-                          style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)" }}
+                          style={{
+                            backgroundColor: "var(--bg-card-hover)",
+                            color: "var(--text-secondary)",
+                          }}
                         >
                           취소하기
                         </button>
@@ -723,11 +892,18 @@ export default function TournamentEntryActions({
 
                     {/* 수정/취소 불가 안내 */}
                     {!canModify && isActive && !canAcceptEntry && (
-                      <p className="text-xs text-center" style={{ color: "var(--text-muted)" }}>
-                        {tournamentStatus === "CLOSED" && "접수 마감 — 수정·취소 불가"}
-                        {tournamentStatus === "IN_PROGRESS" && "대회 진행 중 — 수정·취소 불가"}
+                      <p
+                        className="text-xs text-center"
+                        style={{ color: "var(--text-muted)" }}
+                      >
+                        {tournamentStatus === "CLOSED" &&
+                          "접수 마감 — 수정·취소 불가"}
+                        {tournamentStatus === "IN_PROGRESS" &&
+                          "대회 진행 중 — 수정·취소 불가"}
                         {tournamentStatus === "COMPLETED" && "대회 종료"}
-                        {tournamentStatus === "OPEN" && !withinPeriod && "접수 기간 외 — 수정·취소 불가"}
+                        {tournamentStatus === "OPEN" &&
+                          !withinPeriod &&
+                          "접수 기간 외 — 수정·취소 불가"}
                       </p>
                     )}
                   </div>
@@ -739,7 +915,11 @@ export default function TournamentEntryActions({
                 <button
                   onClick={() => setShowEntryForm(true)}
                   className="w-full rounded-xl py-3 font-medium transition-all hover:opacity-80 flex items-center justify-center gap-2"
-                  style={{ backgroundColor: "var(--bg-card-hover)", color: "var(--text-secondary)", border: "1px dashed var(--border-color)" }}
+                  style={{
+                    backgroundColor: "var(--bg-card-hover)",
+                    color: "var(--text-secondary)",
+                    border: "1px dashed var(--border-color)",
+                  }}
                 >
                   <span>+</span>
                   <span>추가 팀 신청하기</span>
@@ -771,7 +951,8 @@ export default function TournamentEntryActions({
             <div className="text-center py-4">
               <p className="text-sm" style={{ color: "var(--text-muted)" }}>
                 {tournamentStatus === "DRAFT" && "대회 준비 중입니다."}
-                {tournamentStatus === "UPCOMING" && "아직 접수가 시작되지 않았습니다."}
+                {tournamentStatus === "UPCOMING" &&
+                  "아직 접수가 시작되지 않았습니다."}
                 {tournamentStatus === "CLOSED" && "접수가 마감되었습니다."}
                 {tournamentStatus === "IN_PROGRESS" && "대회가 진행 중입니다."}
                 {tournamentStatus === "COMPLETED" && "종료된 대회입니다."}
@@ -805,70 +986,81 @@ export default function TournamentEntryActions({
       </div>
 
       {/* 모바일 플로팅 바 */}
-      {mounted && createPortal(
-        <div
-          className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-safe"
-          style={{
-            backgroundColor: "var(--bg-secondary)",
-            borderTop: "1px solid var(--border-color)",
-            paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
-            paddingTop: "12px",
-          }}
-        >
-          {/* 세로 탭 핸들 — 2건 이상 신청 시 우측 경계에 붙어서 위로 돌출 */}
-          {isLoggedIn && entries.length >= 2 && (
-            <button
-              type="button"
-              aria-label={isFloatingExpanded ? "신청 목록 접기" : "신청 목록 펼치기"}
-              aria-expanded={isFloatingExpanded}
-              onClick={() => setIsFloatingExpanded((prev) => !prev)}
-              className="absolute flex items-center justify-center rounded-t-xl transition-all active:opacity-70"
-              style={{
-                right: 0,
-                bottom: "100%",
-                width: "68px",
-                height: "24px",
-                marginBottom: "-1px",
-                backgroundColor: "var(--bg-secondary)",
-                borderTop: "1px solid var(--border-color)",
-                borderLeft: "1px solid var(--border-color)",
-                borderRight: "1px solid var(--border-color)",
-                color: "var(--text-muted)",
-                boxShadow: "0 -2px 6px rgba(0,0,0,0.06)",
-              }}
-            >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                aria-hidden="true"
-                className="transition-transform duration-200"
-                style={{ transform: isFloatingExpanded ? "rotate(270deg)" : "rotate(90deg)" }}
-              >
-                <path d="M2 1l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          )}
-          {isOrganizer && tournamentStatus === "OPEN" ? (
-            <div className="flex gap-2">
-              {renderMobileFloating()}
+      {mounted &&
+        createPortal(
+          <div
+            className="lg:hidden fixed bottom-0 left-0 right-0 z-40 px-4 pb-safe"
+            style={{
+              backgroundColor: "var(--bg-secondary)",
+              borderTop: "1px solid var(--border-color)",
+              paddingBottom: "max(env(safe-area-inset-bottom), 12px)",
+              paddingTop: "12px",
+            }}
+          >
+            {/* 세로 탭 핸들 — 2건 이상 신청 시 우측 경계에 붙어서 위로 돌출 */}
+            {isLoggedIn && entries.length >= 2 && (
               <button
-                onClick={() => setShowCloseModal(true)}
-                disabled={isSubmitting}
-                className="flex-1 rounded-xl py-3 font-medium bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50"
+                type="button"
+                aria-label={
+                  isFloatingExpanded ? "신청 목록 접기" : "신청 목록 펼치기"
+                }
+                aria-expanded={isFloatingExpanded}
+                onClick={() => setIsFloatingExpanded((prev) => !prev)}
+                className="absolute flex items-center justify-center rounded-t-xl transition-all active:opacity-70"
+                style={{
+                  right: 0,
+                  bottom: "100%",
+                  width: "68px",
+                  height: "24px",
+                  marginBottom: "-1px",
+                  backgroundColor: "var(--bg-secondary)",
+                  borderTop: "1px solid var(--border-color)",
+                  borderLeft: "1px solid var(--border-color)",
+                  borderRight: "1px solid var(--border-color)",
+                  color: "var(--text-muted)",
+                  boxShadow: "0 -2px 6px rgba(0,0,0,0.06)",
+                }}
               >
-                접수 마감
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  aria-hidden="true"
+                  className="transition-transform duration-200"
+                  style={{
+                    transform: isFloatingExpanded
+                      ? "rotate(270deg)"
+                      : "rotate(90deg)",
+                  }}
+                >
+                  <path
+                    d="M2 1l4 4-4 4"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
-            </div>
-          ) : (
-            <div className="flex gap-2">
-              {renderMobileFloating()}
-            </div>
-          )}
-        </div>,
-        document.body,
-      )}
+            )}
+            {isOrganizer && tournamentStatus === "OPEN" ? (
+              <div className="flex gap-2">
+                {renderMobileFloating()}
+                <button
+                  onClick={() => setShowCloseModal(true)}
+                  disabled={isSubmitting}
+                  className="flex-1 rounded-xl py-3 font-medium bg-red-600 hover:bg-red-700 text-white transition-all disabled:opacity-50"
+                >
+                  접수 마감
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">{renderMobileFloating()}</div>
+            )}
+          </div>,
+          document.body,
+        )}
 
       {/* 취소 확인 모달 */}
       {cancelEntryId &&
@@ -942,7 +1134,8 @@ export default function TournamentEntryActions({
                 참가 접수 마감
               </h3>
               <p className="mb-6" style={{ color: "var(--text-secondary)" }}>
-                참가 접수를 마감하시겠습니까? 마감 후에는 더 이상 참가 신청을 받을 수 없습니다.
+                참가 접수를 마감하시겠습니까? 마감 후에는 더 이상 참가 신청을
+                받을 수 없습니다.
               </p>
               <div className="flex gap-3">
                 <button
@@ -1001,7 +1194,10 @@ export default function TournamentEntryActions({
           }}
           entryFee={entryFee}
           bankAccount={bankAccount}
-          onClose={() => { setShowEditForm(false); setActiveEntryId(null); }}
+          onClose={() => {
+            setShowEditForm(false);
+            setActiveEntryId(null);
+          }}
           onSubmit={handleUpdate}
           editMode={true}
           isAdmin={isAdmin}
