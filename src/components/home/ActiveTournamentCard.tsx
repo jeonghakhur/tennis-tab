@@ -192,8 +192,8 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
                 <span>{div.name}</span>
                 <span>
                   {div.max_teams != null
-                    ? `${div.entry_count} / ${div.max_teams}팀`
-                    : `${div.entry_count}팀 신청`}
+                    ? `${div.entry_count} / ${div.max_teams}${div.solo_entry ? '명' : '팀'}`
+                    : `${div.entry_count}${div.solo_entry ? '명' : '팀'} 신청`}
                 </span>
               </div>
             ))}

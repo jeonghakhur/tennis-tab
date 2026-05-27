@@ -12,6 +12,8 @@ export interface DivisionSummary {
   name: string
   max_teams: number | null
   entry_count: number
+  /** true면 개인 접수 부서 — 카운트 단위를 "팀" 대신 "명"으로 표시 */
+  solo_entry: boolean
 }
 
 /** 대회 현황 카드 (모집 중 + 진행 중 통합) */
@@ -355,7 +357,7 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
   // 1단계: 전체 부서 목록 일괄 조회
   const { data: allDivisions } = await admin
     .from('tournament_divisions')
-    .select('id, name, max_teams, tournament_id')
+    .select('id, name, max_teams, solo_entry, tournament_id')
     .in('tournament_id', tournamentIds)
     .order('name', { ascending: true })
 
@@ -399,6 +401,7 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
       name: div.name,
       max_teams: div.max_teams ?? null,
       entry_count: entryCountMap.get(div.id) ?? 0,
+      solo_entry: div.solo_entry ?? false,
     }))
     const entryCount = divisions.reduce((s, d) => s + d.entry_count, 0)
     const hasBracket = t.status === 'IN_PROGRESS'
