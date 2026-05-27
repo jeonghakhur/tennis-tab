@@ -325,6 +325,9 @@ export default function TournamentEntryForm({
   // 선택된 division 정보
   const selectedDivision = divisions.find((d) => d.id === divisionId);
 
+  // 개인 접수 부서(solo_entry)일 때만 참가비 50% 적용
+  const displayFee = selectedDivision?.solo_entry ? Math.round(entryFee / 2) : entryFee;
+
   // 팀원 추가 — limit이 없으면 무제한, 있으면 AlertDialog로 차단
   const addTeamMember = () => {
     const limit = selectedDivision?.team_member_limit;
@@ -459,7 +462,7 @@ export default function TournamentEntryForm({
     }
 
     // 환불 계좌 필수 검증 (참가비 있는 경우)
-    if (entryFee > 0) {
+    if (displayFee > 0) {
       if (!refundBank.trim()) {
         setAlertDialog({ isOpen: true, title: "입력 필요", message: "환불 받을 은행명을 입력해주세요.", type: "warning" });
         return;
@@ -542,9 +545,9 @@ export default function TournamentEntryForm({
       phone: unformatPhoneNumber(phone),
       playerName,
       playerRating,
-      refundBank: entryFee > 0 ? (refundBank || null) : null,
-      refundAccount: entryFee > 0 ? (refundAccount || null) : null,
-      refundHolder: entryFee > 0 ? (refundHolder || null) : null,
+      refundBank: displayFee > 0 ? (refundBank || null) : null,
+      refundAccount: displayFee > 0 ? (refundAccount || null) : null,
+      refundHolder: displayFee > 0 ? (refundHolder || null) : null,
     };
 
     // 경기 타입별 추가 데이터 (개인 접수 부서는 파트너 데이터 생략)
@@ -555,6 +558,11 @@ export default function TournamentEntryForm({
         rating: partnerRating!,
       };
       formData.partnerUserId = partnerUserId;
+    }
+
+    // 개인전도 클럽명 포함 (관리자 대리 신청 시 직접 입력한 값 반영)
+    if (!isTeamMatch) {
+      formData.clubName = clubName || null;
     }
 
     if (matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") {
@@ -695,6 +703,62 @@ export default function TournamentEntryForm({
                   max="9999"
                 />
               </div>
+
+              {/* 클럽명 — 관리자 대리 신청 시 편집 가능, 일반 사용자는 표시만 */}
+              {isAdmin ? (
+                <div className="relative" ref={clubDropdownRef}>
+                  <label className={labelClass}>
+                    클럽명
+                    <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      관리자 대리 신청
+                    </span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={clubName}
+                      onChange={(e) => handleClubNameChange(e.target.value)}
+                      onFocus={handleClubFocus}
+                      className={inputClass}
+                      placeholder="클럽명 검색 또는 직접 입력"
+                      autoComplete="off"
+                      aria-label="클럽명"
+                    />
+                    {isSearchingClubs && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                        검색 중...
+                      </span>
+                    )}
+                  </div>
+                  {showClubDropdown && clubSearchResults.length > 0 && (
+                    <ul className="absolute z-50 w-full mt-1 bg-(--bg-input) border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto">
+                      {clubSearchResults.map((c) => (
+                        <li key={c.id}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectClub(c)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          >
+                            <span className="font-medium text-(--text-primary)">{c.name}</span>
+                            {(c.city || c.district) && (
+                              <span className="ml-2 text-sm text-(--text-muted)">
+                                {[c.city, c.district].filter(Boolean).join(" ")}
+                              </span>
+                            )}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : clubName ? (
+                <div>
+                  <label className={labelClass}>클럽</label>
+                  <p className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-(--bg-input) text-(--text-muted) text-sm">
+                    {clubName}
+                  </p>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -1064,11 +1128,11 @@ export default function TournamentEntryForm({
                 참가비
               </h3>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {entryFee === 0 ? "무료" : `${entryFee.toLocaleString('ko-KR')}원`}
+                {displayFee === 0 ? "무료" : `${displayFee.toLocaleString('ko-KR')}원`}
               </span>
             </div>
 
-            {entryFee > 0 && bankAccount && (
+            {displayFee > 0 && bankAccount && (
               <div className="bg-(--bg-input) rounded-lg p-3 space-y-2">
                 <p className="text-sm text-(--text-muted)">
                   입금 계좌
@@ -1094,7 +1158,7 @@ export default function TournamentEntryForm({
               </div>
             )}
 
-            {entryFee > 0 && (
+            {displayFee > 0 && (
               <p className="text-sm text-(--text-muted)">
                 * 참가 신청 후 위 계좌로 참가비를 입금해주세요.
                 <br />* 입금자명은 신청자 이름과 동일하게 해주세요.
@@ -1102,7 +1166,7 @@ export default function TournamentEntryForm({
             )}
 
             {/* 환불 계좌 — 참가비 있는 경우 필수 입력 */}
-            {entryFee > 0 && (
+            {displayFee > 0 && (
               <div className="space-y-3 pt-2 border-t border-blue-200 dark:border-blue-800">
                 <p className="text-sm font-medium text-(--text-secondary)">
                   환불 계좌

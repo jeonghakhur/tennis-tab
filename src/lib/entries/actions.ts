@@ -212,8 +212,8 @@ export async function createEntry(
         }
 
         // 5. 정원 체크: CONFIRMED 수가 max_teams 이상이면 WAITLISTED 처리
-        // 어드민은 정원 무관 CONFIRMED로 즉시 등록
-        let initialStatus: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' = isAdminUser ? 'CONFIRMED' : 'PENDING';
+        // 어드민 대리 신청도 일반 사용자와 동일하게 PENDING으로 시작 (정원 초과 WAITLISTED는 어드민 제외)
+        let initialStatus: 'PENDING' | 'CONFIRMED' | 'WAITLISTED' = 'PENDING';
         if (!isAdminUser && division.max_teams) {
             const { count } = await supabase
                 .from('tournament_entries')

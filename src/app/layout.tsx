@@ -25,7 +25,7 @@ export const metadata: Metadata = {
         url: "/api/og",
         width: 1200,
         height: 630,
-        alt: "마포구테니스협회 — 테니스 대회의 새로운 기준",
+        alt: "마포구테니스협회",
       },
     ],
   },
