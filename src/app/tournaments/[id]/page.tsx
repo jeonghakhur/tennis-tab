@@ -465,10 +465,10 @@ export default async function TournamentDetailPage({ params }: Props) {
                 접수 기간
               </h3>
               <p className="font-medium" style={{ color: "var(--text-primary)" }}>
-                {formatSimpleDate(tournament.entry_start_date)} ~
+                {formatDate(tournament.entry_start_date)} ~
               </p>
               <p className="font-medium" style={{ color: "var(--text-primary)" }}>
-                {formatSimpleDate(tournament.entry_end_date)}
+                {formatDate(tournament.entry_end_date)}
               </p>
             </div>
             <div
