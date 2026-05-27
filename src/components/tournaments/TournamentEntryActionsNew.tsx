@@ -267,10 +267,10 @@ export default function TournamentEntryActions({
         isOpen: true,
         title: "입금 확인 완료",
         message:
-          result.status === "CONFIRMED"
-            ? "입금이 확인되었습니다. 참가자 정보 확인 후 확정으로 변경됩니다."
-            : "입금이 확인되었습니다. 정원 초과로 대기자 명단에 등록되었습니다.",
-        type: result.status === "CONFIRMED" ? "success" : "warning",
+          result.status === "WAITLISTED"
+            ? "입금이 확인되었습니다. 정원 초과로 대기자 명단에 등록되었습니다."
+            : "입금이 확인되었습니다. 참가자 정보 확인 후 확정으로 변경됩니다.",
+        type: result.status === "WAITLISTED" ? "warning" : "success",
       });
       router.refresh();
     } else {
