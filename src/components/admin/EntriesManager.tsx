@@ -610,6 +610,7 @@ export function EntriesManager({
       total: divisionEntries.length,
       approved: divisionEntries.filter((e) => normalizeStatus(e.status) === 'APPROVED').length,
       paid: divisionEntries.filter((e) => e.payment_status === 'COMPLETED').length,
+      cancelled: divisionEntries.filter((e) => normalizeStatus(e.status) === 'CANCELLED').length,
     }
   })
 
@@ -685,6 +686,9 @@ export function EntriesManager({
                   <div className="flex gap-3 text-xs text-(--text-muted)">
                     <span>승인 <span className="text-emerald-500">{div.approved}</span></span>
                     <span>결제 <span className="text-sky-500">{div.paid}</span></span>
+                    {div.cancelled > 0 && (
+                      <span>취소 <span className="text-rose-500">{div.cancelled}</span></span>
+                    )}
                   </div>
                 </button>
               )
