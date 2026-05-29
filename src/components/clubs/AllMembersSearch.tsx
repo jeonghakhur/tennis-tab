@@ -99,11 +99,14 @@ export function AllMembersSearch({ initialMembers, initialQuery = '' }: Props) {
                 {/* 소속 클럽 */}
                 <p className="text-sm font-medium text-(--accent-color)">{member.club_name}</p>
                 {/* 상세 정보 */}
-                <div className="flex items-center gap-2 text-xs text-(--text-muted) flex-wrap">
+                <div className="flex items-center gap-2 text-sm text-(--text-muted) flex-wrap">
                   {member.phone && <span>{member.phone}</span>}
                   {member.gender && <span>{GENDER_LABEL[member.gender as GenderType]}</span>}
                   {member.birth_year && <span>{member.birth_year}</span>}
                   {member.rating && <span>레이팅 {member.rating}</span>}
+                  <span>
+                    가입 {(member.joined_at ?? member.created_at).slice(0, 10).replace(/-/g, '.')}
+                  </span>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-(--text-muted) shrink-0 mt-0.5 ml-2" />
