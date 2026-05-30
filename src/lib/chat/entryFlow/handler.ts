@@ -264,15 +264,15 @@ async function handleInputPartnerStep(
     // 미등록 파트너 → 텍스트 정보만 저장
     session.data.partnerUserId = null
   } else if (nameMatches.length === 1) {
-    // 1명 정확 매칭 → 자동 연결
-    session.data.partnerUserId = nameMatches[0].id
+    // 1명 정확 매칭 → 계정 연동된 회원이면 연결 (미연동 회원은 userId가 null)
+    session.data.partnerUserId = nameMatches[0].userId
   } else {
     // 동명이인 → 입력한 클럽으로 필터
     const clubMatches = nameMatches.filter((u) => u.club === parsed.club)
 
     if (clubMatches.length === 1) {
-      // 클럽까지 일치 → 자동 연결
-      session.data.partnerUserId = clubMatches[0].id
+      // 클럽까지 일치 → 계정 연동된 회원이면 연결
+      session.data.partnerUserId = clubMatches[0].userId
     } else if (clubMatches.length === 0) {
       // 클럽 매칭 없음 → 연결 포기
       session.data.partnerUserId = null
@@ -280,6 +280,7 @@ async function handleInputPartnerStep(
       // 동일 클럽 내 동명이인 → 생년으로 선택 요청
       session.data.partnerCandidates = clubMatches.map((u) => ({
         id: u.id,
+        userId: u.userId,
         name: u.name,
         club: u.club,
         birthYear: u.birthYear,
@@ -326,7 +327,8 @@ async function handleSelectPartnerUserStep(
     // 연결 없이 진행
     session.data.partnerUserId = null
   } else if (!isNaN(num) && num >= 1 && num <= candidates.length) {
-    session.data.partnerUserId = candidates[num - 1].id
+    // 계정 연동된 회원이면 연결, 미연동 회원은 userId가 null
+    session.data.partnerUserId = candidates[num - 1].userId
   } else {
     return {
       success: true,

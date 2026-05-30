@@ -10,7 +10,8 @@ import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
-    id: string
+    id: string              // club_members.id — 목록 key / 동명이인 후보 식별용
+    userId: string | null   // profiles.id — 계정 연동된 회원만 존재, partner_user_id로 사용 (미연동 회원은 null)
     name: string
     rating: number | null
     club: string | null
@@ -123,25 +124,34 @@ export async function searchClubsByName(query: string): Promise<ClubSearchResult
 }
 
 /**
- * 이름으로 파트너 검색 (복식 신청 시 시스템 사용자 검색용)
+ * 이름으로 파트너 검색 (복식 신청 시 파트너 선택용)
+ * - 데이터 소스는 클럽 회원(club_members)으로 한정: ACTIVE 회원 + 활성 클럽
+ * - user_id(profiles FK)가 있으면 partner_user_id로 연동, 없으면 이름/클럽/점수만 사용
  */
 export async function searchPartnerByName(name: string): Promise<PartnerSearchResult[]> {
     if (!name || name.trim().length < 2) return []
 
     const admin = createAdminClient()
     const { data } = await admin
-        .from('profiles')
-        .select('id, name, rating, club, birth_year')
+        .from('club_members')
+        .select('id, user_id, name, rating, birth_year, clubs!inner(name, is_active)')
+        .eq('status', 'ACTIVE')
+        .eq('clubs.is_active', true)
         .ilike('name', `%${name.trim()}%`)
         .limit(10)
 
-    return (data ?? []).map((p) => ({
-        id: p.id,
-        name: p.name ?? '',
-        rating: p.rating,
-        club: p.club,
-        birthYear: p.birth_year,
-    }))
+    return (data ?? []).map((m) => {
+        // club_members → clubs는 다대일 관계이므로 단일 객체 (Supabase 타입 추론 보정)
+        const club = m.clubs as unknown as { name: string | null } | null
+        return {
+            id: m.id,
+            userId: m.user_id,
+            name: m.name ?? '',
+            rating: m.rating != null ? Number(m.rating) : null,
+            club: club?.name ?? null,
+            birthYear: m.birth_year,
+        }
+    })
 }
 
 export async function createEntry(

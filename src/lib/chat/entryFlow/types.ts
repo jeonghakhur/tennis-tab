@@ -55,7 +55,7 @@ export interface EntryFlowData {
   partnerData?: { name: string; club: string; rating: number } | null
   partnerUserId?: string | null  // 시스템 등록 유저 자동 매칭 시 설정
   // 동명이인 파트너 후보 목록 (SELECT_PARTNER_USER 단계에서 사용)
-  partnerCandidates?: Array<{ id: string; name: string; club: string | null; birthYear: string | null }>
+  partnerCandidates?: Array<{ id: string; userId: string | null; name: string; club: string | null; birthYear: string | null }>
 
   // 단체전
   clubName?: string | null

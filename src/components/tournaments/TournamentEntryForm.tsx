@@ -216,12 +216,14 @@ export default function TournamentEntryForm({
   };
 
   // 파트너 선택 시 자동 채우기
+  // partner.userId(profiles 연동)가 있을 때만 partner_user_id 연동, 미연동 회원은 이름/클럽/점수만 사용
   const handleSelectPartner = (partner: PartnerSearchResult) => {
     setPartnerName(partner.name);
     setPartnerClub(partner.club ?? "");
     setPartnerRating(partner.rating ?? null);
-    setPartnerUserId(partner.id);
-    setPartnerManualConfirmed(false);
+    setPartnerUserId(partner.userId);
+    // 검색 결과에서 선택했으므로 직접 입력 플래그 정리 (미연동 회원도 선택 자체로 확정 처리)
+    setPartnerManualConfirmed(partner.userId === null);
     setShowPartnerDropdown(false);
     setPartnerSearchResults([]);
   };
