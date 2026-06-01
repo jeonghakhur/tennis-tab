@@ -4,6 +4,7 @@ import { FontSizeProvider } from "@/components/FontSizeProvider";
 import { AuthProvider } from "@/components/AuthProvider";
 import { Navigation } from "@/components/Navigation";
 import { Footer } from "@/components/Footer";
+import { LastSeenTracker } from "@/components/LastSeenTracker";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -89,6 +90,7 @@ export default function RootLayout({
         <ThemeProvider>
           <FontSizeProvider>
             <AuthProvider>
+              <LastSeenTracker />
               <Navigation />
               <main className="flex-1 pt-20">{children}</main>
               <Footer />

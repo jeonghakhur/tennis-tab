@@ -291,3 +291,20 @@ export async function updateProfile(data: {
   revalidatePath('/my/profile/edit')
   return { success: true }
 }
+
+/**
+ * 로그인 사용자의 last_seen_at 갱신
+ * - 클라이언트에서 세션당 1회 호출 (빈번한 DB 쓰기 방지)
+ * - last_sign_in_at의 토큰 갱신 미업데이트 문제를 보완
+ */
+export async function touchLastSeen(): Promise<void> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
+  await createAdminClient()
+    .from('profiles')
+    .update({ last_seen_at: new Date().toISOString() })
+    .eq('id', user.id)
+}
+
