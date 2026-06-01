@@ -2,6 +2,7 @@ import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { createClient } from '@/lib/supabase/server'
 import { Users, Trophy, UserCheck, Calendar } from 'lucide-react'
 import Link from 'next/link'
+import { Badge, type BadgeVariant } from '@/components/common/Badge'
 
 interface StatCardProps {
   title: string
@@ -74,14 +75,14 @@ export default async function AdminDashboard() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  const statusLabels: Record<string, { label: string; className: string }> = {
-    DRAFT: { label: '초안', className: 'bg-gray-500/20 text-gray-400' },
-    UPCOMING: { label: '대기중', className: 'bg-purple-500/20 text-purple-400' },
-    OPEN: { label: '모집중', className: 'bg-green-500/20 text-green-400' },
-    CLOSED: { label: '마감', className: 'bg-red-500/20 text-red-400' },
-    IN_PROGRESS: { label: '진행중', className: 'bg-blue-500/20 text-blue-400' },
-    COMPLETED: { label: '완료', className: 'bg-gray-500/20 text-gray-400' },
-    CANCELLED: { label: '취소', className: 'bg-red-500/20 text-red-400' },
+  const statusLabels: Record<string, { label: string; variant: BadgeVariant }> = {
+    DRAFT:       { label: '초안',  variant: 'secondary' },
+    UPCOMING:    { label: '대기중', variant: 'purple' },
+    OPEN:        { label: '모집중', variant: 'success' },
+    CLOSED:      { label: '마감',  variant: 'danger' },
+    IN_PROGRESS: { label: '진행중', variant: 'info' },
+    COMPLETED:   { label: '완료',  variant: 'secondary' },
+    CANCELLED:   { label: '취소',  variant: 'danger' },
   }
 
   return (
@@ -159,13 +160,9 @@ export default async function AdminDashboard() {
                       {tournament.location} · {formatKoreanDate(tournament.start_date)}
                     </p>
                   </div>
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      statusLabels[tournament.status]?.className
-                    }`}
-                  >
+                  <Badge variant={statusLabels[tournament.status]?.variant ?? 'secondary'}>
                     {statusLabels[tournament.status]?.label}
-                  </span>
+                  </Badge>
                 </Link>
               ))
             ) : (

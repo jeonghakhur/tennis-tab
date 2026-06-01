@@ -1760,16 +1760,21 @@ export async function getClubsWithMyRoles(
   return { clubs: clubsWithCount, myClubRoles }
 }
 
-/** 전체 클럽 회원 통합 조회
+/** 전체 클럽 회원 통합 조회 (페이지네이션 + 이름/전화번호 검색)
  * - ADMIN 이상: 전체 클럽 회원
  * - MANAGER: 자신이 OWNER/ADMIN/MATCH_DIRECTOR인 클럽의 회원만
  */
-export async function getAllClubMembers(): Promise<{
+export async function getAllClubMembers(
+  page = 1,
+  pageSize = 50,
+  searchQuery = '',
+): Promise<{
   data: MemberWithClub[]
+  total: number
   error?: string
 }> {
   const { error: authError, user } = await checkManagerAuth()
-  if (authError || !user) return { data: [], error: authError ?? '로그인이 필요합니다.' }
+  if (authError || !user) return { data: [], total: 0, error: authError ?? '로그인이 필요합니다.' }
 
   const admin = createAdminClient()
   const isSystemAdmin = hasMinimumRole(user.role, 'ADMIN')
@@ -1786,30 +1791,37 @@ export async function getAllClubMembers(): Promise<{
       .eq('status', 'ACTIVE')
 
     clubIds = memberships?.map((m) => m.club_id) ?? []
-    if (clubIds.length === 0) return { data: [] }
+    if (clubIds.length === 0) return { data: [], total: 0 }
   }
 
-  // club_members + clubs 조인 조회 (Supabase 기본 limit 1000 → 명시적으로 해제)
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
   let query = admin
     .from('club_members')
-    .select(`*, clubs:club_id ( name )`)
+    .select(`*, clubs:club_id ( name )`, { count: 'exact' })
     .not('status', 'in', '("REMOVED","LEFT")')
     .order('club_id')
     .order('name')
-    .limit(10000)
+    .range(from, to)
 
   if (clubIds !== null) {
     query = query.in('club_id', clubIds)
   }
 
-  const { data, error } = await query
+  if (searchQuery.trim()) {
+    const q = searchQuery.trim()
+    query = query.or(`name.ilike.%${q}%,phone.ilike.%${q}%`)
+  }
 
-  if (error) return { data: [], error: '회원 목록 조회에 실패했습니다.' }
+  const { data, count, error } = await query
+
+  if (error) return { data: [], total: 0, error: '회원 목록 조회에 실패했습니다.' }
 
   const result: MemberWithClub[] = (data ?? []).map((row) => ({
     ...(row as unknown as ClubMember),
     club_name: (row.clubs as { name: string } | null)?.name ?? '알 수 없는 클럽',
   }))
 
-  return { data: result }
+  return { data: result, total: count ?? 0 }
 }

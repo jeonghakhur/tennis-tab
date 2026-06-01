@@ -6,12 +6,15 @@ import { ChevronLeft } from 'lucide-react'
 import { getAllClubMembers } from '@/lib/clubs/actions'
 import { AllMembersSearch } from '@/components/clubs/AllMembersSearch'
 
+const PAGE_SIZE = 50
+
 interface Props {
-  searchParams: Promise<{ q?: string }>
+  searchParams: Promise<{ q?: string; page?: string }>
 }
 
 export default async function AllMembersPage({ searchParams }: Props) {
-  const { q } = await searchParams
+  const { q, page: pageParam } = await searchParams
+  const page = Math.max(1, parseInt(pageParam ?? '1') || 1)
 
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,7 +28,7 @@ export default async function AllMembersPage({ searchParams }: Props) {
 
   if (!hasMinimumRole(profile?.role, 'MANAGER')) redirect('/admin')
 
-  const { data: members } = await getAllClubMembers()
+  const { data: members, total } = await getAllClubMembers(page, PAGE_SIZE, q ?? '')
 
   return (
     <div className="space-y-6">
@@ -41,12 +44,18 @@ export default async function AllMembersPage({ searchParams }: Props) {
             전체 회원 검색
           </h1>
           <p className="text-(--text-secondary) mt-1">
-            총 {members.length}명
+            총 {total.toLocaleString('ko-KR')}명
           </p>
         </div>
       </div>
 
-      <AllMembersSearch initialMembers={members} initialQuery={q ?? ''} />
+      <AllMembersSearch
+        members={members}
+        total={total}
+        page={page}
+        pageSize={PAGE_SIZE}
+        initialQuery={q ?? ''}
+      />
     </div>
   )
 }
