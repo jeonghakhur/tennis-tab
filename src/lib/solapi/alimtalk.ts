@@ -11,6 +11,7 @@
  *   SOLAPI_TEMPLATE_LESSON_APPLY - 레슨 신청 완료 알림 템플릿 ID
  *   SOLAPI_TEMPLATE_LESSON_INQUIRY_REPLY - 레슨 문의 답변 알림 템플릿 ID
  *   SOLAPI_TEMPLATE_PAYMENT_CONFIRM - 대회 입금 확인 알림 템플릿 ID
+ *   SOLAPI_TEMPLATE_WELCOME - 회원 가입 환영 알림 템플릿 ID
  */
 
 import { SolapiMessageService } from 'solapi'
@@ -810,6 +811,92 @@ export async function sendExtensionRequestAlimtalk(
   } catch (err) {
     const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
     console.error('[Alimtalk ERROR]', msg)
+    return { success: false, error: msg }
+  }
+}
+
+// ── 회원 가입 환영 알림 ──────────────────────────────────────────────────
+
+export interface WelcomeAlimtalkParams {
+  phone: string
+  name: string
+  missingFields: string[]  // 미입력 항목 목록 (예: ['클럽', '출생년도'])
+  isNameKorean: boolean    // 한글 실명 여부
+  profileEditUrl: string
+}
+
+/**
+ * 회원 가입 환영 알림톡 (전화번호 최초 등록 시 발송)
+ *
+ * 알림톡 템플릿 (솔라피 콘솔에서 등록 필요):
+ * ───────────────────────────────────────────
+ * [강조 제목] 마포구테니스협회 가입을 환영합니다!
+ * [강조 부제목] 프로필을 완성해 주세요
+ *
+ * #{이름}님, 반갑습니다 🎾
+ *
+ * 더 나은 서비스 이용을 위해 아래 내용을 확인해 주세요.
+ *
+ * #{요청사항}
+ *
+ * 앞으로도 마포구테니스협회를 잘 부탁드립니다!
+ * ───────────────────────────────────────────
+ * 버튼: [프로필 수정하기] → #{프로필URL}
+ */
+export async function sendWelcomeAlimtalk(
+  params: WelcomeAlimtalkParams,
+): Promise<SendResult> {
+  const service    = getService()
+  const pfId       = process.env.SOLAPI_PFID
+  const templateId = process.env.SOLAPI_TEMPLATE_WELCOME
+  const sender     = process.env.SOLAPI_SENDER_NUMBER
+
+  if (!service || !pfId || !templateId || !sender) {
+    if (process.env.NODE_ENV === 'development') {
+      console.info('[Alimtalk DEV] 회원가입 환영:', params)
+      return { success: true, messageId: 'DEV_MOCK' }
+    }
+    return { success: false, error: '솔라피 환경변수가 설정되지 않았습니다.' }
+  }
+
+  // 요청사항 문자열 조합
+  const lines: string[] = []
+  if (!params.isNameKorean) {
+    lines.push('· 이름이 한글 실명이 아닌 경우 한글 실명으로 변경해 주세요.')
+  }
+  if (params.missingFields.length > 0) {
+    lines.push(`· 아래 정보를 프로필 페이지에서 입력해 주세요:`)
+    params.missingFields.forEach((f) => lines.push(`  - ${f}`))
+  }
+  const 요청사항 = lines.length > 0 ? lines.join('\n') : '프로필이 잘 완성되어 있습니다 ✅'
+
+  try {
+    const result = await service.sendOne({
+      to: params.phone.replace(/-/g, ''),
+      from: sender.replace(/-/g, ''),
+      kakaoOptions: {
+        pfId,
+        templateId,
+        variables: {
+          '#{이름}':    params.name,
+          '#{요청사항}': 요청사항,
+          '#{프로필URL}': params.profileEditUrl,
+        },
+        buttons: [
+          {
+            buttonType: 'WL',
+            buttonName: '프로필 수정하기',
+            linkMo: params.profileEditUrl,
+            linkPc: params.profileEditUrl,
+          },
+        ],
+      },
+    })
+
+    return { success: true, messageId: result.messageId }
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : '알림톡 발송 오류'
+    console.error('[Alimtalk ERROR] 회원가입 환영:', msg)
     return { success: false, error: msg }
   }
 }

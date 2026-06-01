@@ -244,44 +244,35 @@ export function UsersTable({
             <thead>
               <tr className="border-b border-(--border-color)">
                 <th className="text-left p-4">
-                  <button
-                    onClick={() => handleSort('name')}
-                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
-                  >
-                    회원 정보
-                    <SortIcon field="name" />
+                  <button onClick={() => handleSort('name')} className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                    이름 <SortIcon field="name" />
                   </button>
                 </th>
                 <th className="text-left p-4 hidden md:table-cell">
-                  <button
-                    onClick={() => handleSort('email')}
-                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
-                  >
-                    이메일
-                    <SortIcon field="email" />
+                  <button onClick={() => handleSort('email')} className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                    이메일 <SortIcon field="email" />
                   </button>
                 </th>
                 <th className="text-left p-4 hidden lg:table-cell">
-                  <span className="font-medium text-(--text-secondary)">
-                    클럽
-                  </span>
+                  <span className="font-medium text-(--text-secondary)">클럽</span>
+                </th>
+                <th className="text-left p-4 hidden xl:table-cell">
+                  <span className="font-medium text-(--text-secondary)">출생년도</span>
+                </th>
+                <th className="text-left p-4 hidden xl:table-cell">
+                  <span className="font-medium text-(--text-secondary)">성별</span>
+                </th>
+                <th className="text-left p-4 hidden xl:table-cell">
+                  <span className="font-medium text-(--text-secondary)">전화번호</span>
                 </th>
                 <th className="text-left p-4">
-                  <button
-                    onClick={() => handleSort('role')}
-                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
-                  >
-                    권한
-                    <SortIcon field="role" />
+                  <button onClick={() => handleSort('role')} className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                    권한 <SortIcon field="role" />
                   </button>
                 </th>
                 <th className="text-left p-4 hidden sm:table-cell">
-                  <button
-                    onClick={() => handleSort('created_at')}
-                    className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors"
-                  >
-                    가입일
-                    <SortIcon field="created_at" />
+                  <button onClick={() => handleSort('created_at')} className="flex items-center gap-1 font-medium text-(--text-secondary) hover:text-(--text-primary) transition-colors">
+                    가입일 <SortIcon field="created_at" />
                   </button>
                 </th>
               </tr>
@@ -316,6 +307,7 @@ export function UsersTable({
                       key={user.id}
                       className="group border-b border-(--border-color) last:border-b-0 hover:bg-(--bg-card-hover) transition-colors"
                     >
+                      {/* 이름 */}
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <Link
@@ -323,66 +315,55 @@ export function UsersTable({
                             className="w-10 h-10 rounded-full bg-(--accent-color)/20 flex items-center justify-center text-(--accent-color) font-display font-bold shrink-0 hover:ring-2 hover:ring-(--accent-color) transition-all"
                           >
                             {user.avatar_url ? (
-                              <img
-                                src={user.avatar_url}
-                                alt={user.name}
-                                className="w-full h-full object-cover rounded-full"
-                              />
+                              <img src={user.avatar_url} alt={user.name} className="w-full h-full object-cover rounded-full" />
                             ) : (
                               user.name?.charAt(0).toUpperCase() || '?'
                             )}
                           </Link>
-                          <div className="min-w-0">
-                            <Link
-                              href={`/admin/users/${user.id}`}
-                              className="font-medium text-(--text-primary) truncate hover:text-(--accent-color) hover:underline transition-colors inline-flex items-center gap-1"
-                            >
-                              {user.name}
-                              <ExternalLink className="w-3 h-3 opacity-50" />
-                            </Link>
-                            <p className="text-xs text-(--text-muted) md:hidden truncate">
-                              {user.email}
-                            </p>
-                          </div>
+                          <Link
+                            href={`/admin/users/${user.id}`}
+                            className="font-medium text-(--text-primary) truncate hover:text-(--accent-color) hover:underline transition-colors inline-flex items-center gap-1"
+                          >
+                            {user.name}
+                            <ExternalLink className="w-3 h-3 opacity-50" />
+                          </Link>
                         </div>
                       </td>
+                      {/* 이메일 */}
                       <td className="p-4 hidden md:table-cell">
                         <p className="text-(--text-secondary) truncate max-w-[200px]" title={user.email ?? ''}>
                           {user.email}
                         </p>
-                        {user.phone && (
-                          <p className="text-xs text-(--text-muted)">
-                            {user.phone}
-                          </p>
-                        )}
                       </td>
+                      {/* 클럽 */}
                       <td className="p-4 hidden lg:table-cell">
-                        <p className="text-(--text-secondary)">
-                          {user.club || '-'}
-                        </p>
+                        <p className="text-(--text-secondary)">{user.club || '-'}</p>
                         {clubRoleMap[user.id] && (
                           <div className="flex flex-wrap gap-1 mt-1">
                             {clubRoleMap[user.id].map((cr, idx) => (
-                              <Badge
-                                key={idx}
-                                variant={
-                                  cr.role === 'OWNER' ? 'warning'
-                                    : cr.role === 'ADMIN' ? 'info'
-                                    : cr.role === 'VICE_PRESIDENT' ? 'purple'
-                                    : cr.role === 'ADVISOR' ? 'orange'
-                                    : 'success'
-                                }
-                              >
+                              <Badge key={idx} variant={cr.role === 'OWNER' ? 'warning' : cr.role === 'ADMIN' ? 'info' : cr.role === 'VICE_PRESIDENT' ? 'purple' : cr.role === 'ADVISOR' ? 'orange' : 'success'}>
                                 {cr.clubName} {CLUB_ROLE_LABEL[cr.role] ?? cr.role}
                               </Badge>
                             ))}
                           </div>
                         )}
                         {!clubRoleMap[user.id] && user.club_city && (
-                          <p className="text-xs text-(--text-muted)">
-                            {user.club_city} {user.club_district}
-                          </p>
+                          <p className="text-xs text-(--text-muted)">{user.club_city} {user.club_district}</p>
                         )}
+                      </td>
+                      {/* 출생년도 */}
+                      <td className="p-4 hidden xl:table-cell">
+                        <p className="text-(--text-secondary)">{user.birth_year || '-'}</p>
+                      </td>
+                      {/* 성별 */}
+                      <td className="p-4 hidden xl:table-cell">
+                        <p className="text-(--text-secondary)">
+                          {user.gender === 'MALE' ? '남성' : user.gender === 'FEMALE' ? '여성' : '-'}
+                        </p>
+                      </td>
+                      {/* 전화번호 */}
+                      <td className="p-4 hidden xl:table-cell">
+                        <p className="text-(--text-secondary)">{user.phone || '-'}</p>
                       </td>
                       <td className="p-4">
                         {canChangeThisUserRole ? (
@@ -421,7 +402,7 @@ export function UsersTable({
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="p-8 text-center">
+                  <td colSpan={8} className="p-8 text-center">
                     <div className="flex flex-col items-center gap-2 text-(--text-muted)">
                       <User className="w-12 h-12 opacity-50" />
                       <p>검색 결과가 없습니다.</p>
