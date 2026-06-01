@@ -1789,13 +1789,14 @@ export async function getAllClubMembers(): Promise<{
     if (clubIds.length === 0) return { data: [] }
   }
 
-  // club_members + clubs 조인 조회
+  // club_members + clubs 조인 조회 (Supabase 기본 limit 1000 → 명시적으로 해제)
   let query = admin
     .from('club_members')
     .select(`*, clubs:club_id ( name )`)
     .not('status', 'in', '("REMOVED","LEFT")')
     .order('club_id')
     .order('name')
+    .limit(10000)
 
   if (clubIds !== null) {
     query = query.in('club_id', clubIds)

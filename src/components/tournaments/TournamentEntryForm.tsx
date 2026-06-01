@@ -141,6 +141,8 @@ export default function TournamentEntryForm({
   const [partnerUserId, setPartnerUserId] = useState<string | null>(
     initialData?.partnerUserId ?? null,
   );
+  // 드롭다운에서 클럽 회원(비시스템)을 선택했는지 — hint 문구 구분용
+  const [partnerFromClubMember, setPartnerFromClubMember] = useState(false);
   const [partnerSearchResults, setPartnerSearchResults] = useState<PartnerSearchResult[]>([]);
   const [isSearchingPartner, setIsSearchingPartner] = useState(false);
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
@@ -206,6 +208,7 @@ export default function TournamentEntryForm({
     setIsSearchingPartner(true);
     // 이름 변경 시 수동 확인/검색 플래그 리셋
     setPartnerManualConfirmed(false);
+    setPartnerFromClubMember(false);
     partnerSearchRef.current = setTimeout(async () => {
       const results = await searchPartnerByName(value);
       setPartnerSearchResults(results);
@@ -221,7 +224,9 @@ export default function TournamentEntryForm({
     setPartnerClub(partner.club ?? "");
     setPartnerRating(partner.rating ?? null);
     setPartnerUserId(partner.id);
-    setPartnerManualConfirmed(false);
+    // 클럽 회원(비시스템) 선택 시 수동 입력과 동일하게 처리 (제출 검증 통과)
+    setPartnerManualConfirmed(partner.id === null);
+    setPartnerFromClubMember(partner.id === null);
     setShowPartnerDropdown(false);
     setPartnerSearchResults([]);
   };
@@ -812,8 +817,8 @@ export default function TournamentEntryForm({
                 </div>
                 {showPartnerDropdown && (
                   <ul className="absolute z-50 w-full mt-1 bg-(--bg-input) border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-                    {partnerSearchResults.map((p) => (
-                      <li key={p.id}>
+                    {partnerSearchResults.map((p, i) => (
+                      <li key={p.id ?? `cm-${i}`}>
                         <button
                           type="button"
                           onClick={() => handleSelectPartner(p)}
@@ -843,7 +848,9 @@ export default function TournamentEntryForm({
                 {!partnerUserId && partnerName && (
                   partnerManualConfirmed ? (
                     <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 font-semibold border border-blue-200 dark:border-blue-700">
-                      ✓ 직접 입력 — 파트너가 시스템 회원이 아닌 경우
+                      {partnerFromClubMember
+                        ? "✓ 클럽 회원 — 시스템 계정 미연동"
+                        : "✓ 직접 입력 — 파트너가 시스템 회원이 아닌 경우"}
                     </p>
                   ) : partnerSearchHadResults ? (
                     <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-700">

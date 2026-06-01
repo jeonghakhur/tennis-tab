@@ -10,7 +10,7 @@ import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
-    id: string
+    id: string | null  // club_members.user_id | null (시스템 계정 미연동 회원)
     name: string
     rating: number | null
     club: string | null
@@ -123,24 +123,26 @@ export async function searchClubsByName(query: string): Promise<ClubSearchResult
 }
 
 /**
- * 이름으로 파트너 검색 (복식 신청 시 시스템 사용자 검색용)
+ * 이름으로 파트너 검색 — club_members 테이블만 대상
+ * - user_id가 있으면 시스템 계정 연동, 없으면 null (클럽 직접 등록 회원)
  */
 export async function searchPartnerByName(name: string): Promise<PartnerSearchResult[]> {
     if (!name || name.trim().length < 2) return []
 
     const admin = createAdminClient()
     const { data } = await admin
-        .from('profiles')
-        .select('id, name, rating, club, birth_year')
+        .from('club_members')
+        .select('user_id, name, rating, birth_year, clubs(name)')
         .ilike('name', `%${name.trim()}%`)
+        .eq('status', 'ACTIVE')
         .limit(10)
 
-    return (data ?? []).map((p) => ({
-        id: p.id,
-        name: p.name ?? '',
-        rating: p.rating,
-        club: p.club,
-        birthYear: p.birth_year,
+    return (data ?? []).map((m) => ({
+        id: m.user_id ?? null,
+        name: m.name,
+        rating: m.rating !== null ? Number(m.rating) : null,
+        club: (m.clubs as unknown as { name: string } | null)?.name ?? null,
+        birthYear: m.birth_year,
     }))
 }
 
