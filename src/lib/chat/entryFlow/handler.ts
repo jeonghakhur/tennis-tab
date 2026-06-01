@@ -278,12 +278,14 @@ async function handleInputPartnerStep(
       session.data.partnerUserId = null
     } else {
       // 동일 클럽 내 동명이인 → 생년으로 선택 요청
-      session.data.partnerCandidates = clubMatches.map((u) => ({
-        id: u.id,
-        name: u.name,
-        club: u.club,
-        birthYear: u.birthYear,
-      }))
+      session.data.partnerCandidates = clubMatches
+        .filter((u): u is typeof u & { id: string } => u.id !== null)
+        .map((u) => ({
+          id: u.id,
+          name: u.name,
+          club: u.club,
+          birthYear: u.birthYear,
+        }))
       session.step = 'SELECT_PARTNER_USER'
       await setSession(session.userId, session)
 
