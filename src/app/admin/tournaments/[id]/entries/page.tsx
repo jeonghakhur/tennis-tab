@@ -138,6 +138,26 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
     clubNamesInEntries
   )
 
+  // club_name / profiles.club 모두 없는 신청자를 위해 club_members에서 클럽명 보조 조회
+  // is_primary=true인 클럽 우선, 없으면 첫 번째 ACTIVE 클럽 사용
+  const userIds = entries.map((e) => e.user_id).filter(Boolean) as string[]
+  const userClubMap: Record<string, string> = {}
+  if (userIds.length > 0) {
+    const { data: userClubs } = await adminForClubs
+      .from('club_members')
+      .select('user_id, is_primary, clubs(name)')  // LEFT JOIN — 클럽 삭제돼도 회원 레코드 포함
+      .in('user_id', userIds)
+      .eq('status', 'ACTIVE')
+    for (const uc of userClubs ?? []) {
+      if (!uc.user_id) continue
+      const clubName = (uc.clubs as unknown as { name: string }).name
+      // 아직 맵에 없거나 is_primary면 덮어쓰기
+      if (!userClubMap[uc.user_id] || uc.is_primary) {
+        userClubMap[uc.user_id] = clubName
+      }
+    }
+  }
+
   const statusConfig: Record<string, { label: string; className: string }> = {
     DRAFT: { label: '초안', className: 'bg-gray-500/20 text-gray-400' },
     UPCOMING: { label: '대기중', className: 'bg-purple-500/20 text-purple-400' },
@@ -241,6 +261,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         matchType={tournament.match_type}
         tournamentStartDate={tournament.start_date}
         clubMembersMap={clubMembersMap}
+        userClubMap={userClubMap}
         isSuperAdmin={currentProfile?.role === 'SUPER_ADMIN'}
       />
     </div>
