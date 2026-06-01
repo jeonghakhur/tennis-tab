@@ -596,7 +596,7 @@ export async function addUnregisteredMember(
 }
 
 /** 가입 회원 클럽 가입 (프로필에서 클럽 선택 → profiles 데이터로 자동 채움) */
-export async function joinClubAsRegistered(clubId: string, introduction?: string): Promise<{ error?: string }> {
+export async function joinClubAsRegistered(clubId: string, introduction?: string): Promise<{ error?: string; result?: 'linked' | 'joined' | 'pending' }> {
   const idError = validateId(clubId, '클럽 ID')
   if (idError) return { error: idError }
 
@@ -642,15 +642,96 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
   const isFirstClub = (activeCount ?? 0) === 0
   const shouldBePrimary = isFirstClub && status === 'ACTIVE'
 
-  // 비가입 레코드 매칭: 동일 phone으로 사전 등록된 비가입 회원이 있으면 신규 INSERT 대신 UPDATE
-  // (관리자가 수동 등록한 회원 또는 비로그인 가입 신청 후 나중에 계정을 만든 경우)
-  //
-  // 정규화 전략 (Phase D 진행 중 과도기):
-  //   DB에는 하이픈 포맷 "010-1234-5678"과 숫자만 "01012345678"이 공존할 수 있음.
-  //   user.phone도 복호화된 값이 어느 포맷일지 불확실 → 정규화된 숫자로 통일 후
-  //   .or()로 양쪽 포맷 동시 매칭. Phase D 완료 + Phase F 제약 추가 후
-  //   단순 .eq(phone, normalized)로 축소 가능.
   const normalizedUserPhone = unformatPhoneNumber(user.phone ?? '')
+
+  // ── 가입 신청 알림 헬퍼 (클럽 OWNER/ADMIN + SUPER_ADMIN) ──────────────
+  const notifyPendingJoin = async () => {
+    try {
+      // 클럽 OWNER/ADMIN
+      const { data: clubAdmins } = await admin
+        .from('club_members')
+        .select('user_id')
+        .eq('club_id', clubId)
+        .in('role', ['OWNER', 'ADMIN'])
+        .eq('status', 'ACTIVE')
+      // SUPER_ADMIN
+      const { data: superAdmins } = await admin
+        .from('profiles')
+        .select('id')
+        .eq('role', 'SUPER_ADMIN')
+
+      const notifyIds = [
+        ...((clubAdmins ?? []).map(a => a.user_id).filter(Boolean) as string[]),
+        ...((superAdmins ?? []).map(a => a.id)),
+      ]
+      const uniqueIds = [...new Set(notifyIds)]
+      if (uniqueIds.length > 0) {
+        await createBulkNotifications({
+          user_ids: uniqueIds,
+          type: NotificationType.CLUB_JOIN_REQUESTED,
+          title: '클럽 가입 신청',
+          message: `${user.name}님이 ${club.name} 클럽 가입을 신청했습니다.`,
+          club_id: clubId,
+          metadata: { link: `/admin/clubs/${clubId}` },
+        })
+      }
+    } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
+  }
+
+  // ── 이름 우선 매칭: 동일 이름의 비가입 회원 탐색 → 전화번호로 검증 ──
+  // 클럽 관리자가 이름으로 사전 등록한 비가입 회원을 실계정과 연동
+  const { data: nameMatches } = await admin
+    .from('club_members')
+    .select('id, phone, introduction, status')
+    .eq('club_id', clubId)
+    .eq('name', user.name)
+    .is('user_id', null)
+    .neq('status', 'REMOVED')
+    .neq('status', 'LEFT')
+
+  if (nameMatches && nameMatches.length > 0) {
+    // 전화번호 검증: 클럽 레코드에 전화번호 없으면 이름만으로 매칭
+    const nameMatch = nameMatches.find(m => {
+      if (!m.phone) return true
+      return unformatPhoneNumber(m.phone) === normalizedUserPhone
+    })
+
+    if (nameMatch) {
+      const { error: updateError } = await admin
+        .from('club_members')
+        .update({
+          user_id: user.id,
+          is_registered: true,
+          phone: normalizedUserPhone || null,
+          start_year: user.start_year,
+          rating: user.rating,
+          gender: user.gender || null,
+          status,
+          is_primary: shouldBePrimary,
+          introduction: sanitizedIntro ?? nameMatch.introduction,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', nameMatch.id)
+
+      if (updateError) return { error: '클럽 가입에 실패했습니다.' }
+
+      if (status === 'PENDING') await notifyPendingJoin()
+
+      if (shouldBePrimary) {
+        await admin.from('profiles').update({
+          club: club.name, club_city: club.city, club_district: club.district,
+          updated_at: new Date().toISOString(),
+        }).eq('id', user.id)
+      }
+
+      revalidatePath('/my/profile')
+      revalidatePath(`/clubs/${clubId}`)
+      return { result: status === 'ACTIVE' ? 'linked' as const : 'pending' as const }
+    }
+  }
+
+  // ── 전화번호 기반 매칭 (기존 로직 — 이름 매칭 실패 시 폴백) ────────────
+  // 정규화 전략: DB에 하이픈/숫자 포맷이 공존 → 양쪽 동시 매칭
   if (normalizedUserPhone) {
     const hyphenFormatted = normalizedUserPhone.replace(
       /^(\d{3})(\d{4})(\d{4})$/,
@@ -695,44 +776,18 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
 
       if (updateError) return { error: '클럽 가입에 실패했습니다.' }
 
-      // 알림 + profiles 동기화는 INSERT 경로와 동일하게 처리
-      if (status === 'PENDING') {
-        try {
-          const { data: admins } = await admin
-            .from('club_members')
-            .select('user_id')
-            .eq('club_id', clubId)
-            .in('role', ['OWNER', 'ADMIN'])
-            .eq('status', 'ACTIVE')
-          const adminUserIds = (admins ?? []).map(a => a.user_id).filter(Boolean) as string[]
-          if (adminUserIds.length > 0) {
-            await createBulkNotifications({
-              user_ids: adminUserIds,
-              type: NotificationType.CLUB_JOIN_REQUESTED,
-              title: '클럽 가입 신청',
-              message: `${user.name}님이 클럽 가입을 신청했습니다.`,
-              club_id: clubId,
-              metadata: { link: `/admin/clubs/${clubId}` },
-            })
-          }
-        } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
-      }
+      if (status === 'PENDING') await notifyPendingJoin()
 
       if (shouldBePrimary) {
-        await admin
-          .from('profiles')
-          .update({
-            club: club.name,
-            club_city: club.city,
-            club_district: club.district,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', user.id)
+        await admin.from('profiles').update({
+          club: club.name, club_city: club.city, club_district: club.district,
+          updated_at: new Date().toISOString(),
+        }).eq('id', user.id)
       }
 
       revalidatePath('/my/profile')
       revalidatePath(`/clubs/${clubId}`)
-      return {}
+      return { result: status === 'ACTIVE' ? 'linked' as const : 'pending' as const }
     }
   }
 
@@ -757,45 +812,18 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     return { error: '클럽 가입에 실패했습니다.' }
   }
 
-  // 알림: APPROVAL 모드 → 클럽 OWNER/ADMIN에게 가입 신청 알림
-  if (status === 'PENDING') {
-    try {
-      const { data: admins } = await admin
-        .from('club_members')
-        .select('user_id')
-        .eq('club_id', clubId)
-        .in('role', ['OWNER', 'ADMIN'])
-        .eq('status', 'ACTIVE')
-      const adminUserIds = (admins ?? []).map(a => a.user_id).filter(Boolean) as string[]
-      if (adminUserIds.length > 0) {
-        await createBulkNotifications({
-          user_ids: adminUserIds,
-          type: NotificationType.CLUB_JOIN_REQUESTED,
-          title: '클럽 가입 신청',
-          message: `${user.name}님이 클럽 가입을 신청했습니다.`,
-          club_id: clubId,
-          metadata: { link: `/admin/clubs/${clubId}` },
-        })
-      }
-    } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
-  }
+  if (status === 'PENDING') await notifyPendingJoin()
 
-  // 첫 클럽이면 profiles.club 레거시 필드 동기화
   if (shouldBePrimary) {
-    await admin
-      .from('profiles')
-      .update({
-        club: club.name,
-        club_city: club.city,
-        club_district: club.district,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', user.id)
+    await admin.from('profiles').update({
+      club: club.name, club_city: club.city, club_district: club.district,
+      updated_at: new Date().toISOString(),
+    }).eq('id', user.id)
   }
 
   revalidatePath('/my/profile')
   revalidatePath(`/clubs/${clubId}`)
-  return {}
+  return { result: status === 'ACTIVE' ? 'joined' as const : 'pending' as const }
 }
 
 /** 비로그인 사용자 가입 신청 (이름+연락처 입력 → PENDING) */
