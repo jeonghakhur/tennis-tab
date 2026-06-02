@@ -13,7 +13,7 @@ import PhoneInput from '@/components/ui/PhoneInput'
 import { unformatPhoneNumber } from '@/lib/utils/phone'
 
 // 모듈 레벨 캐시: 뒤로가기 시 재조회 없이 즉시 렌더링
-type ClubsListCache = { clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; search: string }
+type ClubsListCache = { clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; myNonMemberClubIds: Set<string>; myPendingClubIds: Set<string>; search: string }
 let clubsListCache: ClubsListCache | null = null
 
 const ROLE_LABEL: Record<string, string> = {
@@ -37,6 +37,12 @@ export default function ClubsPage() {
   const [myClubRoles, setMyClubRoles] = useState<Map<string, ClubMemberRole>>(
     isCacheValid ? clubsListCache!.myClubRoles : new Map()
   )
+  const [myNonMemberClubIds, setMyNonMemberClubIds] = useState<Set<string>>(
+    isCacheValid ? clubsListCache!.myNonMemberClubIds : new Set()
+  )
+  const [myPendingClubIds, setMyPendingClubIds] = useState<Set<string>>(
+    isCacheValid ? clubsListCache!.myPendingClubIds : new Set()
+  )
 
   // 가입 신청 모달 — 로그인 회원용 (APPROVAL: 자기소개만)
   const [memberJoinTarget, setMemberJoinTarget] = useState<Club | null>(null)
@@ -56,14 +62,16 @@ export default function ClubsPage() {
     if (clubsListCache && clubsListCache.search === search) return
     setLoading(true)
     const { getClubsWithMyRoles } = await import('@/lib/clubs/actions')
-    const { clubs: data, myClubRoles: roles } = await getClubsWithMyRoles({
+    const { clubs: data, myClubRoles: roles, myNonMemberClubIds: nonMemberIds, myPendingClubIds: pendingIds } = await getClubsWithMyRoles({
       search: search || undefined,
     })
     setClubs(data)
     setMyClubRoles(roles)
+    setMyNonMemberClubIds(nonMemberIds)
+    setMyPendingClubIds(pendingIds)
     setLoading(false)
     if (!search) {
-      clubsListCache = { clubs: data, myClubRoles: roles, search: '' }
+      clubsListCache = { clubs: data, myClubRoles: roles, myNonMemberClubIds: nonMemberIds, myPendingClubIds: pendingIds, search: '' }
     }
   }, [search])
 
@@ -121,9 +129,14 @@ export default function ClubsPage() {
       setAlert({ isOpen: true, message: result.error, type: 'error' })
       return
     }
-    const message = club.join_type === 'OPEN'
-      ? `${club.name}에 가입되었습니다!`
-      : `${club.name}에 가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.`
+    let message: string
+    if (result.result === 'linked') {
+      message = `${club.name}의 기존 비가입 회원으로 등록되어 있었습니다. 계정과 연결되었습니다!`
+    } else if (club.join_type === 'OPEN') {
+      message = `${club.name}에 가입되었습니다!`
+    } else {
+      message = `${club.name}에 가입 신청이 완료되었습니다. 관리자 승인을 기다려주세요.`
+    }
     setToast({ isOpen: true, message, type: 'success' })
     clubsListCache = null
     loadClubs()
@@ -218,13 +231,15 @@ export default function ClubsPage() {
               {sortedClubs.map((club) => {
                 const myRole = myClubRoles.get(club.id)
                 const isMine = !!myRole
-                const canJoin = club.is_recruiting && !isMine && club.join_type !== 'INVITE_ONLY'
+                const isPending = !isMine && myPendingClubIds.has(club.id)
+                const isNonMember = !isMine && !isPending && myNonMemberClubIds.has(club.id)
+                const canJoin = club.is_recruiting && !isMine && !isPending && club.join_type !== 'INVITE_ONLY'
 
                 return (
                   <div
                     key={club.id}
                     className={`glass-card rounded-xl p-5 flex flex-col min-h-[96px] ${
-                      isMine ? 'ring-1 ring-(--accent-color)/40' : ''
+                      isMine ? 'ring-1 ring-(--accent-color)/40' : isNonMember ? 'ring-1 ring-amber-500/40' : ''
                     }`}
                   >
                     {/* 상단: 클럽명+설명 + 가입 버튼/상태 배지 */}
@@ -251,11 +266,29 @@ export default function ClubsPage() {
                         </div>
                       )}
 
-                      {/* 우측: 내 클럽 배지 or 가입 신청 버튼 */}
+                      {/* 우측: 내 클럽 배지 or 가입 연결/신청 버튼 */}
                       {isMine ? (
                         <div className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium flex-shrink-0 bg-(--accent-color) text-(--bg-primary)">
                           <Check className="w-3 h-3" />
                           {ROLE_LABEL[myRole] || '회원'}
+                        </div>
+                      ) : isPending ? (
+                        <span className="text-xs px-2 py-1 rounded-full flex-shrink-0 font-medium text-amber-600 bg-amber-500/10">
+                          승인 대기
+                        </span>
+                      ) : isNonMember && canJoin ? (
+                        <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                          <span className="text-xs px-2 py-0.5 rounded-full font-medium text-amber-600 bg-amber-500/10">
+                            비가입 등록됨
+                          </span>
+                          <button
+                            onClick={(e) => handleJoinClick(e, club)}
+                            disabled={joinLoading}
+                            className="flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-amber-500 text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+                          >
+                            <Check className="w-3 h-3" />
+                            가입 연결
+                          </button>
                         </div>
                       ) : canJoin ? (
                         <button

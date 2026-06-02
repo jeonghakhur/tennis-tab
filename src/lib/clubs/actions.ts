@@ -678,6 +678,47 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     } catch { /* 알림 실패가 메인 기능을 막지 않음 */ }
   }
 
+  // ── user_id 기반 기존 멤버십 직접 조회 (status 무관) ──────────────────
+  // LEFT/REMOVED면 재가입(UPDATE), 그 외면 중복 가입 차단
+  const { data: ownMembership } = await admin
+    .from('club_members')
+    .select('id, status')
+    .eq('club_id', clubId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (ownMembership) {
+    if (ownMembership.status !== 'LEFT' && ownMembership.status !== 'REMOVED') {
+      return { error: '이미 가입된 클럽입니다.' }
+    }
+
+    // LEFT/REMOVED → 기존 레코드 재활용하여 재가입
+    const { error: updateError } = await admin
+      .from('club_members')
+      .update({
+        status,
+        is_primary: shouldBePrimary,
+        introduction: sanitizedIntro ?? null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', ownMembership.id)
+
+    if (updateError) return { error: '클럽 가입에 실패했습니다.' }
+
+    if (status === 'PENDING') await notifyPendingJoin()
+
+    if (shouldBePrimary) {
+      await admin.from('profiles').update({
+        club: club.name, club_city: club.city, club_district: club.district,
+        updated_at: new Date().toISOString(),
+      }).eq('id', user.id)
+    }
+
+    revalidatePath('/my/profile')
+    revalidatePath(`/clubs/${clubId}`)
+    return { result: status === 'ACTIVE' ? 'joined' as const : 'pending' as const }
+  }
+
   // ── 이름 우선 매칭: 동일 이름의 비가입 회원 탐색 → 전화번호로 검증 ──
   // 클럽 관리자가 이름으로 사전 등록한 비가입 회원을 실계정과 연동
   const { data: nameMatches } = await admin
@@ -750,9 +791,9 @@ export async function joinClubAsRegistered(clubId: string, introduction?: string
     const ownRegistered = existingList?.find((m) => m.user_id === user.id)
     if (ownRegistered) return { error: '이미 가입된 클럽입니다.' }
 
-    // 비가입 레코드 찾기 (여러 건이어도 첫 번째만 사용 — .maybeSingle() 크래시 방지)
+    // 연결 가능한 레코드 찾기 — 가입/비가입 모두, user_id 미연결된 것
     const existingUnregistered = existingList?.find(
-      (m) => !m.is_registered && m.user_id === null,
+      (m) => m.user_id === null,
     )
 
     if (existingUnregistered) {
@@ -1521,12 +1562,12 @@ export async function getMyClubMemberships(): Promise<{
 
   const admin = createAdminClient()
 
-  // 모든 ACTIVE 멤버십 조회
+  // ACTIVE + PENDING + INVITED 멤버십 조회 (LEFT·REMOVED 제외)
   const { data: members } = await admin
     .from('club_members')
     .select('*')
     .eq('user_id', user.id)
-    .eq('status', 'ACTIVE')
+    .not('status', 'in', '("LEFT","REMOVED")')
     .order('is_primary', { ascending: false }) // 대표 클럽 먼저
     .order('joined_at', { ascending: true, nullsFirst: false })
 
@@ -1740,7 +1781,7 @@ export async function hasOfficerClubs(): Promise<boolean> {
 /** 클럽 목록 + 내 멤버십 역할 맵을 한 번에 조회 (라운드트립 1회) */
 export async function getClubsWithMyRoles(
   filters?: ClubFilters
-): Promise<{ clubs: Club[]; myClubRoles: Map<string, ClubMemberRole> }> {
+): Promise<{ clubs: Club[]; myClubRoles: Map<string, ClubMemberRole>; myNonMemberClubIds: Set<string>; myPendingClubIds: Set<string> }> {
   const admin = createAdminClient()
   const user = await getCurrentUser()
 
@@ -1755,7 +1796,11 @@ export async function getClubsWithMyRoles(
   if (filters?.district) query = query.eq('district', filters.district)
   if (filters?.association_id) query = query.eq('association_id', filters.association_id)
 
-  const [{ data: clubs }, { data: members }, { data: memberCounts }] = await Promise.all([
+  // 전화번호 정규화 (복호화된 user.phone 기반)
+  const normalizedUserPhone = user?.phone ? unformatPhoneNumber(user.phone) : ''
+  const hyphenUserPhone = normalizedUserPhone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3')
+
+  const [{ data: clubs }, { data: members }, { data: memberCounts }, { data: nonMemberMatches }, { data: pendingMembers }] = await Promise.all([
     query,
     user
       ? admin
@@ -1768,6 +1813,24 @@ export async function getClubsWithMyRoles(
       .from('club_members')
       .select('club_id')
       .eq('status', 'ACTIVE'),
+    // 전화번호로 미연결 레코드 탐색 — 가입/비가입 모두, user_id 없고 전화번호 일치
+    user && normalizedUserPhone
+      ? admin
+          .from('club_members')
+          .select('club_id')
+          .is('user_id', null)
+          .or(`phone.eq.${normalizedUserPhone},phone.eq.${hyphenUserPhone}`)
+          .neq('status', 'REMOVED')
+          .neq('status', 'LEFT')
+      : Promise.resolve({ data: [] }),
+    // LEFT 제외한 모든 상태 — ACTIVE 이외(PENDING·INVITED·REMOVED)도 가입된 것으로 처리
+    user
+      ? admin
+          .from('club_members')
+          .select('club_id')
+          .eq('user_id', user.id)
+          .not('status', 'in', '("ACTIVE","LEFT")')
+      : Promise.resolve({ data: [] }),
   ])
 
   // 클럽별 활성 회원 수 집계
@@ -1780,12 +1843,26 @@ export async function getClubsWithMyRoles(
     ((members || []) as { club_id: string; role: ClubMemberRole }[]).map((m) => [m.club_id, m.role])
   )
 
+  // ACTIVE 회원인 클럽은 제외 (연결 후 중복 표시 방지)
+  const myNonMemberClubIds = new Set(
+    ((nonMemberMatches || []) as { club_id: string }[])
+      .map((m) => m.club_id)
+      .filter((id) => !myClubRoles.has(id))
+  )
+
+  // PENDING/INVITED 클럽 — ACTIVE·미연결 양쪽 제외
+  const myPendingClubIds = new Set(
+    ((pendingMembers || []) as { club_id: string }[])
+      .map((m) => m.club_id)
+      .filter((id) => !myClubRoles.has(id) && !myNonMemberClubIds.has(id))
+  )
+
   const clubsWithCount = ((clubs || []) as Club[]).map((c) => ({
     ...c,
     _member_count: countMap.get(c.id) ?? 0,
   }))
 
-  return { clubs: clubsWithCount, myClubRoles }
+  return { clubs: clubsWithCount, myClubRoles, myNonMemberClubIds, myPendingClubIds }
 }
 
 /** 전체 클럽 회원 통합 조회 (페이지네이션 + 이름/전화번호 검색)

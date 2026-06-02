@@ -6,9 +6,9 @@ import {
   setPrimaryClub,
   leaveClub,
   joinClubAsRegistered,
+  searchClubsForJoin,
 } from '@/lib/clubs/actions'
-import { searchClubsByName } from '@/lib/entries/actions'
-import type { Club, ClubMember } from '@/lib/clubs/types'
+import type { Club, ClubMember, ClubJoinType } from '@/lib/clubs/types'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
@@ -29,6 +29,8 @@ interface ClubSearchResult {
   name: string
   city: string | null
   district: string | null
+  join_type: ClubJoinType
+  association_name: string | null
 }
 
 const JOIN_TYPE_LABEL: Record<string, { label: string; variant: 'success' | 'warning' | 'secondary' }> = {
@@ -67,13 +69,17 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
 
   useEffect(() => { loadMemberships() }, [loadMemberships])
 
+  // 확인 버튼 클릭 시 검색 재실행 방지 플래그
+  const skipSearchRef = useRef(false)
+
   // 검색어 변경 시 디바운스 300ms
   useEffect(() => {
+    if (skipSearchRef.current) { skipSearchRef.current = false; return }
     if (debounceRef.current) clearTimeout(debounceRef.current)
     if (!query.trim()) { setSearchResults([]); return }
     setIsSearching(true)
     debounceRef.current = setTimeout(async () => {
-      const results = await searchClubsByName(query)
+      const { data: results } = await searchClubsForJoin(query)
       setSearchResults(results)
       setIsSearching(false)
     }, 300)
@@ -243,11 +249,16 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
                   <div key={club.id} className="px-4 py-3 flex items-center justify-between gap-3"
                     style={{ backgroundColor: 'var(--bg-card)' }}>
                     <div className="min-w-0">
-                      <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                        {club.name}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+                          {club.name}
+                        </span>
+                        <Badge variant={JOIN_TYPE_LABEL[club.join_type].variant}>
+                          {JOIN_TYPE_LABEL[club.join_type].label}
+                        </Badge>
+                      </div>
                       {(club.city || club.district) && (
-                        <span className="ml-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                        <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
                           {[club.city, club.district].filter(Boolean).join(' ')}
                         </span>
                       )}
@@ -256,10 +267,18 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
                       )}
                     </div>
                     {isMember ? (
-                      <span className="text-xs px-2 py-1 rounded shrink-0"
-                        style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-muted)' }}>
-                        이미 가입
-                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skipSearchRef.current = true
+                          setQuery(club.name)
+                          setSearchResults([])
+                        }}
+                        className="text-xs px-3 py-1.5 rounded font-medium shrink-0 hover:opacity-80 transition-opacity"
+                        style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+                      >
+                        확인
+                      </button>
                     ) : (
                       <button
                         type="button"
