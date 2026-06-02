@@ -13,6 +13,7 @@ import {
   getMyMembershipInClub,
   getMyPendingInvitation,
   respondInvitation,
+  updateClub,
 } from "@/lib/clubs/actions";
 import type {
   Club,
@@ -20,6 +21,7 @@ import type {
   ClubMemberRole,
   ClubMember,
 } from "@/lib/clubs/types";
+import { ShieldCheck } from "lucide-react";
 import { ClubMemberList } from "@/components/clubs/ClubMemberList";
 import { ClubAwards } from "@/components/awards/ClubAwards";
 import SessionList from "@/components/clubs/sessions/SessionList";
@@ -59,6 +61,12 @@ const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
   OPEN: "자유 가입",
   APPROVAL: "승인제",
   INVITE_ONLY: "초대 전용",
+};
+
+const JOIN_TYPE_DESC: Record<ClubJoinType, string> = {
+  OPEN: "누구나 즉시 가입",
+  APPROVAL: "관리자 승인 후 가입",
+  INVITE_ONLY: "초대받은 사람만 가입",
 };
 
 const ROLE_LABEL: Record<ClubMemberRole, string> = {
@@ -126,6 +134,11 @@ export default function ClubDetailClient({ clubId: id }: Props) {
       myMembership &&
       ["OWNER", "ADMIN", "MATCH_DIRECTOR"].includes(myMembership.role)
     );
+  // 클럽 설정 수정 권한: 회장/총무 또는 시스템 관리자
+  const canManageSettings =
+    isSystemAdmin ||
+    myMembership?.role === "OWNER" ||
+    myMembership?.role === "ADMIN";
   const [fullMembers, setFullMembers] = useState<ClubMember[]>([]);
   const validTabs = [
     "sessions",
@@ -135,9 +148,19 @@ export default function ClubDetailClient({ clubId: id }: Props) {
     "manage",
   ] as const;
   type ActiveTab = (typeof validTabs)[number];
+  // URL 탭 파라미터 없을 때: 캐시된 멤버십으로 임원 여부를 즉시 판단해 초기 탭 결정
+  // (checkMembership 비동기 완료 전에도 올바른 탭으로 시작)
+  const isOfficerInitial =
+    hasMinimumRole(profile?.role, "ADMIN") ||
+    !!(
+      cachedMembership?.membership &&
+      ["OWNER", "ADMIN", "MATCH_DIRECTOR"].includes(cachedMembership.membership.role)
+    );
   const initialTab = (
     validTabs.includes(searchParams.get("tab") as ActiveTab)
       ? searchParams.get("tab")
+      : isOfficerInitial
+      ? "manage"
       : "sessions"
   ) as ActiveTab;
   const [activeTab, setActiveTab] = useState<ActiveTab>(initialTab);
@@ -176,6 +199,14 @@ export default function ClubDetailClient({ clubId: id }: Props) {
   const [pendingInvitation, setPendingInvitation] = useState<{
     id: string;
   } | null>(null);
+  // 클럽 설정 폼 (join_type, is_recruiting)
+  const [settingsForm, setSettingsForm] = useState<{
+    join_type: ClubJoinType;
+    is_recruiting: boolean;
+  }>({
+    join_type: cachedClub?.club.join_type ?? "APPROVAL",
+    is_recruiting: cachedClub?.club.is_recruiting ?? false,
+  });
 
   // 클럽 기본 데이터 + 멤버십 병렬 로드
   // 캐시가 있으면 silent(백그라운드 갱신), 없으면 스켈레톤 표시
@@ -237,16 +268,25 @@ export default function ClubDetailClient({ clubId: id }: Props) {
         getMyPendingInvitation(id),
       ]);
       const cacheKey = `${id}:${user?.id ?? "guest"}`;
+      let willBeOfficer = false;
       if (data) {
         setIsMember(true);
         setMyMembership(data);
         membershipCache.set(cacheKey, { isMember: true, membership: data });
+        willBeOfficer = ["OWNER", "ADMIN", "MATCH_DIRECTOR"].includes(data.role);
       } else {
         setIsMember(false);
         setMyMembership(null);
         membershipCache.set(cacheKey, { isMember: false, membership: null });
+        willBeOfficer = isSystemAdmin;
       }
       setPendingInvitation(invitation);
+      // 임원이고 URL 탭 파라미터 없으면 관리 탭으로
+      // React 18 async batching 덕분에 setMembershipChecked(true)와 같은 렌더에 처리됨 → 플래시 없음
+      if (willBeOfficer && !searchParams.get("tab")) {
+        setActiveTab("manage");
+        setMountedTabs((prev) => new Set([...prev, "manage"]));
+      }
     } catch {
       setIsMember(false);
       setMyMembership(null);
@@ -265,6 +305,13 @@ export default function ClubDetailClient({ clubId: id }: Props) {
       setFullMembersLoading(false);
     });
   }, [isOfficer, activeTab, id]);
+
+  // club 로드 완료 시 settingsForm 동기화
+  useEffect(() => {
+    if (club) {
+      setSettingsForm({ join_type: club.join_type, is_recruiting: club.is_recruiting });
+    }
+  }, [club]);
 
   // 입상 기록: 탭 클릭 시 지연 로드
   useEffect(() => {
@@ -331,6 +378,21 @@ export default function ClubDetailClient({ clubId: id }: Props) {
     setMyMembership(null);
     membershipCache.delete(`${id}:${user?.id ?? "guest"}`);
     loadClubData(true); // silent: 스켈레톤 플래시 방지
+  };
+
+  const handleSettingsSave = async () => {
+    setActionLoading(true);
+    const result = await updateClub(id, settingsForm);
+    setActionLoading(false);
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: "error" });
+      return;
+    }
+    setClub((prev) => (prev ? { ...prev, ...settingsForm } : prev));
+    if (club) {
+      clubCache.set(id, { club: { ...club, ...settingsForm }, memberCount });
+    }
+    setToast({ isOpen: true, message: "클럽 설정이 저장되었습니다.", type: "success" });
   };
 
   if (loading || !membershipChecked) {
@@ -696,6 +758,15 @@ export default function ClubDetailClient({ clubId: id }: Props) {
               {/* 탭 - 아이콘+텍스트, 균등 분할 */}
               {(() => {
                 const tabs = [
+                  ...(isOfficer
+                    ? [
+                        {
+                          key: "manage",
+                          icon: <Settings className="w-4 h-4" />,
+                          label: "관리",
+                        },
+                      ]
+                    : []),
                   {
                     key: "sessions",
                     icon: <Calendar className="w-4 h-4" />,
@@ -716,15 +787,6 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                     icon: <Trophy className="w-4 h-4" />,
                     label: "입상",
                   },
-                  ...(isOfficer
-                    ? [
-                        {
-                          key: "manage",
-                          icon: <Settings className="w-4 h-4" />,
-                          label: "관리",
-                        },
-                      ]
-                    : []),
                 ] as const;
                 return (
                   <div
@@ -905,26 +967,104 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                 <div
                   className={`mt-4${activeTab !== "manage" ? " hidden" : ""}`}
                 >
-                  {mountedTabs.has("manage") &&
-                    (fullMembersLoading ? (
-                      <div className="space-y-2 animate-pulse">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="h-11 rounded-lg"
-                            style={{ backgroundColor: "var(--bg-card-hover)" }}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      // fullMembersLoaded 후 마운트 → useState(initialMembers)가 정확한 데이터로 초기화됨
-                      <ClubMemberList
-                        key="manage"
-                        clubId={id}
-                        initialMembers={fullMembers}
-                        isSystemAdmin={isSystemAdmin}
-                      />
-                    ))}
+                  {mountedTabs.has("manage") && (
+                    <>
+                      {/* 클럽 설정 (회장/총무/시스템 관리자만) */}
+                      {canManageSettings && (
+                        <div className="glass-card rounded-xl p-5 mb-6 space-y-5">
+                          <div className="flex items-center gap-2">
+                            <ShieldCheck className="w-4 h-4" style={{ color: "var(--accent-color)" }} />
+                            <h3 className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>
+                              클럽 설정
+                            </h3>
+                          </div>
+
+                          {/* 가입 방식 */}
+                          <div>
+                            <label className="block text-sm font-medium mb-2" style={{ color: "var(--text-primary)" }}>
+                              가입 방식
+                            </label>
+                            <div className="grid grid-cols-3 gap-2">
+                              {(["OPEN", "APPROVAL", "INVITE_ONLY"] as const).map((type) => (
+                                <button
+                                  key={type}
+                                  onClick={() => setSettingsForm((prev) => ({ ...prev, join_type: type }))}
+                                  className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border text-left ${
+                                    settingsForm.join_type === type
+                                      ? "border-(--accent-color) bg-(--accent-color)/10 text-(--accent-color)"
+                                      : "border-(--border-color) text-(--text-secondary) hover:border-(--text-muted)"
+                                  }`}
+                                >
+                                  <div className="font-semibold">{JOIN_TYPE_LABEL[type]}</div>
+                                  <div className="text-xs mt-0.5 opacity-70">{JOIN_TYPE_DESC[type]}</div>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* 회원 모집 토글 */}
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-medium" style={{ color: "var(--text-primary)" }}>
+                                회원 모집
+                              </p>
+                              <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
+                                비활성화 시 클럽 목록에서 가입 버튼이 숨겨집니다
+                              </p>
+                            </div>
+                            <button
+                              role="switch"
+                              aria-checked={settingsForm.is_recruiting}
+                              onClick={() =>
+                                setSettingsForm((prev) => ({
+                                  ...prev,
+                                  is_recruiting: !prev.is_recruiting,
+                                }))
+                              }
+                              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+                                settingsForm.is_recruiting
+                                  ? "bg-(--accent-color)"
+                                  : "bg-(--bg-secondary)"
+                              }`}
+                              style={!settingsForm.is_recruiting ? { border: "1px solid var(--border-color)" } : undefined}
+                            >
+                              <span
+                                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                                  settingsForm.is_recruiting ? "translate-x-5" : "translate-x-0"
+                                }`}
+                              />
+                            </button>
+                          </div>
+
+                          <div className="flex justify-end">
+                            <button onClick={handleSettingsSave} className="btn-primary btn-sm">
+                              저장
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* 회원 관리 */}
+                      {fullMembersLoading ? (
+                        <div className="space-y-2 animate-pulse">
+                          {Array.from({ length: 5 }).map((_, i) => (
+                            <div
+                              key={i}
+                              className="h-11 rounded-lg"
+                              style={{ backgroundColor: "var(--bg-card-hover)" }}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <ClubMemberList
+                          key="manage"
+                          clubId={id}
+                          initialMembers={fullMembers}
+                          isSystemAdmin={isSystemAdmin}
+                        />
+                      )}
+                    </>
+                  )}
                 </div>
               )}
             </>

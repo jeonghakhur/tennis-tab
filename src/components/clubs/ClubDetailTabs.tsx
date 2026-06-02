@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import type { Club, ClubMember, ClubMemberRole, ClubMemberStatus } from '@/lib/clubs/types'
+import type { Club, ClubJoinType, ClubMember, ClubMemberRole, ClubMemberStatus } from '@/lib/clubs/types'
 import { updateClub, deleteClub, permanentlyDeleteClub, reactivateClub } from '@/lib/clubs/actions'
 import { ClubMemberList } from './ClubMemberList'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
@@ -51,6 +51,17 @@ export function ClubDetailTabs({ club, initialMembers, associations = [], isSyst
   }>({ isOpen: false, type: 'deactivate' })
   const [deleteConfirmName, setDeleteConfirmName] = useState('')
 
+  const JOIN_TYPE_LABEL: Record<ClubJoinType, string> = {
+    OPEN: '자유 가입',
+    APPROVAL: '승인제',
+    INVITE_ONLY: '초대 전용',
+  }
+  const JOIN_TYPE_DESC: Record<ClubJoinType, string> = {
+    OPEN: '누구나 즉시 가입',
+    APPROVAL: '관리자 승인 후 가입',
+    INVITE_ONLY: '초대받은 사람만 가입',
+  }
+
   // 클럽 정보 수정 폼 상태
   const [infoForm, setInfoForm] = useState({
     name: club.name,
@@ -62,6 +73,8 @@ export function ClubDetailTabs({ club, initialMembers, associations = [], isSyst
     contact_email: club.contact_email || '',
     association_id: club.association_id as string | null,
     association_name: '',
+    join_type: club.join_type as ClubJoinType,
+    is_recruiting: club.is_recruiting,
   })
   const [assocValue, setAssocValue] = useState<AssociationValue>({
     association_id: club.association_id,
@@ -254,6 +267,52 @@ export function ClubDetailTabs({ club, initialMembers, associations = [], isSyst
               className="w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border border-(--border-color) focus:border-(--accent-color) outline-none resize-none"
             />
           </div>
+
+          {/* 가입 방식 */}
+          <div>
+            <label className="block text-sm font-medium text-(--text-primary) mb-2">가입 방식</label>
+            <div className="grid grid-cols-3 gap-2">
+              {(['OPEN', 'APPROVAL', 'INVITE_ONLY'] as const).map((type) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setInfoForm({ ...infoForm, join_type: type })}
+                  className={`px-3 py-2.5 rounded-lg text-sm font-medium transition-colors border text-left ${
+                    infoForm.join_type === type
+                      ? 'border-(--accent-color) bg-(--accent-color)/10 text-(--accent-color)'
+                      : 'border-(--border-color) text-(--text-secondary) hover:border-(--text-muted)'
+                  }`}
+                >
+                  <div className="font-semibold">{JOIN_TYPE_LABEL[type]}</div>
+                  <div className="text-xs mt-0.5 opacity-70">{JOIN_TYPE_DESC[type]}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 회원 모집 */}
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-(--text-primary)">회원 모집</p>
+              <p className="text-xs text-(--text-muted) mt-0.5">비활성화 시 클럽 목록에서 가입 버튼이 숨겨집니다</p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={infoForm.is_recruiting}
+              onClick={() => setInfoForm({ ...infoForm, is_recruiting: !infoForm.is_recruiting })}
+              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
+                infoForm.is_recruiting ? 'bg-(--accent-color)' : 'bg-(--bg-secondary) border border-(--border-color)'
+              }`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                  infoForm.is_recruiting ? 'translate-x-5' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          </div>
+
           <div className="flex justify-end">
             <button onClick={handleInfoSave} className="btn-primary btn-sm">
               저장
