@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import {
   getMyClubMemberships,
+  getMyNonMemberClubIds,
   setPrimaryClub,
   leaveClub,
   joinClubAsRegistered,
+  linkNonMemberToClub,
   searchClubsForJoin,
 } from '@/lib/clubs/actions'
 import type { Club, ClubMember, ClubJoinType } from '@/lib/clubs/types'
@@ -41,6 +43,7 @@ const JOIN_TYPE_LABEL: Record<string, { label: string; variant: 'success' | 'war
 
 export function ClubSelector({ onClubChange }: ClubSelectorProps) {
   const [myClubs, setMyClubs] = useState<ClubEntry[]>([])
+  const [nonMemberClubIds, setNonMemberClubIds] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
   const [actionLoading, setActionLoading] = useState(false)
 
@@ -61,9 +64,14 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
 
   const myClubIds = new Set(myClubs.map(e => e.club.id))
 
+  // 마운트 시 멤버십 + 비가입 매칭 클럽 ID를 병렬 로드
   const loadMemberships = useCallback(async () => {
-    const result = await getMyClubMemberships()
-    setMyClubs(result.data || [])
+    const [membershipsResult, nonMemberIds] = await Promise.all([
+      getMyClubMemberships(),
+      getMyNonMemberClubIds(),
+    ])
+    setMyClubs(membershipsResult.data || [])
+    setNonMemberClubIds(new Set(nonMemberIds))
     setLoading(false)
   }, [])
 
@@ -109,6 +117,24 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
     setMyClubs(prev => prev.filter(e => e.club.id !== leaveTarget.club.id))
     onClubChange?.()
     setToast({ isOpen: true, message: `${leaveTarget.club.name}에서 탈퇴했습니다.`, type: 'success' })
+  }
+
+  const handleLink = async (clubId: string, clubName: string) => {
+    setActionLoading(true)
+    const result = await linkNonMemberToClub(clubId)
+    setActionLoading(false)
+
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error, type: 'error' })
+      return
+    }
+
+    setToast({ isOpen: true, message: `${clubName} — 가입 회원으로 연동됐습니다 ✓`, type: 'success' })
+    setNonMemberClubIds(prev => { const next = new Set(prev); next.delete(clubId); return next })
+    setSearchResults([])
+    setQuery('')
+    await loadMemberships()
+    onClubChange?.()
   }
 
   const handleJoin = async (clubId: string, clubName: string) => {
@@ -244,6 +270,7 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
             <div className="rounded-lg overflow-hidden divide-y divide-(--border-color)" style={{ border: '1px solid var(--border-color)' }}>
               {searchResults.map(club => {
                 const isMember = myClubIds.has(club.id)
+                const isNonMember = !isMember && nonMemberClubIds.has(club.id)
                 const feedback = joinFeedback[club.id]
                 return (
                   <div key={club.id} className="px-4 py-3 flex items-center justify-between gap-3"
@@ -253,9 +280,13 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
                         <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
                           {club.name}
                         </span>
-                        <Badge variant={JOIN_TYPE_LABEL[club.join_type].variant}>
-                          {JOIN_TYPE_LABEL[club.join_type].label}
-                        </Badge>
+                        {isNonMember ? (
+                          <Badge variant="warning">비가입 등록됨</Badge>
+                        ) : (
+                          <Badge variant={JOIN_TYPE_LABEL[club.join_type].variant}>
+                            {JOIN_TYPE_LABEL[club.join_type].label}
+                          </Badge>
+                        )}
                       </div>
                       {(club.city || club.district) && (
                         <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
@@ -276,6 +307,16 @@ export function ClubSelector({ onClubChange }: ClubSelectorProps) {
                         }}
                         className="text-xs px-3 py-1.5 rounded font-medium shrink-0 hover:opacity-80 transition-opacity"
                         style={{ backgroundColor: 'var(--bg-card-hover)', color: 'var(--text-secondary)' }}
+                      >
+                        확인
+                      </button>
+                    ) : isNonMember ? (
+                      <button
+                        type="button"
+                        onClick={() => handleLink(club.id, club.name)}
+                        disabled={actionLoading}
+                        className="text-xs px-3 py-1.5 rounded font-medium shrink-0 hover:opacity-80 transition-opacity disabled:opacity-50"
+                        style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
                       >
                         확인
                       </button>

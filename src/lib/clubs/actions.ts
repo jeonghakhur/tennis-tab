@@ -1655,7 +1655,9 @@ export async function setPrimaryClub(clubId: string): Promise<{ error?: string }
   return {}
 }
 
-/** 클럽 검색 (프로필에서 클럽 선택용 — INVITE_ONLY 제외) */
+/** 클럽 검색 (프로필에서 클럽 선택용 — INVITE_ONLY 제외)
+ * 이름 검색만 수행. is_non_member 판단은 클라이언트에서 getMyNonMemberClubIds() 결과로 처리.
+ */
 export async function searchClubsForJoin(
   query: string
 ): Promise<{ data: Array<{ id: string; name: string; city: string | null; district: string | null; join_type: ClubJoinType; association_name: string | null }>; error?: string }> {
@@ -1683,6 +1685,247 @@ export async function searchClubsForJoin(
       association_name: (c.associations as unknown as { name: string } | null)?.name ?? null,
     })),
   }
+}
+
+/** 전화번호 매칭 비가입 클럽 ID 목록 조회 (ClubSelector 마운트 시 1회 호출) */
+export async function getMyNonMemberClubIds(): Promise<string[]> {
+  const user = await getCurrentUser()
+  if (!user?.phone) return []
+
+  const admin = createAdminClient()
+  const normalizedPhone = unformatPhoneNumber(user.phone)
+  if (!normalizedPhone) return []
+
+  const hyphenPhone = normalizedPhone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3')
+
+  const [{ data: myMemberships }, { data: nonMemberMatches }] = await Promise.all([
+    admin
+      .from('club_members')
+      .select('club_id')
+      .eq('user_id', user.id)
+      .eq('status', 'ACTIVE'),
+    admin
+      .from('club_members')
+      .select('club_id')
+      .is('user_id', null)
+      .or(`phone.eq.${normalizedPhone},phone.eq.${hyphenPhone}`)
+      .neq('status', 'REMOVED')
+      .neq('status', 'LEFT'),
+  ])
+
+  const myClubIds = new Set((myMemberships || []).map((m) => m.club_id))
+
+  return (nonMemberMatches || [])
+    .map((m) => m.club_id)
+    .filter((id) => !myClubIds.has(id))
+}
+
+/** 전화번호 기반 비가입 레코드 일괄 연동 (프로필 저장 시 호출)
+ * user_id=null 이고 전화번호가 일치하는 club_members 레코드를 현재 계정과 연결
+ */
+/** 특정 클럽의 비가입 레코드를 현재 계정과 즉시 연동 (status 항상 ACTIVE — join_type 무시)
+ *
+ * UNIQUE(club_id, user_id) 제약 처리:
+ * - LEFT/REMOVED 기존 레코드 있으면 → 그 레코드를 재활성화 + 비가입 레코드 삭제
+ * - 기존 레코드 없으면 → 비가입 레코드에 user_id 직접 연동
+ */
+export async function linkNonMemberToClub(clubId: string): Promise<{ error?: string; result?: 'linked' }> {
+  const idError = validateId(clubId, '클럽 ID')
+  if (idError) return { error: idError }
+
+  const user = await getCurrentUser()
+  if (!user) return { error: '로그인이 필요합니다.' }
+  if (!user.phone) return { error: '연락처가 필요합니다. 프로필에서 연락처를 먼저 등록해주세요.' }
+
+  const admin = createAdminClient()
+  const normalizedPhone = unformatPhoneNumber(user.phone)
+  if (!normalizedPhone) return { error: '유효한 연락처를 등록해주세요.' }
+
+  const hyphenPhone = normalizedPhone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3')
+
+  // 기존 user_id 기반 레코드 확인 (UNIQUE 충돌 방지)
+  const { data: existingMembership } = await admin
+    .from('club_members')
+    .select('id, status')
+    .eq('club_id', clubId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (existingMembership) {
+    if (existingMembership.status !== 'LEFT' && existingMembership.status !== 'REMOVED') {
+      return { error: '이미 가입된 클럽입니다.' }
+    }
+  }
+
+  // 이름+전화번호 우선, 전화번호만 폴백
+  const { data: candidates } = await admin
+    .from('club_members')
+    .select('id, name, introduction')
+    .eq('club_id', clubId)
+    .is('user_id', null)
+    .or(`phone.eq.${normalizedPhone},phone.eq.${hyphenPhone}`)
+    .neq('status', 'REMOVED')
+    .neq('status', 'LEFT')
+
+  if (!candidates || candidates.length === 0) return { error: '연동 가능한 비가입 레코드가 없습니다.' }
+
+  const target = candidates.find((m) => m.name === user.name) ?? candidates[0]
+
+  const { count: activeCount } = await admin
+    .from('club_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  const isFirstClub = (activeCount ?? 0) === 0
+
+  const memberFields = {
+    is_registered: true,
+    name: user.name,
+    phone: normalizedPhone,
+    start_year: user.start_year ?? null,
+    rating: user.rating ?? null,
+    gender: user.gender ?? null,
+    status: 'ACTIVE' as const,
+    is_primary: isFirstClub,
+    updated_at: new Date().toISOString(),
+  }
+
+  if (existingMembership) {
+    // LEFT/REMOVED 레코드를 재활성화 + 비가입 레코드 삭제 (UNIQUE 충돌 회피)
+    const { error } = await admin
+      .from('club_members')
+      .update(memberFields)
+      .eq('id', existingMembership.id)
+
+    if (error) return { error: '가입 연동에 실패했습니다.' }
+
+    await admin.from('club_members').delete().eq('id', target.id)
+  } else {
+    // user_id 기반 레코드 없음 → 비가입 레코드에 직접 연동
+    const { error } = await admin
+      .from('club_members')
+      .update({ user_id: user.id, ...memberFields })
+      .eq('id', target.id)
+
+    if (error) return { error: '가입 연동에 실패했습니다.' }
+  }
+
+  if (isFirstClub) {
+    const { data: club } = await admin
+      .from('clubs')
+      .select('name, city, district')
+      .eq('id', clubId)
+      .single()
+
+    if (club) {
+      await admin
+        .from('profiles')
+        .update({
+          club: club.name,
+          club_city: club.city,
+          club_district: club.district,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id)
+    }
+  }
+
+  revalidatePath('/my/profile')
+  revalidatePath(`/clubs/${clubId}`)
+  return { result: 'linked' }
+}
+
+export async function linkNonMembersByPhone(): Promise<{ count: number; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !user.phone) return { count: 0 }
+
+  const admin = createAdminClient()
+  const normalizedPhone = unformatPhoneNumber(user.phone)
+  if (!normalizedPhone) return { count: 0 }
+
+  const hyphenPhone = normalizedPhone.replace(/^(\d{3})(\d{4})(\d{4})$/, '$1-$2-$3')
+
+  // 전화번호 일치 비가입 레코드 탐색
+  const { data: nonMembers } = await admin
+    .from('club_members')
+    .select('id, club_id, introduction, status')
+    .is('user_id', null)
+    .or(`phone.eq.${normalizedPhone},phone.eq.${hyphenPhone}`)
+    .neq('status', 'REMOVED')
+    .neq('status', 'LEFT')
+
+  if (!nonMembers || nonMembers.length === 0) return { count: 0 }
+
+  // 현재 ACTIVE 멤버십 수 (첫 클럽 여부 판단용)
+  const { count: activeCount } = await admin
+    .from('club_members')
+    .select('*', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .eq('status', 'ACTIVE')
+
+  let linked = 0
+
+  for (const member of nonMembers) {
+    // 이미 해당 클럽에 user_id 기반 멤버십 있으면 스킵
+    const { data: existing } = await admin
+      .from('club_members')
+      .select('id')
+      .eq('club_id', member.club_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existing) continue
+
+    const isFirstClub = (activeCount ?? 0) + linked === 0 && member.status === 'ACTIVE'
+
+    const { error: updateError } = await admin
+      .from('club_members')
+      .update({
+        user_id: user.id,
+        is_registered: true,
+        name: user.name,
+        phone: normalizedPhone,
+        start_year: user.start_year ?? null,
+        rating: user.rating ?? null,
+        gender: user.gender ?? null,
+        is_primary: isFirstClub,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', member.id)
+
+    if (updateError) continue
+
+    // 첫 클럽이면 profiles.club 레거시 필드 동기화
+    if (isFirstClub) {
+      const { data: club } = await admin
+        .from('clubs')
+        .select('name, city, district')
+        .eq('id', member.club_id)
+        .single()
+
+      if (club) {
+        await admin
+          .from('profiles')
+          .update({
+            club: club.name,
+            club_city: club.city,
+            club_district: club.district,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', user.id)
+      }
+    }
+
+    linked++
+  }
+
+  if (linked > 0) {
+    revalidatePath('/my/profile')
+    revalidatePath('/my/profile/edit')
+  }
+
+  return { count: linked }
 }
 
 /** 클럽 회원 수 조회 */
