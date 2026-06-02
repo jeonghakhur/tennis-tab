@@ -66,6 +66,8 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
   const [toast, setToast] = useState({ isOpen: false, message: '', type: 'success' as const })
   const [alert, setAlert] = useState({ isOpen: false, message: '', type: 'error' as const })
   const [confirm, setConfirm] = useState({ isOpen: false, message: '', onConfirm: () => {} })
+  // 승인/거절 처리 중인 member ID — 중복 클릭 방지
+  const [joinResponsePending, setJoinResponsePending] = useState<string | null>(null)
 
   // 가입회원 초대
   const [inviteModalOpen, setInviteModalOpen] = useState(false)
@@ -359,20 +361,26 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
   // 가입 신청 승인/거절
   const handleJoinResponse = async (member: ClubMember, approve: boolean) => {
-    const result = await respondJoinRequest(member.id, approve)
-    if (result.error) {
-      setAlert({ isOpen: true, message: result.error, type: 'error' })
-      return
-    }
+    if (joinResponsePending) return
+    setJoinResponsePending(member.id)
+    try {
+      const result = await respondJoinRequest(member.id, approve)
+      if (result.error) {
+        setAlert({ isOpen: true, message: result.error, type: 'error' })
+        return
+      }
 
-    if (approve) {
-      setMembers((prev) =>
-        prev.map((m) => (m.id === member.id ? { ...m, status: 'ACTIVE' as const } : m))
-      )
-      setToast({ isOpen: true, message: `${member.name}님의 가입을 승인했습니다.`, type: 'success' })
-    } else {
-      setMembers((prev) => prev.filter((m) => m.id !== member.id))
-      setToast({ isOpen: true, message: `${member.name}님의 가입을 거절했습니다.`, type: 'success' })
+      if (approve) {
+        setMembers((prev) =>
+          prev.map((m) => (m.id === member.id ? { ...m, status: 'ACTIVE' as const } : m))
+        )
+        setToast({ isOpen: true, message: `${member.name}님의 가입을 승인했습니다.`, type: 'success' })
+      } else {
+        setMembers((prev) => prev.filter((m) => m.id !== member.id))
+        setToast({ isOpen: true, message: `${member.name}님의 가입을 거절했습니다.`, type: 'success' })
+      }
+    } finally {
+      setJoinResponsePending(null)
     }
   }
 
@@ -394,13 +402,15 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
               <div className="flex gap-2">
                 <button
                   onClick={() => handleJoinResponse(m, true)}
-                  className="px-3 py-1 rounded text-xs font-medium bg-(--accent-color) text-(--bg-primary)"
+                  disabled={joinResponsePending !== null}
+                  className="px-3 py-1 rounded text-xs font-medium bg-(--accent-color) text-(--bg-primary) disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  승인
+                  {joinResponsePending === m.id ? '처리 중...' : '승인'}
                 </button>
                 <button
                   onClick={() => handleJoinResponse(m, false)}
-                  className="px-3 py-1 rounded text-xs font-medium text-red-500 border border-red-500/30 hover:bg-red-500/10"
+                  disabled={joinResponsePending !== null}
+                  className="px-3 py-1 rounded text-xs font-medium text-red-500 border border-red-500/30 hover:bg-red-500/10 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   거절
                 </button>
