@@ -72,22 +72,10 @@ function LoginContent() {
     }
   }
 
-  // 카카오 로그인
-  const handleKakaoLogin = async () => {
+  // 카카오 로그인 (커스텀 OAuth — phone_number 스코프 포함)
+  const handleKakaoLogin = () => {
     setLoading('kakao')
-    try {
-      const supabase = createClient()
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'kakao',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback${redirectTo !== '/' ? `?redirect=${encodeURIComponent(redirectTo)}` : ''}`,
-        },
-      })
-      if (error || !data.url) setLoading(null)
-      else window.location.href = data.url
-    } catch {
-      setLoading(null)
-    }
+    window.location.href = `/api/auth/kakao/login?redirect=${encodeURIComponent(redirectTo)}`
   }
 
   // 네이버 로그인

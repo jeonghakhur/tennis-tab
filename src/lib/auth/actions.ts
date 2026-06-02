@@ -7,7 +7,6 @@ import { redirect } from 'next/navigation'
 import { sanitizeInput, validateEmail, validateMinLength } from '@/lib/utils/validation'
 import { encryptProfile, decryptProfile } from '@/lib/crypto/profileCrypto'
 import { unformatPhoneNumber } from '@/lib/utils/phone'
-import { sendWelcomeAlimtalk } from '@/lib/solapi/alimtalk'
 
 // Supabase 에러 메시지 → 한국어 변환
 function translateAuthError(message: string): string {
@@ -263,9 +262,6 @@ export async function updateProfile(data: {
     return { error: '로그인이 필요합니다.' }
   }
 
-  // 전화번호 최초 등록 여부 판단 (알림톡 트리거용)
-  const isFirstPhone = !profile.phone && !!data.phone
-
   // phone 정규화를 암호화 전에 수행 — 저장되는 암호문은 항상 숫자 11자리 평문을 암호화한 결과
   const normalizedPhone = data.phone
     ? (unformatPhoneNumber(data.phone) || undefined)
@@ -289,30 +285,6 @@ export async function updateProfile(data: {
 
   if (error) {
     return { error: error.message }
-  }
-
-  // 전화번호 최초 등록 시 회원가입 환영 알림톡 발송 (fire-and-forget)
-  if (isFirstPhone && normalizedPhone) {
-    const updatedName    = data.name ?? profile.name ?? ''
-    const updatedClub    = profile.club ?? null
-    const updatedBirth   = data.birth_year ?? profile.birth_year ?? null
-    const updatedGender  = data.gender ?? profile.gender ?? null
-
-    const missingFields: string[] = []
-    if (!updatedClub)   missingFields.push('클럽')
-    if (!updatedBirth)  missingFields.push('출생년도')
-    if (!updatedGender) missingFields.push('성별')
-
-    const isNameKorean = /^[가-힣]{2,4}$/.test(updatedName)
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://tennis-tab.com'
-
-    sendWelcomeAlimtalk({
-      phone: normalizedPhone,
-      name: updatedName,
-      missingFields,
-      isNameKorean,
-      profileEditUrl: `${siteUrl}/my/profile/edit`,
-    }).catch((err) => console.error('[Alimtalk] 회원가입 환영 발송 실패:', err))
   }
 
   revalidatePath('/my/profile')

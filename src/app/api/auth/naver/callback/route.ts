@@ -5,6 +5,7 @@ import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
 import { encryptProfile } from '@/lib/crypto/profileCrypto'
 import { unformatPhoneNumber } from '@/lib/utils/phone'
+import { sendWelcomeAlimtalk } from '@/lib/solapi/alimtalk'
 
 /**
  * 네이버 OAuth 콜백 핸들러
@@ -177,6 +178,25 @@ export async function GET(request: NextRequest) {
       .from('profiles')
       .update(updateData)
       .eq('id', userId)
+
+    // 신규 회원이고 네이버에서 전화번호를 받은 경우에만 환영 알림톡 발송 (fire-and-forget)
+    if (!existingProfile && phone) {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://mapo-tennis.com'
+      const missingFields: string[] = []
+      if (!gender) missingFields.push('성별')
+      if (!birthYear) missingFields.push('출생년도')
+      missingFields.push('클럽') // 네이버 프로필에 클럽 정보 없음
+
+      const isNameKorean = /^[가-힣]{2,4}$/.test(name || '')
+
+      sendWelcomeAlimtalk({
+        phone,
+        name: name || '',
+        missingFields,
+        isNameKorean,
+        profileEditUrl: `${siteUrl}/my/profile/edit`,
+      }).catch((err) => console.error('[Alimtalk] 회원가입 환영 발송 실패:', err))
+    }
 
     // 5. 세션 생성 (매직 링크 방식)
     const { data: linkData, error: linkError } =

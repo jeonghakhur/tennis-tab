@@ -878,18 +878,10 @@ export async function sendWelcomeAlimtalk(
         pfId,
         templateId,
         variables: {
-          '#{이름}':    params.name,
+          '#{홍길동}':  params.name,
           '#{요청사항}': 요청사항,
-          '#{프로필URL}': params.profileEditUrl,
+          '#{url}':     params.profileEditUrl,
         },
-        buttons: [
-          {
-            buttonType: 'WL',
-            buttonName: '프로필 수정하기',
-            linkMo: params.profileEditUrl,
-            linkPc: params.profileEditUrl,
-          },
-        ],
       },
     })
 
