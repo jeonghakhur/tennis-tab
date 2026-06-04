@@ -8,6 +8,7 @@ import { unformatPhoneNumber } from '@/lib/utils/phone'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { sendTournamentConfirmAlimtalk } from '@/lib/solapi/alimtalk'
+import { formatKoreanDateTime } from '@/lib/utils/formatDate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAdminClient = ReturnType<typeof createSupabaseClient<any>>
@@ -68,7 +69,7 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
 
   const { data: entry } = await supabase
     .from('tournament_entries')
-    .select('tournament_id, division_id, status, phone, player_name, tournaments!inner(organizer_id, title, location, start_date), tournament_divisions!inner(name)')
+    .select('tournament_id, division_id, status, phone, player_name, tournaments!inner(organizer_id, title, location, start_date), tournament_divisions!inner(name, match_date, match_location)')
     .eq('id', entryId)
     .single()
 
@@ -133,14 +134,17 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
   // 참가 확정 시 알림톡 발송 (fire-and-forget)
   if (dbStatus === 'CONFIRMED' && entry.phone) {
     const t = entry.tournaments as unknown as { title: string; location: string; start_date: string }
-    const d = entry.tournament_divisions as unknown as { name: string }
+    const d = entry.tournament_divisions as unknown as { name: string; match_date: string | null; match_location: string | null }
+    // 부서별 경기 일시 우선, 없으면 대회 전체 시작일 fallback
+    const rawDate = d.match_date ?? t.start_date
+    const tournamentDate = rawDate ? formatKoreanDateTime(rawDate) : '-'
     const alimtalkResult = await sendTournamentConfirmAlimtalk({
       playerPhone:    entry.phone,
       playerName:     entry.player_name,
       tournamentName: t.title ?? '',
       divisionName:   d.name ?? '',
-      tournamentDate: t.start_date ?? '-',
-      venue:          t.location ?? '-',
+      tournamentDate,
+      venue:          (d.match_location ?? t.location) ?? '-',
       detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
     })
     if (!alimtalkResult.success) {
@@ -150,6 +154,109 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
 
   revalidatePath(`/admin/tournaments/${entry.tournament_id}/entries`)
   return { success: true, actualStatus: dbStatus }
+}
+
+/**
+ * 대회 참가 확정 알림톡 재발송 (단건)
+ * 상태 변경 없이 CONFIRMED 참가자에게만 발송
+ */
+export async function resendConfirmAlimtalk(
+  entryId: string,
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: '로그인이 필요합니다.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!canManageTournaments(profile?.role)) {
+    return { success: false, error: '권한이 없습니다.' }
+  }
+
+  const { data: entry } = await supabase
+    .from('tournament_entries')
+    .select('tournament_id, status, phone, player_name, tournaments!inner(title, location, start_date), tournament_divisions!inner(name, match_date, match_location)')
+    .eq('id', entryId)
+    .single()
+
+  if (!entry) return { success: false, error: '참가 신청을 찾을 수 없습니다.' }
+  if (entry.status !== 'CONFIRMED') return { success: false, error: '승인된 참가자에게만 발송할 수 있습니다.' }
+  if (!entry.phone) return { success: false, error: '전화번호가 없어 발송할 수 없습니다.' }
+
+  const t = entry.tournaments as unknown as { title: string; location: string; start_date: string }
+  const d = entry.tournament_divisions as unknown as { name: string; match_date: string | null; match_location: string | null }
+  const rawDate = d.match_date ?? t.start_date
+  const tournamentDate = rawDate ? formatKoreanDateTime(rawDate) : '-'
+
+  const result = await sendTournamentConfirmAlimtalk({
+    playerPhone:    entry.phone,
+    playerName:     entry.player_name,
+    tournamentName: t.title ?? '',
+    divisionName:   d.name ?? '',
+    tournamentDate,
+    venue:          (d.match_location ?? t.location) ?? '-',
+    detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
+  })
+
+  return result.success
+    ? { success: true }
+    : { success: false, error: result.error ?? '발송 실패' }
+}
+
+/**
+ * 대회 참가 확정 알림톡 일괄 발송
+ * 전달된 entryId 중 CONFIRMED + 전화번호 있는 건만 발송
+ */
+export async function bulkSendConfirmAlimtalk(
+  entryIds: string[],
+): Promise<{ success: boolean; sent: number; skipped: number; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, sent: 0, skipped: 0, error: '로그인이 필요합니다.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!canManageTournaments(profile?.role)) {
+    return { success: false, sent: 0, skipped: 0, error: '권한이 없습니다.' }
+  }
+
+  const { data: confirmedEntries } = await supabase
+    .from('tournament_entries')
+    .select('id, tournament_id, status, phone, player_name, tournaments!inner(title, location, start_date), tournament_divisions!inner(name, match_date, match_location)')
+    .in('id', entryIds)
+    .eq('status', 'CONFIRMED')
+
+  const eligible = (confirmedEntries ?? []).filter((e) => !!e.phone)
+  const skipped = entryIds.length - eligible.length
+
+  let sent = 0
+  for (const entry of eligible) {
+    const t = entry.tournaments as unknown as { title: string; location: string; start_date: string }
+    const d = entry.tournament_divisions as unknown as { name: string; match_date: string | null; match_location: string | null }
+    const rawDate = d.match_date ?? t.start_date
+    const tournamentDate = rawDate ? formatKoreanDateTime(rawDate) : '-'
+
+    const result = await sendTournamentConfirmAlimtalk({
+      playerPhone:    entry.phone!,
+      playerName:     entry.player_name,
+      tournamentName: t.title ?? '',
+      divisionName:   d.name ?? '',
+      tournamentDate,
+      venue:          (d.match_location ?? t.location) ?? '-',
+      detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
+    })
+    if (result.success) sent++
+  }
+
+  return { success: true, sent, skipped }
 }
 
 /**

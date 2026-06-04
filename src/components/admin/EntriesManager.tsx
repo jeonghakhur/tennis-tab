@@ -12,6 +12,7 @@ import {
   Download,
   Pencil,
   Building2,
+  Send,
 } from "lucide-react";
 import { AdminEntryModal } from "@/components/admin/AdminEntryModal";
 import type {
@@ -28,6 +29,8 @@ import {
   deleteEntry,
   bulkUpdateEntryStatus,
   bulkUpdatePaymentStatus,
+  resendConfirmAlimtalk,
+  bulkSendConfirmAlimtalk,
 } from "@/lib/admin/entries";
 import { updateRefundStatus } from "@/lib/entries/actions";
 import { AlertDialog, ConfirmDialog } from "@/components/common/AlertDialog";
@@ -292,6 +295,8 @@ export function EntriesManager({
   const [bulkPayment, setBulkPayment] = useState("");
   const [excelDownloading, setExcelDownloading] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  const [alimtalkSending, setAlimtalkSending] = useState<string | null>(null);
+  const [bulkAlimtalkSending, setBulkAlimtalkSending] = useState(false);
   const [editModal, setEditModal] = useState<{
     isOpen: boolean;
     entry: (typeof entries)[number] | null;
@@ -477,6 +482,50 @@ export function EntriesManager({
       });
     } finally {
       setProcessing(null);
+    }
+  };
+
+  const handleAlimtalkSend = async (entryId: string) => {
+    if (alimtalkSending) return;
+    setAlimtalkSending(entryId);
+    try {
+      const result = await resendConfirmAlimtalk(entryId);
+      setAlertDialog({
+        isOpen: true,
+        title: result.success ? "발송 완료" : "발송 실패",
+        message: result.success ? "알림톡이 발송되었습니다." : (result.error ?? "알림톡 발송에 실패했습니다."),
+        type: result.success ? "success" : "error",
+      });
+    } catch {
+      setAlertDialog({
+        isOpen: true,
+        title: "오류",
+        message: "알림톡 발송 중 오류가 발생했습니다.",
+        type: "error",
+      });
+    } finally {
+      setAlimtalkSending(null);
+    }
+  };
+
+  const handleBulkAlimtalkSend = async () => {
+    if (selectedEntries.length === 0 || bulkAlimtalkSending) return;
+    setBulkAlimtalkSending(true);
+    try {
+      const result = await bulkSendConfirmAlimtalk(selectedEntries);
+      if (result.error) {
+        setAlertDialog({ isOpen: true, title: "발송 실패", message: result.error, type: "error" });
+      } else {
+        const msg = result.skipped > 0
+          ? `${result.sent}명 발송 완료. (${result.skipped}명은 미승인 또는 전화번호 없음으로 제외)`
+          : `${result.sent}명에게 알림톡이 발송되었습니다.`;
+        setAlertDialog({ isOpen: true, title: "발송 완료", message: msg, type: "success" });
+        setSelectedEntries([]);
+      }
+    } catch {
+      setAlertDialog({ isOpen: true, title: "오류", message: "알림톡 발송 중 오류가 발생했습니다.", type: "error" });
+    } finally {
+      setBulkAlimtalkSending(false);
     }
   };
 
@@ -976,6 +1025,15 @@ export function EntriesManager({
 
         {selectedEntries.length > 0 && (
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleBulkAlimtalkSend}
+              disabled={bulkAlimtalkSending || processing !== null}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium bg-(--color-info-subtle) text-(--color-info) border border-(--color-info-border) hover:border-(--color-info) transition-colors disabled:opacity-50"
+            >
+              <Send className="w-4 h-4" />
+              {bulkAlimtalkSending ? "발송 중..." : "알림톡 발송"}
+            </button>
             <Select
               value={bulkStatus || undefined}
               onValueChange={(v) => {
@@ -1067,7 +1125,7 @@ export function EntriesManager({
                     신청일
                   </span>
                 </th>
-                <th className="p-4 w-20">
+                <th className="p-4 w-28">
                   <span className="text-base font-semibold text-(--text-secondary)">
                     관리
                   </span>
@@ -1389,19 +1447,32 @@ export function EntriesManager({
                         )}
                       </td>
                       <td className="p-4">
-                        <button
-                          onClick={() =>
-                            setConfirmDialog({
-                              isOpen: true,
-                              entryId: entry.id,
-                            })
-                          }
-                          disabled={isProcessing}
-                          className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
-                          title="삭제"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
+                        <div className="flex items-center gap-1">
+                          {normalizedStatus === "APPROVED" && !!entry.phone && (
+                            <button
+                              type="button"
+                              onClick={() => handleAlimtalkSend(entry.id)}
+                              disabled={alimtalkSending === entry.id}
+                              className="p-2.5 rounded-lg hover:bg-(--color-info-subtle) text-(--color-info) transition-colors disabled:opacity-50"
+                              title="참가 확정 알림톡 발송"
+                            >
+                              <Send className="w-5 h-5" />
+                            </button>
+                          )}
+                          <button
+                            onClick={() =>
+                              setConfirmDialog({
+                                isOpen: true,
+                                entryId: entry.id,
+                              })
+                            }
+                            disabled={isProcessing}
+                            className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
+                            title="삭제"
+                          >
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
