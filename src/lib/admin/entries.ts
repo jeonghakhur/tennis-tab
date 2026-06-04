@@ -511,6 +511,42 @@ export async function bulkUpdateEntryStatus(
       await Promise.all(updates)
     }
 
+    // 확정된 항목에 알림톡 일괄 발송
+    if (confirmIds.length > 0) {
+      const { data: alimtalkEntries } = await supabaseAdmin
+        .from('tournament_entries')
+        .select('id, tournament_id, phone, player_name, tournaments!inner(title, location, start_date), tournament_divisions!inner(name, match_date, match_location)')
+        .in('id', confirmIds)
+
+      const sentAt = new Date().toISOString()
+      const sentIds: string[] = []
+
+      for (const ae of (alimtalkEntries ?? []).filter((e) => !!e.phone)) {
+        const t = ae.tournaments as unknown as { title: string; location: string; start_date: string }
+        const d = ae.tournament_divisions as unknown as { name: string; match_date: string | null; match_location: string | null }
+        const rawDate = d.match_date ?? t.start_date
+        const tournamentDate = rawDate ? formatKoreanDateTime(rawDate) : '-'
+
+        const result = await sendTournamentConfirmAlimtalk({
+          playerPhone:    ae.phone!,
+          playerName:     ae.player_name,
+          tournamentName: t.title ?? '',
+          divisionName:   d.name ?? '',
+          tournamentDate,
+          venue:          (d.match_location ?? t.location) ?? '-',
+          detailUrl:      `https://mapo-tennis.com/tournaments/${ae.tournament_id}`,
+        })
+        if (result.success) sentIds.push(ae.id)
+      }
+
+      if (sentIds.length > 0) {
+        await supabaseAdmin
+          .from('tournament_entries')
+          .update({ confirm_alimtalk_sent_at: sentAt })
+          .in('id', sentIds)
+      }
+    }
+
     return { success: true }
   }
 
