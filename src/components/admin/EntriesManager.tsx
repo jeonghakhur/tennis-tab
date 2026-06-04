@@ -13,6 +13,7 @@ import {
   Pencil,
   Building2,
   Send,
+  CheckCircle2,
 } from "lucide-react";
 import { AdminEntryModal } from "@/components/admin/AdminEntryModal";
 import type {
@@ -58,6 +59,7 @@ type Entry = Database["public"]["Tables"]["tournament_entries"]["Row"] & {
   refund_account?: string | null;
   refund_holder?: string | null;
   cancelled_at?: string | null;
+  confirm_alimtalk_sent_at?: string | null;
 };
 
 type Division = {
@@ -496,6 +498,7 @@ export function EntriesManager({
         message: result.success ? "알림톡이 발송되었습니다." : (result.error ?? "알림톡 발송에 실패했습니다."),
         type: result.success ? "success" : "error",
       });
+      if (result.success) refreshPage();
     } catch {
       setAlertDialog({
         isOpen: true,
@@ -521,6 +524,7 @@ export function EntriesManager({
           : `${result.sent}명에게 알림톡이 발송되었습니다.`;
         setAlertDialog({ isOpen: true, title: "발송 완료", message: msg, type: "success" });
         setSelectedEntries([]);
+        refreshPage();
       }
     } catch {
       setAlertDialog({ isOpen: true, title: "오류", message: "알림톡 발송 중 오류가 발생했습니다.", type: "error" });
@@ -1447,31 +1451,47 @@ export function EntriesManager({
                         )}
                       </td>
                       <td className="p-4">
-                        <div className="flex items-center gap-1">
-                          {normalizedStatus === "APPROVED" && !!entry.phone && (
+                        <div className="flex flex-col items-start gap-1">
+                          <div className="flex items-center gap-1">
+                            {normalizedStatus === "APPROVED" && !!entry.phone && (
+                              <button
+                                type="button"
+                                onClick={() => handleAlimtalkSend(entry.id)}
+                                disabled={alimtalkSending === entry.id}
+                                className={`p-2.5 rounded-lg transition-colors disabled:opacity-50 ${
+                                  entry.confirm_alimtalk_sent_at
+                                    ? "text-emerald-500 hover:bg-emerald-500/10"
+                                    : "text-(--color-info) hover:bg-(--color-info-subtle)"
+                                }`}
+                                title={
+                                  entry.confirm_alimtalk_sent_at
+                                    ? `재발송 (최근: ${formatKoreanDateTime(entry.confirm_alimtalk_sent_at)})`
+                                    : "참가 확정 알림톡 발송"
+                                }
+                              >
+                                <Send className="w-5 h-5" />
+                              </button>
+                            )}
                             <button
-                              type="button"
-                              onClick={() => handleAlimtalkSend(entry.id)}
-                              disabled={alimtalkSending === entry.id}
-                              className="p-2.5 rounded-lg hover:bg-(--color-info-subtle) text-(--color-info) transition-colors disabled:opacity-50"
-                              title="참가 확정 알림톡 발송"
+                              onClick={() =>
+                                setConfirmDialog({
+                                  isOpen: true,
+                                  entryId: entry.id,
+                                })
+                              }
+                              disabled={isProcessing}
+                              className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
+                              title="삭제"
                             >
-                              <Send className="w-5 h-5" />
+                              <Trash2 className="w-5 h-5" />
                             </button>
+                          </div>
+                          {entry.confirm_alimtalk_sent_at && (
+                            <span className="inline-flex items-center gap-0.5 text-xs text-emerald-600 dark:text-emerald-400">
+                              <CheckCircle2 className="w-3 h-3" />
+                              발송됨
+                            </span>
                           )}
-                          <button
-                            onClick={() =>
-                              setConfirmDialog({
-                                isOpen: true,
-                                entryId: entry.id,
-                              })
-                            }
-                            disabled={isProcessing}
-                            className="p-2.5 rounded-lg hover:bg-(--color-danger-subtle) text-(--color-danger) transition-colors"
-                            title="삭제"
-                          >
-                            <Trash2 className="w-5 h-5" />
-                          </button>
                         </div>
                       </td>
                     </tr>

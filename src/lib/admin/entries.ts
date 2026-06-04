@@ -147,7 +147,12 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
       venue:          (d.match_location ?? t.location) ?? '-',
       detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
     })
-    if (!alimtalkResult.success) {
+    if (alimtalkResult.success) {
+      await supabaseAdmin
+        .from('tournament_entries')
+        .update({ confirm_alimtalk_sent_at: new Date().toISOString() })
+        .eq('id', entryId)
+    } else {
       console.error('[Alimtalk] 대회 참가 확정 발송 실패:', alimtalkResult.error)
     }
   }
@@ -202,9 +207,15 @@ export async function resendConfirmAlimtalk(
     detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
   })
 
-  return result.success
-    ? { success: true }
-    : { success: false, error: result.error ?? '발송 실패' }
+  if (!result.success) return { success: false, error: result.error ?? '발송 실패' }
+
+  const admin = createAdminClient()
+  await admin
+    .from('tournament_entries')
+    .update({ confirm_alimtalk_sent_at: new Date().toISOString() })
+    .eq('id', entryId)
+
+  return { success: true }
 }
 
 /**
@@ -237,6 +248,9 @@ export async function bulkSendConfirmAlimtalk(
   const eligible = (confirmedEntries ?? []).filter((e) => !!e.phone)
   const skipped = entryIds.length - eligible.length
 
+  const admin = createAdminClient()
+  const sentAt = new Date().toISOString()
+
   let sent = 0
   for (const entry of eligible) {
     const t = entry.tournaments as unknown as { title: string; location: string; start_date: string }
@@ -253,7 +267,13 @@ export async function bulkSendConfirmAlimtalk(
       venue:          (d.match_location ?? t.location) ?? '-',
       detailUrl:      `https://mapo-tennis.com/tournaments/${entry.tournament_id}`,
     })
-    if (result.success) sent++
+    if (result.success) {
+      sent++
+      await admin
+        .from('tournament_entries')
+        .update({ confirm_alimtalk_sent_at: sentAt })
+        .eq('id', entry.id)
+    }
   }
 
   return { success: true, sent, skipped }
