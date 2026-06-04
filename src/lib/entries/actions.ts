@@ -7,6 +7,7 @@ import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
 import { sendTournamentApplyAlimtalk, sendPaymentConfirmAlimtalk } from '@/lib/solapi/alimtalk'
 import { unformatPhoneNumber } from '@/lib/utils/phone'
+import { formatKoreanDateTime } from '@/lib/utils/formatDate'
 
 // 파트너 검색 결과 타입
 export interface PartnerSearchResult {
@@ -323,13 +324,15 @@ export async function createEntry(
 
         // 알림톡: 참가자에게 신청 완료 알림 (어드민 직접 등록은 스킵, fire-and-forget)
         if (!isAdminUser && initialStatus !== 'WAITLISTED' && entryData.phone) {
+            const rawDate = (division.match_date as string | null) ?? tournament.start_date
+            const tournamentDate = rawDate ? formatKoreanDateTime(rawDate) : '-'
             const alimtalkResult = await sendTournamentApplyAlimtalk({
                 playerPhone: entryData.phone,
                 playerName: entryData.playerName,
                 tournamentName: tournament.title ?? '',
                 divisionName: division.name ?? '',
-                tournamentDate: tournament.start_date ?? '-',
-                venue: tournament.location ?? '-',
+                tournamentDate,
+                venue: (division.match_location as string | null) ?? tournament.location ?? '-',
                 tournamentId,
             })
             if (!alimtalkResult.success) {
