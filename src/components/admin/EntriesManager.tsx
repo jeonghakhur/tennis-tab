@@ -195,7 +195,7 @@ const entryStatusConfig: Record<
     order: 3,
   },
   REJECTED: {
-    label: "거절됨",
+    label: "승인 취소",
     className: "bg-subtle-danger",
     order: 4,
   },
@@ -671,13 +671,13 @@ export function EntriesManager({
       filtered = filtered.filter((e) => e.division_id === divisionFilter);
     }
 
-    // 환불 필요 필터 (취소 + 입금완료 + 환불 미처리)
+    // 환불 필요 필터 (취소/승인 취소 + 결제완료 + 환불 미완료)
     if (refundFilter) {
       filtered = filtered.filter(
         (e) =>
-          e.status === "CANCELLED" &&
           e.payment_status === "COMPLETED" &&
-          e.refund_status === "REQUESTED",
+          e.refund_status !== "COMPLETED" &&
+          (e.status === "REJECTED" || e.status === "CANCELLED"),
       );
     }
 
@@ -704,9 +704,9 @@ export function EntriesManager({
       : entries.filter((e) => e.division_id === divisionFilter);
   const refundNeededCount = entries.filter(
     (e) =>
-      e.status === "CANCELLED" &&
       e.payment_status === "COMPLETED" &&
-      e.refund_status === "REQUESTED",
+      e.refund_status !== "COMPLETED" &&
+      (e.status === "REJECTED" || e.status === "CANCELLED"),
   ).length;
 
   const stats = {
@@ -1145,12 +1145,12 @@ export function EntriesManager({
                     entry.payment_status,
                   );
                   const isCancelled = normalizedStatus === "CANCELLED";
+                  // 결제완료 + 환불 미완료 + (취소 or 승인 취소)
                   const isRefundNeeded =
-                    entry.status === "CANCELLED" &&
                     entry.payment_status === "COMPLETED" &&
-                    entry.refund_status === "REQUESTED";
+                    entry.refund_status !== "COMPLETED" &&
+                    (entry.status === "REJECTED" || entry.status === "CANCELLED");
                   const isRefundDone =
-                    entry.status === "CANCELLED" &&
                     entry.payment_status === "COMPLETED" &&
                     entry.refund_status === "COMPLETED";
                   const hasRefund = isRefundNeeded || isRefundDone;
@@ -1251,7 +1251,6 @@ export function EntriesManager({
                                 (entry.user_id
                                   ? (userClubMap[entry.user_id] ?? null)
                                   : null);
-                              console.log(entry);
                               return club ? (
                                 <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
                                   <Building2 className="w-4 h-4" />
@@ -1374,7 +1373,7 @@ export function EntriesManager({
                           <SelectTrigger
                             className={`px-3 py-2 rounded-lg text-sm font-semibold border-2 border-transparent transition-colors cursor-pointer ${entryStatusConfig[normalizedStatus].className}`}
                           >
-                            <SelectValue />
+                            {entryStatusConfig[normalizedStatus].label}
                           </SelectTrigger>
                           <SelectContent>
                             {/* 취소됨은 표시만 되고, 관리자가 선택 가능한 상태만 옵션 제공 */}
