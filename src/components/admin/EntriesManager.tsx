@@ -14,6 +14,7 @@ import {
   Building2,
   Send,
   CheckCircle2,
+  UserPlus,
 } from "lucide-react";
 import { AdminEntryModal } from "@/components/admin/AdminEntryModal";
 import type {
@@ -1006,6 +1007,16 @@ export function EntriesManager({
             )}
           </span>
           <div className="flex items-center gap-2">
+            {isSuperAdmin && (
+              <button
+                type="button"
+                onClick={() => setEditModal({ isOpen: true, entry: null })}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--accent-color) text-white hover:opacity-90 transition-opacity"
+              >
+                <UserPlus className="w-4 h-4" />
+                신규 등록
+              </button>
+            )}
             <button
               type="button"
               onClick={handlePdfDownload}
@@ -1129,7 +1140,7 @@ export function EntriesManager({
                     신청일
                   </span>
                 </th>
-                <th className="p-4 w-28">
+                <th className="p-4 w-36">
                   <span className="text-base font-semibold text-(--text-secondary)">
                     관리
                   </span>
@@ -1177,23 +1188,9 @@ export function EntriesManager({
                         />
                       </td>
                       <td className="p-4">
-                        <div className="flex flex-col items-center gap-1">
-                          <span className="text-base font-semibold text-(--text-muted)">
-                            {index + 1}
-                          </span>
-                          {isSuperAdmin && (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setEditModal({ isOpen: true, entry })
-                              }
-                              className="p-1 rounded text-(--text-muted) hover:text-(--accent-color) hover:bg-(--accent-color)/10 transition-colors"
-                              title="참가자 정보 수정"
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </button>
-                          )}
-                        </div>
+                        <span className="text-base font-semibold text-(--text-muted)">
+                          {index + 1}
+                        </span>
                       </td>
                       <td className="p-4">
                         <div className="space-y-2">
@@ -1452,6 +1449,16 @@ export function EntriesManager({
                       <td className="p-4">
                         <div className="flex flex-col items-start gap-1">
                           <div className="flex items-center gap-1">
+                            {isSuperAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => setEditModal({ isOpen: true, entry })}
+                                className="p-2.5 rounded-lg hover:bg-(--accent-color)/10 text-(--accent-color) transition-colors"
+                                title="참가자 정보 수정"
+                              >
+                                <Pencil className="w-5 h-5" />
+                              </button>
+                            )}
                             {normalizedStatus === "APPROVED" && !!entry.phone && (
                               <button
                                 type="button"
@@ -1644,11 +1651,12 @@ export function EntriesManager({
         isLoading={processing !== null}
       />
 
-      {/* 참가자 수정 모달 (SUPER_ADMIN 전용) */}
-      {editModal.entry && (
+      {/* 참가자 등록/수정 모달 (SUPER_ADMIN 전용) */}
+      {editModal.isOpen && (
         <AdminEntryModal
           isOpen={editModal.isOpen}
           onClose={() => setEditModal({ isOpen: false, entry: null })}
+          onSuccess={refreshPage}
           tournamentId={tournamentId}
           matchType={matchType}
           divisions={divisions}

@@ -403,6 +403,50 @@ export async function adminUpdateEntry(
   return { success: true }
 }
 
+/** SUPER_ADMIN 전용: 참가자 신규 등록 */
+export async function adminCreateEntry(
+  tournamentId: string,
+  data: AdminEntryData
+): Promise<{ success: boolean; error?: string }> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, error: '로그인이 필요합니다.' }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!isSuperAdmin(profile?.role)) {
+    return { success: false, error: '최고 관리자만 사용할 수 있습니다.' }
+  }
+
+  const admin = createAdminClient()
+
+  const { error } = await admin
+    .from('tournament_entries')
+    .insert({
+      tournament_id: tournamentId,
+      user_id: user.id,
+      division_id: data.divisionId,
+      player_name: data.playerName.trim(),
+      phone: unformatPhoneNumber(data.phone),
+      club_name: data.clubName?.trim() || null,
+      player_rating: data.playerRating ?? null,
+      partner_data: data.partnerData ?? null,
+      team_members: data.teamMembers ?? null,
+      applicant_participates: data.applicantParticipates ?? true,
+      status: 'PENDING',
+      payment_status: 'PENDING',
+    })
+
+  if (error) return { success: false, error: error.message }
+
+  revalidatePath(`/admin/tournaments/${tournamentId}/entries`)
+  return { success: true }
+}
+
 /**
  * 참가 신청 일괄 상태 변경
  */

@@ -1,11 +1,10 @@
 'use client'
 
 import { useState, useCallback, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { Plus, Trash2 } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { AlertDialog } from '@/components/common/AlertDialog'
-import { adminUpdateEntry } from '@/lib/admin/entries'
+import { adminUpdateEntry, adminCreateEntry } from '@/lib/admin/entries'
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
 import type { MatchType, PartnerData, TeamMember } from '@/lib/supabase/types'
 import type { Database } from '@/lib/supabase/types'
@@ -20,10 +19,11 @@ type Division = { id: string; name: string; max_teams: number | null }
 interface AdminEntryModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
   tournamentId: string
   matchType: MatchType | null
   divisions: Division[]
-  entry: Entry
+  entry?: Entry | null
 }
 
 type TeamMemberForm = { name: string; rating: string; club: string }
@@ -34,47 +34,51 @@ type FormState = {
   phone: string
   clubName: string
   playerRating: string
-  // 복식
   partnerName: string
   partnerClub: string
   partnerRating: string
-  // 단체전
   applicantParticipates: boolean
   teamMembers: TeamMemberForm[]
+}
+
+const EMPTY_FORM: FormState = {
+  divisionId: '',
+  playerName: '',
+  phone: '',
+  clubName: '',
+  playerRating: '',
+  partnerName: '',
+  partnerClub: '',
+  partnerRating: '',
+  applicantParticipates: true,
+  teamMembers: [],
 }
 
 export function AdminEntryModal({
   isOpen,
   onClose,
+  onSuccess,
   tournamentId,
   matchType,
   divisions,
   entry,
 }: AdminEntryModalProps) {
-  const router = useRouter()
+  const isCreateMode = !entry
   const isTeamMatch = matchType === 'TEAM_SINGLES' || matchType === 'TEAM_DOUBLES'
   const isDoubles = matchType === 'INDIVIDUAL_DOUBLES'
 
-  const [form, setForm] = useState<FormState>({
-    divisionId: '',
-    playerName: '',
-    phone: '',
-    clubName: '',
-    playerRating: '',
-    partnerName: '',
-    partnerClub: '',
-    partnerRating: '',
-    applicantParticipates: true,
-    teamMembers: [],
-  })
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [submitting, setSubmitting] = useState(false)
   const [alert, setAlert] = useState<{ isOpen: boolean; message: string; type: 'error' | 'success' }>({
     isOpen: false, message: '', type: 'error',
   })
 
-  // 모달 열릴 때 기존 데이터로 초기화
   useEffect(() => {
     if (!isOpen) return
+    if (isCreateMode) {
+      setForm(EMPTY_FORM)
+      return
+    }
     const partner = entry.partner_data as PartnerData | null
     const members = (entry.team_members as TeamMember[] | null) ?? []
     setForm({
@@ -93,7 +97,7 @@ export function AdminEntryModal({
         club: (m as TeamMember & { club?: string }).club ?? '',
       })),
     })
-  }, [isOpen, entry])
+  }, [isOpen, entry, isCreateMode])
 
   const set = useCallback(<K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }))
@@ -120,31 +124,35 @@ export function AdminEntryModal({
     return true
   }
 
+  const buildPayload = () => ({
+    divisionId: form.divisionId,
+    playerName: form.playerName,
+    phone: unformatPhoneNumber(form.phone),
+    clubName: form.clubName || null,
+    playerRating: form.playerRating ? Number(form.playerRating) : null,
+    partnerData: isDoubles && form.partnerName
+      ? { name: form.partnerName, club: form.partnerClub, rating: Number(form.partnerRating) || 0 }
+      : null,
+    teamMembers: isTeamMatch
+      ? form.teamMembers.map((m) => ({ name: m.name, rating: Number(m.rating) || 0, club: m.club || undefined }))
+      : null,
+    applicantParticipates: isTeamMatch ? form.applicantParticipates : true,
+  })
+
   const handleSubmit = async () => {
     if (!validate()) return
     setSubmitting(true)
     try {
-      const result = await adminUpdateEntry(entry.id, tournamentId, {
-        divisionId: form.divisionId,
-        playerName: form.playerName,
-        phone: unformatPhoneNumber(form.phone),
-        clubName: form.clubName || null,
-        playerRating: form.playerRating ? Number(form.playerRating) : null,
-        partnerData: isDoubles && form.partnerName
-          ? { name: form.partnerName, club: form.partnerClub, rating: Number(form.partnerRating) || 0 }
-          : null,
-        teamMembers: isTeamMatch
-          ? form.teamMembers.map((m) => ({ name: m.name, rating: Number(m.rating) || 0, club: m.club || undefined }))
-          : null,
-        applicantParticipates: isTeamMatch ? form.applicantParticipates : true,
-      })
+      const result = isCreateMode
+        ? await adminCreateEntry(tournamentId, buildPayload())
+        : await adminUpdateEntry(entry.id, tournamentId, buildPayload())
 
       if (!result.success) {
         showError(result.error ?? '처리 중 오류가 발생했습니다.')
         return
       }
 
-      router.refresh()
+      onSuccess?.()
       onClose()
     } finally {
       setSubmitting(false)
@@ -159,12 +167,19 @@ export function AdminEntryModal({
       <Modal
         isOpen={isOpen}
         onClose={onClose}
-        title="참가자 정보 수정"
+        title={isCreateMode ? '참가자 신규 등록' : '참가자 정보 수정'}
         size="lg"
         closeOnOverlayClick={false}
       >
         <Modal.Body>
           <div className="space-y-4">
+            {/* 신규 등록 안내 */}
+            {isCreateMode && (
+              <p className="text-sm text-(--text-muted) bg-(--bg-secondary) rounded-lg px-3 py-2">
+                관리자 직접 등록 — 상태는 <strong>승인 대기</strong>로 생성됩니다.
+              </p>
+            )}
+
             {/* 참가 부서 */}
             <div>
               <label className={labelClass}>참가 부서 *</label>
@@ -323,7 +338,6 @@ export function AdminEntryModal({
                   </div>
                 ))}
 
-                {/* 본인 참가 여부 */}
                 <label className="flex items-center gap-2 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -353,7 +367,7 @@ export function AdminEntryModal({
             disabled={submitting}
             className="flex-1 px-4 py-2 rounded-lg bg-emerald-500 text-white text-sm font-semibold hover:bg-emerald-600 transition-colors disabled:opacity-40"
           >
-            {submitting ? '처리 중...' : '수정'}
+            {submitting ? '처리 중...' : isCreateMode ? '등록' : '수정'}
           </button>
         </Modal.Footer>
       </Modal>
