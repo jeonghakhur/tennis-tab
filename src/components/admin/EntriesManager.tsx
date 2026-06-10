@@ -737,6 +737,9 @@ export function EntriesManager({
     const divisionEntries = entries.filter(
       (e) => e.division_id === division.id,
     );
+    const refunded = divisionEntries.filter(
+      (e) => e.refund_status === "COMPLETED",
+    ).length;
     return {
       id: division.id,
       name: division.name,
@@ -745,8 +748,13 @@ export function EntriesManager({
       approved: divisionEntries.filter(
         (e) => normalizeStatus(e.status) === "APPROVED",
       ).length,
-      paid: divisionEntries.filter((e) => e.payment_status === "COMPLETED")
-        .length,
+      // 환불 완료 건은 결제 건수에서 제외
+      paid: Math.max(
+        0,
+        divisionEntries.filter((e) => e.payment_status === "COMPLETED").length -
+          refunded,
+      ),
+      refunded,
       cancelled: divisionEntries.filter(
         (e) => normalizeStatus(e.status) === "CANCELLED",
       ).length,
@@ -840,6 +848,12 @@ export function EntriesManager({
                       <span>
                         취소{" "}
                         <span className="text-rose-500">{div.cancelled}</span>
+                      </span>
+                    )}
+                    {div.refunded > 0 && (
+                      <span>
+                        환불{" "}
+                        <span className="text-amber-500">{div.refunded}</span>
                       </span>
                     )}
                   </div>
