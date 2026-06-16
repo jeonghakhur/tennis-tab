@@ -874,7 +874,22 @@ async function createAwardRecords(
     } else {
       players = [data.player_name]
     }
-    return { players, clubName: data.club_name }
+
+    // 복식: 두 선수 클럽이 다르면 "클럽A/클럽B", 같거나 한쪽만 있으면 하나만
+    let clubName: string | null
+    if (isDoubles && data.partner_data) {
+      const myClub = data.club_name ?? null
+      const partnerClub = (data.partner_data as PartnerData).club ?? null
+      if (myClub && partnerClub && myClub !== partnerClub) {
+        clubName = `${myClub}/${partnerClub}`
+      } else {
+        clubName = myClub ?? partnerClub ?? null
+      }
+    } else {
+      clubName = data.club_name ?? null
+    }
+
+    return { players, clubName }
   }
 
   const baseRow = {

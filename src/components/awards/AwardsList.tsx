@@ -183,11 +183,16 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
         {Object.entries(byYear)
           .sort(([a], [b]) => Number(b) - Number(a))
           .map(([year, yearAwards]) => {
-            const byComp = yearAwards.reduce<Record<string, Award[]>>((acc, a) => {
-              if (!acc[a.competition]) acc[a.competition] = []
-              acc[a.competition].push(a)
-              return acc
-            }, {})
+            // DB 반환 순서(created_at DESC) 유지 — 최근 대회 먼저
+            const compOrder: string[] = []
+            const byComp: Record<string, Award[]> = {}
+            for (const a of yearAwards) {
+              if (!byComp[a.competition]) {
+                byComp[a.competition] = []
+                compOrder.push(a.competition)
+              }
+              byComp[a.competition].push(a)
+            }
 
             return (
               <section key={year}>
@@ -198,56 +203,55 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
                   {year}년
                 </h2>
                 <div className="space-y-6">
-                  {Object.entries(byComp)
-                    .sort(([a], [b]) => a.localeCompare(b, 'ko'))
-                    .map(([competition, compAwards]) => {
-                      const groups = groupAwardsForDisplay(compAwards).sort(
-                        (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
-                      )
+                  {compOrder.map((competition) => {
+                    const compAwards = byComp[competition]
+                    const groups = groupAwardsForDisplay(compAwards).sort(
+                      (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
+                    )
 
-                      return (
-                        <div key={competition}>
-                          <h3
-                            className="text-sm font-semibold mb-3 pb-1.5 border-b"
-                            style={{
-                              color: 'var(--text-secondary)',
-                              borderColor: 'var(--border-color)',
-                            }}
-                          >
-                            {competition}
-                          </h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                            {groups.map((group) =>
-                              isAdmin ? (
-                                <button
-                                  key={group.key}
-                                  type="button"
-                                  onClick={() => handleCardClick(group)}
-                                  className="rounded-xl p-4 space-y-2 text-left w-full transition-opacity hover:opacity-75"
-                                  style={{
-                                    backgroundColor: 'var(--bg-card)',
-                                    border: '1px solid var(--border-color)',
-                                  }}
-                                >
-                                  <AwardCard group={group} />
-                                </button>
-                              ) : (
-                                <div
-                                  key={group.key}
-                                  className="rounded-xl p-4 space-y-2"
-                                  style={{
-                                    backgroundColor: 'var(--bg-card)',
-                                    border: '1px solid var(--border-color)',
-                                  }}
-                                >
-                                  <AwardCard group={group} />
-                                </div>
-                              )
-                            )}
-                          </div>
+                    return (
+                      <div key={competition}>
+                        <h3
+                          className="text-sm font-semibold mb-3 pb-1.5 border-b"
+                          style={{
+                            color: 'var(--text-secondary)',
+                            borderColor: 'var(--border-color)',
+                          }}
+                        >
+                          {competition}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                          {groups.map((group) =>
+                            isAdmin ? (
+                              <button
+                                key={group.key}
+                                type="button"
+                                onClick={() => handleCardClick(group)}
+                                className="rounded-xl p-4 space-y-2 text-left w-full transition-opacity hover:opacity-75"
+                                style={{
+                                  backgroundColor: 'var(--bg-card)',
+                                  border: '1px solid var(--border-color)',
+                                }}
+                              >
+                                <AwardCard group={group} />
+                              </button>
+                            ) : (
+                              <div
+                                key={group.key}
+                                className="rounded-xl p-4 space-y-2"
+                                style={{
+                                  backgroundColor: 'var(--bg-card)',
+                                  border: '1px solid var(--border-color)',
+                                }}
+                              >
+                                <AwardCard group={group} />
+                              </div>
+                            )
+                          )}
                         </div>
-                      )
-                    })}
+                      </div>
+                    )
+                  })}
                 </div>
               </section>
             )

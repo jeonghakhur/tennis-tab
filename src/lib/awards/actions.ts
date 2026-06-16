@@ -27,6 +27,7 @@ export async function getAwards(opts: GetAwardsOptions = {}): Promise<Award[]> {
     .from('tournament_awards')
     .select('*')
     .order('year', { ascending: false })
+    .order('created_at', { ascending: false })
     .order('display_order', { ascending: true })
 
   if (opts.year) query = query.eq('year', opts.year)
