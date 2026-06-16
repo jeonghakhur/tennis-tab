@@ -300,6 +300,7 @@ export function TournamentsTable({
                     <SortIcon field="entries" />
                   </button>
                 </th>
+                <th className="p-4 w-24" aria-label="대진" />
                 {showDelete && (
                   <th className="p-4 w-12" aria-label="관리" />
                 )}
@@ -338,16 +339,6 @@ export function TournamentsTable({
                             </p>
                           )}
                         </div>
-                        {hasBracket && (
-                          <Link
-                            href={`/admin/tournaments/${tournament.id}/bracket`}
-                            className="absolute bottom-2 right-2 z-20 inline-flex items-center gap-1 px-2 py-0.5 rounded text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
-                            aria-label={`${tournament.title} 대진표 보기`}
-                          >
-                            <GitFork className="w-3.5 h-3.5" />
-                            대진 보기
-                          </Link>
-                        )}
                       </td>
                       <td className="p-4">
                         <Badge variant={statusConfig[tournament.status].variant}>
@@ -393,6 +384,18 @@ export function TournamentsTable({
                           </div>
                         </div>
                       </td>
+                      <td className="p-4">
+                        {hasBracket && (
+                          <Link
+                            href={`/admin/tournaments/${tournament.id}/bracket`}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap"
+                            aria-label={`${tournament.title} 대진표 보기`}
+                          >
+                            <GitFork className="w-3.5 h-3.5" />
+                            대진 보기
+                          </Link>
+                        )}
+                      </td>
                       {showDelete && (
                         <td className="p-4">
                           <button
@@ -410,7 +413,7 @@ export function TournamentsTable({
                 })
               ) : (
                 <tr>
-                  <td colSpan={showDelete ? 5 : 4} className="p-8 text-center">
+                  <td colSpan={showDelete ? 6 : 5} className="p-8 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400">
                       <Trophy className="w-12 h-12 opacity-50" />
                       <p>검색 결과가 없습니다.</p>
