@@ -35,7 +35,7 @@ export default async function AdminTournamentsPage() {
       *,
       profiles:organizer_id (name, email),
       tournament_entries (id, status, payment_status, division_id),
-      tournament_divisions (id, name, max_teams)
+      tournament_divisions (id, name, max_teams, bracket_configs (id, status))
     `)
     .order('start_date', { ascending: false })
 

@@ -13,8 +13,9 @@ import {
   Calendar,
   MapPin,
   Trash2,
+  GitFork,
 } from 'lucide-react'
-import type { Database, TournamentStatus, EntryStatus, PaymentStatus } from '@/lib/supabase/types'
+import type { Database, TournamentStatus, EntryStatus, PaymentStatus, BracketStatus } from '@/lib/supabase/types'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Toast } from '@/components/common/AlertDialog'
@@ -24,7 +25,7 @@ import { deleteTournament } from '@/lib/tournaments/actions'
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
   tournament_entries: { id: string; status: EntryStatus; payment_status: PaymentStatus; division_id: string }[]
-  tournament_divisions: { id: string; name: string; max_teams: number | null }[]
+  tournament_divisions: { id: string; name: string; max_teams: number | null; bracket_configs: { id: string; status: BracketStatus }[] }[]
 }
 
 interface TournamentsTableProps {
@@ -308,6 +309,9 @@ export function TournamentsTable({
               {filteredAndSortedTournaments.length > 0 ? (
                 filteredAndSortedTournaments.map((tournament) => {
                   const counts = getEntryCounts(tournament.tournament_entries, tournament.tournament_divisions)
+                  const hasBracket = tournament.tournament_divisions?.some(
+                    (d) => d.bracket_configs?.some((c) => c.status !== 'DRAFT'),
+                  ) ?? false
 
                   return (
                     <tr
@@ -334,6 +338,16 @@ export function TournamentsTable({
                             </p>
                           )}
                         </div>
+                        {hasBracket && (
+                          <Link
+                            href={`/admin/tournaments/${tournament.id}/bracket`}
+                            className="absolute bottom-2 right-2 z-20 inline-flex items-center gap-1 px-2 py-0.5 rounded text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                            aria-label={`${tournament.title} 대진표 보기`}
+                          >
+                            <GitFork className="w-3.5 h-3.5" />
+                            대진 보기
+                          </Link>
+                        )}
                       </td>
                       <td className="p-4">
                         <Badge variant={statusConfig[tournament.status].variant}>
