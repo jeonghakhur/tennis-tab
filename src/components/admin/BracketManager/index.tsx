@@ -44,7 +44,6 @@ import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
 import { MainBracketTab } from "./MainBracketTab";
 import { MatchDetailModal } from "./MatchDetailModal";
-import { ChangeEntryModal } from "./ChangeEntryModal";
 import type { CourtInfoUpdate } from "@/lib/bracket/actions";
 import type { MatchPhase } from "@/lib/supabase/types";
 import type {
@@ -132,11 +131,6 @@ export function BracketManager({
   // 단체전 세트별 결과 입력 모달
   const [detailMatch, setDetailMatch] = useState<BracketMatch | null>(null);
 
-  // 참가자 교체 모달
-  const [changeEntryState, setChangeEntryState] = useState<{
-    match: BracketMatch | null;
-    slot: 1 | 2 | null;
-  }>({ match: null, slot: null });
   const [divisionEntries, setDivisionEntries] = useState<DivisionEntry[]>([]);
 
   // MainBracketTab에 "조편성 탭으로 이동" 신호를 보내는 트리거 (값이 변경될 때마다 시드 탭 활성화)
@@ -276,12 +270,14 @@ export function BracketManager({
     }
   }, [selectedDivision, showError, refreshSeedingData]);
 
-  // 부서 변경 시 데이터 로드 + entries 캐시 초기화
+  // 부서 변경 시 데이터 로드 + entries 로드
   useEffect(() => {
-    if (selectedDivision) {
-      loadBracketData();
-      setDivisionEntries([]);
-    }
+    if (!selectedDivision) return;
+    loadBracketData();
+    setDivisionEntries([]);
+    getDivisionEntries(selectedDivision.id).then(({ data }) => {
+      setDivisionEntries(data ?? []);
+    });
   }, [selectedDivision, loadBracketData]);
 
   // Realtime 구독 — config가 있을 때만 활성화
@@ -612,22 +608,6 @@ export function BracketManager({
     setDetailMatch(match);
   }, []);
 
-  // 참가자 교체 모달 열기 — 엔트리 목록 lazy 로드
-  const handleOpenChangeEntry = useCallback(
-    async (matchId: string, slot: 1 | 2) => {
-      if (!selectedDivision) return;
-      const target = mainMatches.find((m) => m.id === matchId);
-      if (!target) return;
-      setChangeEntryState({ match: target, slot });
-      // 이미 로드된 경우 재사용
-      if (divisionEntries.length === 0) {
-        const { data } = await getDivisionEntries(selectedDivision.id);
-        setDivisionEntries(data ?? []);
-      }
-    },
-    [selectedDivision, mainMatches, divisionEntries.length],
-  );
-
   // 참가자 교체 확인
   const handleConfirmChangeEntry = async (
     matchId: string,
@@ -640,8 +620,6 @@ export function BracketManager({
         showError("참가자 교체 실패", error);
       } else {
         showSuccess("참가자가 교체되었습니다.");
-        // 엔트리 캐시 초기화 (다음 열기 시 재로드)
-        setDivisionEntries([]);
         refetchMatchesRef.current();
       }
     } catch {
@@ -1075,7 +1053,8 @@ export function BracketManager({
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
                 onMatchResult={(isClosed && !isSuperAdmin) ? undefined : handleMatchResult}
                 onSetWinner={(isClosed && !isSuperAdmin) ? undefined : handleSetWinner}
-                onChangeEntry={(isClosed && !isSuperAdmin) ? undefined : handleOpenChangeEntry}
+                entries={(isClosed && !isSuperAdmin) ? undefined : divisionEntries}
+                onConfirmEntry={(isClosed && !isSuperAdmin) ? undefined : handleConfirmChangeEntry}
                 onDelete={
                   isClosed ? undefined : () => setShowDeleteMainConfirm(true)
                 }
@@ -1132,17 +1111,6 @@ export function BracketManager({
           matchType={matchType}
         />
       )}
-
-      {/* 참가자 교체 모달 */}
-      <ChangeEntryModal
-        isOpen={changeEntryState.match !== null}
-        onClose={() => setChangeEntryState({ match: null, slot: null })}
-        match={changeEntryState.match}
-        slot={changeEntryState.slot}
-        entries={divisionEntries}
-        isTeamMatch={isTeamMatch}
-        onConfirm={handleConfirmChangeEntry}
-      />
 
       {/* Confirm Dialogs */}
       <ConfirmDialog

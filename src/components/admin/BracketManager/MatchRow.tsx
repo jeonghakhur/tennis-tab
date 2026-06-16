@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, MapPin, MoreVertical, Pencil } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { BracketMatch } from "./types";
+import type { DivisionEntry } from "@/lib/bracket/actions";
 
 interface MatchRowProps {
   match: BracketMatch;
@@ -13,8 +14,9 @@ interface MatchRowProps {
   onTieWarning: () => void;
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
-  /** 참가자 교체 콜백 (관리자 전용) */
-  onChangeEntry?: (matchId: string, slot: 1 | 2) => void;
+  /** 참가자 교체 (관리자 전용) */
+  entries?: DivisionEntry[];
+  onConfirmEntry?: (matchId: string, slot: 1 | 2, entryId: string) => void;
   // 코트 정보 (controlled — 부모가 상태 관리)
   courtLocation?: string;
   courtNumber?: string;
@@ -26,6 +28,21 @@ interface MatchRowProps {
   listMode?: boolean;
 }
 
+function getEntryLabel(entry: DivisionEntry, isTeamMatch?: boolean): string {
+  if (entry.partner_data) {
+    const club = entry.club_name || entry.partner_data.club || "";
+    const clubPart = club ? `[${club}] ` : "";
+    return `${clubPart}${entry.player_name} & ${entry.partner_data.name}`;
+  }
+  if (isTeamMatch) {
+    const order = entry.team_order ? ` (${entry.team_order}팀)` : "";
+    return `${entry.club_name || entry.player_name}${order}`;
+  }
+  return entry.club_name
+    ? `[${entry.club_name}] ${entry.player_name}`
+    : entry.player_name;
+}
+
 export function MatchRow({
   match,
   onResult,
@@ -33,7 +50,8 @@ export function MatchRow({
   onTieWarning,
   isTeamMatch,
   onOpenDetail,
-  onChangeEntry,
+  entries,
+  onConfirmEntry,
   courtLocation,
   courtNumber,
   onCourtChange,
@@ -48,6 +66,10 @@ export function MatchRow({
   );
   const [editing, setEditing] = useState(false);
 
+  // 참가자 인라인 교체 상태
+  const [editingEntrySlot, setEditingEntrySlot] = useState<1 | 2 | null>(null);
+  const [selectedEntryId, setSelectedEntryId] = useState("");
+
   const handleSubmit = () => {
     const s1 = parseInt(team1Score) || 0;
     const s2 = parseInt(team2Score) || 0;
@@ -57,6 +79,18 @@ export function MatchRow({
     }
     onResult?.(match.id, s1, s2);
     setEditing(false);
+  };
+
+  const handleStartEditEntry = (slot: 1 | 2) => {
+    const currentId = slot === 1 ? match.team1_entry_id : match.team2_entry_id;
+    setSelectedEntryId(currentId ?? "");
+    setEditingEntrySlot(slot);
+  };
+
+  const handleConfirmEntry = () => {
+    if (!editingEntrySlot || !selectedEntryId) return;
+    onConfirmEntry?.(match.id, editingEntrySlot, selectedEntryId);
+    setEditingEntrySlot(null);
   };
 
   // 복식: 파트너 이름만 (클럽명 제외), 단체전: 팀명, 단식: 클럽명 + 선수명
@@ -98,6 +132,15 @@ export function MatchRow({
   const firstIsWinner = !!match.winner_entry_id && match.winner_entry_id === firstEntryId;
   const secondIsWinner = !!match.winner_entry_id && match.winner_entry_id === secondEntryId;
 
+  // 표시 위치 → DB 슬롯 매핑 (swapped 역방향)
+  const firstDbSlot: 1 | 2 = swapped ? 2 : 1;
+  const secondDbSlot: 1 | 2 = swapped ? 1 : 2;
+  const firstInEntryEdit = editingEntrySlot === firstDbSlot;
+  const secondInEntryEdit = editingEntrySlot === secondDbSlot;
+
+  // 엔트리 로드됐고 점수 편집 중이 아닐 때만 연필 버튼 노출
+  const showEntryEdit = !!onConfirmEntry && !!entries && entries.length > 0 && !editing && !editingEntrySlot;
+
   if (match.status === "BYE") {
     return (
       <div
@@ -137,27 +180,58 @@ export function MatchRow({
         </span>
 
         {/* 첫 번째 팀 (결과 확정 시 승자) */}
-        <div className="flex-1 flex items-center justify-end gap-1">
-          {onChangeEntry && !editing && (
-            <button
-              type="button"
-              onClick={() => onChangeEntry(match.id, swapped ? 2 : 1)}
-              aria-label="팀1 참가자 교체"
-              title="참가자 교체"
-              className="shrink-0 p-1 rounded text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-card) transition-colors"
-            >
-              <Pencil className="w-3 h-3" />
-            </button>
+        <div className={`flex-1 flex items-center gap-1 ${firstInEntryEdit ? "" : "justify-end"}`}>
+          {firstInEntryEdit ? (
+            <>
+              <select
+                value={selectedEntryId}
+                onChange={(e) => setSelectedEntryId(e.target.value)}
+                className="flex-1 min-w-0 text-sm bg-(--bg-card) border border-(--border-color) rounded px-2 py-1 text-(--text-primary)"
+                aria-label="팀1 참가자 선택"
+              >
+                {entries?.map((e) => (
+                  <option key={e.id} value={e.id}>{getEntryLabel(e, isTeamMatch)}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleConfirmEntry}
+                className="shrink-0 px-2 py-1 rounded text-sm bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition-colors font-medium"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingEntrySlot(null)}
+                className="shrink-0 px-2 py-1 rounded text-sm text-(--text-muted) hover:bg-(--bg-card-hover) transition-colors"
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <>
+              {showEntryEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleStartEditEntry(firstDbSlot)}
+                  aria-label="팀1 참가자 교체"
+                  title="참가자 교체"
+                  className="shrink-0 p-1 rounded text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-card) transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+              <span
+                className={`text-sm ${
+                  firstIsWinner
+                    ? "font-bold text-(--color-success)"
+                    : "text-(--text-primary)"
+                }`}
+              >
+                {firstLabel}
+              </span>
+            </>
           )}
-          <span
-            className={`text-sm ${
-              firstIsWinner
-                ? "font-bold text-(--color-success)"
-                : "text-(--text-primary)"
-            }`}
-          >
-            {firstLabel}
-          </span>
         </div>
 
         {/* Score — 편집 중: 입력 필드 / 승자 직접 지정(score null+winner): "승" 표시 / 그 외: 점수 */}
@@ -193,68 +267,101 @@ export function MatchRow({
 
         {/* 두 번째 팀 (결과 확정 시 패자) */}
         <div className="flex-1 flex items-center gap-1">
-          <span
-            className={`text-sm ${
-              secondIsWinner
-                ? "font-bold text-(--color-success)"
-                : "text-(--text-primary)"
-            }`}
-          >
-            {secondLabel}
-          </span>
-          {onChangeEntry && !editing && (
-            <button
-              type="button"
-              onClick={() => onChangeEntry(match.id, swapped ? 1 : 2)}
-              aria-label="팀2 참가자 교체"
-              title="참가자 교체"
-              className="shrink-0 p-1 rounded text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-card) transition-colors"
-            >
-              <Pencil className="w-3 h-3" />
-            </button>
+          {secondInEntryEdit ? (
+            <>
+              <select
+                value={selectedEntryId}
+                onChange={(e) => setSelectedEntryId(e.target.value)}
+                className="flex-1 min-w-0 text-sm bg-(--bg-card) border border-(--border-color) rounded px-2 py-1 text-(--text-primary)"
+                aria-label="팀2 참가자 선택"
+              >
+                {entries?.map((e) => (
+                  <option key={e.id} value={e.id}>{getEntryLabel(e, isTeamMatch)}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={handleConfirmEntry}
+                className="shrink-0 px-2 py-1 rounded text-sm bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 transition-colors font-medium"
+              >
+                수정
+              </button>
+              <button
+                type="button"
+                onClick={() => setEditingEntrySlot(null)}
+                className="shrink-0 px-2 py-1 rounded text-sm text-(--text-muted) hover:bg-(--bg-card-hover) transition-colors"
+              >
+                취소
+              </button>
+            </>
+          ) : (
+            <>
+              <span
+                className={`text-sm ${
+                  secondIsWinner
+                    ? "font-bold text-(--color-success)"
+                    : "text-(--text-primary)"
+                }`}
+              >
+                {secondLabel}
+              </span>
+              {showEntryEdit && (
+                <button
+                  type="button"
+                  onClick={() => handleStartEditEntry(secondDbSlot)}
+                  aria-label="팀2 참가자 교체"
+                  title="참가자 교체"
+                  className="shrink-0 p-1 rounded text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-card) transition-colors"
+                >
+                  <Pencil className="w-3 h-3" />
+                </button>
+              )}
+            </>
           )}
         </div>
 
-        {/* 액션 버튼 — 우측 고정 */}
-        {isTeamMatch && onOpenDetail ? (
-          <button
-            onClick={() => onOpenDetail(match)}
-            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
-            className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              !(onResult && match.team1_entry_id && match.team2_entry_id)
-                ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
-                : match.team1_score !== null || match.winner_entry_id
-                  ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
-                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-            }`}
-          >
-            {match.team1_score !== null || match.winner_entry_id ? "수정" : "점수 입력"}
-          </button>
-        ) : editing ? (
-          <button
-            onClick={handleSubmit}
-            className="shrink-0 p-1.5 rounded-lg bg-(--color-success) text-white hover:bg-(--color-success-emphasis) transition-colors"
-          >
-            <Check className="w-4 h-4" />
-          </button>
-        ) : (
-          <button
-            onClick={() => onResult && setEditing(true)}
-            disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
-            className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-              !(onResult && match.team1_entry_id && match.team2_entry_id)
-                ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
-                : match.team1_score !== null || match.winner_entry_id
-                  ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
-                  : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
-            }`}
-          >
-            {match.team1_score !== null || match.winner_entry_id ? "수정" : "점수 입력"}
-          </button>
+        {/* 액션 버튼 — 참가자 교체 중일 때 숨김 */}
+        {!editingEntrySlot && (
+          isTeamMatch && onOpenDetail ? (
+            <button
+              onClick={() => onOpenDetail(match)}
+              disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
+              className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                !(onResult && match.team1_entry_id && match.team2_entry_id)
+                  ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
+                  : match.team1_score !== null || match.winner_entry_id
+                    ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                    : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+              }`}
+            >
+              {match.team1_score !== null || match.winner_entry_id ? "수정" : "점수 입력"}
+            </button>
+          ) : editing ? (
+            <button
+              onClick={handleSubmit}
+              className="shrink-0 p-1.5 rounded-lg bg-(--color-success) text-white hover:bg-(--color-success-emphasis) transition-colors"
+            >
+              <Check className="w-4 h-4" />
+            </button>
+          ) : (
+            <button
+              onClick={() => onResult && setEditing(true)}
+              disabled={!onResult || !match.team1_entry_id || !match.team2_entry_id}
+              className={`shrink-0 px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                !(onResult && match.team1_entry_id && match.team2_entry_id)
+                  ? "opacity-40 cursor-not-allowed bg-(--bg-card) text-(--text-muted)"
+                  : match.team1_score !== null || match.winner_entry_id
+                    ? "bg-blue-500/15 hover:bg-blue-500/25 text-blue-600 dark:text-blue-400 border border-blue-500/30"
+                    : "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+              }`}
+            >
+              {match.team1_score !== null || match.winner_entry_id ? "수정" : "점수 입력"}
+            </button>
+          )
         )}
 
-        {/* 승자 직접 지정 메뉴 — 양 팀 배정됨 + 편집 모드 아닐 때 */}
-        {onSetWinner && !editing && match.team1_entry_id && match.team2_entry_id && (
+        {/* 승자 직접 지정 메뉴 — 참가자 교체 중일 때 숨김 */}
+        {!editingEntrySlot && onSetWinner && !editing && match.team1_entry_id && match.team2_entry_id && (
           <Popover open={winnerMenuOpen} onOpenChange={setWinnerMenuOpen}>
             <PopoverTrigger asChild>
               <button
@@ -294,6 +401,13 @@ export function MatchRow({
           </Popover>
         )}
       </div>
+
+      {/* COMPLETED 경기 참가자 교체 시 경고 */}
+      {editingEntrySlot && match.status === "COMPLETED" && (
+        <div className="px-3 pb-2 text-sm text-amber-600 dark:text-amber-400">
+          결과가 입력된 경기입니다. 교체 시 이후 라운드 결과가 초기화됩니다.
+        </div>
+      )}
 
       {/* 코트 정보 — 항상 입력 가능 (부모가 상태 관리) */}
       {onCourtChange && (
