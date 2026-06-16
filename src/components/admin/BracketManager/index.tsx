@@ -31,10 +31,10 @@ import {
   deleteLatestRound,
   setActiveRound,
   toggleBracketPublish,
-  getDivisionEntries,
-  updateMatchEntry,
-  type DivisionEntry,
+  updateEntryInfo,
 } from "@/lib/bracket/actions";
+import type { EntryEditData } from "./EditEntryModal";
+import { EditEntryModal } from "./EditEntryModal";
 import {
   useMatchesRealtime,
   type RealtimeMatchPayload,
@@ -131,7 +131,11 @@ export function BracketManager({
   // 단체전 세트별 결과 입력 모달
   const [detailMatch, setDetailMatch] = useState<BracketMatch | null>(null);
 
-  const [divisionEntries, setDivisionEntries] = useState<DivisionEntry[]>([]);
+  const [editEntryState, setEditEntryState] = useState<{
+    entryId: string;
+    initialData: EntryEditData;
+    isDoubles: boolean;
+  } | null>(null);
 
   // MainBracketTab에 "조편성 탭으로 이동" 신호를 보내는 트리거 (값이 변경될 때마다 시드 탭 활성화)
   const [seedingNavRequest, setSeedingNavRequest] = useState(0);
@@ -270,14 +274,10 @@ export function BracketManager({
     }
   }, [selectedDivision, showError, refreshSeedingData]);
 
-  // 부서 변경 시 데이터 로드 + entries 로드
+  // 부서 변경 시 데이터 로드
   useEffect(() => {
     if (!selectedDivision) return;
     loadBracketData();
-    setDivisionEntries([]);
-    getDivisionEntries(selectedDivision.id).then(({ data }) => {
-      setDivisionEntries(data ?? []);
-    });
   }, [selectedDivision, loadBracketData]);
 
   // Realtime 구독 — config가 있을 때만 활성화
@@ -608,22 +608,48 @@ export function BracketManager({
     setDetailMatch(match);
   }, []);
 
-  // 참가자 교체 확인
-  const handleConfirmChangeEntry = async (
-    matchId: string,
-    slot: 1 | 2,
-    newEntryId: string,
-  ) => {
+  // 참가자 정보 수정 모달 열기
+  const handleEditEntry = useCallback(
+    (matchId: string, slot: 1 | 2) => {
+      const match = mainMatches.find((m) => m.id === matchId);
+      if (!match) return;
+      const entryId = slot === 1 ? match.team1_entry_id : match.team2_entry_id;
+      const team = slot === 1 ? match.team1 : match.team2;
+      if (!entryId || !team) return;
+      setEditEntryState({
+        entryId,
+        initialData: {
+          playerName: team.player_name,
+          clubName: team.club_name ?? "",
+          partnerName: team.partner_data?.name ?? "",
+          partnerClub: team.partner_data?.club ?? "",
+        },
+        isDoubles: !!team.partner_data,
+      });
+    },
+    [mainMatches],
+  );
+
+  // 참가자 정보 저장
+  const handleSaveEntryEdit = async (entryId: string, data: EntryEditData) => {
     try {
-      const { error } = await updateMatchEntry(matchId, slot, newEntryId);
+      const { error } = await updateEntryInfo(entryId, {
+        player_name: data.playerName,
+        club_name: data.clubName || null,
+        ...(editEntryState?.isDoubles && {
+          partner_name: data.partnerName,
+          partner_club: data.partnerClub || undefined,
+        }),
+      });
       if (error) {
-        showError("참가자 교체 실패", error);
+        showError("참가자 정보 수정 실패", error);
       } else {
-        showSuccess("참가자가 교체되었습니다.");
+        showSuccess("참가자 정보가 수정되었습니다.");
+        setEditEntryState(null);
         refetchMatchesRef.current();
       }
     } catch {
-      showError("오류", "참가자 교체 중 오류가 발생했습니다.");
+      showError("오류", "참가자 정보 수정 중 오류가 발생했습니다.");
     }
   };
 
@@ -1053,8 +1079,7 @@ export function BracketManager({
                 onAutoFillPhase={isClosed ? undefined : handleAutoFillMainPhase}
                 onMatchResult={(isClosed && !isSuperAdmin) ? undefined : handleMatchResult}
                 onSetWinner={(isClosed && !isSuperAdmin) ? undefined : handleSetWinner}
-                entries={(isClosed && !isSuperAdmin) ? undefined : divisionEntries}
-                onConfirmEntry={(isClosed && !isSuperAdmin) ? undefined : handleConfirmChangeEntry}
+                onEditEntry={(isClosed && !isSuperAdmin) ? undefined : handleEditEntry}
                 onDelete={
                   isClosed ? undefined : () => setShowDeleteMainConfirm(true)
                 }
@@ -1111,6 +1136,16 @@ export function BracketManager({
           matchType={matchType}
         />
       )}
+
+      {/* 참가자 정보 수정 모달 */}
+      <EditEntryModal
+        isOpen={editEntryState !== null}
+        onClose={() => setEditEntryState(null)}
+        entryId={editEntryState?.entryId ?? null}
+        initialData={editEntryState?.initialData ?? null}
+        isDoubles={editEntryState?.isDoubles ?? false}
+        onSave={handleSaveEntryEdit}
+      />
 
       {/* Confirm Dialogs */}
       <ConfirmDialog

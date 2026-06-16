@@ -219,7 +219,7 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
                       byDiv[a.division].push(a)
                     }
 
-                    // 부서 정렬: division_id → match_date ASC, 없으면 display_order ASC, 그 다음 이름순
+                    // 부서 정렬: division_id → match_date DESC, 없으면 display_order DESC
                     const sortedDivs = divOrder.slice().sort((divA, divB) => {
                       const idA = byDiv[divA][0]?.division_id
                       const idB = byDiv[divB][0]?.division_id
@@ -227,12 +227,12 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
                       const infoB = idB ? divisionOrderMap[idB] : null
                       const dateA = infoA?.matchDate ?? null
                       const dateB = infoB?.matchDate ?? null
-                      if (dateA && dateB) return dateA.localeCompare(dateB)
+                      if (dateA && dateB) return dateB.localeCompare(dateA)
                       if (dateA) return -1
                       if (dateB) return 1
                       const orderA = infoA?.displayOrder ?? byDiv[divA][0]?.display_order ?? 999
                       const orderB = infoB?.displayOrder ?? byDiv[divB][0]?.display_order ?? 999
-                      return orderA - orderB
+                      return orderB - orderA
                     })
 
                     return (

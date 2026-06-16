@@ -3379,3 +3379,64 @@ export async function updateMatchEntry(
   revalidatePath('/admin/tournaments')
   return {}
 }
+
+// ============================================================================
+// 참가자 정보 직접 수정 (이름/클럽 편집)
+// ============================================================================
+
+/**
+ * tournament_entries 레코드의 이름/클럽을 직접 수정한다.
+ * 기존 partner_data의 rating 등 나머지 필드는 보존.
+ */
+export async function updateEntryInfo(
+  entryId: string,
+  data: {
+    player_name: string
+    club_name: string | null
+    partner_name?: string
+    partner_club?: string
+  }
+): Promise<{ error?: string }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(entryId, '참가자 ID')
+  if (idError) return { error: idError }
+
+  if (!data.player_name.trim()) return { error: '이름을 입력해주세요.' }
+
+  const supabaseAdmin = createAdminClient()
+
+  const updatePayload: Record<string, unknown> = {
+    player_name: data.player_name.trim(),
+    club_name: data.club_name?.trim() || null,
+    updated_at: new Date().toISOString(),
+  }
+
+  // 복식인 경우 기존 partner_data(rating 등) 보존하면서 name/club만 교체
+  if (data.partner_name !== undefined) {
+    const { data: existing } = await supabaseAdmin
+      .from('tournament_entries')
+      .select('partner_data')
+      .eq('id', entryId)
+      .single()
+
+    if (existing?.partner_data) {
+      updatePayload.partner_data = {
+        ...(existing.partner_data as PartnerData),
+        name: data.partner_name.trim() || (existing.partner_data as PartnerData).name,
+        club: data.partner_club?.trim() ?? (existing.partner_data as PartnerData).club,
+      }
+    }
+  }
+
+  const { error } = await supabaseAdmin
+    .from('tournament_entries')
+    .update(updatePayload)
+    .eq('id', entryId)
+
+  if (error) return { error: '참가자 정보 수정에 실패했습니다.' }
+
+  revalidatePath('/admin/tournaments')
+  return {}
+}
