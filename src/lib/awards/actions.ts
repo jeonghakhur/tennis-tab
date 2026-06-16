@@ -45,6 +45,26 @@ export async function getAwards(opts: GetAwardsOptions = {}): Promise<Award[]> {
   return data ?? []
 }
 
+export interface DivisionOrder {
+  matchDate: string | null
+  displayOrder: number
+}
+
+/** 부서 날짜·순서 조회 (awards 페이지 부서 정렬용) */
+export async function getAwardDivisionOrder(
+  divisionIds: string[]
+): Promise<Record<string, DivisionOrder>> {
+  if (!divisionIds.length) return {}
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('tournament_divisions')
+    .select('id, match_date, display_order')
+    .in('id', divisionIds)
+  return Object.fromEntries(
+    (data ?? []).map((d) => [d.id, { matchDate: d.match_date, displayOrder: d.display_order }])
+  )
+}
+
 /** 필터 옵션 조회 (연도 목록, 대회명 목록) */
 export async function getAwardsFilterOptions(): Promise<{
   years: number[]

@@ -8,6 +8,7 @@ import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import type { Database } from '@/lib/supabase/types'
 import { groupAwardsForDisplay, RANK_ORDER, type AwardDisplayGroup } from './awardGrouping'
+import type { DivisionOrder } from '@/lib/awards/actions'
 import {
   getAwardPlayersMembership,
   updateAwardPlayerRating,
@@ -27,6 +28,7 @@ const RANK_BADGE: Record<string, BadgeVariant> = {
 interface Props {
   awards: Award[]
   isAdmin?: boolean
+  divisionOrderMap?: Record<string, DivisionOrder>
 }
 
 interface PlayerRow {
@@ -37,7 +39,7 @@ interface PlayerRow {
   saving: boolean
 }
 
-export function AwardsList({ awards, isAdmin = false }: Props) {
+export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: Props) {
   const router = useRouter()
   const [selectedGroup, setSelectedGroup] = useState<AwardDisplayGroup | null>(null)
   const [selectedGroupIds, setSelectedGroupIds] = useState<string[]>([])
@@ -205,9 +207,33 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
                 <div className="space-y-6">
                   {compOrder.map((competition) => {
                     const compAwards = byComp[competition]
-                    const groups = groupAwardsForDisplay(compAwards).sort(
-                      (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
-                    )
+
+                    // 부서별 그룹핑 (삽입 순서 유지)
+                    const divOrder: string[] = []
+                    const byDiv: Record<string, Award[]> = {}
+                    for (const a of compAwards) {
+                      if (!byDiv[a.division]) {
+                        byDiv[a.division] = []
+                        divOrder.push(a.division)
+                      }
+                      byDiv[a.division].push(a)
+                    }
+
+                    // 부서 정렬: division_id → match_date ASC, 없으면 display_order ASC, 그 다음 이름순
+                    const sortedDivs = divOrder.slice().sort((divA, divB) => {
+                      const idA = byDiv[divA][0]?.division_id
+                      const idB = byDiv[divB][0]?.division_id
+                      const infoA = idA ? divisionOrderMap[idA] : null
+                      const infoB = idB ? divisionOrderMap[idB] : null
+                      const dateA = infoA?.matchDate ?? null
+                      const dateB = infoB?.matchDate ?? null
+                      if (dateA && dateB) return dateA.localeCompare(dateB)
+                      if (dateA) return -1
+                      if (dateB) return 1
+                      const orderA = infoA?.displayOrder ?? byDiv[divA][0]?.display_order ?? 999
+                      const orderB = infoB?.displayOrder ?? byDiv[divB][0]?.display_order ?? 999
+                      return orderA - orderB
+                    })
 
                     return (
                       <div key={competition}>
@@ -220,34 +246,51 @@ export function AwardsList({ awards, isAdmin = false }: Props) {
                         >
                           {competition}
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
-                          {groups.map((group) =>
-                            isAdmin ? (
-                              <button
-                                key={group.key}
-                                type="button"
-                                onClick={() => handleCardClick(group)}
-                                className="rounded-xl p-4 space-y-2 text-left w-full transition-opacity hover:opacity-75"
-                                style={{
-                                  backgroundColor: 'var(--bg-card)',
-                                  border: '1px solid var(--border-color)',
-                                }}
-                              >
-                                <AwardCard group={group} />
-                              </button>
-                            ) : (
-                              <div
-                                key={group.key}
-                                className="rounded-xl p-4 space-y-2"
-                                style={{
-                                  backgroundColor: 'var(--bg-card)',
-                                  border: '1px solid var(--border-color)',
-                                }}
-                              >
-                                <AwardCard group={group} />
+                        <div className="space-y-4">
+                          {sortedDivs.map((division) => {
+                            const groups = groupAwardsForDisplay(byDiv[division]).sort(
+                              (a, b) => (RANK_ORDER[a.award_rank] ?? 9) - (RANK_ORDER[b.award_rank] ?? 9)
+                            )
+                            return (
+                              <div key={division}>
+                                <p
+                                  className="text-xs font-medium mb-2"
+                                  style={{ color: 'var(--text-muted)' }}
+                                >
+                                  {division}
+                                </p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3">
+                                  {groups.map((group) =>
+                                    isAdmin ? (
+                                      <button
+                                        key={group.key}
+                                        type="button"
+                                        onClick={() => handleCardClick(group)}
+                                        className="rounded-xl p-4 space-y-2 text-left w-full transition-opacity hover:opacity-75"
+                                        style={{
+                                          backgroundColor: 'var(--bg-card)',
+                                          border: '1px solid var(--border-color)',
+                                        }}
+                                      >
+                                        <AwardCard group={group} />
+                                      </button>
+                                    ) : (
+                                      <div
+                                        key={group.key}
+                                        className="rounded-xl p-4 space-y-2"
+                                        style={{
+                                          backgroundColor: 'var(--bg-card)',
+                                          border: '1px solid var(--border-color)',
+                                        }}
+                                      >
+                                        <AwardCard group={group} />
+                                      </div>
+                                    )
+                                  )}
+                                </div>
                               </div>
                             )
-                          )}
+                          })}
                         </div>
                       </div>
                     )
@@ -459,9 +502,6 @@ function AwardCard({ group }: { group: AwardDisplayGroup }) {
           {group.game_type}
         </span>
       </div>
-      <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-        {group.division}
-      </p>
       <div
         className="pt-2 border-t"
         style={{ borderColor: 'var(--border-color)' }}

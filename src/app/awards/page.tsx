@@ -3,7 +3,7 @@ import { Suspense } from 'react'
 import { AwardsFilters } from '@/components/awards/AwardsFilters'
 import { AwardsList } from '@/components/awards/AwardsList'
 import { AwardsAdminBar } from '@/components/awards/AwardsAdminBar'
-import { getAwards, getAwardsFilterOptions, getTournamentsForAwards, getClubsForAwards } from '@/lib/awards/actions'
+import { getAwards, getAwardsFilterOptions, getAwardDivisionOrder, getTournamentsForAwards, getClubsForAwards } from '@/lib/awards/actions'
 import { getCurrentUser } from '@/lib/auth/actions'
 
 export const metadata: Metadata = { title: '명예의 전당 | 마포구테니스협회' }
@@ -31,6 +31,9 @@ async function AwardsContent({ searchParams, isAdmin }: { searchParams: Record<s
     getAwardsFilterOptions(),
   ])
 
+  const divisionIds = [...new Set(awards.map((a) => a.division_id).filter(Boolean))] as string[]
+  const divisionOrderMap = await getAwardDivisionOrder(divisionIds)
+
   const currentParams: Record<string, string | undefined> = { year, competition, rank }
 
   return (
@@ -40,7 +43,7 @@ async function AwardsContent({ searchParams, isAdmin }: { searchParams: Record<s
         competitions={filterOptions.competitions}
         currentParams={currentParams}
       />
-      <AwardsList awards={awards} isAdmin={isAdmin} />
+      <AwardsList awards={awards} isAdmin={isAdmin} divisionOrderMap={divisionOrderMap} />
     </>
   )
 }
