@@ -502,44 +502,47 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
   // Fisher-Yates 셔플로 균등 분포 보장
   const shuffledEntries = shuffleArray(entries)
 
-  // 조 생성
-  let entryIndex = 0
-  const groups: { id: string; name: string; teams: typeof entries }[] = []
-
-  for (let i = 0; i < groupCount; i++) {
-    const { data: group, error: groupError } = await supabaseAdmin
-      .from('preliminary_groups')
-      .insert({
+  // 모든 조 일괄 INSERT
+  const { data: insertedGroups, error: groupBatchError } = await supabaseAdmin
+    .from('preliminary_groups')
+    .insert(
+      Array.from({ length: groupCount }, (_, i) => ({
         bracket_config_id: configId,
         name: getGroupName(i),
         display_order: i + 1,
-      })
-      .select()
-      .single()
+      })),
+    )
+    .select()
 
-    if (groupError || !group) {
-      return { error: '조 생성에 실패했습니다.' }
-    }
+  if (groupBatchError || !insertedGroups) {
+    return { error: '조 생성에 실패했습니다.' }
+  }
 
-    // 팀 배정 — 배치 삽입
+  // display_order 기준 정렬 (RETURNING 순서 보장 X)
+  const sortedGroups = [...insertedGroups].sort((a, b) => a.display_order - b.display_order)
+
+  // 모든 팀 배정 레코드 빌드 → 일괄 INSERT
+  let entryIndex = 0
+  const allTeamInserts: { group_id: string; entry_id: string; seed_number: number }[] = []
+  const groups: { id: string; name: string; teams: typeof entries }[] = []
+
+  for (let i = 0; i < groupCount; i++) {
+    const group = sortedGroups[i]
     const groupTeams = shuffledEntries.slice(entryIndex, entryIndex + teamsPerGroup[i])
     entryIndex += teamsPerGroup[i]
 
-    const teamInserts = groupTeams.map((team, j) => ({
-      group_id: group.id,
-      entry_id: team.id,
-      seed_number: j + 1,
-    }))
-
-    const { error: teamInsertError } = await supabaseAdmin
-      .from('group_teams')
-      .insert(teamInserts)
-
-    if (teamInsertError) {
-      return { error: '팀 배정에 실패했습니다.' }
-    }
-
+    groupTeams.forEach((team, j) => {
+      allTeamInserts.push({ group_id: group.id, entry_id: team.id, seed_number: j + 1 })
+    })
     groups.push({ id: group.id, name: group.name, teams: groupTeams })
+  }
+
+  const { error: teamInsertError } = await supabaseAdmin
+    .from('group_teams')
+    .insert(allTeamInserts)
+
+  if (teamInsertError) {
+    return { error: '팀 배정에 실패했습니다.' }
   }
 
   // 대진표 상태 업데이트
@@ -2349,121 +2352,119 @@ export async function generateNextRound(
     matchNumber = 1
   }
 
-  // 해당 라운드 매치 생성
-  const newMatchIds: string[] = []
+  // 매치 INSERT 데이터 빌드: 팀 배정·BYE 처리를 INSERT에 포함
+  type MatchInsert = {
+    bracket_config_id: string
+    phase: string
+    round_number: number
+    bracket_position: number
+    match_number: number
+    status: string
+    team1_entry_id?: string | null
+    team2_entry_id?: string | null
+    winner_entry_id?: string | null
+  }
+  const matchInserts: MatchInsert[] = []
   for (let pos = 0; pos < matchesInRound; pos++) {
-    const { data: match } = await supabaseAdmin
-      .from('bracket_matches')
-      .insert({
-        bracket_config_id: configId,
-        phase: isFinalRound ? 'FINAL' : phase,
-        round_number: targetRound,
-        bracket_position: pos + 1,
-        match_number: matchNumber++,
-        status: 'SCHEDULED',
-      })
-      .select()
-      .single()
+    const t1 = seedOrder[pos * 2] ?? null
+    const t2 = seedOrder[pos * 2 + 1] ?? null
+    const isBye = (t1 || t2) && !(t1 && t2)
+    const presentEntry = t1 || t2
 
-    if (match) newMatchIds.push(match.id)
+    matchInserts.push({
+      bracket_config_id: configId,
+      phase: isFinalRound ? 'FINAL' : phase,
+      round_number: targetRound,
+      bracket_position: pos + 1,
+      match_number: matchNumber + pos,
+      status: isBye ? 'BYE' : 'SCHEDULED',
+      team1_entry_id: isBye ? presentEntry : t1,
+      team2_entry_id: isBye ? null : t2,
+      winner_entry_id: isBye ? presentEntry : null,
+    })
   }
 
-  // 3/4위전 (결승 라운드 + config.third_place_match)
-  let thirdPlaceMatchId: string | null = null
-  if (isFinalRound && config.third_place_match) {
-    const { data: thirdPlace } = await supabaseAdmin
-      .from('bracket_matches')
-      .insert({
-        bracket_config_id: configId,
-        phase: 'THIRD_PLACE',
-        round_number: targetRound,
-        bracket_position: 0,
-        match_number: matchNumber++,
-        status: 'SCHEDULED',
-      })
-      .select()
-      .single()
-
-    thirdPlaceMatchId = thirdPlace?.id ?? null
+  // 3/4위전도 같은 배치에 포함
+  const hasThirdPlace = isFinalRound && config.third_place_match
+  if (hasThirdPlace) {
+    matchInserts.push({
+      bracket_config_id: configId,
+      phase: 'THIRD_PLACE',
+      round_number: targetRound,
+      bracket_position: 0,
+      match_number: matchNumber + matchesInRound,
+      status: 'SCHEDULED',
+    })
   }
 
-  // 팀 배정 (seedOrder 기반)
-  for (let i = 0; i < newMatchIds.length; i++) {
-    const matchId = newMatchIds[i]
-    const team1EntryId = seedOrder[i * 2] ?? null
-    const team2EntryId = seedOrder[i * 2 + 1] ?? null
+  const { data: allNewMatches, error: matchBatchError } = await supabaseAdmin
+    .from('bracket_matches')
+    .insert(matchInserts)
+    .select()
 
-    if (team1EntryId && team2EntryId) {
-      await supabaseAdmin
-        .from('bracket_matches')
-        .update({
-          team1_entry_id: team1EntryId,
-          team2_entry_id: team2EntryId,
-        })
-        .eq('id', matchId)
-    } else if (team1EntryId || team2EntryId) {
-      // BYE 처리
-      const presentEntryId = team1EntryId || team2EntryId
-      await supabaseAdmin
-        .from('bracket_matches')
-        .update({
-          team1_entry_id: presentEntryId,
-          winner_entry_id: presentEntryId,
-          status: 'BYE',
-        })
-        .eq('id', matchId)
-    }
-    // 양쪽 null이면 빈 매치 — 건너뜀
+  if (matchBatchError || !allNewMatches) {
+    return { error: '경기 생성에 실패했습니다.' }
   }
 
-  // 이전 라운드 매치에 next_match_id 역방향 링크 설정 (2R+)
+  // bracket_position 기준 정렬 → seedOrder 인덱스와 1:1 매핑 보장
+  const newMatches = [...allNewMatches.filter(m => m.phase !== 'THIRD_PLACE')]
+    .sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0))
+  const newMatchIds = newMatches.map(m => m.id)
+
+  const thirdPlaceMatchId = hasThirdPlace
+    ? (allNewMatches.find(m => m.phase === 'THIRD_PLACE')?.id ?? null)
+    : null
+
+  // 이전 라운드 매치에 next_match_id 역방향 링크 설정 (2R+) — 병렬 실행
   if (targetRound > 1) {
     const prevRoundMatches = existingMainMatches.filter(
       m => m.round_number === targetRound - 1,
     )
+    const linkUpdates: PromiseLike<unknown>[] = []
 
     for (let i = 0; i < newMatchIds.length; i++) {
       const currentMatchId = newMatchIds[i]
       const team1EntryId = seedOrder[i * 2] ?? null
       const team2EntryId = seedOrder[i * 2 + 1] ?? null
 
-      // team1의 출처 매치 찾아서 next_match_id 설정
       if (team1EntryId) {
         const sourceMatch = prevRoundMatches.find(m => m.winner_entry_id === team1EntryId)
         if (sourceMatch) {
-          await supabaseAdmin
-            .from('bracket_matches')
-            .update({ next_match_id: currentMatchId, next_match_slot: 1 })
-            .eq('id', sourceMatch.id)
+          linkUpdates.push(
+            supabaseAdmin
+              .from('bracket_matches')
+              .update({ next_match_id: currentMatchId, next_match_slot: 1 })
+              .eq('id', sourceMatch.id),
+          )
         }
       }
 
-      // team2의 출처 매치
       if (team2EntryId) {
         const sourceMatch = prevRoundMatches.find(m => m.winner_entry_id === team2EntryId)
         if (sourceMatch) {
-          await supabaseAdmin
-            .from('bracket_matches')
-            .update({ next_match_id: currentMatchId, next_match_slot: 2 })
-            .eq('id', sourceMatch.id)
+          linkUpdates.push(
+            supabaseAdmin
+              .from('bracket_matches')
+              .update({ next_match_id: currentMatchId, next_match_slot: 2 })
+              .eq('id', sourceMatch.id),
+          )
         }
       }
     }
 
     // 결승 라운드: 준결승 패자 → 3/4위전 링크
     if (isFinalRound && thirdPlaceMatchId) {
-      const semiMatches = prevRoundMatches
+      const semiMatches = [...prevRoundMatches]
         .sort((a, b) => (a.bracket_position ?? 0) - (b.bracket_position ?? 0))
 
       for (let i = 0; i < semiMatches.length; i++) {
         const semi = semiMatches[i]
-        await supabaseAdmin
-          .from('bracket_matches')
-          .update({
-            loser_next_match_id: thirdPlaceMatchId,
-            loser_next_match_slot: i + 1,
-          })
-          .eq('id', semi.id)
+        linkUpdates.push(
+          supabaseAdmin
+            .from('bracket_matches')
+            .update({ loser_next_match_id: thirdPlaceMatchId, loser_next_match_slot: i + 1 })
+            .eq('id', semi.id),
+        )
 
         // 준결승이 이미 완료된 경우 패자를 3/4위전에 즉시 배정
         if (semi.winner_entry_id) {
@@ -2472,16 +2473,19 @@ export async function generateNextRound(
               ? semi.team2_entry_id
               : semi.team1_entry_id
           if (loserId) {
-            const slot = i + 1
-            const updateField = slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
-            await supabaseAdmin
-              .from('bracket_matches')
-              .update({ [updateField]: loserId })
-              .eq('id', thirdPlaceMatchId)
+            const updateField = i === 0 ? 'team1_entry_id' : 'team2_entry_id'
+            linkUpdates.push(
+              supabaseAdmin
+                .from('bracket_matches')
+                .update({ [updateField]: loserId })
+                .eq('id', thirdPlaceMatchId),
+            )
           }
         }
       }
     }
+
+    await Promise.all(linkUpdates)
   }
 
   // config 업데이트 (1R만: bracket_size, status)

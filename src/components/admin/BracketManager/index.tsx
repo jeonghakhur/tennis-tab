@@ -247,25 +247,20 @@ export function BracketManager({
       if (configData) {
         setConfig(configData);
 
-        // 조편성은 항상 로드 (예선 유무와 무관)
-        const { data: groupsData } = await getPreliminaryGroups(configData.id);
-        setGroups(groupsData || []);
+        // 조편성·예선경기·본선경기 병렬 로드
+        const [groupsResult, prelimResult, mainResult] = await Promise.all([
+          getPreliminaryGroups(configData.id),
+          configData.has_preliminaries
+            ? getPreliminaryMatches(configData.id)
+            : Promise.resolve({ data: null }),
+          getMainBracketMatches(configData.id),
+        ]);
 
-        // 예선 경기는 예선 모드일 때만 로드
-        if (configData.has_preliminaries) {
-          const { data: prelimData } = await getPreliminaryMatches(
-            configData.id,
-          );
-          setPreliminaryMatches(prelimData || []);
-        } else {
-          setPreliminaryMatches([]);
-        }
+        setGroups(groupsResult.data || []);
+        setPreliminaryMatches(prelimResult.data || []);
+        setMainMatches(mainResult.data || []);
 
-        const { data: mainData } = await getMainBracketMatches(configData.id);
-        setMainMatches(mainData || []);
-
-        // 시드 데이터 갱신 (refetchMatchesSilently와 동일 헬퍼 사용)
-        await refreshSeedingData(configData, mainData || []);
+        await refreshSeedingData(configData, mainResult.data || []);
       }
     } catch {
       showError("오류", "데이터를 불러오는 중 오류가 발생했습니다.");
