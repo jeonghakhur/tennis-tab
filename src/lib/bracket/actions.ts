@@ -3225,3 +3225,157 @@ export async function toggleBracketPublish(
   revalidatePath('/admin/tournaments')
   return { success: true }
 }
+
+// ============================================================================
+// 본선 경기 참가자 교체
+// ============================================================================
+
+export interface DivisionEntry {
+  id: string
+  player_name: string
+  club_name: string | null
+  team_order: string | null
+  partner_data: PartnerData | null
+  team_members: TeamMember[] | null
+  applicant_participates: boolean
+}
+
+/**
+ * Division 엔트리 목록 조회 (참가자 교체 모달용)
+ */
+export async function getDivisionEntries(divisionId: string): Promise<{
+  data: DivisionEntry[] | null
+  error: string | null
+}> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { data: null, error: authResult.error }
+
+  const idError = validateId(divisionId, '부서 ID')
+  if (idError) return { data: null, error: idError }
+
+  const supabaseAdmin = createAdminClient()
+  const { data, error } = await supabaseAdmin
+    .from('tournament_entries')
+    .select('id, player_name, club_name, team_order, partner_data, team_members, applicant_participates')
+    .eq('division_id', divisionId)
+    .in('status', ['APPROVED', 'CONFIRMED'])
+    .order('team_order', { ascending: true, nullsFirst: false })
+    .order('player_name', { ascending: true })
+
+  if (error) return { data: null, error: '참가자 목록 조회에 실패했습니다.' }
+  return { data: data as DivisionEntry[], error: null }
+}
+
+/**
+ * 본선 경기 참가자 교체
+ * SCHEDULED: 즉시 교체, BYE 재체크
+ * COMPLETED: 기존 결과 기준으로 재처리 (winner 전파 + 수상 기록 갱신)
+ *
+ * 주의: COMPLETED 경기 수정 시 하위 라운드 경기 결과가 초기화됩니다.
+ */
+export async function updateMatchEntry(
+  matchId: string,
+  slot: 1 | 2,
+  newEntryId: string,
+): Promise<{ error?: string }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(matchId, '경기 ID') || validateId(newEntryId, '참가자 ID')
+  if (idError) return { error: idError }
+
+  const supabaseAdmin = createAdminClient()
+
+  // 현재 경기 조회
+  const { data: match } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('id, status, phase, bracket_config_id, team1_entry_id, team2_entry_id, winner_entry_id, next_match_id, next_match_slot, loser_next_match_id, loser_next_match_slot, team1_score, team2_score, sets_detail')
+    .eq('id', matchId)
+    .single()
+
+  if (!match) return { error: '경기를 찾을 수 없습니다.' }
+
+  if (match.status === 'BYE') return { error: 'BYE 경기는 참가자를 수정할 수 없습니다.' }
+  if (match.status !== 'SCHEDULED' && match.status !== 'COMPLETED') {
+    return { error: '지원하지 않는 경기 상태입니다.' }
+  }
+
+  // 마감 대회는 SUPER_ADMIN만 수정 가능
+  const closedCheck = await checkTournamentNotClosed(match.bracket_config_id)
+  if (closedCheck.error && authResult.role !== 'SUPER_ADMIN') return { error: closedCheck.error }
+
+  // 새 entry 가 같은 division 소속인지 확인
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id')
+    .eq('id', match.bracket_config_id)
+    .single()
+  if (!config) return { error: '대진표 설정을 찾을 수 없습니다.' }
+
+  const { data: entry } = await supabaseAdmin
+    .from('tournament_entries')
+    .select('division_id')
+    .eq('id', newEntryId)
+    .single()
+  if (!entry || entry.division_id !== config.division_id) {
+    return { error: '같은 부문의 참가자만 배정할 수 있습니다.' }
+  }
+
+  // 같은 경기 중복 배정 방지
+  const otherEntryId = slot === 1 ? match.team2_entry_id : match.team1_entry_id
+  if (newEntryId === otherEntryId) return { error: '이미 이 경기에 배정된 참가자입니다.' }
+
+  const updateField = slot === 1 ? 'team1_entry_id' : 'team2_entry_id'
+
+  // SCHEDULED: entry만 교체 후 BYE 재체크
+  if (match.status === 'SCHEDULED') {
+    const { error } = await supabaseAdmin
+      .from('bracket_matches')
+      .update({ [updateField]: newEntryId, updated_at: new Date().toISOString() })
+      .eq('id', matchId)
+    if (error) return { error: '참가자 수정에 실패했습니다.' }
+    await propagateByeIfNeeded(supabaseAdmin, matchId)
+    revalidatePath('/admin/tournaments')
+    return {}
+  }
+
+  // COMPLETED: winner_entry_id는 그대로 두고 entry_id만 먼저 교체
+  // → updateMatchResultCore가 old winner 기준으로 invalidate → 새 winner 전파
+  const { error: updateError } = await supabaseAdmin
+    .from('bracket_matches')
+    .update({ [updateField]: newEntryId, updated_at: new Date().toISOString() })
+    .eq('id', matchId)
+  if (updateError) return { error: '참가자 수정에 실패했습니다.' }
+
+  const { team1_score, team2_score, sets_detail } = match
+
+  if (team1_score !== null && team2_score !== null) {
+    // 점수 기반: 기존 점수 재적용 → winner 재계산 + invalidate + 전파
+    const result = await updateMatchResultCore(
+      supabaseAdmin,
+      matchId,
+      team1_score,
+      team2_score,
+      (sets_detail ?? undefined) as SetDetail[] | undefined,
+    )
+    if (result.error) return { error: result.error }
+  } else if (match.winner_entry_id) {
+    // 수동 승자 지정 모드: 수정한 슬롯의 기존 entry로 winner 여부 판단
+    // match 객체는 DB 업데이트 전 데이터이므로 oldEntryInSlot으로 안전하게 비교
+    const oldEntryInSlot = slot === 1 ? match.team1_entry_id : match.team2_entry_id
+    const editedSlotWasWinner = match.winner_entry_id === oldEntryInSlot
+    const winnerOverride = editedSlotWasWinner ? newEntryId : match.winner_entry_id
+    const result = await updateMatchResultCore(
+      supabaseAdmin,
+      matchId,
+      0,
+      0,
+      (sets_detail ?? undefined) as SetDetail[] | undefined,
+      winnerOverride,
+    )
+    if (result.error) return { error: result.error }
+  }
+
+  revalidatePath('/admin/tournaments')
+  return {}
+}

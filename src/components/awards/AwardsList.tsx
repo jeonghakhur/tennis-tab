@@ -254,7 +254,7 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
                             return (
                               <div key={division}>
                                 <p
-                                  className="text-xs font-medium mb-2"
+                                  className="text-sm font-medium mb-2"
                                   style={{ color: 'var(--text-muted)' }}
                                 >
                                   {division}

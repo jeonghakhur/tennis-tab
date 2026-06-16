@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, MapPin, MoreVertical } from "lucide-react";
+import { Check, MapPin, MoreVertical, Pencil } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { BracketMatch } from "./types";
 
@@ -13,6 +13,8 @@ interface MatchRowProps {
   onTieWarning: () => void;
   isTeamMatch?: boolean;
   onOpenDetail?: (match: BracketMatch) => void;
+  /** 참가자 교체 콜백 (관리자 전용) */
+  onChangeEntry?: (matchId: string, slot: 1 | 2) => void;
   // 코트 정보 (controlled — 부모가 상태 관리)
   courtLocation?: string;
   courtNumber?: string;
@@ -31,6 +33,7 @@ export function MatchRow({
   onTieWarning,
   isTeamMatch,
   onOpenDetail,
+  onChangeEntry,
   courtLocation,
   courtNumber,
   onCourtChange,
@@ -134,14 +137,27 @@ export function MatchRow({
         </span>
 
         {/* 첫 번째 팀 (결과 확정 시 승자) */}
-        <div
-          className={`flex-1 text-right ${
-            firstIsWinner
-              ? "font-bold text-(--color-success)"
-              : "text-(--text-primary)"
-          }`}
-        >
-          <span className="text-sm">{firstLabel}</span>
+        <div className="flex-1 flex items-center justify-end gap-1">
+          {onChangeEntry && !editing && (
+            <button
+              type="button"
+              onClick={() => onChangeEntry(match.id, swapped ? 2 : 1)}
+              aria-label="팀1 참가자 교체"
+              title="참가자 교체"
+              className="shrink-0 p-1 rounded text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-card) transition-colors"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
+          <span
+            className={`text-sm ${
+              firstIsWinner
+                ? "font-bold text-(--color-success)"
+                : "text-(--text-primary)"
+            }`}
+          >
+            {firstLabel}
+          </span>
         </div>
 
         {/* Score — 편집 중: 입력 필드 / 승자 직접 지정(score null+winner): "승" 표시 / 그 외: 점수 */}
@@ -176,14 +192,27 @@ export function MatchRow({
         )}
 
         {/* 두 번째 팀 (결과 확정 시 패자) */}
-        <div
-          className={`flex-1 text-left ${
-            secondIsWinner
-              ? "font-bold text-(--color-success)"
-              : "text-(--text-primary)"
-          }`}
-        >
-          <span className="text-sm">{secondLabel}</span>
+        <div className="flex-1 flex items-center gap-1">
+          <span
+            className={`text-sm ${
+              secondIsWinner
+                ? "font-bold text-(--color-success)"
+                : "text-(--text-primary)"
+            }`}
+          >
+            {secondLabel}
+          </span>
+          {onChangeEntry && !editing && (
+            <button
+              type="button"
+              onClick={() => onChangeEntry(match.id, swapped ? 1 : 2)}
+              aria-label="팀2 참가자 교체"
+              title="참가자 교체"
+              className="shrink-0 p-1 rounded text-(--text-muted) hover:text-(--text-primary) hover:bg-(--bg-card) transition-colors"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+          )}
         </div>
 
         {/* 액션 버튼 — 우측 고정 */}
