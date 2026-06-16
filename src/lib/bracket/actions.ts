@@ -3258,7 +3258,7 @@ export async function getDivisionEntries(divisionId: string): Promise<{
     .from('tournament_entries')
     .select('id, player_name, club_name, team_order, partner_data, team_members, applicant_participates')
     .eq('division_id', divisionId)
-    .in('status', ['APPROVED', 'CONFIRMED'])
+    .in('status', ['CONFIRMED', 'PENDING'])
     .order('team_order', { ascending: true, nullsFirst: false })
     .order('player_name', { ascending: true })
 
