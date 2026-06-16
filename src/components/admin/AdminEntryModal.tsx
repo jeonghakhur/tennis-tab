@@ -85,7 +85,7 @@ export function AdminEntryModal({
       divisionId: entry.division_id,
       playerName: entry.player_name ?? '',
       phone: formatPhoneNumber(entry.phone || entry.profiles?.phone || ''),
-      clubName: entry.club_name ?? '',
+      clubName: entry.club_name ?? entry.profiles?.club ?? '',
       playerRating: entry.player_rating != null ? String(entry.player_rating) : '',
       partnerName: partner?.name ?? '',
       partnerClub: partner?.club ?? '',
