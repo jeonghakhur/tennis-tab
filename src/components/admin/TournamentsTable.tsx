@@ -25,7 +25,7 @@ import { deleteTournament } from '@/lib/tournaments/actions'
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
   tournament_entries: { id: string; status: EntryStatus; payment_status: PaymentStatus; division_id: string }[]
-  tournament_divisions: { id: string; name: string; max_teams: number | null; bracket_configs: { id: string; status: BracketStatus }[] }[]
+  tournament_divisions: { id: string; name: string; max_teams: number | null; bracket_configs: { id: string; status: BracketStatus } | null }[]
 }
 
 interface TournamentsTableProps {
@@ -310,7 +310,7 @@ export function TournamentsTable({
                 filteredAndSortedTournaments.map((tournament) => {
                   const counts = getEntryCounts(tournament.tournament_entries, tournament.tournament_divisions)
                   const hasBracket = tournament.tournament_divisions?.some(
-                    (d) => d.bracket_configs?.some((c) => c.status !== 'DRAFT'),
+                    (d) => d.bracket_configs != null && d.bracket_configs.status !== 'DRAFT',
                   ) ?? false
 
                   return (
