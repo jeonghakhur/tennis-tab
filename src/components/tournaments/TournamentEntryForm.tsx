@@ -1153,7 +1153,7 @@ export default function TournamentEntryForm({
                         <span className="text-sm font-medium text-(--text-muted) w-10 shrink-0 text-center mt-3">
                           {applicantParticipates ? index + 2 : index + 1}
                         </span>
-                        <div className="flex-1 w-100">
+                        <div className="flex-1">
                           <input
                             type="text"
                             value={member.name}
@@ -1186,7 +1186,7 @@ export default function TournamentEntryForm({
                             )
                           }
                           placeholder="점수(레이팅)"
-                          className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="basis-50 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 점수`}
                           min="1"
                           max="9999"
