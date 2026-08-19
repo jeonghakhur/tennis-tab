@@ -14,7 +14,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { searchPartnerByName, getClubMembersByClubName, searchClubsByName, type PartnerSearchResult, type ClubMemberInfo, type ClubSearchResult } from "@/lib/entries/actions";
+import {
+  searchPartnerByName,
+  getClubMembersByClubName,
+  searchClubsByName,
+  type PartnerSearchResult,
+  type ClubMemberInfo,
+  type ClubSearchResult,
+} from "@/lib/entries/actions";
 
 // 입력값 변경 후 일정 시간 대기하여 안정된 값 반환 (검증 UI 깜빡임 방지)
 function useDebounce<T>(value: T, delay: number): T {
@@ -124,8 +131,12 @@ export default function TournamentEntryForm({
 
   // 환불 계좌 (참가비 있는 경우)
   const [refundBank, setRefundBank] = useState(initialData?.refundBank || "");
-  const [refundAccount, setRefundAccount] = useState(initialData?.refundAccount || "");
-  const [refundHolder, setRefundHolder] = useState(initialData?.refundHolder || "");
+  const [refundAccount, setRefundAccount] = useState(
+    initialData?.refundAccount || "",
+  );
+  const [refundHolder, setRefundHolder] = useState(
+    initialData?.refundHolder || "",
+  );
 
   // 파트너 정보 (개인전 복식)
   const [partnerName, setPartnerName] = useState(
@@ -143,7 +154,9 @@ export default function TournamentEntryForm({
   );
   // 드롭다운에서 클럽 회원(비시스템)을 선택했는지 — hint 문구 구분용
   const [partnerFromClubMember, setPartnerFromClubMember] = useState(false);
-  const [partnerSearchResults, setPartnerSearchResults] = useState<PartnerSearchResult[]>([]);
+  const [partnerSearchResults, setPartnerSearchResults] = useState<
+    PartnerSearchResult[]
+  >([]);
   const [isSearchingPartner, setIsSearchingPartner] = useState(false);
   const [showPartnerDropdown, setShowPartnerDropdown] = useState(false);
   // 검색 결과가 있었는데 선택하지 않고 "직접 입력"을 명시적으로 눌렀는지
@@ -157,7 +170,9 @@ export default function TournamentEntryForm({
   const partnerDropdownRef = useRef<HTMLDivElement>(null);
 
   // 관리자 대리 신청: 클럽 콤보박스 상태
-  const [clubSearchResults, setClubSearchResults] = useState<ClubSearchResult[]>([]);
+  const [clubSearchResults, setClubSearchResults] = useState<
+    ClubSearchResult[]
+  >([]);
   const [showClubDropdown, setShowClubDropdown] = useState(false);
   const [isSearchingClubs, setIsSearchingClubs] = useState(false);
   const clubSearchRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -238,9 +253,7 @@ export default function TournamentEntryForm({
     const trimmed = partnerName.trim();
     if (!trimmed) return;
 
-    const exactMatches = partnerSearchResults.filter(
-      (p) => p.name === trimmed
-    );
+    const exactMatches = partnerSearchResults.filter((p) => p.name === trimmed);
     if (exactMatches.length === 1) {
       handleSelectPartner(exactMatches[0]);
     }
@@ -249,7 +262,10 @@ export default function TournamentEntryForm({
   // 파트너 드롭다운 외부 클릭 시 닫기 + 자동 연동 시도
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (partnerDropdownRef.current && !partnerDropdownRef.current.contains(e.target as Node)) {
+      if (
+        partnerDropdownRef.current &&
+        !partnerDropdownRef.current.contains(e.target as Node)
+      ) {
         setShowPartnerDropdown(false);
       }
     };
@@ -261,7 +277,10 @@ export default function TournamentEntryForm({
   useEffect(() => {
     if (!isAdmin) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (clubDropdownRef.current && !clubDropdownRef.current.contains(e.target as Node)) {
+      if (
+        clubDropdownRef.current &&
+        !clubDropdownRef.current.contains(e.target as Node)
+      ) {
         setShowClubDropdown(false);
       }
     };
@@ -287,7 +306,9 @@ export default function TournamentEntryForm({
   const [clubMembers, setClubMembers] = useState<ClubMemberInfo[]>([]);
   // 미등록 팀원 확인 다이얼로그
   const [showNonMemberConfirm, setShowNonMemberConfirm] = useState(false);
-  const [pendingFormData, setPendingFormData] = useState<EntryFormData | null>(null);
+  const [pendingFormData, setPendingFormData] = useState<EntryFormData | null>(
+    null,
+  );
   const requiredTotal =
     isTeamMatch && teamMatchCount
       ? matchType === "TEAM_DOUBLES"
@@ -297,12 +318,12 @@ export default function TournamentEntryForm({
 
   // 신청자 참가 여부 (단체전 전용) — false면 팀원 슬롯이 requiredTotal 전체로 늘어남
   const [applicantParticipates, setApplicantParticipates] = useState(
-    initialData?.applicantParticipates ?? true
+    initialData?.applicantParticipates ?? true,
   );
 
   const requiredMembers = Math.max(
     0,
-    applicantParticipates ? requiredTotal - 1 : requiredTotal
+    applicantParticipates ? requiredTotal - 1 : requiredTotal,
   );
 
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(() => {
@@ -322,7 +343,10 @@ export default function TournamentEntryForm({
     if (teamMembers.length < newRequired) {
       setTeamMembers((prev) => [
         ...prev,
-        ...Array.from({ length: newRequired - prev.length }, () => ({ name: "", rating: 0 })),
+        ...Array.from({ length: newRequired - prev.length }, () => ({
+          name: "",
+          rating: 0,
+        })),
       ]);
     }
   };
@@ -331,7 +355,9 @@ export default function TournamentEntryForm({
   const selectedDivision = divisions.find((d) => d.id === divisionId);
 
   // 개인 접수 부서(solo_entry)일 때만 참가비 50% 적용
-  const displayFee = selectedDivision?.solo_entry ? Math.round(entryFee / 2) : entryFee;
+  const displayFee = selectedDivision?.solo_entry
+    ? Math.round(entryFee / 2)
+    : entryFee;
 
   // 팀원 추가 — limit이 없으면 무제한, 있으면 AlertDialog로 차단
   const addTeamMember = () => {
@@ -390,7 +416,9 @@ export default function TournamentEntryForm({
 
   // 클럽 회원 조회 헬퍼 (clubMembers가 빈 배열이면 미등록 클럽 → undefined 반환)
   const findClubMember = (name: string): ClubMemberInfo | undefined =>
-    clubMembers.length === 0 ? undefined : clubMembers.find((m) => m.name === name.trim());
+    clubMembers.length === 0
+      ? undefined
+      : clubMembers.find((m) => m.name === name.trim());
 
   // 클럽 회원 여부 (미등록 클럽이면 항상 true → 검증 skip)
   const isClubMember = (name: string) =>
@@ -401,7 +429,9 @@ export default function TournamentEntryForm({
     const allNames = [
       ...(applicantParticipates ? [playerName] : []),
       ...teamMembers.map((m) => m.name),
-    ].filter(Boolean).map((n) => n.trim());
+    ]
+      .filter(Boolean)
+      .map((n) => n.trim());
     const seen = new Set<string>();
     const dupes = new Set<string>();
     for (const name of allNames) {
@@ -469,15 +499,30 @@ export default function TournamentEntryForm({
     // 환불 계좌 필수 검증 (참가비 있는 경우)
     if (displayFee > 0) {
       if (!refundBank.trim()) {
-        setAlertDialog({ isOpen: true, title: "입력 필요", message: "환불 받을 은행명을 입력해주세요.", type: "warning" });
+        setAlertDialog({
+          isOpen: true,
+          title: "입력 필요",
+          message: "환불 받을 은행명을 입력해주세요.",
+          type: "warning",
+        });
         return;
       }
       if (!refundAccount.trim()) {
-        setAlertDialog({ isOpen: true, title: "입력 필요", message: "환불 받을 계좌번호를 입력해주세요.", type: "warning" });
+        setAlertDialog({
+          isOpen: true,
+          title: "입력 필요",
+          message: "환불 받을 계좌번호를 입력해주세요.",
+          type: "warning",
+        });
         return;
       }
       if (!refundHolder.trim()) {
-        setAlertDialog({ isOpen: true, title: "입력 필요", message: "환불 받을 계좌의 예금주를 입력해주세요.", type: "warning" });
+        setAlertDialog({
+          isOpen: true,
+          title: "입력 필요",
+          message: "환불 받을 계좌의 예금주를 입력해주세요.",
+          type: "warning",
+        });
         return;
       }
     }
@@ -494,12 +539,17 @@ export default function TournamentEntryForm({
         return;
       }
       // 검색 결과가 있었는데 선택도 안 하고 "직접 입력"도 누르지 않은 경우 차단
-      if (!partnerUserId && partnerSearchHadResults && !partnerManualConfirmed) {
+      if (
+        !partnerUserId &&
+        partnerSearchHadResults &&
+        !partnerManualConfirmed
+      ) {
         setShowPartnerDropdown(true);
         setAlertDialog({
           isOpen: true,
           title: "파트너 확인 필요",
-          message: "동명의 회원이 검색되었습니다. 목록에서 파트너를 선택하거나, 회원이 아닌 경우 '직접 입력'을 눌러주세요.",
+          message:
+            "동명의 회원이 검색되었습니다. 목록에서 파트너를 선택하거나, 회원이 아닌 경우 '직접 입력'을 눌러주세요.",
           type: "warning",
         });
         return;
@@ -518,8 +568,8 @@ export default function TournamentEntryForm({
       }
       // 단체전 팀원 수 검증: 신청자 참가 여부에 따라 필요 팀원 수 계산
       const effectiveRequired = applicantParticipates
-        ? requiredMembers   // 신청자 포함 → 팀원만 requiredTotal-1명
-        : requiredTotal;    // 신청자 불참 → 팀원으로 requiredTotal명 전체 필요
+        ? requiredMembers // 신청자 포함 → 팀원만 requiredTotal-1명
+        : requiredTotal; // 신청자 불참 → 팀원으로 requiredTotal명 전체 필요
       if (teamMembers.length < effectiveRequired) {
         const label = applicantParticipates
           ? `신청자 포함 총 ${requiredTotal}명`
@@ -550,9 +600,9 @@ export default function TournamentEntryForm({
       phone: unformatPhoneNumber(phone),
       playerName,
       playerRating,
-      refundBank: displayFee > 0 ? (refundBank || null) : null,
-      refundAccount: displayFee > 0 ? (refundAccount || null) : null,
-      refundHolder: displayFee > 0 ? (refundHolder || null) : null,
+      refundBank: displayFee > 0 ? refundBank || null : null,
+      refundAccount: displayFee > 0 ? refundAccount || null : null,
+      refundHolder: displayFee > 0 ? refundHolder || null : null,
     };
 
     // 경기 타입별 추가 데이터 (개인 접수 부서는 파트너 데이터 생략)
@@ -611,7 +661,9 @@ export default function TournamentEntryForm({
     const allNames = [
       ...(applicantParticipates ? [debouncedPlayerName] : []),
       ...debouncedMembers.map((m) => m.name),
-    ].filter(Boolean).map((n) => n.trim());
+    ]
+      .filter(Boolean)
+      .map((n) => n.trim());
     const seen = new Set<string>();
     const dupes = new Set<string>();
     for (const name of allNames) {
@@ -623,8 +675,7 @@ export default function TournamentEntryForm({
 
   const inputClass =
     "w-full px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass =
-    "block text-sm font-medium text-(--text-secondary) mb-2";
+  const labelClass = "block text-sm font-medium text-(--text-secondary) mb-2";
 
   return (
     <Modal
@@ -646,10 +697,7 @@ export default function TournamentEntryForm({
             <label className={labelClass}>
               참가 부서 <span className="text-red-500">*</span>
             </label>
-            <Select
-              value={divisionId}
-              onValueChange={setDivisionId}
-            >
+            <Select value={divisionId} onValueChange={setDivisionId}>
               <SelectTrigger className={inputClass}>
                 <SelectValue placeholder="선택해주세요" />
               </SelectTrigger>
@@ -744,7 +792,9 @@ export default function TournamentEntryForm({
                             onClick={() => handleSelectClub(c)}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                           >
-                            <span className="font-medium text-(--text-primary)">{c.name}</span>
+                            <span className="font-medium text-(--text-primary)">
+                              {c.name}
+                            </span>
                             {(c.city || c.district) && (
                               <span className="ml-2 text-sm text-(--text-muted)">
                                 {[c.city, c.district].filter(Boolean).join(" ")}
@@ -782,119 +832,131 @@ export default function TournamentEntryForm({
           )}
 
           {/* 개인전 복식 - 파트너 정보 (개인 접수 부서는 파트너 불필요) */}
-          {matchType === "INDIVIDUAL_DOUBLES" && !selectedDivision?.solo_entry && (
-            <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-              <h3 className="font-semibold text-(--text-primary)">
-                파트너 정보
-              </h3>
+          {matchType === "INDIVIDUAL_DOUBLES" &&
+            !selectedDivision?.solo_entry && (
+              <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <h3 className="font-semibold text-(--text-primary)">
+                  파트너 정보
+                </h3>
 
-              {/* 파트너 이름 + 검색 드롭다운 */}
-              <div className="relative" ref={partnerDropdownRef}>
-                <label className={labelClass}>
-                  파트너 이름 <span className="text-red-500">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={partnerName}
-                    onChange={(e) => handlePartnerNameChange(e.target.value)}
-                    onFocus={() => partnerSearchResults.length > 0 && setShowPartnerDropdown(true)}
-                    onBlur={handlePartnerBlur}
-                    className={inputClass}
-                    placeholder="이름 입력 후 검색"
-                    autoComplete="off"
-                  />
-                  {isSearchingPartner && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
-                      검색 중...
-                    </span>
-                  )}
-                  {partnerUserId && (
-                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-500 font-medium">
-                      ✓ 연동됨
-                    </span>
-                  )}
-                </div>
-                {showPartnerDropdown && (
-                  <ul className="absolute z-50 w-full mt-1 bg-(--bg-input) border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
-                    {partnerSearchResults.map((p, i) => (
-                      <li key={p.id ?? `cm-${i}`}>
+                {/* 파트너 이름 + 검색 드롭다운 */}
+                <div className="relative" ref={partnerDropdownRef}>
+                  <label className={labelClass}>
+                    파트너 이름 <span className="text-red-500">*</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={partnerName}
+                      onChange={(e) => handlePartnerNameChange(e.target.value)}
+                      onFocus={() =>
+                        partnerSearchResults.length > 0 &&
+                        setShowPartnerDropdown(true)
+                      }
+                      onBlur={handlePartnerBlur}
+                      className={inputClass}
+                      placeholder="이름 입력 후 검색"
+                      autoComplete="off"
+                    />
+                    {isSearchingPartner && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-400">
+                        검색 중...
+                      </span>
+                    )}
+                    {partnerUserId && (
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-blue-500 font-medium">
+                        ✓ 연동됨
+                      </span>
+                    )}
+                  </div>
+                  {showPartnerDropdown && (
+                    <ul className="absolute z-50 w-full mt-1 bg-(--bg-input) border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg overflow-hidden">
+                      {partnerSearchResults.map((p, i) => (
+                        <li key={p.id ?? `cm-${i}`}>
+                          <button
+                            type="button"
+                            onClick={() => handleSelectPartner(p)}
+                            className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          >
+                            <span className="font-medium text-(--text-primary)">
+                              {p.name}
+                            </span>
+                            <span className="ml-2 text-sm text-(--text-muted)">
+                              {p.club && `${p.club} · `}
+                              {p.rating != null ? `${p.rating}점` : "점수 없음"}
+                            </span>
+                          </button>
+                        </li>
+                      ))}
+                      <li
+                        className="border-t"
+                        style={{ borderColor: "var(--border-color)" }}
+                      >
                         <button
                           type="button"
-                          onClick={() => handleSelectPartner(p)}
-                          className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                          onClick={() => {
+                            setShowPartnerDropdown(false);
+                            setPartnerManualConfirmed(true);
+                          }}
+                          className="w-full text-left px-4 py-3 font-medium text-(--text-secondary) hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         >
-                          <span className="font-medium text-(--text-primary)">{p.name}</span>
-                          <span className="ml-2 text-sm text-(--text-muted)">
-                            {p.club && `${p.club} · `}{p.rating != null ? `${p.rating}점` : "점수 없음"}
-                          </span>
+                          직접 입력 (회원이 아닌 경우)
                         </button>
                       </li>
+                    </ul>
+                  )}
+                  {!partnerUserId &&
+                    partnerName &&
+                    (partnerManualConfirmed ? (
+                      <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 font-semibold border border-blue-200 dark:border-blue-700">
+                        {partnerFromClubMember
+                          ? "✓ 클럽 회원 — 시스템 계정 미연동"
+                          : "✓ 직접 입력 — 파트너가 시스템 회원이 아닌 경우"}
+                      </p>
+                    ) : partnerSearchHadResults ? (
+                      <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-700">
+                        ⚠ 동명의 회원이 검색되었습니다. 목록에서 선택하거나
+                        &quot;직접 입력&quot;을 눌러주세요.
+                      </p>
+                    ) : (
+                      <p className="text-sm mt-2 text-(--text-muted)">
+                        * 시스템에 등록된 회원이면 이름 입력 후 목록에서
+                        선택하세요
+                      </p>
                     ))}
-                    <li className="border-t" style={{ borderColor: 'var(--border-color)' }}>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowPartnerDropdown(false);
-                          setPartnerManualConfirmed(true);
-                        }}
-                        className="w-full text-left px-4 py-3 font-medium text-(--text-secondary) hover:bg-gray-50 dark:hover:bg-gray-700/50"
-                      >
-                        직접 입력 (회원이 아닌 경우)
-                      </button>
-                    </li>
-                  </ul>
-                )}
-                {!partnerUserId && partnerName && (
-                  partnerManualConfirmed ? (
-                    <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 font-semibold border border-blue-200 dark:border-blue-700">
-                      {partnerFromClubMember
-                        ? "✓ 클럽 회원 — 시스템 계정 미연동"
-                        : "✓ 직접 입력 — 파트너가 시스템 회원이 아닌 경우"}
-                    </p>
-                  ) : partnerSearchHadResults ? (
-                    <p className="text-sm mt-2 px-3 py-2 rounded-lg bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 font-semibold border border-amber-200 dark:border-amber-700">
-                      ⚠ 동명의 회원이 검색되었습니다. 목록에서 선택하거나 &quot;직접 입력&quot;을 눌러주세요.
-                    </p>
-                  ) : (
-                    <p className="text-sm mt-2 text-(--text-muted)">
-                      * 시스템에 등록된 회원이면 이름 입력 후 목록에서 선택하세요
-                    </p>
-                  )
-                )}
-              </div>
+                </div>
 
-              <div>
-                <label className={labelClass}>
-                  파트너 클럽명 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  value={partnerClub}
-                  onChange={(e) => setPartnerClub(e.target.value)}
-                  className={inputClass}
-                />
-              </div>
+                <div>
+                  <label className={labelClass}>
+                    파트너 클럽명 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={partnerClub}
+                    onChange={(e) => setPartnerClub(e.target.value)}
+                    className={inputClass}
+                  />
+                </div>
 
-              <div>
-                <label className={labelClass}>
-                  파트너 점수 <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={partnerRating || ""}
-                  onChange={(e) =>
-                    setPartnerRating(
-                      e.target.value ? parseInt(e.target.value) : null,
-                    )
-                  }
-                  className={inputClass}
-                  min="1"
-                  max="9999"
-                />
+                <div>
+                  <label className={labelClass}>
+                    파트너 점수 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={partnerRating || ""}
+                    onChange={(e) =>
+                      setPartnerRating(
+                        e.target.value ? parseInt(e.target.value) : null,
+                      )
+                    }
+                    className={inputClass}
+                    min="1"
+                    max="9999"
+                  />
+                </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* 단체전 - 클럽 및 팀원 정보 */}
           {(matchType === "TEAM_SINGLES" || matchType === "TEAM_DOUBLES") && (
@@ -934,7 +996,9 @@ export default function TournamentEntryForm({
                             onClick={() => handleSelectClub(c)}
                             className="w-full text-left px-4 py-3 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
                           >
-                            <span className="font-medium text-(--text-primary)">{c.name}</span>
+                            <span className="font-medium text-(--text-primary)">
+                              {c.name}
+                            </span>
                             {(c.city || c.district) && (
                               <span className="ml-2 text-sm text-(--text-muted)">
                                 {[c.city, c.district].filter(Boolean).join(" ")}
@@ -978,7 +1042,9 @@ export default function TournamentEntryForm({
                       <input
                         type="checkbox"
                         checked={applicantParticipates}
-                        onChange={(e) => handleApplicantParticipatesChange(e.target.checked)}
+                        onChange={(e) =>
+                          handleApplicantParticipatesChange(e.target.checked)
+                        }
                         className="w-4 h-4 rounded border-gray-300 dark:border-gray-600 text-blue-600"
                       />
                       <span className="text-sm text-gray-600 dark:text-gray-400">
@@ -990,11 +1056,10 @@ export default function TournamentEntryForm({
                     const maxLimit = selectedDivision?.team_member_limit;
                     return (
                       <p className="text-sm text-gray-500 mt-1">
-                        {requiredTotal > 0 && (
-                          applicantParticipates
+                        {requiredTotal > 0 &&
+                          (applicantParticipates
                             ? `* 신청자 포함 최소 ${requiredTotal}명 필요`
-                            : `* 신청자 제외 ${requiredTotal}명 필요`
-                        )}
+                            : `* 신청자 제외 ${requiredTotal}명 필요`)}
                         {requiredTotal > 0 && maxLimit && " / "}
                         {maxLimit && `최대 ${maxLimit}명까지 등록 가능`}
                       </p>
@@ -1004,114 +1069,137 @@ export default function TournamentEntryForm({
 
                 <div className="space-y-2">
                   {/* 신청자(본인) 슬롯 — 참가 시 맨 앞에 자동 표시 */}
-                  {applicantParticipates && (() => {
-                    const isNonMember = debouncedPlayerName && clubMembers.length > 0 && !isClubMember(debouncedPlayerName);
-                    const isDupe = debouncedPlayerName && displayDupeNames.has(debouncedPlayerName.trim());
-                    const borderClass = isNonMember
-                      ? "border-red-400 bg-(--bg-input)"
-                      : isDupe
-                      ? "border-amber-400 bg-(--bg-input)"
-                      : "border-(--border-color) bg-(--bg-input)";
-                    return (
-                    <div className="flex items-start gap-2">
-                      <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-10 shrink-0 text-center bg-blue-100 dark:bg-blue-900/40 rounded-lg py-2 mt-0.5">
-                        본인
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <input
-                          type="text"
-                          value={playerName}
-                          onChange={(e) => handlePlayerNameChange(e.target.value)}
-                          placeholder="이름"
-                          className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                          aria-label="신청자 이름"
-                        />
-                        {isNonMember && (
-                          <p className="mt-1 text-xs text-red-500">클럽 회원이 아닙니다</p>
-                        )}
-                        {isDupe && !isNonMember && (
-                          <p className="mt-1 text-xs text-amber-500">이미 입력된 팀원입니다</p>
-                        )}
-                      </div>
-                      <input
-                        type="number"
-                        value={playerRating || ""}
-                        onChange={(e) =>
-                          setPlayerRating(
-                            e.target.value ? parseInt(e.target.value) : null,
-                          )
-                        }
-                        placeholder="점수"
-                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        aria-label="신청자 점수"
-                        min="1"
-                        max="9999"
-                      />
-                      {/* 신청자 슬롯은 제거 불가 — 체크박스로 해제 */}
-                      <span className="shrink-0 w-6 text-center text-blue-300 dark:text-blue-600 text-xs mt-3">
-                        🔒
-                      </span>
-                    </div>
-                    );
-                  })()}
+                  {applicantParticipates &&
+                    (() => {
+                      const isNonMember =
+                        debouncedPlayerName &&
+                        clubMembers.length > 0 &&
+                        !isClubMember(debouncedPlayerName);
+                      const isDupe =
+                        debouncedPlayerName &&
+                        displayDupeNames.has(debouncedPlayerName.trim());
+                      const borderClass = isNonMember
+                        ? "border-red-400 bg-(--bg-input)"
+                        : isDupe
+                          ? "border-amber-400 bg-(--bg-input)"
+                          : "border-(--border-color) bg-(--bg-input)";
+                      return (
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-10 shrink-0 text-center bg-blue-100 dark:bg-blue-900/40 rounded-lg py-2 mt-0.5">
+                            본인
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <input
+                              type="text"
+                              value={playerName}
+                              onChange={(e) =>
+                                handlePlayerNameChange(e.target.value)
+                              }
+                              placeholder="이름"
+                              className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                              aria-label="신청자 이름"
+                            />
+                            {isNonMember && (
+                              <p className="mt-1 text-xs text-red-500">
+                                클럽 회원이 아닙니다
+                              </p>
+                            )}
+                            {isDupe && !isNonMember && (
+                              <p className="mt-1 text-xs text-amber-500">
+                                이미 입력된 팀원입니다
+                              </p>
+                            )}
+                          </div>
+                          <input
+                            type="number"
+                            value={playerRating || ""}
+                            onChange={(e) =>
+                              setPlayerRating(
+                                e.target.value
+                                  ? parseInt(e.target.value)
+                                  : null,
+                              )
+                            }
+                            placeholder="점수"
+                            className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            aria-label="신청자 점수"
+                            min="1"
+                            max="9999"
+                          />
+                          {/* 신청자 슬롯은 제거 불가 — 체크박스로 해제 */}
+                          <span className="shrink-0 w-6 text-center text-blue-300 dark:text-blue-600 text-xs mt-3">
+                            🔒
+                          </span>
+                        </div>
+                      );
+                    })()}
 
                   {teamMembers.map((member, index) => {
                     const debouncedName = debouncedMembers[index]?.name ?? "";
-                    const isNonMember = debouncedName && clubMembers.length > 0 && !isClubMember(debouncedName);
-                    const isDupe = debouncedName && displayDupeNames.has(debouncedName.trim());
+                    const isNonMember =
+                      debouncedName &&
+                      clubMembers.length > 0 &&
+                      !isClubMember(debouncedName);
+                    const isDupe =
+                      debouncedName &&
+                      displayDupeNames.has(debouncedName.trim());
                     const borderClass = isNonMember
                       ? "border-red-400 bg-(--bg-input)"
                       : isDupe
-                      ? "border-amber-400 bg-(--bg-input)"
-                      : "border-(--border-color) bg-(--bg-input)";
+                        ? "border-amber-400 bg-(--bg-input)"
+                        : "border-(--border-color) bg-(--bg-input)";
                     return (
-                    <div key={index} className="flex items-start gap-2">
-                      <span className="text-sm font-medium text-(--text-muted) w-10 shrink-0 text-center mt-3">
-                        {applicantParticipates ? index + 2 : index + 1}
-                      </span>
-                      <div className="flex-1 min-w-0">
+                      <div key={index} className="flex items-start gap-2">
+                        <span className="text-sm font-medium text-(--text-muted) w-10 shrink-0 text-center mt-3">
+                          {applicantParticipates ? index + 2 : index + 1}
+                        </span>
+                        <div className="flex-1 w-100">
+                          <input
+                            type="text"
+                            value={member.name}
+                            onChange={(e) =>
+                              updateTeamMember(index, "name", e.target.value)
+                            }
+                            placeholder="이름"
+                            className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                            aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 이름`}
+                          />
+                          {isNonMember && (
+                            <p className="mt-1 text-xs text-red-500">
+                              클럽 회원이 아닙니다
+                            </p>
+                          )}
+                          {isDupe && !isNonMember && (
+                            <p className="mt-1 text-xs text-amber-500">
+                              이미 입력된 팀원입니다
+                            </p>
+                          )}
+                        </div>
                         <input
-                          type="text"
-                          value={member.name}
+                          type="number"
+                          value={member.rating || ""}
                           onChange={(e) =>
-                            updateTeamMember(index, "name", e.target.value)
+                            updateTeamMember(
+                              index,
+                              "rating",
+                              parseInt(e.target.value) || 0,
+                            )
                           }
-                          placeholder="이름"
-                          className={`w-full px-4 py-3 rounded-xl border ${borderClass} text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
-                          aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 이름`}
+                          placeholder="점수(레이팅)"
+                          className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 점수`}
+                          min="1"
+                          max="9999"
                         />
-                        {isNonMember && (
-                          <p className="mt-1 text-xs text-red-500">클럽 회원이 아닙니다</p>
-                        )}
-                        {isDupe && !isNonMember && (
-                          <p className="mt-1 text-xs text-amber-500">이미 입력된 팀원입니다</p>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeTeamMember(index)}
+                          className="shrink-0 text-red-500 hover:text-red-700 text-sm px-1 mt-3"
+                          aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 제거`}
+                        >
+                          ✕
+                        </button>
                       </div>
-                      <input
-                        type="number"
-                        value={member.rating || ""}
-                        onChange={(e) =>
-                          updateTeamMember(
-                            index,
-                            "rating",
-                            parseInt(e.target.value) || 0,
-                          )
-                        }
-                        placeholder="점수(레이팅)"
-                        className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 점수`}
-                        min="1"
-                        max="9999"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeTeamMember(index)}
-                        className="shrink-0 text-red-500 hover:text-red-700 text-sm px-1 mt-3"
-                        aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 제거`}
-                      >
-                        ✕
-                      </button>
-                    </div>
                     );
                   })}
 
@@ -1131,19 +1219,17 @@ export default function TournamentEntryForm({
           {/* 참가비 결제 */}
           <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-(--text-primary)">
-                참가비
-              </h3>
+              <h3 className="font-semibold text-(--text-primary)">참가비</h3>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {displayFee === 0 ? "무료" : `${displayFee.toLocaleString('ko-KR')}원`}
+                {displayFee === 0
+                  ? "무료"
+                  : `${displayFee.toLocaleString("ko-KR")}원`}
               </span>
             </div>
 
             {displayFee > 0 && bankAccount && (
               <div className="bg-(--bg-input) rounded-lg p-3 space-y-2">
-                <p className="text-sm text-(--text-muted)">
-                  입금 계좌
-                </p>
+                <p className="text-sm text-(--text-muted)">입금 계좌</p>
                 <p className="font-medium text-(--text-primary)">
                   {bankAccount}
                 </p>
@@ -1177,11 +1263,15 @@ export default function TournamentEntryForm({
               <div className="space-y-3 pt-2 border-t border-blue-200 dark:border-blue-800">
                 <p className="text-sm font-medium text-(--text-secondary)">
                   환불 계좌
-                  <span className="ml-1 text-xs text-gray-400 font-normal">(취소 시 환불 계좌)</span>
+                  <span className="ml-1 text-xs text-gray-400 font-normal">
+                    (취소 시 환불 계좌)
+                  </span>
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label htmlFor="refund-bank" className={labelClass}>은행명</label>
+                    <label htmlFor="refund-bank" className={labelClass}>
+                      은행명
+                    </label>
                     <input
                       id="refund-bank"
                       type="text"
@@ -1192,7 +1282,9 @@ export default function TournamentEntryForm({
                     />
                   </div>
                   <div>
-                    <label htmlFor="refund-holder" className={labelClass}>예금주</label>
+                    <label htmlFor="refund-holder" className={labelClass}>
+                      예금주
+                    </label>
                     <input
                       id="refund-holder"
                       type="text"
@@ -1204,7 +1296,9 @@ export default function TournamentEntryForm({
                   </div>
                 </div>
                 <div>
-                  <label htmlFor="refund-account" className={labelClass}>계좌번호</label>
+                  <label htmlFor="refund-account" className={labelClass}>
+                    계좌번호
+                  </label>
                   <input
                     id="refund-account"
                     type="text"
@@ -1217,7 +1311,6 @@ export default function TournamentEntryForm({
               </div>
             )}
           </div>
-
         </form>
       </Modal.Body>
 
@@ -1256,7 +1349,10 @@ export default function TournamentEntryForm({
       {/* 미등록 팀원 확인 다이얼로그 */}
       <ConfirmDialog
         isOpen={showNonMemberConfirm}
-        onClose={() => { setShowNonMemberConfirm(false); setPendingFormData(null); }}
+        onClose={() => {
+          setShowNonMemberConfirm(false);
+          setPendingFormData(null);
+        }}
         onConfirm={async () => {
           setShowNonMemberConfirm(false);
           if (pendingFormData) await doSubmit(pendingFormData);
