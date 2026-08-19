@@ -1088,7 +1088,7 @@ export default function TournamentEntryForm({
                           <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 w-10 shrink-0 text-center bg-blue-100 dark:bg-blue-900/40 rounded-lg py-2 mt-0.5">
                             본인
                           </span>
-                          <div className="flex-1 min-w-0">
+                          <div className="flex-1">
                             <input
                               type="text"
                               value={playerName}
@@ -1121,7 +1121,7 @@ export default function TournamentEntryForm({
                               )
                             }
                             placeholder="점수"
-                            className="w-32 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="basis-30 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             aria-label="신청자 점수"
                             min="1"
                             max="9999"
