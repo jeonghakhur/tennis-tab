@@ -107,7 +107,7 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
             title={`${tournament.title} 대진표`}
             description={[
               tournament.start_date
-                ? new Date(tournament.start_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                ? new Date(tournament.start_date).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' })
                 : '',
               tournament.location,
             ].filter(Boolean).join(' · ')}

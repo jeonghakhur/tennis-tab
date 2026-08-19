@@ -28,10 +28,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = await getTournamentForMeta(id)
   if (!t) return {}
 
-  const dateStr = t.start_date && t.end_date
-    ? t.start_date === t.end_date
-      ? t.start_date.replace(/-/g, '.')
-      : `${t.start_date.replace(/-/g, '.')}-${t.end_date.replace(/-/g, '.')}`
+  // start_date가 timestamptz(UTC)로 내려오므로 KST 기준으로 날짜만 포맷 (서버 TZ 무관)
+  const formatMetaDate = (dateStr: string) =>
+    new Date(dateStr)
+      .toLocaleDateString('ko-KR', {
+        timeZone: 'Asia/Seoul',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+      })
+      .replace(/\. /g, '.')
+      .replace(/\.$/, '')
+
+  const startStr = t.start_date ? formatMetaDate(t.start_date) : ''
+  const endStr = t.end_date ? formatMetaDate(t.end_date) : ''
+  const dateStr = startStr && endStr
+    ? startStr === endStr
+      ? startStr
+      : `${startStr}-${endStr}`
     : ''
   const description = [dateStr, t.location, t.host].filter(Boolean).join(' · ')
 
@@ -339,7 +353,7 @@ export default async function TournamentDetailPage({ params }: Props) {
                 title={tournament.title}
                 description={[
                   tournament.start_date
-                    ? new Date(tournament.start_date).toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+                    ? new Date(tournament.start_date).toLocaleDateString('ko-KR', { timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric' })
                     : '',
                   tournament.location,
                 ].filter(Boolean).join(' · ')}
