@@ -13,16 +13,18 @@ interface ModalProps {
   showCloseButton?: boolean;
   closeOnOverlayClick?: boolean;
   closeOnEsc?: boolean;
+  /** 모바일(sm 미만)에서 좌우 여백 없이 가로 100% 차지 */
+  fullOnMobile?: boolean;
   children: React.ReactNode;
 }
 
 const SIZE_CLASSES = {
-  sm: "max-w-sm mx-5",
-  md: "max-w-md mx-5",
-  lg: "max-w-lg mx-5",
-  xl: "max-w-xl mx-5",
-  "2xl": "max-w-2xl mx-5",
-  full: "max-w-full mx-5",
+  sm: "max-w-sm",
+  md: "max-w-md",
+  lg: "max-w-lg",
+  xl: "max-w-xl",
+  "2xl": "max-w-2xl",
+  full: "max-w-full",
 } as const;
 
 /**
@@ -58,6 +60,7 @@ export function Modal({
   showCloseButton = true,
   closeOnOverlayClick = true,
   closeOnEsc = true,
+  fullOnMobile = false,
   children,
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -117,7 +120,7 @@ export function Modal({
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className={`relative w-full ${SIZE_CLASSES[size]} max-h-[90dvh] flex flex-col rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
+        className={`relative w-full ${SIZE_CLASSES[size]} ${fullOnMobile ? "mx-0 sm:mx-5" : "mx-5"} max-h-[90dvh] flex flex-col rounded-2xl bg-(--bg-secondary) border border-(--border-color) shadow-2xl outline-none`}
         role="dialog"
         aria-modal="true"
         aria-labelledby={title ? "modal-title" : undefined}

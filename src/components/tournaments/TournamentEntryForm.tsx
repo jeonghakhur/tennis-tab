@@ -684,6 +684,7 @@ export default function TournamentEntryForm({
       title={editMode ? "신청 수정" : "참가 신청"}
       description={tournamentTitle}
       size="2xl"
+      fullOnMobile
     >
       <Modal.Body>
         <form
