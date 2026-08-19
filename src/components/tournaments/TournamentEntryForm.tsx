@@ -1121,10 +1121,11 @@ export default function TournamentEntryForm({
                               )
                             }
                             placeholder="점수"
-                            className="basis-30 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            className="text-center px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                             aria-label="신청자 점수"
                             min="1"
                             max="9999"
+                            style={{ width: "45px" }}
                           />
                           {/* 신청자 슬롯은 제거 불가 — 체크박스로 해제 */}
                           <span className="shrink-0 w-6 text-center text-blue-300 dark:text-blue-600 text-xs mt-3">
@@ -1185,11 +1186,12 @@ export default function TournamentEntryForm({
                               parseInt(e.target.value) || 0,
                             )
                           }
-                          placeholder="점수(레이팅)"
-                          className="basis-50 shrink-0 px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="점수"
+                          className="text-center px-4 py-3 rounded-xl border border-(--border-color) bg-(--bg-input) text-(--text-primary) focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                           aria-label={`팀원 ${applicantParticipates ? index + 2 : index + 1} 점수`}
                           min="1"
                           max="9999"
+                          style={{ width: "45px" }}
                         />
                         <button
                           type="button"
