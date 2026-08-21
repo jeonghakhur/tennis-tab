@@ -57,3 +57,6 @@ docs/.pdca-snapshots/
 # yarn (npm 사용 — package-lock.json만 추적)
 yarn.lock
 .mcp.json
+
+# codex cli (개인 설정 — 액세스 토큰 포함, 커밋 금지)
+.codex/
