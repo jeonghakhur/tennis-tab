@@ -108,6 +108,8 @@ interface RichTextEditorProps {
   placeholder?: string;
   /** 이미지 업로드 콜백 — 부모가 주입. 성공 시 URL, 실패 시 null 반환 */
   onImageUpload?: (file: File) => Promise<string | null>;
+  /** 콘텐츠 영역 최대 높이 — 초과 시 내부 스크롤되어 툴바가 항상 보임 */
+  maxHeight?: string;
 }
 
 const TEXT_COLORS = [
@@ -605,6 +607,7 @@ export default function RichTextEditor({
   onChange,
   placeholder = '내용을 입력하세요...',
   onImageUpload,
+  maxHeight = '60vh',
 }: RichTextEditorProps) {
   const [isHtmlMode, setIsHtmlMode] = useState(false);
   const [htmlContent, setHtmlContent] = useState(value);
@@ -716,19 +719,22 @@ export default function RichTextEditor({
         isUploading={isUploading}
       />
 
-      {isHtmlMode ? (
-        <textarea
-          value={htmlContent}
-          onChange={handleHtmlChange}
-          className="w-full p-4 min-h-[200px] font-mono text-sm bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none resize-y"
-          placeholder="HTML 코드를 입력하세요..."
-        />
-      ) : (
-        <EditorContent
-          editor={editor}
-          className="prose prose-sm dark:prose-invert max-w-none p-4 min-h-[200px] focus:outline-none"
-        />
-      )}
+      {/* 콘텐츠 영역만 내부 스크롤 — 긴 내용에서도 툴바가 항상 보임 */}
+      <div className="overflow-y-auto" style={{ maxHeight }}>
+        {isHtmlMode ? (
+          <textarea
+            value={htmlContent}
+            onChange={handleHtmlChange}
+            className="w-full p-4 min-h-[200px] font-mono text-sm bg-gray-50 dark:bg-gray-900 text-gray-800 dark:text-gray-200 focus:outline-none resize-y"
+            placeholder="HTML 코드를 입력하세요..."
+          />
+        ) : (
+          <EditorContent
+            editor={editor}
+            className="prose prose-sm dark:prose-invert max-w-none p-4 min-h-[200px] focus:outline-none"
+          />
+        )}
+      </div>
 
       <style jsx global>{`
         .tiptap {
