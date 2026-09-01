@@ -31,6 +31,7 @@ import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
+import { formatKoreanDate } from '@/lib/utils/formatDate'
 
 const isDev = process.env.NODE_ENV === 'development'
 
@@ -511,6 +512,8 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                     {member.birth_year && <span>{member.birth_year}</span>}
                     {member.start_year && <span>{member.start_year}년 입문</span>}
                     {member.rating && <span>레이팅 {member.rating}</span>}
+                    {/* 등록일: 관리자가 회원을 추가/초대한 시점 (joined_at은 승인 시에만 세팅되므로 created_at 사용) */}
+                    <span>등록 {formatKoreanDate(member.created_at)}</span>
                     {member.status_reason && (member.status === 'REMOVED' || member.status === 'LEFT') && (
                       <span className="text-red-400">사유: {member.status_reason}</span>
                     )}
