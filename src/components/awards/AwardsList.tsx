@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Trash2 } from 'lucide-react'
+import { Trash2, X, UserPlus } from 'lucide-react'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { Modal } from '@/components/common/Modal'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
@@ -13,6 +13,9 @@ import {
   getAwardPlayersMembership,
   updateAwardPlayerRating,
   deleteAwards,
+  addAwardPlayer,
+  removeAwardPlayer,
+  getClubMemberNamesByClubName,
   type AwardPlayerInfo,
 } from '@/lib/awards/actions'
 
@@ -33,6 +36,8 @@ interface Props {
 
 interface PlayerRow {
   name: string
+  /** 이 선수가 속한 tournament_awards 레코드 ID (선수 삭제용) */
+  awardId: string
   userId: string | null
   info: AwardPlayerInfo
   ratingInput: string  // 편집 중인 값
@@ -49,6 +54,12 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
   const [deleting, setDeleting] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
+  // 선수 추가/삭제
+  const [newPlayerName, setNewPlayerName] = useState('')
+  const [addingPlayer, setAddingPlayer] = useState(false)
+  const [clubMemberNames, setClubMemberNames] = useState<string[]>([])
+  const [removeTarget, setRemoveTarget] = useState<PlayerRow | null>(null)
+  const [removingPlayer, setRemovingPlayer] = useState(false)
 
   const handleDeleteConfirm = async () => {
     setDeleting(true)
@@ -70,6 +81,8 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
     if (!isAdmin) return
     setSelectedGroup(group)
     setPlayerRows([])
+    setNewPlayerName('')
+    setClubMemberNames([])
     setLoadingMembership(true)
 
     // 그룹에 속한 개별 레코드에서 player → userId 매핑 추출
@@ -84,11 +97,16 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
     // 그룹에 속한 레코드 ID 저장 (삭제용)
     setSelectedGroupIds(groupRecords.map((r) => r.id))
 
+    // 레코드 하나에 선수가 여러 명일 수 있음(대진표 자동 생성) → 모든 players 순회
     const playerUserMap = new Map<string, string | null>()
+    const playerAwardMap = new Map<string, string>()
     for (const rec of groupRecords) {
-      const name = rec.players[0]
-      const userId = rec.player_user_ids?.[0] ?? null
-      if (name) playerUserMap.set(name, userId)
+      for (const name of rec.players) {
+        if (!name) continue
+        playerAwardMap.set(name, rec.id)
+        // player_user_ids는 클레임된 유저 목록 — 선수 1명 레코드일 때만 1:1 매핑 신뢰
+        playerUserMap.set(name, rec.players.length === 1 ? (rec.player_user_ids?.[0] ?? null) : null)
+      }
     }
 
     const playersWithId = group.players.map((name) => ({
@@ -96,13 +114,18 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
       userId: playerUserMap.get(name) ?? null,
     }))
 
-    const membershipResult = await getAwardPlayersMembership(playersWithId, group.club_name)
+    const [membershipResult, memberNames] = await Promise.all([
+      getAwardPlayersMembership(playersWithId, group.club_name),
+      group.club_name ? getClubMemberNamesByClubName(group.club_name) : Promise.resolve([]),
+    ])
+    setClubMemberNames(memberNames)
 
     setPlayerRows(
       playersWithId.map(({ name, userId }) => {
         const info = membershipResult[name] ?? { isMember: false, memberId: null, rating: null, profileRating: null }
         return {
           name,
+          awardId: playerAwardMap.get(name) ?? '',
           userId,
           info,
           ratingInput: info.rating != null ? String(info.rating) : '',
@@ -112,6 +135,81 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
     )
     setLoadingMembership(false)
   }, [isAdmin, awards])
+
+  // 선수 추가: 그룹 첫 레코드를 템플릿으로 복사해 새 레코드 생성
+  const handleAddPlayer = async () => {
+    if (!selectedGroup) return
+    const name = newPlayerName.trim()
+    if (!name) {
+      setAlert({ isOpen: true, message: '선수 이름을 입력해주세요.' })
+      return
+    }
+    if (playerRows.some((r) => r.name === name)) {
+      setAlert({ isOpen: true, message: `${name} 선수는 이미 등록되어 있습니다.` })
+      return
+    }
+    const templateId = selectedGroupIds[0]
+    if (!templateId) {
+      setAlert({ isOpen: true, message: '기준 기록을 찾을 수 없습니다.' })
+      return
+    }
+
+    setAddingPlayer(true)
+    const result = await addAwardPlayer(templateId, name)
+    if (result.error || !result.awardId) {
+      setAddingPlayer(false)
+      setAlert({ isOpen: true, message: result.error ?? '선수 추가에 실패했습니다.' })
+      return
+    }
+
+    // 새 선수의 클럽 가입/점수 정보 조회 후 행 추가
+    const membership = await getAwardPlayersMembership([{ name, userId: null }], selectedGroup.club_name)
+    const info = membership[name] ?? { isMember: false, memberId: null, rating: null, profileRating: null }
+    setPlayerRows((prev) => [
+      ...prev,
+      {
+        name,
+        awardId: result.awardId!,
+        userId: null,
+        info,
+        ratingInput: info.rating != null ? String(info.rating) : '',
+        saving: false,
+      },
+    ])
+    setSelectedGroupIds((prev) => [...prev, result.awardId!])
+    setSelectedGroup((prev) => (prev ? { ...prev, players: [...prev.players, name] } : prev))
+    setNewPlayerName('')
+    setAddingPlayer(false)
+    setToast({ isOpen: true, message: `${name} 선수가 추가되었습니다.` })
+    router.refresh()
+  }
+
+  // 선수 삭제 확정
+  const handleRemovePlayerConfirm = async () => {
+    if (!removeTarget || !selectedGroup) return
+    const target = removeTarget
+    setRemovingPlayer(true)
+    const result = await removeAwardPlayer(target.awardId, target.name)
+    setRemovingPlayer(false)
+    setRemoveTarget(null)
+
+    if (result.error) {
+      setAlert({ isOpen: true, message: result.error })
+      return
+    }
+
+    const remainingRows = playerRows.filter((r) => r.name !== target.name)
+    setPlayerRows(remainingRows)
+    setSelectedGroup((prev) => (prev ? { ...prev, players: prev.players.filter((p) => p !== target.name) } : prev))
+    // 해당 레코드에 다른 선수가 남아 있지 않으면 레코드가 삭제된 것 → ID 목록에서 제거
+    if (!remainingRows.some((r) => r.awardId === target.awardId)) {
+      setSelectedGroupIds((prev) => prev.filter((id) => id !== target.awardId))
+    }
+    // 마지막 선수를 지우면 그룹 자체가 사라지므로 모달 닫기
+    if (remainingRows.length === 0) setSelectedGroup(null)
+    setToast({ isOpen: true, message: `${target.name} 선수가 삭제되었습니다.` })
+    router.refresh()
+  }
 
   const handleRatingChange = (playerName: string, value: string) => {
     setPlayerRows((prev) =>
@@ -336,7 +434,7 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
               {/* 수상자 목록 */}
               <div className="pt-3 border-t" style={{ borderColor: 'var(--border-color)' }}>
                 <p className="text-xs mb-3 font-medium" style={{ color: 'var(--text-muted)' }}>
-                  수상자 점수 관리
+                  수상자 관리
                   {!selectedGroup.club_name && (
                     <span className="ml-1 font-normal">(클럽 정보 없음 — 점수 조회 불가)</span>
                   )}
@@ -386,6 +484,17 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
                                 {row.info.isMember ? '가입됨' : '미가입'}
                               </span>
                             )}
+                            <button
+                              type="button"
+                              onClick={() => setRemoveTarget(row)}
+                              disabled={removingPlayer}
+                              aria-label={`${row.name} 선수 삭제`}
+                              title="선수 삭제"
+                              className="p-1 rounded-md transition-colors hover:bg-(--color-danger-subtle)"
+                              style={{ color: 'var(--color-danger)' }}
+                            >
+                              <X className="w-4 h-4" aria-hidden="true" />
+                            </button>
                           </div>
                         </div>
 
@@ -434,6 +543,53 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
                         )}
                       </div>
                     ))}
+
+                    {/* 선수 추가 */}
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault()
+                        handleAddPlayer()
+                      }}
+                      className="flex items-center gap-2 pt-2"
+                      noValidate
+                    >
+                      <label htmlFor="new-award-player" className="sr-only">
+                        추가할 선수 이름
+                      </label>
+                      <input
+                        id="new-award-player"
+                        type="text"
+                        list={clubMemberNames.length > 0 ? 'award-club-member-names' : undefined}
+                        value={newPlayerName}
+                        onChange={(e) => setNewPlayerName(e.target.value)}
+                        placeholder="선수 이름 입력"
+                        maxLength={30}
+                        autoComplete="off"
+                        disabled={addingPlayer}
+                        className="flex-1 px-3 py-2 rounded-lg text-sm"
+                        style={{
+                          backgroundColor: 'var(--bg-input)',
+                          color: 'var(--text-primary)',
+                          border: '1px solid var(--border-color)',
+                        }}
+                      />
+                      {clubMemberNames.length > 0 && (
+                        <datalist id="award-club-member-names">
+                          {clubMemberNames.map((n) => (
+                            <option key={n} value={n} />
+                          ))}
+                        </datalist>
+                      )}
+                      <button
+                        type="submit"
+                        disabled={addingPlayer || !newPlayerName.trim()}
+                        className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-opacity disabled:opacity-50"
+                        style={{ backgroundColor: 'var(--accent-color)', color: 'var(--bg-primary)' }}
+                      >
+                        <UserPlus className="w-4 h-4" aria-hidden="true" />
+                        {addingPlayer ? '추가 중' : '선수 추가'}
+                      </button>
+                    </form>
                   </div>
                 )}
               </div>
@@ -476,6 +632,16 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
         title="오류"
         message={alert.message}
         type="error"
+      />
+      <ConfirmDialog
+        isOpen={removeTarget !== null}
+        onClose={() => setRemoveTarget(null)}
+        onConfirm={handleRemovePlayerConfirm}
+        title="선수 삭제"
+        message={`${selectedGroup?.award_rank} 기록에서 ${removeTarget?.name} 선수를 삭제하시겠습니까?${playerRows.length === 1 ? ' 마지막 선수이므로 기록 자체가 삭제됩니다.' : ''}`}
+        type="error"
+        confirmText="삭제"
+        isLoading={removingPlayer}
       />
       <ConfirmDialog
         isOpen={deleteConfirmOpen}

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
 import type { Database } from '@/lib/supabase/types'
+import { sanitizeInput } from '@/lib/utils/validation'
 
 type Award = Database['public']['Tables']['tournament_awards']['Row']
 
@@ -459,5 +460,139 @@ export async function updateAward(
     .eq('id', awardId)
 
   if (error) return { error: '수정에 실패했습니다.' }
+  return {}
+}
+
+/** 클럽명으로 활성 회원 이름 목록 조회 (수상자 추가 시 자동완성용, 어드민 전용) */
+export async function getClubMemberNamesByClubName(clubName: string): Promise<string[]> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) return []
+  if (!clubName.trim()) return []
+
+  const admin = createAdminClient()
+  const { data: club } = await admin
+    .from('clubs')
+    .select('id')
+    .eq('name', clubName.trim())
+    .maybeSingle()
+  if (!club) return []
+
+  const { data: members } = await admin
+    .from('club_members')
+    .select('name')
+    .eq('club_id', club.id)
+    .eq('status', 'ACTIVE')
+    .order('name', { ascending: true })
+  return (members ?? []).map((m) => m.name)
+}
+
+/** 수상자 이름 최대 길이 */
+const MAX_PLAYER_NAME_LENGTH = 30
+
+/**
+ * 기존 입상 그룹에 선수 추가 (어드민 전용)
+ * - templateAwardId 레코드의 대회/부문/순위/클럽 정보를 복사해 선수 1명짜리 레코드 생성
+ * - 같은 그룹(대회+연도+부문+순위+클럽)에 이미 있는 이름이면 거부
+ */
+export async function addAwardPlayer(
+  templateAwardId: string,
+  playerName: string
+): Promise<{ awardId?: string; error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return { error: '관리자 권한이 필요합니다.' }
+  }
+
+  const name = sanitizeInput(playerName).trim()
+  if (!name) return { error: '선수 이름을 입력해주세요.' }
+  if (name.length > MAX_PLAYER_NAME_LENGTH) {
+    return { error: `선수 이름은 ${MAX_PLAYER_NAME_LENGTH}자 이내로 입력해주세요.` }
+  }
+
+  const admin = createAdminClient()
+  const { data: template, error: fetchError } = await admin
+    .from('tournament_awards')
+    .select('year, competition, division, game_type, award_rank, club_name, tournament_id, division_id, entry_id, club_id, display_order')
+    .eq('id', templateAwardId)
+    .single()
+  if (fetchError || !template) return { error: '기준 기록을 찾을 수 없습니다.' }
+
+  // 같은 그룹 내 중복 이름 확인
+  let dupQuery = admin
+    .from('tournament_awards')
+    .select('id')
+    .eq('year', template.year)
+    .eq('competition', template.competition)
+    .eq('division', template.division)
+    .eq('award_rank', template.award_rank)
+    .contains('players', [name])
+  dupQuery = template.club_name
+    ? dupQuery.eq('club_name', template.club_name)
+    : dupQuery.is('club_name', null)
+  const { data: dup } = await dupQuery.limit(1)
+  if (dup && dup.length > 0) return { error: `${name} 선수는 이미 등록되어 있습니다.` }
+
+  const { data: inserted, error } = await admin
+    .from('tournament_awards')
+    .insert({
+      year: template.year,
+      competition: template.competition,
+      division: template.division,
+      game_type: template.game_type,
+      award_rank: template.award_rank,
+      club_name: template.club_name,
+      tournament_id: template.tournament_id,
+      division_id: template.division_id,
+      entry_id: template.entry_id,
+      club_id: template.club_id,
+      display_order: template.display_order,
+      players: [name],
+    })
+    .select('id')
+    .single()
+
+  if (error || !inserted) return { error: '선수 추가에 실패했습니다.' }
+  return { awardId: inserted.id }
+}
+
+/**
+ * 입상 기록에서 선수 제거 (어드민 전용)
+ * - 레코드에 선수가 1명뿐이면 레코드 삭제
+ * - 여러 명(대진표 자동 생성 레코드)이면 players 배열에서 해당 이름만 제거
+ */
+export async function removeAwardPlayer(
+  awardId: string,
+  playerName: string
+): Promise<{ error?: string }> {
+  const user = await getCurrentUser()
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
+    return { error: '관리자 권한이 필요합니다.' }
+  }
+
+  const admin = createAdminClient()
+  const { data: award, error: fetchError } = await admin
+    .from('tournament_awards')
+    .select('players')
+    .eq('id', awardId)
+    .single()
+  if (fetchError || !award) return { error: '기록을 찾을 수 없습니다.' }
+
+  const currentPlayers: string[] = award.players ?? []
+  const remaining = currentPlayers.filter((p) => p !== playerName)
+  if (remaining.length === currentPlayers.length) {
+    return { error: '해당 선수가 기록에 없습니다.' }
+  }
+
+  if (remaining.length === 0) {
+    const { error } = await admin.from('tournament_awards').delete().eq('id', awardId)
+    if (error) return { error: '선수 삭제에 실패했습니다.' }
+    return {}
+  }
+
+  const { error } = await admin
+    .from('tournament_awards')
+    .update({ players: remaining, updated_at: new Date().toISOString() })
+    .eq('id', awardId)
+  if (error) return { error: '선수 삭제에 실패했습니다.' }
   return {}
 }
