@@ -24,6 +24,8 @@ import {
   autoFillPreliminaryResults,
   autoFillMainBracketResults,
   batchUpdateMatchCourtInfo,
+  getBracketAwardsStatus,
+  registerBracketAwards,
   deleteBracketConfig,
   deletePreliminaryGroups,
   deletePreliminaryMatches,
@@ -44,7 +46,7 @@ import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
 import { MainBracketTab } from "./MainBracketTab";
 import { MatchDetailModal } from "./MatchDetailModal";
-import type { CourtInfoUpdate } from "@/lib/bracket/actions";
+import type { CourtInfoUpdate, BracketAwardsStatus } from "@/lib/bracket/actions";
 import type { MatchPhase } from "@/lib/supabase/types";
 import type {
   BracketManagerProps,
@@ -99,6 +101,12 @@ export function BracketManager({
     useState(false);
   const [showDeleteBracketConfirm, setShowDeleteBracketConfirm] =
     useState(false);
+  // 명예의 전당 등록 확인 다이얼로그 + 등록 현황
+  const [showRegisterAwardsConfirm, setShowRegisterAwardsConfirm] =
+    useState(false);
+  const [awardsStatus, setAwardsStatus] = useState<BracketAwardsStatus | null>(
+    null,
+  );
   // 경기 진행 토글 확인 다이얼로그
   const [toggleActiveConfirm, setToggleActiveConfirm] = useState<{
     show: boolean;
@@ -248,17 +256,20 @@ export function BracketManager({
         setConfig(configData);
 
         // 조편성·예선경기·본선경기 병렬 로드
-        const [groupsResult, prelimResult, mainResult] = await Promise.all([
-          getPreliminaryGroups(configData.id),
-          configData.has_preliminaries
-            ? getPreliminaryMatches(configData.id)
-            : Promise.resolve({ data: null }),
-          getMainBracketMatches(configData.id),
-        ]);
+        const [groupsResult, prelimResult, mainResult, awardsResult] =
+          await Promise.all([
+            getPreliminaryGroups(configData.id),
+            configData.has_preliminaries
+              ? getPreliminaryMatches(configData.id)
+              : Promise.resolve({ data: null }),
+            getMainBracketMatches(configData.id),
+            getBracketAwardsStatus(configData.id),
+          ]);
 
         setGroups(groupsResult.data || []);
         setPreliminaryMatches(prelimResult.data || []);
         setMainMatches(mainResult.data || []);
+        setAwardsStatus(awardsResult.data);
 
         await refreshSeedingData(configData, mainResult.data || []);
       }
@@ -313,6 +324,18 @@ export function BracketManager({
       // 시드 데이터도 함께 갱신: 마지막 점수 입력 후 "다음 조편성 진행" 버튼이
       // 새로고침 없이 활성화되도록
       await refreshSeedingData(config, mainData ?? []);
+      // 결승/3·4위전 완료 시 점수 입력 경로에서 어워드가 자동 생성되므로
+      // "등록됨" 배지가 새로고침 없이 반영되도록 등록 현황도 갱신
+      const hasCompletedFinal = (mainData ?? []).some(
+        (m) =>
+          (m.phase === "FINAL" || m.phase === "THIRD_PLACE") &&
+          m.status === "COMPLETED",
+      );
+      if (hasCompletedFinal) {
+        const { data: awardsData } = await getBracketAwardsStatus(config.id);
+        if (requestId !== requestCounterRef.current) return;
+        setAwardsStatus(awardsData);
+      }
     } catch {
       // silent — Realtime 보조 refetch이므로 에러 무시
     }
@@ -534,6 +557,27 @@ export function BracketManager({
       showError("오류", "자동 결과 입력 중 오류가 발생했습니다.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  // 결승 결과 기반 명예의 전당 등록 (우승/준우승/공동3위 또는 3위)
+  const handleRegisterAwards = async () => {
+    if (!config) return;
+    setLoadingMessage("명예의 전당 등록 중...");
+    setLoading(true);
+    try {
+      const { data, error } = await registerBracketAwards(config.id);
+      if (error) {
+        showError("명예의 전당 등록 실패", error);
+      } else if (data) {
+        setAwardsStatus(data);
+        showSuccess(`명예의 전당에 등록되었습니다. (${data.ranks.join(" · ")})`);
+      }
+    } catch {
+      showError("오류", "명예의 전당 등록 중 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+      setShowRegisterAwardsConfirm(false);
     }
   };
 
@@ -1097,6 +1141,8 @@ export function BracketManager({
                 }
                 onToggleRoundActive={isClosed ? undefined : handleToggleRoundActive}
                 seedingNavRequest={seedingNavRequest}
+                awardsStatus={awardsStatus}
+                onRegisterAwards={() => setShowRegisterAwardsConfirm(true)}
               />
             )}
           </div>
@@ -1143,6 +1189,20 @@ export function BracketManager({
       />
 
       {/* Confirm Dialogs */}
+      <ConfirmDialog
+        isOpen={showRegisterAwardsConfirm}
+        onClose={() => setShowRegisterAwardsConfirm(false)}
+        onConfirm={handleRegisterAwards}
+        title="명예의 전당 등록"
+        message={
+          awardsStatus && awardsStatus.ranks.length > 0
+            ? "이미 등록된 기록이 있습니다. 결승 결과 기준으로 우승·준우승·3위 기록을 다시 생성하시겠습니까? (기존 기록은 대체됩니다)"
+            : "결승 결과를 기준으로 우승·준우승·3위(또는 공동3위) 기록을 명예의 전당에 등록하시겠습니까?"
+        }
+        type="info"
+        isLoading={loading}
+      />
+
       <ConfirmDialog
         isOpen={showAutoGenerateConfirm}
         onClose={() => setShowAutoGenerateConfirm(false)}

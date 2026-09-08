@@ -3444,3 +3444,160 @@ export async function updateEntryInfo(
   revalidatePath('/admin/tournaments')
   return {}
 }
+
+// ============================================================================
+// 명예의 전당(tournament_awards) 수동 등록
+// ============================================================================
+
+/** 명예의 전당 등록 현황 */
+export interface BracketAwardsStatus {
+  /** 해당 부서에 등록된 순위 목록 (우승/준우승/공동3위/3위) — 비어 있으면 미등록 */
+  ranks: string[]
+  /** 대회명 (명예의 전당 필터 링크용) */
+  competition: string | null
+}
+
+/** bracket_config → division_id, tournament_id 역추적 */
+async function getConfigDivisionInfo(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  configId: string,
+): Promise<{ divisionId: string; tournamentId: string; competition: string } | null> {
+  const { data } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('division_id, tournament_divisions!inner(tournament_id, tournaments!inner(title))')
+    .eq('id', configId)
+    .single()
+  if (!data) return null
+
+  // Supabase 타입 추론이 1:1 관계를 배열/객체 중 하나로 잡으므로 방어적으로 처리
+  const division = Array.isArray(data.tournament_divisions)
+    ? data.tournament_divisions[0]
+    : data.tournament_divisions
+  if (!division) return null
+  const tournament = Array.isArray(division.tournaments)
+    ? division.tournaments[0]
+    : division.tournaments
+  if (!tournament) return null
+
+  return {
+    divisionId: data.division_id,
+    tournamentId: division.tournament_id,
+    competition: tournament.title,
+  }
+}
+
+/** 부서의 명예의 전당 등록 순위 목록 조회 (순위 우선순위 정렬) */
+const AWARD_RANK_ORDER = ['우승', '준우승', '3위', '공동3위'] as const
+
+async function fetchRegisteredRanks(
+  supabaseAdmin: ReturnType<typeof createAdminClient>,
+  tournamentId: string,
+  divisionId: string,
+): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from('tournament_awards')
+    .select('award_rank')
+    .eq('tournament_id', tournamentId)
+    .eq('division_id', divisionId)
+
+  const unique = [...new Set((data ?? []).map((a) => a.award_rank))]
+  return unique.sort(
+    (a, b) =>
+      AWARD_RANK_ORDER.indexOf(a as (typeof AWARD_RANK_ORDER)[number]) -
+      AWARD_RANK_ORDER.indexOf(b as (typeof AWARD_RANK_ORDER)[number]),
+  )
+}
+
+/**
+ * 부서의 명예의 전당 등록 현황 조회
+ * - 어드민 본선 탭에서 "등록됨" 배지 / 버튼 라벨 판단용
+ */
+export async function getBracketAwardsStatus(
+  configId: string,
+): Promise<{ data: BracketAwardsStatus | null; error: string | null }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { data: null, error: authResult.error }
+
+  const idError = validateId(configId, '대진표 설정 ID')
+  if (idError) return { data: null, error: idError }
+
+  const supabaseAdmin = createAdminClient()
+  const info = await getConfigDivisionInfo(supabaseAdmin, configId)
+  if (!info) return { data: null, error: '대진표 설정을 찾을 수 없습니다.' }
+
+  const ranks = await fetchRegisteredRanks(supabaseAdmin, info.tournamentId, info.divisionId)
+  return { data: { ranks, competition: info.competition }, error: null }
+}
+
+/**
+ * 결승 결과 기반 명예의 전당 수동 등록 (관리자 전용)
+ * - 결승(FINAL)이 COMPLETED여야 등록 가능
+ * - 우승/준우승 + (3·4위전 없으면) 준결승 패자 공동3위, (3·4위전 완료 시) 3위
+ * - 기존 등록 레코드는 순위별로 삭제 후 재생성 (createAwardRecords 내부 처리) → 재등록 안전
+ * - 대회 마감(COMPLETED) 이후에도 호출 가능 (결승 종료 후 등록이 자연스러운 흐름)
+ */
+export async function registerBracketAwards(
+  configId: string,
+): Promise<{ data: BracketAwardsStatus | null; error: string | null }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { data: null, error: authResult.error }
+
+  const idError = validateId(configId, '대진표 설정 ID')
+  if (idError) return { data: null, error: idError }
+
+  const supabaseAdmin = createAdminClient()
+  const info = await getConfigDivisionInfo(supabaseAdmin, configId)
+  if (!info) return { data: null, error: '대진표 설정을 찾을 수 없습니다.' }
+
+  // 결승 + 3·4위전 경기 조회
+  const { data: matches } = await supabaseAdmin
+    .from('bracket_matches')
+    .select('phase, status, team1_entry_id, team2_entry_id, winner_entry_id')
+    .eq('bracket_config_id', configId)
+    .in('phase', ['FINAL', 'THIRD_PLACE'])
+
+  const finalMatch = matches?.find((m) => m.phase === 'FINAL')
+  if (!finalMatch) return { data: null, error: '결승 경기가 아직 생성되지 않았습니다.' }
+  if (finalMatch.status !== 'COMPLETED' || !finalMatch.winner_entry_id) {
+    return { data: null, error: '결승 경기 결과가 입력되어야 등록할 수 있습니다.' }
+  }
+
+  const finalLoserId =
+    finalMatch.winner_entry_id === finalMatch.team1_entry_id
+      ? finalMatch.team2_entry_id
+      : finalMatch.team1_entry_id
+
+  try {
+    await createAwardRecords(supabaseAdmin, {
+      phase: 'FINAL',
+      bracketConfigId: configId,
+      winnerId: finalMatch.winner_entry_id,
+      loserId: finalLoserId,
+    })
+
+    // 3·4위전이 완료된 경우 3위도 함께 등록
+    const thirdPlaceMatch = matches?.find((m) => m.phase === 'THIRD_PLACE')
+    if (thirdPlaceMatch?.status === 'COMPLETED' && thirdPlaceMatch.winner_entry_id) {
+      const thirdLoserId =
+        thirdPlaceMatch.winner_entry_id === thirdPlaceMatch.team1_entry_id
+          ? thirdPlaceMatch.team2_entry_id
+          : thirdPlaceMatch.team1_entry_id
+      await createAwardRecords(supabaseAdmin, {
+        phase: 'THIRD_PLACE',
+        bracketConfigId: configId,
+        winnerId: thirdPlaceMatch.winner_entry_id,
+        loserId: thirdLoserId,
+      })
+    }
+  } catch {
+    return { data: null, error: '명예의 전당 등록 중 오류가 발생했습니다.' }
+  }
+
+  const ranks = await fetchRegisteredRanks(supabaseAdmin, info.tournamentId, info.divisionId)
+  if (ranks.length === 0) {
+    return { data: null, error: '등록된 기록이 없습니다. 대회 시작일과 참가자 정보를 확인해주세요.' }
+  }
+
+  revalidatePath('/awards')
+  return { data: { ranks, competition: info.competition }, error: null }
+}

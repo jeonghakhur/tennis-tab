@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { Trophy, Save, AlertTriangle, ChevronRight } from "lucide-react";
+import Link from "next/link";
+import { Trophy, Save, AlertTriangle, ChevronRight, Award, ExternalLink } from "lucide-react";
 import { MatchRow } from "./MatchRow";
 import { GroupsTab } from "./GroupsTab";
 import type { BracketConfig, BracketMatch, PreliminaryGroup } from "./types";
 import { phaseLabels } from "./types";
 import type { MatchPhase } from "@/lib/supabase/types";
-import type { CourtInfoUpdate } from "@/lib/bracket/actions";
+import type { CourtInfoUpdate, BracketAwardsStatus } from "@/lib/bracket/actions";
 
 interface MainBracketTabProps {
   config: BracketConfig;
@@ -40,6 +41,10 @@ interface MainBracketTabProps {
    * 값이 변경될 때마다 시드 탭으로 이동.
    */
   seedingNavRequest?: number;
+  /** 명예의 전당 등록 현황 (null = 미조회) */
+  awardsStatus?: BracketAwardsStatus | null;
+  /** 결승 완료 후 명예의 전당 등록 요청 (확인 다이얼로그는 상위에서 처리) */
+  onRegisterAwards?: () => void;
 }
 
 // round_number → 라운드 라벨 (8강, 준결승, 결승 등)
@@ -83,6 +88,8 @@ export function MainBracketTab({
   onGenerateBracketWithSeeds,
   onToggleRoundActive,
   seedingNavRequest,
+  awardsStatus,
+  onRegisterAwards,
 }: MainBracketTabProps) {
 
   // 코트 정보 상태
@@ -128,6 +135,15 @@ export function MainBracketTab({
 
   const maxRound = roundsData.length > 0 ? roundsData[roundsData.length - 1][0] : 0;
   const hasFinal = matches.some((m) => m.phase === "FINAL");
+  // 결승 결과 입력 완료 여부 → 명예의 전당 등록 버튼 노출 조건
+  const isFinalCompleted = matches.some(
+    (m) => m.phase === "FINAL" && m.status === "COMPLETED" && !!m.winner_entry_id,
+  );
+  const isAwardsRegistered = !!awardsStatus && awardsStatus.ranks.length > 0;
+  // 명예의 전당 링크 — 대회명 필터 적용
+  const awardsHref = awardsStatus?.competition
+    ? `/awards?competition=${encodeURIComponent(awardsStatus.competition)}`
+    : "/awards";
 
   // 결승 라운드 여부: 조편성 없이 바로 생성
   const isFinalGeneration = nextPhaseLabel === "결승";
@@ -430,7 +446,32 @@ export function MainBracketTab({
                       </span>
                     )}
                   </h4>
-                  <div className="flex gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* 결승 완료 시 명예의 전당 등록 (마감된 대회에서도 가능) */}
+                    {phase === "FINAL" && isFinalCompleted && onRegisterAwards && (
+                      <>
+                        {isAwardsRegistered && (
+                          <Link
+                            href={awardsHref}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2 py-1 rounded-full bg-(--color-success-subtle) text-(--color-success) text-sm font-medium hover:opacity-80 transition-opacity"
+                            title="명예의 전당에서 확인"
+                          >
+                            등록됨 · {awardsStatus?.ranks.join("/")}
+                            <ExternalLink className="w-3.5 h-3.5" aria-hidden="true" />
+                          </Link>
+                        )}
+                        <button
+                          type="button"
+                          onClick={onRegisterAwards}
+                          className={`inline-flex items-center gap-1.5 btn-sm ${isAwardsRegistered ? "btn-outline-success" : "btn-success"}`}
+                        >
+                          <Award className="w-4 h-4" aria-hidden="true" />
+                          {isAwardsRegistered ? "명예의 전당 재등록" : "명예의 전당 등록"}
+                        </button>
+                      </>
+                    )}
                     {onAutoFillPhase &&
                       hasScheduledWithTeams &&
                       process.env.NODE_ENV === "development" && (
