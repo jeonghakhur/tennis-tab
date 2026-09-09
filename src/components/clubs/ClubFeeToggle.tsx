@@ -53,8 +53,9 @@ export function ClubFeeToggle({ clubId, year, paid, ariaLabel, ariaLabelledBy, o
       aria-busy={saving}
       disabled={saving}
       onClick={handleToggle}
+      // OFF 트랙: --bg-secondary는 카드 배경과 같아 구분이 안 되므로 text-muted 반투명 회색 사용 (다크/라이트 공통)
       className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 disabled:opacity-60 ${
-        paid ? 'bg-(--color-success)' : 'bg-(--bg-secondary) border border-(--border-color)'
+        paid ? 'bg-(--color-success)' : 'bg-(--text-muted)/40 hover:bg-(--text-muted)/55'
       }`}
     >
       <span
