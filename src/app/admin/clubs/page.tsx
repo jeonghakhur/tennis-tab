@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Plus, Shield, Users } from 'lucide-react'
 import { ClubList } from '@/components/clubs/ClubList'
 import type { ClubWithCounts } from '@/components/clubs/ClubList'
+import { getCurrentKSTYear } from '@/lib/utils/formatDate'
 
 export default async function AdminClubsPage() {
   const supabase = await createClient()
@@ -82,20 +83,30 @@ export default async function AdminClubsPage() {
 
   const { data: clubs } = await clubsQuery
 
-  // 클럽별 회원 수 조회
+  // 클럽별 회원 수 + 올해(KST) 연회비 납부 클럽 — 독립 조회이므로 병렬 실행
+  const feeYear = getCurrentKSTYear()
   const memberCounts = new Map<string, number>()
+  const feePaidClubIds = new Set<string>()
   if (clubs && clubs.length > 0) {
     const ids = clubs.map((c) => c.id)
-    const { data: counts } = await admin
-      .from('club_members')
-      .select('club_id')
-      .in('club_id', ids)
-      .eq('status', 'ACTIVE')
+    const [countsResult, feeResult] = await Promise.all([
+      admin
+        .from('club_members')
+        .select('club_id')
+        .in('club_id', ids)
+        .eq('status', 'ACTIVE'),
+      admin
+        .from('club_fee_payments')
+        .select('club_id')
+        .eq('year', feeYear)
+        .in('club_id', ids),
+    ])
 
-    if (counts) {
-      for (const row of counts) {
-        memberCounts.set(row.club_id, (memberCounts.get(row.club_id) || 0) + 1)
-      }
+    for (const row of countsResult.data ?? []) {
+      memberCounts.set(row.club_id, (memberCounts.get(row.club_id) || 0) + 1)
+    }
+    for (const row of feeResult.data ?? []) {
+      feePaidClubIds.add(row.club_id)
     }
   }
 
@@ -109,6 +120,7 @@ export default async function AdminClubsPage() {
     association_name: (club.associations as { name: string } | null)?.name ?? null,
     member_count: memberCounts.get(club.id) || 0,
     is_active: club.is_active,
+    fee_paid: feePaidClubIds.has(club.id),
   }))
 
   return (
@@ -132,7 +144,7 @@ export default async function AdminClubsPage() {
         </div>
       </div>
 
-      <ClubList clubs={list} />
+      <ClubList clubs={list} feeYear={feeYear} />
     </div>
   )
 }

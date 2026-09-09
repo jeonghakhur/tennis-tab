@@ -28,3 +28,8 @@ export function formatKoreanDateTime(dateStr: string | Date): string {
   const min = String(d.getUTCMinutes()).padStart(2, '0')
   return `${y}. ${m}. ${day}. ${h}:${min}`
 }
+
+/** 현재 연도 (KST 기준) — 연회비 등 "올해" 판정에 사용. 서버(UTC)에서 12/31 15시 이후 연도 밀림 방지 */
+export function getCurrentKSTYear(now: Date = new Date()): number {
+  return toKSTDate(now).getUTCFullYear()
+}

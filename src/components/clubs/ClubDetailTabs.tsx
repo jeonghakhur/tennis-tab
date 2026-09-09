@@ -9,6 +9,7 @@ import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import { Modal } from '@/components/common/Modal'
 import { AssociationCombobox, type AssociationValue } from './AssociationCombobox'
+import { ClubFeeSwitch } from './ClubFeeSwitch'
 
 interface ClubDetailTabsProps {
   club: Club
@@ -17,6 +18,10 @@ interface ClubDetailTabsProps {
   isSystemAdmin?: boolean
   /** 삭제/비활성화 후 돌아갈 경로 (기본: /admin/clubs) */
   backUrl?: string
+  /** 협회 연회비 기준 연도 (KST 현재 연도) — 미지정 시 연회비 섹션 숨김 */
+  feeYear?: number
+  /** 올해 연회비 납부 시각 (null = 미납) */
+  feePaidAt?: string | null
 }
 
 type Tab = 'info' | 'members'
@@ -38,7 +43,7 @@ const STATUS_LABEL: Record<ClubMemberStatus, string> = {
   REMOVED: '제거됨',
 }
 
-export function ClubDetailTabs({ club, initialMembers, associations = [], isSystemAdmin = false, backUrl = '/admin/clubs' }: ClubDetailTabsProps) {
+export function ClubDetailTabs({ club, initialMembers, associations = [], isSystemAdmin = false, backUrl = '/admin/clubs', feeYear, feePaidAt = null }: ClubDetailTabsProps) {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('members')
   const [loading, setLoading] = useState(false)
@@ -318,6 +323,19 @@ export function ClubDetailTabs({ club, initialMembers, associations = [], isSyst
               저장
             </button>
           </div>
+
+          {/* 협회 연회비 — 폼 저장과 별개로 토글 즉시 저장 (시스템 ADMIN 이상만 변경 가능) */}
+          {feeYear !== undefined && (
+            <div className="pt-5 mt-5 border-t border-(--border-color)">
+              <ClubFeeSwitch
+                clubId={club.id}
+                year={feeYear}
+                initialPaid={feePaidAt !== null}
+                initialPaidAt={feePaidAt}
+                canEdit={isSystemAdmin}
+              />
+            </div>
+          )}
 
           {/* 비활성 클럽: 활성화 안내 */}
           {!club.is_active && (

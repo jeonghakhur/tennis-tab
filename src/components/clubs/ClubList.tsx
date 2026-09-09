@@ -23,18 +23,35 @@ export interface ClubWithCounts {
   association_name: string | null
   member_count: number
   is_active: boolean
+  /** 올해(feeYear) 협회 연회비 납부 여부 */
+  fee_paid: boolean
 }
 
 interface Props {
   clubs: ClubWithCounts[]
+  /** 연회비 기준 연도 (KST 현재 연도) */
+  feeYear: number
 }
 
 /** 클럽 목록 + 초성 검색 */
-export function ClubList({ clubs }: Props) {
+export function ClubList({ clubs, feeYear }: Props) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
+  // 연회비 미납 클럽만 보기 (활성 클럽 기준)
+  const [unpaidOnly, setUnpaidOnly] = useState(false)
+
+  // 요약 카운트 — 전체 / 활성 / 올해 납부 (활성 클럽 기준)
+  const summary = useMemo(() => {
+    const active = clubs.filter((c) => c.is_active)
+    return {
+      total: clubs.length,
+      active: active.length,
+      paid: active.filter((c) => c.fee_paid).length,
+      unpaid: active.filter((c) => !c.fee_paid).length,
+    }
+  }, [clubs])
 
   // blur 시 URL 동기화 (동기적, 서버 refetch 없음)
   const syncUrlOnBlur = useCallback(() => {
@@ -57,14 +74,15 @@ export function ClubList({ clubs }: Props) {
   }, [searchQuery])
 
   const filtered = useMemo(() => {
-    if (!searchQuery) return clubs
-    return clubs.filter((c) =>
+    const base = unpaidOnly ? clubs.filter((c) => c.is_active && !c.fee_paid) : clubs
+    if (!searchQuery) return base
+    return base.filter((c) =>
       matchesKoreanSearch(c.name, searchQuery) ||
       (c.city && matchesKoreanSearch(c.city, searchQuery)) ||
       (c.district && matchesKoreanSearch(c.district, searchQuery)) ||
       (c.association_name && matchesKoreanSearch(c.association_name, searchQuery)),
     )
-  }, [clubs, searchQuery])
+  }, [clubs, searchQuery, unpaidOnly])
 
   return (
     <div className="space-y-4">
@@ -82,22 +100,46 @@ export function ClubList({ clubs }: Props) {
         />
       </div>
 
-      {/* 결과 카운트 */}
-      {searchQuery && (
+      {/* 요약 카운트 + 미납 필터 */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-(--text-muted)">
-          검색 결과: <span className="font-semibold text-(--text-primary)">{filtered.length}</span>개
-          {filtered.length !== clubs.length && (
-            <span> / 전체 {clubs.length}개</span>
+          전체 <span className="font-semibold text-(--text-primary)">{summary.total}</span>개
+          <span className="mx-1.5">·</span>
+          활성 <span className="font-semibold text-(--text-primary)">{summary.active}</span>개
+          <span className="mx-1.5">·</span>
+          {feeYear}년 연회비 납부{' '}
+          <span className="font-semibold text-(--color-success)">{summary.paid}</span>
+          <span> / {summary.active}</span>
+          {(searchQuery || unpaidOnly) && (
+            <span className="ml-2">
+              (표시 <span className="font-semibold text-(--text-primary)">{filtered.length}</span>개)
+            </span>
           )}
         </p>
-      )}
+        <button
+          type="button"
+          onClick={() => setUnpaidOnly((v) => !v)}
+          aria-pressed={unpaidOnly}
+          className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors border ${
+            unpaidOnly
+              ? 'bg-subtle-warning border-(--color-warning-border)'
+              : 'bg-(--bg-secondary) text-(--text-secondary) border-(--border-color) hover:text-(--text-primary)'
+          }`}
+        >
+          미납만 보기 ({summary.unpaid})
+        </button>
+      </div>
 
       {/* 목록 */}
       {filtered.length === 0 ? (
         <div className="glass-card rounded-xl p-8 text-center space-y-4">
           <Shield className="w-12 h-12 mx-auto text-(--text-muted)" />
           <p className="text-(--text-muted)">
-            {searchQuery ? '검색 결과가 없습니다.' : '관리 중인 클럽이 없습니다.'}
+            {unpaidOnly && !searchQuery
+              ? `${feeYear}년 연회비 미납 클럽이 없습니다.`
+              : searchQuery
+                ? '검색 결과가 없습니다.'
+                : '관리 중인 클럽이 없습니다.'}
           </p>
         </div>
       ) : (
@@ -108,6 +150,11 @@ export function ClubList({ clubs }: Props) {
                 <div className="flex items-center gap-2">
                   <h3 className={`text-lg font-bold ${!club.is_active ? 'text-(--text-muted)' : 'text-(--text-primary)'}`}>{club.name}</h3>
                   {!club.is_active && <Badge variant="danger">비활성</Badge>}
+                  {club.is_active && (
+                    <Badge variant={club.fee_paid ? 'success' : 'warning'}>
+                      {club.fee_paid ? '연회비 납부' : '연회비 미납'}
+                    </Badge>
+                  )}
                 </div>
                 {(club.city || club.district) && (
                   <p className="text-sm text-(--text-secondary) flex items-center gap-1 mt-0.5">

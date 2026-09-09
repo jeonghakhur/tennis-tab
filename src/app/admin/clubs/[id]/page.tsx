@@ -7,6 +7,7 @@ import { ChevronLeft } from 'lucide-react'
 import { ClubDetailTabs } from '@/components/clubs/ClubDetailTabs'
 import type { Club, ClubMember } from '@/lib/clubs/types'
 import { decryptProfile } from '@/lib/crypto/profileCrypto'
+import { getCurrentKSTYear } from '@/lib/utils/formatDate'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -87,6 +88,15 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
     m.user_id ? { ...m, phone: profilePhoneMap[m.user_id] ?? m.phone } : m
   )
 
+  // 올해(KST) 협회 연회비 납부 기록
+  const feeYear = getCurrentKSTYear()
+  const { data: feePayment } = await admin
+    .from('club_fee_payments')
+    .select('paid_at')
+    .eq('club_id', id)
+    .eq('year', feeYear)
+    .maybeSingle()
+
   // 협회 목록 fetch (시스템 관리자: 전체, 기타: 자신의 협회만)
   const isSystemAdmin = hasMinimumRole(profile?.role, 'ADMIN')
   let associations: { id: string; name: string }[] = []
@@ -130,6 +140,8 @@ export default async function ClubDetailPage({ params, searchParams }: Props) {
         initialMembers={membersWithPhone as ClubMember[]}
         associations={associations}
         isSystemAdmin={isSystemAdmin}
+        feeYear={feeYear}
+        feePaidAt={feePayment?.paid_at ?? null}
       />
     </div>
   )

@@ -621,6 +621,37 @@ export interface Database {
           updated_at?: string
         }
       }
+      club_fee_payments: {
+        Row: {
+          id: string
+          club_id: string
+          year: number
+          paid_at: string
+          recorded_by: string | null
+          memo: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          club_id: string
+          year: number
+          paid_at?: string
+          recorded_by?: string | null
+          memo?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          club_id?: string
+          year?: number
+          paid_at?: string
+          recorded_by?: string | null
+          memo?: string | null
+          updated_at?: string
+        }
+      }
       club_members: {
         Row: {
           id: string
