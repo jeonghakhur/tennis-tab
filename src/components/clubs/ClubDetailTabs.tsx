@@ -10,6 +10,7 @@ import { LoadingOverlay } from '@/components/common/LoadingOverlay'
 import { Modal } from '@/components/common/Modal'
 import { AssociationCombobox, type AssociationValue } from './AssociationCombobox'
 import { ClubFeeSwitch } from './ClubFeeSwitch'
+import { Switch } from '@/components/common/Switch'
 
 interface ClubDetailTabsProps {
   club: Club
@@ -298,24 +299,14 @@ export function ClubDetailTabs({ club, initialMembers, associations = [], isSyst
           {/* 회원 모집 */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-(--text-primary)">회원 모집</p>
+              <p id="club-info-recruiting-label" className="text-sm font-medium text-(--text-primary)">회원 모집</p>
               <p className="text-xs text-(--text-muted) mt-0.5">비활성화 시 클럽 목록에서 가입 버튼이 숨겨집니다</p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={infoForm.is_recruiting}
-              onClick={() => setInfoForm({ ...infoForm, is_recruiting: !infoForm.is_recruiting })}
-              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                infoForm.is_recruiting ? 'bg-(--accent-color)' : 'bg-(--bg-secondary) border border-(--border-color)'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                  infoForm.is_recruiting ? 'translate-x-5' : 'translate-x-0'
-                }`}
-              />
-            </button>
+            <Switch
+              checked={infoForm.is_recruiting}
+              onChange={(checked) => setInfoForm({ ...infoForm, is_recruiting: checked })}
+              aria-labelledby="club-info-recruiting-label"
+            />
           </div>
 
           <div className="flex justify-end">

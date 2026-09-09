@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { Switch } from '@/components/common/Switch'
 import {
   ChevronLeft, User, Loader2, BookOpen, Calendar, X, RotateCcw, MessageSquare, Clock,
 } from 'lucide-react'
@@ -197,22 +198,14 @@ function ExtensionRequestModal({
           {/* 일정 변경 스위치 */}
           <div className="flex items-center justify-between px-4 py-3 rounded-lg"
             style={{ backgroundColor: 'var(--bg-secondary)', border: '1px solid var(--border-color)' }}>
-            <span className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
+            <span id="ext-wants-change-label" className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
               일정 변경이 필요해요
             </span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={wantsChange}
-              onClick={() => { setWantsChange((v) => !v); setError(null) }}
-              className="relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-200 focus-visible:outline-none"
-              style={{ backgroundColor: wantsChange ? 'var(--accent-color)' : 'var(--border-color)' }}
-            >
-              <span
-                className="pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200 mt-0.5"
-                style={{ transform: wantsChange ? 'translateX(22px)' : 'translateX(2px)' }}
-              />
-            </button>
+            <Switch
+              checked={wantsChange}
+              onChange={(checked) => { setWantsChange(checked); setError(null) }}
+              aria-labelledby="ext-wants-change-label"
+            />
           </div>
 
           {/* 메시지 (스위치 ON 시만 표시) */}

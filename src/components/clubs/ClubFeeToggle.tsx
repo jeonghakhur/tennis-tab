@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { setClubFeePaid } from '@/lib/clubs/feeActions'
+import { Switch } from '@/components/common/Switch'
 
 interface Props {
   clubId: string
@@ -44,25 +45,14 @@ export function ClubFeeToggle({ clubId, year, paid, ariaLabel, ariaLabelledBy, o
   }
 
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={paid}
+    <Switch
+      checked={paid}
+      onChange={handleToggle}
+      disabled={saving}
+      variant="success"
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledBy}
       aria-busy={saving}
-      disabled={saving}
-      onClick={handleToggle}
-      // OFF 트랙: --bg-secondary는 카드 배경과 같아 구분이 안 되므로 text-muted 반투명 회색 사용 (다크/라이트 공통)
-      className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 disabled:opacity-60 ${
-        paid ? 'bg-(--color-success)' : 'bg-(--text-muted)/40 hover:bg-(--text-muted)/55'
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-          paid ? 'translate-x-5' : 'translate-x-0'
-        }`}
-      />
-    </button>
+    />
   )
 }

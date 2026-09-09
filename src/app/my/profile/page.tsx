@@ -3,6 +3,7 @@
 import { formatKoreanDate, formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { useAuth } from "@/components/AuthProvider";
 import { useFontSize } from "@/components/FontSizeProvider";
+import { Switch } from "@/components/common/Switch";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -912,28 +913,11 @@ export default function MyProfilePage() {
                       텍스트를 1.25배 크게 표시합니다
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={isLarge}
-                    onClick={toggleFontSize}
-                    className="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-300 outline-none"
-                    style={{
-                      backgroundColor: isLarge
-                        ? "var(--accent-color)"
-                        : "var(--border-color)",
-                    }}
-                  >
-                    <span className="sr-only">큰 글씨 모드</span>
-                    <span
-                      className="inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-300"
-                      style={{
-                        transform: isLarge
-                          ? "translateX(1.375rem)"
-                          : "translateX(0.25rem)",
-                      }}
-                    />
-                  </button>
+                  <Switch
+                    checked={isLarge}
+                    onChange={toggleFontSize}
+                    aria-label="큰 글씨 모드"
+                  />
                 </div>
               </div>
             </div>

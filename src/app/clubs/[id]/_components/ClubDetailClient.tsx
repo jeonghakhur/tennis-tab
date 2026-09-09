@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Switch } from "@/components/common/Switch";
 import { useAuth } from "@/components/AuthProvider";
 import {
   getClub,
@@ -1012,28 +1013,13 @@ export default function ClubDetailClient({ clubId: id }: Props) {
                                 비활성화 시 클럽 목록에서 가입 버튼이 숨겨집니다
                               </p>
                             </div>
-                            <button
-                              role="switch"
-                              aria-checked={settingsForm.is_recruiting}
-                              onClick={() =>
-                                setSettingsForm((prev) => ({
-                                  ...prev,
-                                  is_recruiting: !prev.is_recruiting,
-                                }))
+                            <Switch
+                              checked={settingsForm.is_recruiting}
+                              onChange={(checked) =>
+                                setSettingsForm((prev) => ({ ...prev, is_recruiting: checked }))
                               }
-                              className={`relative w-11 h-6 rounded-full transition-colors flex-shrink-0 ${
-                                settingsForm.is_recruiting
-                                  ? "bg-(--accent-color)"
-                                  : "bg-(--bg-secondary)"
-                              }`}
-                              style={!settingsForm.is_recruiting ? { border: "1px solid var(--border-color)" } : undefined}
-                            >
-                              <span
-                                className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
-                                  settingsForm.is_recruiting ? "translate-x-5" : "translate-x-0"
-                                }`}
-                              />
-                            </button>
+                              aria-label="회원 모집"
+                            />
                           </div>
 
                           <div className="flex justify-end">

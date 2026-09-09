@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { Switch } from '@/components/common/Switch'
 import { useAuth } from '@/components/AuthProvider'
 import { getPost, updatePost } from '@/lib/community/actions'
 import { hasMinimumRole } from '@/lib/auth/roles'
@@ -131,22 +132,12 @@ export default function EditPostPage() {
                 {isPublished ? '전체 공개' : '비공개 — 나와 관리자만 볼 수 있습니다'}
               </p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isPublished}
+            <Switch
+              checked={isPublished}
+              onChange={setIsPublished}
+              variant="success"
               aria-label="공개/비공개 전환"
-              onClick={() => setIsPublished((prev) => !prev)}
-              className={`relative w-12 h-6 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-emerald-500 ${
-                isPublished ? 'bg-emerald-500' : 'bg-gray-400 dark:bg-gray-600'
-              }`}
-            >
-              <span
-                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${
-                  isPublished ? 'left-6' : 'left-0.5'
-                }`}
-              />
-            </button>
+            />
           </div>
 
           <PostForm

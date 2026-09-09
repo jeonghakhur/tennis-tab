@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClub, updateClub } from '@/lib/clubs/actions'
+import { Switch } from '@/components/common/Switch'
 import type { Club, CreateClubInput, ClubJoinType } from '@/lib/clubs/types'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
@@ -366,24 +367,14 @@ export function ClubForm({ club, associations = [] }: ClubFormProps) {
         {isEdit && (
           <div className="flex items-center justify-between p-3 rounded-lg border border-(--border-color) bg-(--bg-primary)">
             <div>
-              <p className="text-sm font-medium text-(--text-primary)">회원 모집 중</p>
+              <p id="club-form-recruiting-label" className="text-sm font-medium text-(--text-primary)">회원 모집 중</p>
               <p className="text-xs text-(--text-muted)">활성화하면 클럽 목록에서 가입 문의 버튼이 표시됩니다.</p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={isRecruiting}
-              onClick={() => setIsRecruiting((v) => !v)}
-              className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                isRecruiting ? 'bg-(--accent-color)' : 'bg-(--border-color)'
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isRecruiting ? 'translate-x-6' : 'translate-x-1'
-                }`}
-              />
-            </button>
+            <Switch
+              checked={isRecruiting}
+              onChange={setIsRecruiting}
+              aria-labelledby="club-form-recruiting-label"
+            />
           </div>
         )}
 

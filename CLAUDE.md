@@ -402,6 +402,30 @@ const statusConfig: Record<Status, { label: string; variant: BadgeVariant }> = {
 - `badge-*` 직접 사용: 금지 — 반드시 `<Badge>` 컴포넌트 사용
 - `bg-subtle-*`: `<select>` 등 비 `<span>` 요소의 상태 색상
 
+### Switch
+토글 스위치 공용 컴포넌트 - `/src/components/common/Switch.tsx`
+
+**⚠️ 중요: 모든 on/off 토글은 반드시 이 컴포넌트를 사용할 것** (`<button role="switch">` 직접 작성 금지)
+
+- WAI-ARIA switch 패턴 (`role="switch"`, `aria-checked`, 키보드 접근)
+- OFF 트랙은 `--text-muted` 반투명 회색 — `--bg-secondary`/`--border-color`는 카드 배경과 겹쳐 보이지 않음
+- 라벨: `aria-label` 또는 `aria-labelledby` 중 하나 필수
+- `variant`: `accent`(기본) | `success`(초록, 납부/공개 등 긍정 상태)
+
+```tsx
+import { Switch } from '@/components/common/Switch'
+
+<p id="recruiting-label">회원 모집</p>
+<Switch
+  checked={isRecruiting}
+  onChange={setIsRecruiting}
+  aria-labelledby="recruiting-label"
+/>
+
+// 저장 중 비활성화 + 긍정 상태 색상
+<Switch checked={paid} onChange={toggle} disabled={saving} aria-busy={saving} variant="success" aria-label="연회비 납부" />
+```
+
 ### Bootstrap 5.3 유틸리티 클래스
 
 `globals.css`에 정의된 시맨틱 색상 유틸리티.
