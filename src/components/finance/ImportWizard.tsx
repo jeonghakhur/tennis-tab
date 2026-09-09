@@ -69,9 +69,15 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
       const fd = new FormData()
       fd.append('file', file)
       const res = await fetch('/api/admin/finance/import/parse', { method: 'POST', body: fd })
-      const json = (await res.json()) as ParseResult & { error?: string }
-      if (!res.ok || json.error) {
-        setAlert({ isOpen: true, message: json.error ?? '파싱에 실패했습니다.' })
+      const text = await res.text()
+      let json: (ParseResult & { error?: string }) | null = null
+      try { json = JSON.parse(text) } catch { json = null }
+      if (!res.ok || !json || json.error) {
+        setAlert({ isOpen: true, message: json?.error ?? `파싱에 실패했습니다. (HTTP ${res.status})` })
+        return
+      }
+      if (json.transactions.length === 0) {
+        setAlert({ isOpen: true, message: '읽을 수 있는 거래가 없습니다. 시트 이름이 "1월"~"12월", "협회1월"~"협회12월", "이사회비" 형식인지 확인해주세요.' })
         return
       }
       setParsed(json)
@@ -81,8 +87,14 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
         const k = catKey(t.accountType, t.kind, t.rawCategory)
         if (cm[k] !== undefined) continue
         const acc = accountByType[t.accountType]
-        const found = acc ? categories.find((c) => c.account_id === acc.id && c.kind === t.kind && c.name === t.rawCategory) : undefined
-        cm[k] = found?.id ?? ''
+        const options = acc ? categories.filter((c) => c.account_id === acc.id && c.kind === t.kind) : []
+        const exact = options.find((c) => c.name === t.rawCategory)
+        // 협회통장 수입에 대회명(…대회/…배)이 오면 '대회수입'으로, 그 외 미일치는 수동 지정
+        const tournamentIncome =
+          !exact && t.accountType === 'ASSOCIATION' && t.kind === 'INCOME' && /(대회|배)$/.test(t.rawCategory)
+            ? options.find((c) => c.name === '대회수입')
+            : undefined
+        cm[k] = (exact ?? tournamentIncome)?.id ?? ''
       }
       const clm: ClubMap = {}
       for (const t of json.transactions) {
@@ -213,10 +225,23 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
             </details>
           )}
 
-          <div className="flex justify-between">
+          {unmappedCats.length > 0 && (
+            <Warn>
+              분류가 지정되지 않은 항목이 {unmappedCats.length}개 있습니다. 위 "분류 매핑"에서 노란색 항목의 분류를 모두 선택해야 가져오기가 활성화됩니다.
+              {' '}
+              <button type="button" onClick={() => document.getElementById(`cat-map-${unmappedCats[0].key}`)?.focus()} className="underline font-medium">첫 항목으로 이동</button>
+            </Warn>
+          )}
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <button type="button" onClick={() => { setParsed(null); setStep('upload') }} className="btn-secondary btn-sm">다른 파일 선택</button>
-            <button type="button" onClick={() => setConfirmOpen(true)} disabled={unmappedCats.length > 0 || missingAccounts.length > 0} className="btn-primary btn-sm disabled:opacity-50">
-              <span className="relative z-10">{total}건 가져오기</span>
+            <button
+              type="button"
+              onClick={() => setConfirmOpen(true)}
+              disabled={unmappedCats.length > 0 || missingAccounts.length > 0}
+              title={unmappedCats.length > 0 ? `미지정 분류 ${unmappedCats.length}개를 먼저 선택하세요` : undefined}
+              className="btn-primary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="relative z-10">{unmappedCats.length > 0 ? `미지정 분류 ${unmappedCats.length}개` : `${total}건 가져오기`}</span>
             </button>
           </div>
         </>
