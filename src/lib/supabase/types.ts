@@ -583,6 +583,7 @@ export interface Database {
           association_id: string | null
           max_members: number | null
           is_active: boolean
+          court_slot?: string | null
           created_by: string
           created_at: string
           updated_at: string
@@ -618,6 +619,171 @@ export interface Database {
           max_members?: number | null
           is_active?: boolean
           created_by?: string
+          updated_at?: string
+        }
+      }
+      finance_accounts: {
+        Row: {
+          id: string
+          name: string
+          account_type: 'CONSIGNMENT' | 'ASSOCIATION' | 'BOARD'
+          opening_balance: number
+          opening_date: string
+          is_active: boolean
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          account_type: 'CONSIGNMENT' | 'ASSOCIATION' | 'BOARD'
+          opening_balance?: number
+          opening_date: string
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          name?: string
+          account_type?: 'CONSIGNMENT' | 'ASSOCIATION' | 'BOARD'
+          opening_balance?: number
+          opening_date?: string
+          is_active?: boolean
+          sort_order?: number
+          updated_at?: string
+        }
+      }
+      finance_categories: {
+        Row: {
+          id: string
+          account_id: string
+          kind: 'INCOME' | 'EXPENSE'
+          name: string
+          sort_order: number
+          is_active: boolean
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          kind: 'INCOME' | 'EXPENSE'
+          name: string
+          sort_order?: number
+          is_active?: boolean
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          kind?: 'INCOME' | 'EXPENSE'
+          name?: string
+          sort_order?: number
+          is_active?: boolean
+          updated_at?: string
+        }
+      }
+      finance_transactions: {
+        Row: {
+          id: string
+          account_id: string
+          category_id: string
+          occurred_at: string
+          description: string
+          amount: number
+          memo: string | null
+          club_id: string | null
+          tournament_id: string | null
+          source: 'MANUAL' | 'IMPORT' | 'CLUB_FEE' | 'TOSS'
+          import_key: string | null
+          created_by: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          account_id: string
+          category_id: string
+          occurred_at: string
+          description: string
+          amount: number
+          memo?: string | null
+          club_id?: string | null
+          tournament_id?: string | null
+          source?: 'MANUAL' | 'IMPORT' | 'CLUB_FEE' | 'TOSS'
+          import_key?: string | null
+          created_by?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          category_id?: string
+          occurred_at?: string
+          description?: string
+          amount?: number
+          memo?: string | null
+          club_id?: string | null
+          tournament_id?: string | null
+          source?: 'MANUAL' | 'IMPORT' | 'CLUB_FEE' | 'TOSS'
+          import_key?: string | null
+          updated_at?: string
+        }
+      }
+      finance_club_aliases: {
+        Row: {
+          alias: string
+          club_id: string
+          created_at: string
+        }
+        Insert: {
+          alias: string
+          club_id: string
+          created_at?: string
+        }
+        Update: {
+          alias?: string
+          club_id?: string
+        }
+      }
+      finance_budgets: {
+        Row: {
+          id: string
+          year: number
+          account_id: string
+          label: string
+          kind: 'INCOME' | 'EXPENSE'
+          category_ids: string[]
+          planned_amount: number
+          memo: string | null
+          sort_order: number
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          year: number
+          account_id: string
+          label: string
+          kind: 'INCOME' | 'EXPENSE'
+          category_ids?: string[]
+          planned_amount: number
+          memo?: string | null
+          sort_order?: number
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          year?: number
+          account_id?: string
+          label?: string
+          kind?: 'INCOME' | 'EXPENSE'
+          category_ids?: string[]
+          planned_amount?: number
+          memo?: string | null
+          sort_order?: number
           updated_at?: string
         }
       }

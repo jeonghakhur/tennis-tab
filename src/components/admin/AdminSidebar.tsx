@@ -15,6 +15,7 @@ import {
   LogOut,
   UserSearch,
   BookOpen,
+  Wallet,
 } from 'lucide-react'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -63,6 +64,12 @@ const menuItems = [
     href: '/admin/clubs/members',
     icon: UserSearch,
     roles: ['SUPER_ADMIN', 'ADMIN', 'MANAGER'] as UserRole[],
+  },
+  {
+    name: '재정 관리',
+    href: '/admin/finance',
+    icon: Wallet,
+    roles: ['SUPER_ADMIN', 'ADMIN'] as UserRole[],
   },
   {
     name: '레슨 관리',

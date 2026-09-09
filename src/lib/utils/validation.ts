@@ -478,3 +478,60 @@ export function validateLessonInquiryInput(data: {
 
   return errors
 }
+
+// ============================================================================
+// 재정 거래 (finance_transactions)
+// ============================================================================
+
+export interface TransactionValidationErrors {
+  occurred_at?: string
+  description?: string
+  amount?: string
+  category_id?: string
+  memo?: string
+}
+
+const TX_DESCRIPTION_MAX = 100
+const TX_MEMO_MAX = 200
+/** 거래 금액 상한 (1조원) — 오타 방지 */
+const TX_AMOUNT_MAX = 1_000_000_000_000
+
+export function validateTransactionInput(data: {
+  occurred_at?: string
+  description?: string
+  amount?: number | string
+  category_id?: string
+  memo?: string | null
+}): TransactionValidationErrors {
+  const errors: TransactionValidationErrors = {}
+
+  // 필수: 거래 일시
+  if (!data.occurred_at || Number.isNaN(new Date(data.occurred_at).getTime())) {
+    errors.occurred_at = '거래 일시를 입력해주세요.'
+  }
+
+  // 필수: 적요 1~100자
+  const descMin = validateMinLength(data.description, 1, '적요')
+  if (descMin) errors.description = descMin
+  const descMax = validateMaxLength(data.description, TX_DESCRIPTION_MAX, '적요')
+  if (descMax) errors.description = descMax
+
+  // 필수: 금액 — 양의 정수(원)
+  const amount = typeof data.amount === 'string' ? Number(data.amount.replace(/,/g, '')) : data.amount
+  if (amount === undefined || amount === null || Number.isNaN(amount)) {
+    errors.amount = '금액을 입력해주세요.'
+  } else if (!Number.isInteger(amount) || amount <= 0) {
+    errors.amount = '금액은 1원 이상의 정수여야 합니다.'
+  } else if (amount > TX_AMOUNT_MAX) {
+    errors.amount = '금액이 너무 큽니다. 다시 확인해주세요.'
+  }
+
+  // 필수: 분류
+  if (!data.category_id) errors.category_id = '분류를 선택해주세요.'
+
+  // 선택: 비고 200자
+  const memoMax = validateMaxLength(data.memo ?? undefined, TX_MEMO_MAX, '비고')
+  if (memoMax) errors.memo = memoMax
+
+  return errors
+}

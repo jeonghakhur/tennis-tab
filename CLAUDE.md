@@ -601,6 +601,15 @@ src/components/admin/BracketManager/
 - 환경변수 미설정 시 throw (fallback 키 금지)
 - 입력값: `validateId()`, `validateNonNegativeInteger()`, 동점 서버 사이드 검증
 
+## 재정 관리 (Finance Ledger)
+설계: `docs/02-design/features/finance-ledger.design.md` · 마이그레이션: `60_finance_ledger.sql`
+
+- 모듈: `src/lib/finance/` — `ledger.ts`(순수 계산), `excelImport.ts`(엑셀 파서), `actions.ts`(Server Actions, ADMIN 이상)
+- **잔액은 저장하지 않음**: `opening_balance + Σ수입 − Σ지출`로 항상 계산. 월 경계는 KST(`getKSTMonthRange`)
+- 금액은 양의 정수(원) 하나, 방향은 `finance_categories.kind`(INCOME/EXPENSE)
+- 엑셀 가져오기 검증 기준은 각 월 시트의 **마지막 잔액**(은행 실잔액). 요약 시트 수식은 신뢰하지 않음
+- 순수 로직 변경 시 `npx vitest run src/lib/finance` 필수 (실데이터 대조 테스트 포함)
+
 ## 솔라피(Solapi) 카카오 알림톡
 발송 모듈: `src/lib/solapi/alimtalk.ts` — 싱글턴 서비스 + 개별 발송 함수 패턴
 

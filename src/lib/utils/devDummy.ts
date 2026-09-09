@@ -188,3 +188,40 @@ export function generateMemberInvalidDummy(): UnregisteredMemberInput {
     address: 'x'.repeat(INVALID_ADDRESS_LENGTH),
   }
 }
+
+// ============================================================================
+// 재정 거래 더미 (DEV)
+// ============================================================================
+
+const TX_DESCRIPTIONS = [
+  '한우리 코트비', '건승회 1월', '홍우회.2월코트비', 'tosspayments 정산', '허정학급여',
+  '전기요금', '코웨이렌탈', '은혜상사 생수', '컴프레셔 수리', '대의원총회 회식',
+]
+
+export interface TransactionDummy {
+  occurred_at: string
+  description: string
+  amount: number
+  memo: string
+}
+
+/** 정상 거래 더미 — 최근 30일 내 임의 시각, 만원 단위 금액 */
+export function generateTransactionDummy(): TransactionDummy {
+  const amount = faker.number.int({ min: 1, max: 300 }) * 10000
+  return {
+    occurred_at: faker.date.recent({ days: 30 }).toISOString(),
+    description: faker.helpers.arrayElement(TX_DESCRIPTIONS),
+    amount,
+    memo: faker.helpers.arrayElement(['', '', faker.company.name(), faker.lorem.words(2)]),
+  }
+}
+
+/** 잘못된 거래 더미 — 빈 적요 / 음수·소수 금액 / 초과 길이 비고 중 랜덤 */
+export function generateTransactionInvalidDummy(): TransactionDummy {
+  const base = generateTransactionDummy()
+  const variant = faker.number.int({ min: 0, max: 3 })
+  if (variant === 0) return { ...base, description: '' }
+  if (variant === 1) return { ...base, amount: -5000 }
+  if (variant === 2) return { ...base, amount: 1234.5 }
+  return { ...base, memo: 'x'.repeat(201) }
+}
