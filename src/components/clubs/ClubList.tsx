@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { useSearchParams, usePathname } from 'next/navigation'
 import { Shield, Users, MapPin, Search } from 'lucide-react'
 import { Badge } from '@/components/common/Badge'
+import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { ClubFeeToggle } from './ClubFeeToggle'
 import { matchesKoreanSearch } from '@/lib/utils/korean'
 import type { ClubJoinType } from '@/lib/clubs/types'
 
@@ -31,16 +33,37 @@ interface Props {
   clubs: ClubWithCounts[]
   /** 연회비 기준 연도 (KST 현재 연도) */
   feeYear: number
+  /** 목록에서 연회비 납부 여부를 바로 변경할 수 있는지 (시스템 ADMIN 이상) */
+  canEditFee?: boolean
 }
 
 /** 클럽 목록 + 초성 검색 */
-export function ClubList({ clubs, feeYear }: Props) {
+export function ClubList({ clubs: clubsProp, feeYear, canEditFee = false }: Props) {
   const searchParams = useSearchParams()
   const pathname = usePathname()
 
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') ?? '')
   // 연회비 미납 클럽만 보기 (활성 클럽 기준)
   const [unpaidOnly, setUnpaidOnly] = useState(false)
+  // 목록에서 토글한 납부 여부 (서버 refetch 없이 요약·배지 즉시 반영)
+  const [feeOverrides, setFeeOverrides] = useState<Record<string, boolean>>({})
+  const [toast, setToast] = useState({ isOpen: false, message: '' })
+  const [alert, setAlert] = useState({ isOpen: false, message: '' })
+
+  const clubs = useMemo(
+    () => clubsProp.map((c) => (c.id in feeOverrides ? { ...c, fee_paid: feeOverrides[c.id] } : c)),
+    [clubsProp, feeOverrides],
+  )
+
+  const handleFeeSaved = useCallback((club: ClubWithCounts, paid: boolean) => {
+    setFeeOverrides((prev) => ({ ...prev, [club.id]: paid }))
+    setToast({
+      isOpen: true,
+      message: paid
+        ? `${club.name} — ${feeYear}년 연회비 납부로 저장되었습니다.`
+        : `${club.name} — ${feeYear}년 연회비 미납으로 변경되었습니다.`,
+    })
+  }, [feeYear])
 
   // 요약 카운트 — 전체 / 활성 / 올해 납부 (활성 클럽 기준)
   const summary = useMemo(() => {
@@ -150,7 +173,7 @@ export function ClubList({ clubs, feeYear }: Props) {
                 <div className="flex items-center gap-2">
                   <h3 className={`text-lg font-bold ${!club.is_active ? 'text-(--text-muted)' : 'text-(--text-primary)'}`}>{club.name}</h3>
                   {!club.is_active && <Badge variant="danger">비활성</Badge>}
-                  {club.is_active && (
+                  {club.is_active && !canEditFee && (
                     <Badge variant={club.fee_paid ? 'success' : 'warning'}>
                       {club.fee_paid ? '연회비 납부' : '연회비 미납'}
                     </Badge>
@@ -173,16 +196,48 @@ export function ClubList({ clubs, feeYear }: Props) {
                 <span>·</span>
                 <span>{JOIN_TYPE_LABELS[club.join_type as ClubJoinType] || club.join_type}</span>
               </div>
-              <Link
-                href={withSearchQuery(`/admin/clubs/${club.id}`)}
-                className="btn-secondary btn-sm inline-block text-center"
-              >
-                관리
-              </Link>
+              <div className="flex items-center justify-between gap-3">
+                <Link
+                  href={withSearchQuery(`/admin/clubs/${club.id}`)}
+                  className="btn-secondary btn-sm inline-block text-center"
+                >
+                  관리
+                </Link>
+                {/* 시스템 ADMIN: 목록에서 바로 연회비 납부 토글 */}
+                {club.is_active && canEditFee && (
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-medium ${club.fee_paid ? 'text-(--color-success)' : 'text-(--color-warning)'}`}>
+                      {feeYear}년 연회비 {club.fee_paid ? '납부' : '미납'}
+                    </span>
+                    <ClubFeeToggle
+                      clubId={club.id}
+                      year={feeYear}
+                      paid={club.fee_paid}
+                      ariaLabel={`${club.name} ${feeYear}년 연회비 납부`}
+                      onSaved={(paid) => handleFeeSaved(club, paid)}
+                      onError={(message) => setAlert({ isOpen: true, message })}
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
       )}
+
+      <Toast
+        isOpen={toast.isOpen}
+        onClose={() => setToast({ ...toast, isOpen: false })}
+        message={toast.message}
+        type="success"
+      />
+      <AlertDialog
+        isOpen={alert.isOpen}
+        onClose={() => setAlert({ ...alert, isOpen: false })}
+        title="오류"
+        message={alert.message}
+        type="error"
+      />
     </div>
   )
 }

@@ -144,7 +144,7 @@ export default async function AdminClubsPage() {
         </div>
       </div>
 
-      <ClubList clubs={list} feeYear={feeYear} />
+      <ClubList clubs={list} feeYear={feeYear} canEditFee={isSystemAdmin} />
     </div>
   )
 }
