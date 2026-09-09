@@ -1,6 +1,6 @@
 'use server'
 
-import { createClient, getUserWithTimeout } from '@/lib/supabase/server'
+import { createClient, getVerifiedUser } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
@@ -226,10 +226,10 @@ export async function deleteAccount() {
 export async function getCurrentUser() {
   const supabase = await createClient()
 
-  // 네트워크 오류(fetch failed) 또는 5초 이상 응답 없을 때 미인증으로 처리
-  const authData = await getUserWithTimeout(supabase, 5000)
-  if (!authData || authData.error || !authData.data.user) return null
-  const user = authData.data.user
+  // JWT 로컬 검증(getClaims) — Auth 서버 왕복 없이 사용자 확인
+  // 네트워크 오류 또는 5초 이상 응답 없을 때 미인증으로 처리
+  const user = await getVerifiedUser(supabase, 5000)
+  if (!user) return null
 
   // profiles 테이블에서 프로필 정보 가져오기
   const { data: profile } = await supabase

@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
+import { getCachedJwks } from './jwks'
 
 /**
  * Middleware에서 사용하는 Supabase 클라이언트
@@ -45,14 +46,19 @@ export async function updateSession(request: NextRequest) {
     return res
   }
 
-  // 세션 갱신 (만료 체크)
+  // 세션 검증 (만료 시 refresh)
+  // getClaims: 캐시된 JWKS로 JWT를 로컬 검증 → 매 요청마다 Auth 서버(원격 리전)와 왕복하지 않음.
+  // 세션이 만료된 경우에만 refresh 네트워크 호출이 발생하며, 갱신 쿠키는 setAll로 응답에 반영됨.
   // 타임아웃 시 fallback으로 user=null 처리하지만, 보호 경로에서 redirect 대신
   // 그대로 통과시킴 — 일시적 네트워크 지연으로 정상 사용자가 로그아웃되지 않도록
   type AuthResult = { data: { user: { id: string } | null }; timedOut: boolean }
   const fallback: AuthResult = { data: { user: null }, timedOut: false }
-  const authPromise: Promise<AuthResult> = supabase.auth
-    .getUser()
-    .then((r) => ({ data: { user: r.data.user }, timedOut: false }))
+  const authPromise: Promise<AuthResult> = getCachedJwks()
+    .then((jwks) => supabase.auth.getClaims(undefined, jwks ? { jwks } : undefined))
+    .then((r) => ({
+      data: { user: r.data?.claims?.sub ? { id: r.data.claims.sub } : null },
+      timedOut: false,
+    }))
     .catch(() => fallback)
   const timeoutPromise = new Promise<AuthResult>((resolve) =>
     setTimeout(() => resolve({ data: { user: null }, timedOut: true }), 3000),

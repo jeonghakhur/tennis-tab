@@ -10,12 +10,11 @@ import type { Database } from '@/lib/supabase/types'
 import { groupAwardsForDisplay, RANK_ORDER, type AwardDisplayGroup } from './awardGrouping'
 import type { DivisionOrder } from '@/lib/awards/actions'
 import {
-  getAwardPlayersMembership,
+  getAwardEditData,
   updateAwardPlayerRating,
   deleteAwards,
   addAwardPlayer,
   removeAwardPlayer,
-  getClubMemberNamesByClubName,
   type AwardPlayerInfo,
 } from '@/lib/awards/actions'
 
@@ -114,15 +113,14 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
       userId: playerUserMap.get(name) ?? null,
     }))
 
-    const [membershipResult, memberNames] = await Promise.all([
-      getAwardPlayersMembership(playersWithId, group.club_name),
-      group.club_name ? getClubMemberNamesByClubName(group.club_name) : Promise.resolve([]),
-    ])
+    // Server Action 1회 호출로 가입/점수 정보 + 클럽 회원 자동완성 목록을 함께 조회
+    // (호출마다 미들웨어·인증·DB 왕복이 반복되므로 요청 수 최소화)
+    const { membership, clubMemberNames: memberNames } = await getAwardEditData(playersWithId, group.club_name)
     setClubMemberNames(memberNames)
 
     setPlayerRows(
       playersWithId.map(({ name, userId }) => {
-        const info = membershipResult[name] ?? { isMember: false, memberId: null, rating: null, profileRating: null }
+        const info = membership[name] ?? { isMember: false, memberId: null, rating: null, profileRating: null }
         return {
           name,
           awardId: playerAwardMap.get(name) ?? '',
@@ -163,7 +161,7 @@ export function AwardsList({ awards, isAdmin = false, divisionOrderMap = {} }: P
     }
 
     // 새 선수의 클럽 가입/점수 정보 조회 후 행 추가
-    const membership = await getAwardPlayersMembership([{ name, userId: null }], selectedGroup.club_name)
+    const { membership } = await getAwardEditData([{ name, userId: null }], selectedGroup.club_name)
     const info = membership[name] ?? { isMember: false, memberId: null, rating: null, profileRating: null }
     setPlayerRows((prev) => [
       ...prev,

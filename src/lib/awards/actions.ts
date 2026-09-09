@@ -212,79 +212,85 @@ export interface AwardPlayerInfo {
   profileRating: number | null // profiles.rating (프로필 점수)
 }
 
-/** 선수-클럽 가입 여부 + 점수 조회 (어드민 전용) */
-export async function getAwardPlayersMembership(
+/** 수상자 수정 모달 초기 데이터 */
+export interface AwardEditData {
+  /** 선수명 → 클럽 가입/점수 정보 */
+  membership: Record<string, AwardPlayerInfo>
+  /** 클럽 활성 회원 이름 목록 (선수 추가 자동완성용) */
+  clubMemberNames: string[]
+}
+
+/**
+ * 선수-클럽 가입 여부 + 점수 + 클럽 회원 이름 목록 조회 (어드민 전용)
+ *
+ * 성능: DB가 원격 리전에 있어 왕복 1회가 수백 ms → 왕복 횟수 최소화가 핵심
+ * - 인증(getCurrentUser) 후 profiles / club_members 조회를 병렬 실행
+ * - clubs → club_members 2단계 조회를 clubs!inner 조인 1쿼리로 통합
+ * - 회원 목록 전체를 한 번 받아 가입 여부 매핑과 자동완성 목록을 동시에 생성
+ */
+export async function getAwardEditData(
   players: Array<{ name: string; userId: string | null }>,
   clubName: string | null
-): Promise<Record<string, AwardPlayerInfo>> {
+): Promise<AwardEditData> {
+  const empty: AwardEditData = { membership: {}, clubMemberNames: [] }
+
   const user = await getCurrentUser()
-  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) {
-    return {}
-  }
+  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) return empty
 
   const admin = createAdminClient()
-  const playerNames = players.map((p) => p.name)
-  const defaultResult = (): AwardPlayerInfo => ({ isMember: false, memberId: null, rating: null, profileRating: null })
 
-  // userId 있는 선수의 프로필 점수 조회
-  const userIdMap = new Map<string, string>() // name → userId
+  // name → userId (프로필 연동 선수)
+  const userIdMap = new Map<string, string>()
   for (const p of players) {
     if (p.userId) userIdMap.set(p.name, p.userId)
   }
   const userIds = [...userIdMap.values()]
-  const profileRatingMap = new Map<string, number | null>() // userId → rating
-  if (userIds.length > 0) {
-    const { data: profiles } = await admin
-      .from('profiles')
-      .select('id, rating')
-      .in('id', userIds)
-    for (const prof of profiles ?? []) {
-      profileRatingMap.set(prof.id, prof.rating)
-    }
+  const trimmedClub = clubName?.trim() ?? ''
+
+  // 독립적인 두 조회를 병렬 실행
+  const [profilesResult, membersResult] = await Promise.all([
+    userIds.length > 0
+      ? admin.from('profiles').select('id, rating').in('id', userIds)
+      : Promise.resolve({ data: [] as Array<{ id: string; rating: number | null }> }),
+    trimmedClub
+      ? admin
+          .from('club_members')
+          .select('id, name, rating, clubs!inner(name)')
+          .eq('clubs.name', trimmedClub)
+          .eq('status', 'ACTIVE')
+          .order('name', { ascending: true })
+      : Promise.resolve({ data: [] as Array<{ id: string; name: string; rating: number | null }> }),
+  ])
+
+  const profileRatingMap = new Map<string, number | null>()
+  for (const prof of profilesResult.data ?? []) {
+    profileRatingMap.set(prof.id, prof.rating)
   }
 
-  const buildResult = (entries: Map<string, { memberId: string | null; rating: number | null }>): Record<string, AwardPlayerInfo> => {
-    return Object.fromEntries(
-      players.map((p) => {
-        const clubInfo = entries.get(p.name)
-        const userId = userIdMap.get(p.name) ?? null
-        return [p.name, {
-          isMember: !!clubInfo?.memberId,
-          memberId: clubInfo?.memberId ?? null,
-          rating: clubInfo?.rating ?? null,
-          profileRating: userId ? (profileRatingMap.get(userId) ?? null) : null,
-        }]
-      })
-    )
+  const clubMembers = membersResult.data ?? []
+  const memberMap = new Map<string, { memberId: string; rating: number | null }>()
+  for (const m of clubMembers) {
+    // 동명이인이면 첫 번째 회원 유지
+    if (!memberMap.has(m.name)) memberMap.set(m.name, { memberId: m.id, rating: m.rating })
   }
 
-  if (!clubName || playerNames.length === 0) {
-    const emptyMap = new Map(playerNames.map((n) => [n, { memberId: null, rating: null }]))
-    return buildResult(emptyMap)
+  const membership: Record<string, AwardPlayerInfo> = Object.fromEntries(
+    players.map((p) => {
+      const clubInfo = memberMap.get(p.name)
+      const userId = userIdMap.get(p.name) ?? null
+      return [p.name, {
+        isMember: !!clubInfo,
+        memberId: clubInfo?.memberId ?? null,
+        rating: clubInfo?.rating ?? null,
+        profileRating: userId ? (profileRatingMap.get(userId) ?? null) : null,
+      }]
+    })
+  )
+
+  return {
+    membership,
+    clubMemberNames: [...new Set(clubMembers.map((m) => m.name))],
   }
-
-  // 클럽명으로 클럽 ID 조회
-  const { data: club } = await admin
-    .from('clubs')
-    .select('id')
-    .eq('name', clubName)
-    .single()
-
-  if (!club) {
-    const emptyMap = new Map(playerNames.map((n) => [n, { memberId: null, rating: null }]))
-    return buildResult(emptyMap)
-  }
-
-  // 해당 클럽의 ACTIVE 회원 중 이름 매칭 + rating 포함
-  const { data: members } = await admin
-    .from('club_members')
-    .select('id, name, rating')
-    .eq('club_id', club.id)
-    .eq('status', 'ACTIVE')
-    .in('name', playerNames)
-
-  const memberMap = new Map((members ?? []).map((m) => [m.name, { memberId: m.id, rating: m.rating }]))
-  return buildResult(memberMap)
 }
 
 /** 선수 점수 업데이트 — club_members + profiles 동시 반영 (어드민 전용) */
@@ -461,29 +467,6 @@ export async function updateAward(
 
   if (error) return { error: '수정에 실패했습니다.' }
   return {}
-}
-
-/** 클럽명으로 활성 회원 이름 목록 조회 (수상자 추가 시 자동완성용, 어드민 전용) */
-export async function getClubMemberNamesByClubName(clubName: string): Promise<string[]> {
-  const user = await getCurrentUser()
-  if (!user || !['ADMIN', 'SUPER_ADMIN'].includes(user.role ?? '')) return []
-  if (!clubName.trim()) return []
-
-  const admin = createAdminClient()
-  const { data: club } = await admin
-    .from('clubs')
-    .select('id')
-    .eq('name', clubName.trim())
-    .maybeSingle()
-  if (!club) return []
-
-  const { data: members } = await admin
-    .from('club_members')
-    .select('name')
-    .eq('club_id', club.id)
-    .eq('status', 'ACTIVE')
-    .order('name', { ascending: true })
-  return (members ?? []).map((m) => m.name)
 }
 
 /** 수상자 이름 최대 길이 */
