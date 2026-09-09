@@ -65,6 +65,41 @@ export const ASSOCIATION_CATEGORY_ALIASES: Record<string, string> = {
   '서울시협회장배대회': '서울협회장배대회',
 }
 
+/**
+ * 분류 칸이 비어 있을 때 적요 키워드로 추론 (계정 유형별, 먼저 맞는 것 우선)
+ * 엑셀에서 분류를 빠뜨린 행이 매핑 단계에서 '수입'/'지출' 덩어리로 묶이는 것을 방지
+ */
+const DESCRIPTION_CATEGORY_HINTS: Record<AccountType, Array<{ kind: CategoryKind; pattern: RegExp; category: string }>> = {
+  CONSIGNMENT: [
+    { kind: 'EXPENSE', pattern: /급여|인건비/, category: '인건비' },
+    { kind: 'EXPENSE', pattern: /전기|수도|가스|요금/, category: '수도광열비' },
+    { kind: 'EXPENSE', pattern: /렌탈|정수|통신|DLIVE|생수|프린트|사무/i, category: '기타운영비' },
+    { kind: 'EXPENSE', pattern: /수리|환불|그물|컴프|콤프|에어컨/, category: '시설운영비' },
+    { kind: 'INCOME', pattern: /toss|토스/i, category: '개인 코트비' },
+    { kind: 'INCOME', pattern: /코트비|동호회/, category: '동호회코트비' },
+    { kind: 'INCOME', pattern: /이자/, category: '이자' },
+  ],
+  ASSOCIATION: [
+    { kind: 'INCOME', pattern: /레슨/, category: '레슨코트비' },
+    { kind: 'INCOME', pattern: /발전기금/, category: '발전기금' },
+    { kind: 'INCOME', pattern: /협회비|연회비/, category: '협회비' },
+    { kind: 'INCOME', pattern: /찬조/, category: '찬조' },
+    { kind: 'INCOME', pattern: /참가비/, category: '참가비' },
+    { kind: 'INCOME', pattern: /이자/, category: '이자' },
+    { kind: 'EXPENSE', pattern: /식비|식대|회식|점심|저녁|커피|김밥|음료/, category: '식비' },
+    { kind: 'EXPENSE', pattern: /체육회비/, category: '체육회비' },
+    { kind: 'EXPENSE', pattern: /./, category: '기타' },
+  ],
+  BOARD: [],
+}
+
+export function inferCategoryFromDescription(accountType: AccountType, kind: CategoryKind, description: string): string | null {
+  for (const h of DESCRIPTION_CATEGORY_HINTS[accountType]) {
+    if (h.kind === kind && h.pattern.test(description)) return h.category
+  }
+  return null
+}
+
 /** 시트명 → 계정 유형 */
 export function detectAccountType(sheetName: string): AccountType | null {
   if (/^협회\d{1,2}월$/.test(sheetName)) return 'ASSOCIATION'
@@ -180,7 +215,8 @@ function parseConsignmentSheet(sheet: string, rows: Row[], result: ParseResult) 
     }
     const kind: CategoryKind = income > 0 ? 'INCOME' : 'EXPENSE'
     const amount = income > 0 ? income : expense
-    const rawCategory = CONSIGNMENT_CATEGORY_ALIASES[rawCat] ?? rawCat
+    const normalized = CONSIGNMENT_CATEGORY_ALIASES[rawCat] ?? rawCat
+    const rawCategory = normalized || inferCategoryFromDescription('CONSIGNMENT', kind, description) || ''
     const memo = toText(r[5]) || null
     result.transactions.push({
       accountType: 'CONSIGNMENT',
@@ -226,8 +262,13 @@ function parseAssociationSheet(sheet: string, rows: Row[], result: ParseResult) 
     }
     const kind: CategoryKind = income > 0 ? 'INCOME' : 'EXPENSE'
     const amount = income > 0 ? income : expense
-    const rawCategory = ASSOCIATION_CATEGORY_ALIASES[rawCat] ?? rawCat
     const description = [gubun, jeokyo].filter(Boolean).join(' ') || '(적요 없음)'
+    const normalized = ASSOCIATION_CATEGORY_ALIASES[rawCat] ?? rawCat
+    // 수입 행의 '기타'는 실제 분류가 아니므로(이자 등) 적요로 먼저 추론
+    const needsInference = !normalized || (kind === 'INCOME' && normalized === '기타')
+    const rawCategory = needsInference
+      ? inferCategoryFromDescription('ASSOCIATION', kind, description) || normalized || ''
+      : normalized
     result.transactions.push({
       accountType: 'ASSOCIATION',
       sheet,

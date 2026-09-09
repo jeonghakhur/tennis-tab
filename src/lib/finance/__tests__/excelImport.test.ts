@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { existsSync } from 'node:fs'
 import * as XLSX from 'xlsx'
-import { cellToISO, detectAccountType, parseKoreanMonthDay, parseSettlementWorkbook } from '../excelImport'
+import { cellToISO, detectAccountType, inferCategoryFromDescription, parseKoreanMonthDay, parseSettlementWorkbook } from '../excelImport'
 import { toKSTParts } from '../ledger'
 
 describe('detectAccountType', () => {
@@ -12,6 +12,16 @@ describe('detectAccountType', () => {
     expect(detectAccountType('이사회비')).toBe('BOARD')
     expect(detectAccountType('월별수지결산')).toBeNull()
     expect(detectAccountType('협회비')).toBeNull()
+  })
+})
+
+describe('inferCategoryFromDescription', () => {
+  it('분류가 빈 행을 적요로 추론', () => {
+    expect(inferCategoryFromDescription('CONSIGNMENT', 'EXPENSE', '급여')).toBe('인건비')
+    expect(inferCategoryFromDescription('ASSOCIATION', 'INCOME', '레슨코트비')).toBe('레슨코트비')
+    expect(inferCategoryFromDescription('ASSOCIATION', 'INCOME', '7월발전기금')).toBe('발전기금')
+    expect(inferCategoryFromDescription('ASSOCIATION', 'EXPENSE', '프린트')).toBe('기타')
+    expect(inferCategoryFromDescription('CONSIGNMENT', 'INCOME', '알 수 없음')).toBeNull()
   })
 })
 
@@ -56,6 +66,11 @@ describe.skipIf(!existsSync(SAMPLE))('실데이터 대조 (2026 결산서)', () 
     const hints = [...new Set(res.transactions.map((t) => t.clubHint).filter(Boolean))].sort()
     console.log('clubHints', hints.join(', '))
     expect(res.transactions.length).toBeGreaterThan(400)
+  })
+
+  it('분류가 비어 있던 행이 모두 추론되어 "수입"/"지출" 덩어리가 남지 않음', () => {
+    const blank = res.transactions.filter((t) => t.rawCategory === '수입' || t.rawCategory === '지출' || t.rawCategory === '' || (t.accountType === 'ASSOCIATION' && t.kind === 'INCOME' && t.rawCategory === '기타'))
+    expect(blank.map((t) => `${t.sheet}:${t.rowNumber}:${t.description}`)).toEqual([])
   })
 
   /**
