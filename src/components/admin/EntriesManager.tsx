@@ -17,6 +17,10 @@ import {
   UserPlus,
 } from "lucide-react";
 import { AdminEntryModal } from "@/components/admin/AdminEntryModal";
+import {
+  TournamentClubsModal,
+  type ActiveClubSummary,
+} from "@/components/admin/TournamentClubsModal";
 import type {
   Database,
   EntryStatus,
@@ -98,6 +102,8 @@ interface EntriesManagerProps {
   clubMembersMap?: Record<string, ClubMemberInfo[]>;
   /** user_id → 클럽명 맵 (club_name / profiles.club 모두 없을 때 보조 출처) */
   userClubMap?: Record<string, string>;
+  /** 활성 클럽 목록 — 클럽별 참가/미참가 현황 모달용 */
+  activeClubs?: ActiveClubSummary[];
 }
 
 type MemberStatus = "non-member" | "recent-join" | "member";
@@ -253,6 +259,7 @@ export function EntriesManager({
   isSuperAdmin = false,
   clubMembersMap = {},
   userClubMap = {},
+  activeClubs = [],
 }: EntriesManagerProps) {
   // 단체전 여부 — '본인 참가' 여부 표시 대상
   const isTeamMatch =
@@ -298,6 +305,8 @@ export function EntriesManager({
   const [bulkPayment, setBulkPayment] = useState("");
   const [excelDownloading, setExcelDownloading] = useState(false);
   const [pdfDownloading, setPdfDownloading] = useState(false);
+  // 클럽별 참가/미참가 현황 모달
+  const [clubsModalOpen, setClubsModalOpen] = useState(false);
   const [alimtalkSending, setAlimtalkSending] = useState<string | null>(null);
   const [bulkAlimtalkSending, setBulkAlimtalkSending] = useState(false);
   const [editModal, setEditModal] = useState<{
@@ -1033,6 +1042,14 @@ export function EntriesManager({
             )}
             <button
               type="button"
+              onClick={() => setClubsModalOpen(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) text-(--text-secondary) hover:text-(--accent-color) hover:border-(--accent-color) transition-colors"
+            >
+              <Building2 className="w-4 h-4" />
+              클럽 참가 현황
+            </button>
+            <button
+              type="button"
               onClick={handlePdfDownload}
               disabled={pdfDownloading}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-medium bg-(--bg-card) border border-(--border-color) text-(--text-secondary) hover:text-red-500 hover:border-red-400 transition-colors disabled:opacity-50"
@@ -1675,6 +1692,17 @@ export function EntriesManager({
           matchType={matchType}
           divisions={divisions}
           entry={editModal.entry}
+        />
+      )}
+
+      {/* 클럽별 참가/미참가 현황 모달 — 닫힐 때 언마운트하여 탭/검색 상태 초기화 */}
+      {clubsModalOpen && (
+        <TournamentClubsModal
+          isOpen={clubsModalOpen}
+          onClose={() => setClubsModalOpen(false)}
+          entries={entries}
+          activeClubs={activeClubs}
+          userClubMap={userClubMap}
         />
       )}
     </div>

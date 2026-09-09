@@ -117,8 +117,9 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
       .order('id', { ascending: true }),
     adminForClubs
       .from('clubs')
-      .select('id, name')
-      .eq('is_active', true),
+      .select('id, name, city, district')
+      .eq('is_active', true)
+      .order('name', { ascending: true }),
   ])
 
   const entries = (rawEntries ?? []).map((entry) => ({
@@ -262,6 +263,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
         tournamentStartDate={tournament.start_date}
         clubMembersMap={clubMembersMap}
         userClubMap={userClubMap}
+        activeClubs={activeClubs ?? []}
         isSuperAdmin={currentProfile?.role === 'SUPER_ADMIN'}
       />
     </div>
