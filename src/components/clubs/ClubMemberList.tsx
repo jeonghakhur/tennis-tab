@@ -85,6 +85,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
     phone: '',
     start_year: '',
     rating: undefined,
+    address: '',
   })
   const [memberErrors, setMemberErrors] = useState<MemberValidationErrors>({})
   const errorFieldRef = useRef<keyof MemberValidationErrors | null>(null)
@@ -94,7 +95,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [editMember, setEditMember] = useState<ClubMember | null>(null)
   const [editForm, setEditForm] = useState<UnregisteredMemberInput>({
-    name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined,
+    name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined, address: '',
   })
   const [editErrors, setEditErrors] = useState<MemberValidationErrors>({})
   const [editSaving, setEditSaving] = useState(false)
@@ -168,7 +169,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
   // 순차 검증 필드 순서
   const MEMBER_FIELD_ORDER: (keyof MemberValidationErrors)[] = [
-    'name', 'birth_year', 'phone', 'start_year', 'rating',
+    'name', 'birth_year', 'phone', 'start_year', 'rating', 'address',
   ]
 
   // 비가입 회원 추가
@@ -202,14 +203,14 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
 
     setToast({ isOpen: true, message: '회원이 등록되었습니다.', type: 'success' })
     setAddModalOpen(false)
-    setNewMember({ name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined })
+    setNewMember({ name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined, address: '' })
     setMemberErrors({})
   }
 
   // 모달 초기화
   const resetAddModal = useCallback(() => {
     setAddModalOpen(false)
-    setNewMember({ name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined })
+    setNewMember({ name: '', birth_year: '', gender: undefined, phone: '', start_year: '', rating: undefined, address: '' })
     setMemberErrors({})
   }, [])
 
@@ -306,6 +307,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
       phone: formatPhoneNumber(member.phone || ''),
       start_year: member.start_year || '',
       rating: member.rating ?? undefined,
+      address: member.address || '',
     })
     setEditErrors({})
     setEditModalOpen(true)
@@ -318,7 +320,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
     // 검증
     const errors = validateMemberInput(editForm)
     if (hasValidationErrors(errors)) {
-      const FIELD_ORDER: (keyof MemberValidationErrors)[] = ['name', 'phone', 'birth_year', 'start_year', 'rating']
+      const FIELD_ORDER: (keyof MemberValidationErrors)[] = ['name', 'phone', 'birth_year', 'start_year', 'rating', 'address']
       for (const field of FIELD_ORDER) {
         if (errors[field]) {
           setEditErrors({ [field]: errors[field] })
@@ -351,6 +353,7 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
           phone: payload.phone ?? null,
           start_year: editForm.start_year || null,
           rating: editForm.rating ?? null,
+          address: editForm.address?.trim() || null,
         } : m)
       )
       setToast({ isOpen: true, message: '회원 정보가 수정되었습니다.', type: 'success' })
@@ -478,105 +481,144 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
           <p className="text-(--text-muted)">회원이 없습니다.</p>
         </div>
       ) : (
-        <div className="glass-card rounded-lg divide-y divide-(--border-color)">
-          {filteredMembers.map((member) => (
-            <div key={member.id} className="px-4 py-3">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => openEditModal(member)}
-                      className="font-medium text-(--text-primary) hover:text-(--accent-color) hover:underline transition-colors text-left"
-                    >
-                      {member.name}
-                    </button>
-                    <Badge variant={ROLE_BADGE[member.role].variant}>
-                      {ROLE_BADGE[member.role].label}
-                    </Badge>
-                    <span className={`text-xs ${member.is_registered ? 'text-(--accent-color)' : 'text-(--text-muted)'}`}>
-                      {member.is_registered ? '가입회원' : '비가입회원'}
-                    </span>
-                    {member.status === 'INVITED' && (
-                      <span className="text-xs text-amber-500">초대됨</span>
-                    )}
-                    {member.status === 'REMOVED' && (
-                      <Badge variant="danger">제거됨</Badge>
-                    )}
-                    {member.status === 'LEFT' && (
-                      <Badge variant="secondary">탈퇴</Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2 text-xs text-(--text-muted) flex-wrap">
-                    {member.phone && <span>{member.phone}</span>}
-                    {member.gender && <span>{GENDER_LABEL[member.gender as GenderType]}</span>}
-                    {member.birth_year && <span>{member.birth_year}</span>}
-                    {member.start_year && <span>{member.start_year}년 입문</span>}
-                    {member.rating && <span>레이팅 {member.rating}</span>}
-                    {/* 등록일: 관리자가 회원을 추가/초대한 시점 (joined_at은 승인 시에만 세팅되므로 created_at 사용) */}
-                    <span>등록 {formatKoreanDate(member.created_at)}</span>
-                    {member.status_reason && (member.status === 'REMOVED' || member.status === 'LEFT') && (
-                      <span className="text-red-400">사유: {member.status_reason}</span>
-                    )}
-                  </div>
-                </div>
+        <div className="glass-card rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-(--border-color) text-(--text-secondary)">
+                  <th scope="col" className="text-left font-medium px-4 py-3">이름</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3 hidden sm:table-cell">연락처</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3 hidden lg:table-cell">성별 / 출생</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3 hidden md:table-cell">주소</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3 hidden xl:table-cell">입문 / 레이팅</th>
+                  <th scope="col" className="text-left font-medium px-4 py-3 hidden lg:table-cell">등록일</th>
+                  <th scope="col" className="text-right font-medium px-4 py-3">관리</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-(--border-color)">
+                {filteredMembers.map((member) => {
+                  const isInactive = member.status === 'REMOVED' || member.status === 'LEFT'
+                  // "성별 / 출생" 셀 — 둘 다 없으면 '-'
+                  const genderBirth = [
+                    member.gender ? GENDER_LABEL[member.gender as GenderType] : null,
+                    member.birth_year,
+                  ].filter(Boolean).join(' / ') || '-'
+                  // "입문 / 레이팅" 셀
+                  const startRating = [
+                    member.start_year ? `${member.start_year}년` : null,
+                    member.rating ? `R ${member.rating}` : null,
+                  ].filter(Boolean).join(' / ') || '-'
 
-                {/* 제거/탈퇴 회원: 원복 + 영구 삭제(SUPER_ADMIN) */}
-                {(member.status === 'REMOVED' || member.status === 'LEFT') && (
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={() => handleRestoreMember(member)}
-                      className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors"
-                      title="원복"
-                    >
-                      <RotateCcw className="w-3.5 h-3.5" />
-                      원복
-                    </button>
-                    {isSystemAdmin && (
-                      <button
-                        onClick={() => handlePermanentlyDelete(member)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-red-500 hover:bg-red-500/10 transition-colors"
-                        title="영구 삭제"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        삭제
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* 활성 회원 관리 버튼 */}
-                {member.status !== 'REMOVED' && member.status !== 'LEFT' && (
-                  <div className="flex items-center gap-2">
-                    {/* 역할 변경 */}
-                    <Select value={member.role} onValueChange={(v) => handleRoleChange(member, v as ClubMemberRole)}>
-                      <SelectTrigger size="sm" className="text-xs px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color)">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="OWNER">회장</SelectItem>
-                        <SelectItem value="ADMIN">총무</SelectItem>
-                        <SelectItem value="VICE_PRESIDENT">부회장</SelectItem>
-                        <SelectItem value="ADVISOR">고문</SelectItem>
-                        <SelectItem value="MATCH_DIRECTOR">경기이사</SelectItem>
-                        <SelectItem value="MEMBER">회원</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {/* 제거 */}
-                    <button
-                      onClick={() => {
-                        setSelectedMember(member)
-                        setRemoveModalOpen(true)
-                      }}
-                      className="p-1.5 rounded text-red-500 hover:bg-red-500/10 transition-colors"
-                      title="제거"
-                    >
-                      <UserMinus className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
+                  return (
+                    <tr key={member.id} className="hover:bg-(--bg-card-hover) transition-colors align-top">
+                      {/* 이름 + 배지 (모바일에서는 연락처/주소도 이 셀에 함께 표시) */}
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <button
+                            onClick={() => openEditModal(member)}
+                            className="font-medium text-(--text-primary) hover:text-(--accent-color) hover:underline transition-colors text-left"
+                          >
+                            {member.name}
+                          </button>
+                          <Badge variant={ROLE_BADGE[member.role].variant}>
+                            {ROLE_BADGE[member.role].label}
+                          </Badge>
+                          {member.status === 'INVITED' && <Badge variant="warning">초대됨</Badge>}
+                          {member.status === 'REMOVED' && <Badge variant="danger">제거됨</Badge>}
+                          {member.status === 'LEFT' && <Badge variant="secondary">탈퇴</Badge>}
+                        </div>
+                        <p className={`mt-0.5 text-sm ${member.is_registered ? 'text-(--accent-color)' : 'text-(--text-muted)'}`}>
+                          {member.is_registered ? '가입회원' : '비가입회원'}
+                        </p>
+                        {member.phone && (
+                          <p className="mt-0.5 text-sm text-(--text-muted) sm:hidden">{formatPhoneNumber(member.phone)}</p>
+                        )}
+                        {member.address && (
+                          <p className="mt-0.5 text-sm text-(--text-muted) md:hidden break-keep">{member.address}</p>
+                        )}
+                        {isInactive && member.status_reason && (
+                          <p className="mt-0.5 text-sm text-red-400">사유: {member.status_reason}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-(--text-secondary) whitespace-nowrap hidden sm:table-cell">
+                        {member.phone ? formatPhoneNumber(member.phone) : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-(--text-secondary) whitespace-nowrap hidden lg:table-cell">
+                        {genderBirth}
+                      </td>
+                      <td className="px-4 py-3 text-(--text-secondary) hidden md:table-cell max-w-xs break-keep">
+                        {member.address || '-'}
+                      </td>
+                      <td className="px-4 py-3 text-(--text-secondary) whitespace-nowrap hidden xl:table-cell">
+                        {startRating}
+                      </td>
+                      {/* 등록일: 관리자가 회원을 추가/초대한 시점 (joined_at은 승인 시에만 세팅되므로 created_at 사용) */}
+                      <td className="px-4 py-3 text-(--text-secondary) whitespace-nowrap hidden lg:table-cell">
+                        {formatKoreanDate(member.created_at)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isInactive ? (
+                          /* 제거/탈퇴 회원: 원복 + 영구 삭제(SUPER_ADMIN) */
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={() => handleRestoreMember(member)}
+                              className="flex items-center gap-1 px-2.5 py-1 rounded text-sm font-medium text-emerald-500 hover:bg-emerald-500/10 transition-colors"
+                              title="원복"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              원복
+                            </button>
+                            {isSystemAdmin && (
+                              <button
+                                onClick={() => handlePermanentlyDelete(member)}
+                                className="flex items-center gap-1 px-2.5 py-1 rounded text-sm font-medium text-red-500 hover:bg-red-500/10 transition-colors"
+                                title="영구 삭제"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                삭제
+                              </button>
+                            )}
+                          </div>
+                        ) : (
+                          /* 활성 회원: 역할 변경 + 제거 */
+                          <div className="flex items-center justify-end gap-2">
+                            <Select value={member.role} onValueChange={(v) => handleRoleChange(member, v as ClubMemberRole)}>
+                              <SelectTrigger
+                                size="sm"
+                                aria-label={`${member.name} 역할 변경`}
+                                className="text-sm px-2 py-1 rounded bg-(--bg-input) text-(--text-primary) border border-(--border-color)"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="OWNER">회장</SelectItem>
+                                <SelectItem value="ADMIN">총무</SelectItem>
+                                <SelectItem value="VICE_PRESIDENT">부회장</SelectItem>
+                                <SelectItem value="ADVISOR">고문</SelectItem>
+                                <SelectItem value="MATCH_DIRECTOR">경기이사</SelectItem>
+                                <SelectItem value="MEMBER">회원</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <button
+                              onClick={() => {
+                                setSelectedMember(member)
+                                setRemoveModalOpen(true)
+                              }}
+                              className="p-1.5 rounded text-red-500 hover:bg-red-500/10 transition-colors"
+                              title="제거"
+                              aria-label={`${member.name} 제거`}
+                            >
+                              <UserMinus className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -713,6 +755,22 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                 />
                 {memberErrors.rating && <p className="mt-1 text-xs text-red-500">{memberErrors.rating}</p>}
               </div>
+            </div>
+            <div>
+              <label htmlFor="new-member-address" className="block text-sm font-medium text-(--text-primary) mb-1">주소</label>
+              <input
+                id="new-member-address"
+                ref={(el) => { memberFieldRefs.current.address = el }}
+                type="text"
+                value={newMember.address || ''}
+                onChange={(e) => handleMemberChange('address', e.target.value)}
+                placeholder="예: 서울 마포구 월드컵로 212"
+                maxLength={200}
+                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                  memberErrors.address ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                }`}
+              />
+              {memberErrors.address && <p className="mt-1 text-sm text-red-500">{memberErrors.address}</p>}
             </div>
           </div>
         </Modal.Body>
@@ -879,6 +937,22 @@ export function ClubMemberList({ clubId, initialMembers, isSystemAdmin = false }
                 />
                 {editErrors.rating && <p className="mt-1 text-xs text-red-500">{editErrors.rating}</p>}
               </div>
+            </div>
+            <div>
+              <label htmlFor="edit-member-address" className="block text-sm font-medium text-(--text-primary) mb-1">주소</label>
+              <input
+                id="edit-member-address"
+                ref={(el) => { editFieldRefs.current.address = el }}
+                type="text"
+                value={editForm.address || ''}
+                onChange={(e) => { setEditForm({ ...editForm, address: e.target.value }); setEditErrors((prev) => ({ ...prev, address: undefined })) }}
+                placeholder="예: 서울 마포구 월드컵로 212"
+                maxLength={200}
+                className={`w-full px-3 py-2 rounded-lg bg-(--bg-input) text-(--text-primary) border outline-none ${
+                  editErrors.address ? 'border-red-500' : 'border-(--border-color) focus:border-(--accent-color)'
+                }`}
+              />
+              {editErrors.address && <p className="mt-1 text-sm text-red-500">{editErrors.address}</p>}
             </div>
             {/* 읽기 전용 정보 */}
             {editMember && (

@@ -265,6 +265,7 @@ export interface MemberValidationErrors {
   phone?: string
   start_year?: string
   rating?: string
+  address?: string
 }
 
 const YEAR_REGEX = /^\d{4}$/
@@ -278,6 +279,7 @@ export function validateMemberInput(data: {
   phone?: string
   start_year?: string
   rating?: number
+  address?: string
 }): MemberValidationErrors {
   const errors: MemberValidationErrors = {}
 
@@ -321,6 +323,10 @@ export function validateMemberInput(data: {
       errors.rating = '레이팅은 1~9999 범위의 정수여야 합니다.'
     }
   }
+
+  // 선택: 주소 (최대 200자)
+  const addrMax = validateMaxLength(data.address, ADDRESS_MAX_LENGTH, '주소')
+  if (addrMax) errors.address = addrMax
 
   return errors
 }

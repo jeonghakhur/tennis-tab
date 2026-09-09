@@ -665,6 +665,7 @@ export interface Database {
           phone: string | null
           start_year: string | null
           rating: number | null
+          address: string | null
           role: ClubMemberRole
           status: ClubMemberStatus
           status_reason: string | null
@@ -685,6 +686,7 @@ export interface Database {
           phone?: string | null
           start_year?: string | null
           rating?: number | null
+          address?: string | null
           role?: ClubMemberRole
           status?: ClubMemberStatus
           status_reason?: string | null
@@ -705,6 +707,7 @@ export interface Database {
           phone?: string | null
           start_year?: string | null
           rating?: number | null
+          address?: string | null
           role?: ClubMemberRole
           status?: ClubMemberStatus
           status_reason?: string | null

@@ -125,6 +125,7 @@ export function generateMemberDummy(): UnregisteredMemberInput {
     phone: koreanPhone(),
     start_year: String(startYear),
     rating: faker.number.int({ min: 100, max: 3000 }),
+    address: `${faker.location.city()} ${faker.location.streetAddress()}`,
   }
 }
 
@@ -141,6 +142,7 @@ const INVALID_BIRTH_YEARS = ['1800', '99', 'abcd', '20300', '']
 const INVALID_START_YEARS = ['2030', '1899', 'abcd', '20', '99999']
 const INVALID_RATINGS = [99999, -100, 0, 10000, -1]
 const INVALID_MAX_MEMBERS = [-5, -100, 0, -999]
+const INVALID_ADDRESS_LENGTH = 201 // 주소 최대 200자 초과
 
 /** 협회 잘못된 더미 데이터 */
 export function generateAssociationInvalidDummy(): CreateAssociationInput {
@@ -183,5 +185,6 @@ export function generateMemberInvalidDummy(): UnregisteredMemberInput {
     phone: pick(INVALID_PHONES),
     start_year: pick(INVALID_START_YEARS),
     rating: pick(INVALID_RATINGS),
+    address: 'x'.repeat(INVALID_ADDRESS_LENGTH),
   }
 }

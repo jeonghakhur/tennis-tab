@@ -44,6 +44,7 @@ export interface ClubMember {
   phone: string | null
   start_year: string | null
   rating: number | null
+  address: string | null
   role: ClubMemberRole
   status: ClubMemberStatus
   status_reason: string | null
@@ -93,6 +94,7 @@ export interface UnregisteredMemberInput {
   phone?: string
   start_year?: string
   rating?: number
+  address?: string
 }
 
 /** 전체 회원 검색 결과 — ClubMember + 소속 클럽명 */

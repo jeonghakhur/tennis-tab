@@ -585,6 +585,7 @@ export async function addUnregisteredMember(
     phone: sanitized.phone ? (unformatPhoneNumber(sanitized.phone) || null) : null,
     start_year: sanitized.start_year?.trim() || null,
     rating: sanitized.rating || null,
+    address: sanitized.address?.trim() || null,
     role: 'MEMBER',
     status: 'ACTIVE',
   })
@@ -1275,6 +1276,10 @@ export async function updateMemberInfo(
     const errors = validateMemberInput({ name: 'temp', ...sanitized } as UnregisteredMemberInput)
     if (errors.birth_year) return { error: errors.birth_year }
   }
+  if (sanitized.address !== undefined && sanitized.address) {
+    const errors = validateMemberInput({ name: 'temp', ...sanitized } as UnregisteredMemberInput)
+    if (errors.address) return { error: errors.address }
+  }
 
   // 업데이트할 필드만 추출
   const updateData: Record<string, unknown> = { updated_at: new Date().toISOString() }
@@ -1284,6 +1289,7 @@ export async function updateMemberInfo(
   if (sanitized.phone !== undefined) updateData.phone = sanitized.phone || null
   if (sanitized.start_year !== undefined) updateData.start_year = sanitized.start_year || null
   if (sanitized.rating !== undefined) updateData.rating = sanitized.rating || null
+  if (sanitized.address !== undefined) updateData.address = sanitized.address.trim() || null
 
   const { error } = await admin
     .from('club_members')
