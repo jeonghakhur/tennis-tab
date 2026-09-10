@@ -24,21 +24,22 @@ export default async function FinancePage({ searchParams }: PageProps) {
           <h1 className="font-display text-2xl font-bold text-(--text-primary)">재정 관리</h1>
           <p className="text-(--text-secondary) mt-1">통장별 월별 수지결산과 운영계획 대비 실적을 확인합니다.</p>
         </div>
-        <div className="flex gap-2">
-          <Link href="/admin/finance/clubs" className="btn-secondary btn-sm flex items-center gap-1 whitespace-nowrap">
-            <Building2 className="w-4 h-4" />
+        {/* 모바일: 2열 그리드로 줄바꿈 (가로 스크롤 방지) / sm 이상: 한 줄 */}
+        <div className="grid grid-cols-2 sm:flex gap-2 w-full sm:w-auto">
+          <Link href="/admin/finance/clubs" className="btn-secondary btn-sm flex items-center justify-center gap-1 whitespace-nowrap">
+            <Building2 className="w-4 h-4 shrink-0" />
             클럽 납부 현황
           </Link>
-          <a href={`/api/admin/finance/export?year=${year}`} className="btn-secondary btn-sm flex items-center gap-1 whitespace-nowrap">
-            <Download className="w-4 h-4" />
+          <a href={`/api/admin/finance/export?year=${year}`} className="btn-secondary btn-sm flex items-center justify-center gap-1 whitespace-nowrap">
+            <Download className="w-4 h-4 shrink-0" />
             엑셀 내보내기
           </a>
-          <Link href="/admin/finance/import" className="btn-secondary btn-sm flex items-center gap-1 whitespace-nowrap">
-            <Upload className="w-4 h-4" />
+          <Link href="/admin/finance/import" className="btn-secondary btn-sm flex items-center justify-center gap-1 whitespace-nowrap">
+            <Upload className="w-4 h-4 shrink-0" />
             엑셀 가져오기
           </Link>
-          <Link href="/admin/finance/settings" className="btn-secondary btn-sm flex items-center gap-1 whitespace-nowrap">
-            <Settings className="w-4 h-4" />
+          <Link href="/admin/finance/settings" className="btn-secondary btn-sm flex items-center justify-center gap-1 whitespace-nowrap">
+            <Settings className="w-4 h-4 shrink-0" />
             설정
           </Link>
         </div>
