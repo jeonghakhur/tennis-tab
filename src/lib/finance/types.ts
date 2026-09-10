@@ -141,4 +141,7 @@ export interface ClubPaymentRow {
   /** index 0 = 1월 … 11 = 12월 */
   months: number[]
   total: number
+  /** 협회비 탭 전용: club_fee_payments 기준 납부 여부 (다른 탭은 undefined) */
+  fee_paid?: boolean
+  fee_paid_at?: string | null
 }

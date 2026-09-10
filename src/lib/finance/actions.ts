@@ -374,12 +374,13 @@ export async function getAnnualSummary(year: number): Promise<AccountAnnualSumma
 // 클럽 납부 매트릭스
 // ============================================================================
 
-export type ClubPaymentKind = 'COURT_FEE' | 'DEV_FUND'
+export type ClubPaymentKind = 'COURT_FEE' | 'DEV_FUND' | 'ANNUAL_FEE'
 
 /** 매트릭스 집계에 사용할 (계정 유형, 분류명) */
 const CLUB_PAYMENT_SOURCE: Record<ClubPaymentKind, { accountType: FinanceAccount['account_type']; categoryName: string }> = {
   COURT_FEE: { accountType: 'CONSIGNMENT', categoryName: '동호회코트비' },
   DEV_FUND: { accountType: 'ASSOCIATION', categoryName: '발전기금' },
+  ANNUAL_FEE: { accountType: 'ASSOCIATION', categoryName: '협회비' },
 }
 
 /** 클럽 × 월 납부 매트릭스 — club_id가 연결된 거래를 KST 월로 집계 */
@@ -391,7 +392,8 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
   const { start, end } = getKSTYearRange(year)
   const source = CLUB_PAYMENT_SOURCE[kind]
 
-  const [clubsRes, txRes] = await Promise.all([
+  const isAnnualFee = kind === 'ANNUAL_FEE'
+  const [clubsRes, txRes, feeRes] = await Promise.all([
     admin.from('clubs').select('id, name, court_slot').eq('is_active', true).order('name'),
     admin
       .from('finance_transactions')
@@ -399,7 +401,12 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
       .not('club_id', 'is', null)
       .gte('occurred_at', start)
       .lt('occurred_at', end),
+    // 협회비 탭: 클럽 관리 스위치(club_fee_payments) 납부 여부를 함께 표시
+    isAnnualFee
+      ? admin.from('club_fee_payments').select('club_id, paid_at').eq('year', year)
+      : Promise.resolve({ data: [] as Array<{ club_id: string; paid_at: string }> }),
   ])
+  const feePaidMap = new Map((feeRes.data ?? []).map((f) => [f.club_id, f.paid_at]))
 
   type TxRow = {
     club_id: string
@@ -418,13 +425,18 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
     byClub.set(t.club_id, months)
   }
 
-  // 코트 시간대가 있는 클럽(나들목 사용 클럽) + 거래가 있는 클럽 모두 표시
+  // 코트비·발전기금: 코트 시간대가 있는 클럽 + 거래가 있는 클럽 / 협회비: 전체 활성 클럽
   const clubs = (clubsRes.data ?? []) as Array<{ id: string; name: string; court_slot: string | null }>
   return clubs
-    .filter((c) => c.court_slot || byClub.has(c.id))
+    .filter((c) => isAnnualFee || c.court_slot || byClub.has(c.id))
     .map((c) => {
       const months = byClub.get(c.id) ?? new Array<number>(12).fill(0)
-      return { club_id: c.id, club_name: c.name, court_slot: c.court_slot, months, total: months.reduce((a, b) => a + b, 0) }
+      const row: ClubPaymentRow = { club_id: c.id, club_name: c.name, court_slot: c.court_slot, months, total: months.reduce((a, b) => a + b, 0) }
+      if (isAnnualFee) {
+        row.fee_paid = feePaidMap.has(c.id)
+        row.fee_paid_at = feePaidMap.get(c.id) ?? null
+      }
+      return row
     })
 }
 
