@@ -24,7 +24,7 @@ export default async function FinanceClubsPage({ searchParams }: PageProps) {
         </Link>
         <div>
           <h1 className="font-display text-2xl font-bold text-(--text-primary)">클럽 납부 현황</h1>
-          <p className="text-(--text-secondary) mt-1">거래에 클럽을 연결하면 월별 코트비·발전기금·협회비 납부 현황이 자동 집계됩니다.</p>
+          <p className="text-(--text-secondary) mt-1">원장 거래(클럽 연결)로 자동 집계되며, 셀을 눌러 직접 입력할 수도 있습니다. 협회비는 연 1회입니다.</p>
         </div>
       </div>
       <ClubPaymentMatrix year={year} kind={kind} rows={rows} />

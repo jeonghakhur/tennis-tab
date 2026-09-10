@@ -19,6 +19,7 @@ import type {
   AccountAnnualSummary,
   BudgetReportRow,
   CategoryKind,
+  ClubPaymentDetail,
   ClubPaymentRow,
   FinanceAccount,
   FinanceBudget,
@@ -438,6 +439,157 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
       }
       return row
     })
+}
+
+/** 매트릭스 항목의 (계정, 분류) 조회 */
+async function resolveClubPaymentTarget(
+  admin: ReturnType<typeof createAdminClient>,
+  kind: ClubPaymentKind
+): Promise<{ account_id: string; category_id: string } | null> {
+  const source = CLUB_PAYMENT_SOURCE[kind]
+  const { data } = await admin
+    .from('finance_categories')
+    .select('id, account_id, account:finance_accounts!inner(account_type)')
+    .eq('name', source.categoryName)
+    .eq('kind', 'INCOME')
+    .eq('account.account_type', source.accountType)
+    .maybeSingle()
+  return data ? { account_id: data.account_id, category_id: data.id } : null
+}
+
+/**
+ * 클럽 납부 셀 상세 — 해당 클럽의 항목별 거래 (month=null 이면 연간)
+ */
+export async function getClubPaymentDetail(
+  clubId: string,
+  kind: ClubPaymentKind,
+  year: number,
+  month: number | null
+): Promise<{ data?: ClubPaymentDetail; error?: string }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth
+
+  const admin = createAdminClient()
+  const target = await resolveClubPaymentTarget(admin, kind)
+  if (!target) return { error: '해당 항목의 분류(계정)가 설정에 없습니다.' }
+
+  const range = month ? getKSTMonthRange(year, month) : getKSTYearRange(year)
+  const [clubRes, txRes, lastRes] = await Promise.all([
+    admin.from('clubs').select('id, name').eq('id', clubId).single(),
+    admin
+      .from('finance_transactions')
+      .select('id, occurred_at, description, amount, memo, source')
+      .eq('club_id', clubId)
+      .eq('category_id', target.category_id)
+      .gte('occurred_at', range.start)
+      .lt('occurred_at', range.end)
+      .order('occurred_at', { ascending: true }),
+    admin
+      .from('finance_transactions')
+      .select('amount')
+      .eq('club_id', clubId)
+      .eq('category_id', target.category_id)
+      .order('occurred_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+  if (clubRes.error || !clubRes.data) return { error: '클럽을 찾을 수 없습니다.' }
+
+  return {
+    data: {
+      club: clubRes.data,
+      account_id: target.account_id,
+      category_id: target.category_id,
+      suggestedAmount: lastRes.data?.amount ?? null,
+      transactions: (txRes.data ?? []) as ClubPaymentDetail['transactions'],
+    },
+  }
+}
+
+const CLUB_PAYMENT_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '코트비', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비' }
+
+/**
+ * 클럽 납부 수동 입력 — 원장 거래로 저장 (계정·분류는 항목에서 자동 결정)
+ * - 협회비(ANNUAL_FEE)는 연 1회: import_key club_fee:{club}:{year} 로 1건 유지(upsert) + club_fee_payments 납부 처리
+ */
+export async function addClubPayment(input: {
+  clubId: string
+  kind: ClubPaymentKind
+  occurredAt: string
+  amount: number
+  memo?: string | null
+}): Promise<{ error?: string }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth
+
+  const admin = createAdminClient()
+  const target = await resolveClubPaymentTarget(admin, input.kind)
+  if (!target) return { error: '해당 항목의 분류(계정)가 설정에 없습니다.' }
+
+  const { data: club } = await admin.from('clubs').select('name').eq('id', input.clubId).single()
+  if (!club) return { error: '클럽을 찾을 수 없습니다.' }
+
+  const { year, month } = toKSTParts(input.occurredAt)
+  const isAnnual = input.kind === 'ANNUAL_FEE'
+  const description = isAnnual
+    ? `${club.name} ${year}년 협회비`
+    : `${club.name} ${month}월 ${CLUB_PAYMENT_LABEL[input.kind]}`
+  const row = {
+    account_id: target.account_id,
+    category_id: target.category_id,
+    occurred_at: input.occurredAt,
+    description,
+    amount: input.amount,
+    memo: input.memo ? sanitizeObject({ m: input.memo }).m.trim() || null : null,
+    club_id: input.clubId,
+  }
+  const errors = validateTransactionInput(row)
+  if (hasValidationErrors(errors)) return { error: Object.values(errors).find(Boolean) }
+
+  if (isAnnual) {
+    const importKey = `club_fee:${input.clubId}:${year}`
+    const [txRes, feeRes] = await Promise.all([
+      admin
+        .from('finance_transactions')
+        .upsert({ ...row, source: 'CLUB_FEE', import_key: importKey, created_by: auth.userId }, { onConflict: 'import_key' }),
+      admin
+        .from('club_fee_payments')
+        .upsert({ club_id: input.clubId, year, paid_at: input.occurredAt, recorded_by: auth.userId }, { onConflict: 'club_id,year' }),
+    ])
+    if (txRes.error || feeRes.error) return { error: '협회비 저장에 실패했습니다.' }
+  } else {
+    const { error } = await admin
+      .from('finance_transactions')
+      .insert({ ...row, source: 'MANUAL', created_by: auth.userId })
+    if (error) return { error: '납부 저장에 실패했습니다.' }
+  }
+
+  revalidateFinance(target.account_id)
+  revalidatePath('/admin/clubs')
+  return {}
+}
+
+/**
+ * 클럽 납부 거래 삭제 — 협회비(CLUB_FEE) 거래를 지우면 club_fee_payments 납부도 해제
+ */
+export async function deleteClubPayment(transactionId: string): Promise<{ error?: string }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth
+  const admin = createAdminClient()
+  const { data, error } = await admin
+    .from('finance_transactions')
+    .delete()
+    .eq('id', transactionId)
+    .select('account_id, club_id, import_key, occurred_at, source')
+    .maybeSingle()
+  if (error) return { error: '삭제에 실패했습니다.' }
+  if (data?.source === 'CLUB_FEE' && data.club_id) {
+    const { year } = toKSTParts(data.occurred_at)
+    await admin.from('club_fee_payments').delete().eq('club_id', data.club_id).eq('year', year)
+    revalidatePath('/admin/clubs')
+  }
+  revalidateFinance(data?.account_id)
+  return {}
 }
 
 // ============================================================================

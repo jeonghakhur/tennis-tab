@@ -145,3 +145,20 @@ export interface ClubPaymentRow {
   fee_paid?: boolean
   fee_paid_at?: string | null
 }
+
+/** 클럽 납부 셀 상세 — 해당 클럽·항목·기간의 거래 목록 */
+export interface ClubPaymentDetail {
+  club: { id: string; name: string }
+  account_id: string
+  category_id: string
+  /** 해당 클럽의 같은 항목 최근 납부 금액 (입력 기본값) */
+  suggestedAmount: number | null
+  transactions: Array<{
+    id: string
+    occurred_at: string
+    description: string
+    amount: number
+    memo: string | null
+    source: string
+  }>
+}

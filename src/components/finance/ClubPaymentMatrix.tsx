@@ -1,12 +1,17 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import type { ClubPaymentRow } from '@/lib/finance/types'
 import type { ClubPaymentKind } from '@/lib/finance/actions'
 import { formatWon } from '@/lib/finance/ledger'
 import { formatKoreanDate } from '@/lib/utils/formatDate'
 import { Badge } from '@/components/common/Badge'
+import { Toast, AlertDialog } from '@/components/common/AlertDialog'
+import { ClubFeeToggle } from '@/components/clubs/ClubFeeToggle'
+import { ClubPaymentModal, type ClubPaymentTarget } from './ClubPaymentModal'
 
 interface Props {
   year: number
@@ -14,15 +19,20 @@ interface Props {
   rows: ClubPaymentRow[]
 }
 
-const KIND_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '월 임대료(코트비)', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비' }
+const KIND_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '월 임대료(코트비)', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비(연 1회)' }
 const SLOT_ORDER = ['조기', '주중오전', '주중오후', '주중1회', '주말1회', '주말오전', '주말오후', '주말오전,오후']
 
-/** 클럽 × 월 납부 매트릭스 — 시간대 그룹별, 미납(0) 강조 */
+/** 클럽 × 월 납부 매트릭스 — 셀 클릭으로 수동 입력·삭제, 협회비는 연 1회 */
 export function ClubPaymentMatrix({ year, kind, rows }: Props) {
+  const router = useRouter()
+  const [target, setTarget] = useState<ClubPaymentTarget | null>(null)
+  const [toast, setToast] = useState({ isOpen: false, message: '' })
+  const [alert, setAlert] = useState({ isOpen: false, message: '' })
+
   const href = (y: number, k: ClubPaymentKind) => `/admin/finance/clubs?year=${y}&kind=${k}`
+  const isAnnualFee = kind === 'ANNUAL_FEE'
   const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() + 1 : 12
 
-  // 시간대 그룹 정렬 (없는 그룹은 마지막)
   const sorted = [...rows].sort((a, b) => {
     const ia = a.court_slot ? SLOT_ORDER.indexOf(a.court_slot) : 99
     const ib = b.court_slot ? SLOT_ORDER.indexOf(b.court_slot) : 99
@@ -31,8 +41,11 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
   })
   const monthTotals = Array.from({ length: 12 }, (_, i) => rows.reduce((s, r) => s + r.months[i], 0))
   const grandTotal = monthTotals.reduce((a, b) => a + b, 0)
-  const isAnnualFee = kind === 'ANNUAL_FEE'
   const paidCount = rows.filter((r) => r.fee_paid).length
+
+  const onChanged = (message: string) => { setToast({ isOpen: true, message }); router.refresh() }
+  const onError = (message: string) => setAlert({ isOpen: true, message })
+  const open = (r: ClubPaymentRow, month: number | null) => setTarget({ clubId: r.club_id, clubName: r.club_name, kind, year, month })
 
   return (
     <div className="space-y-4">
@@ -51,59 +64,107 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
         </div>
       </div>
 
-      <div className="glass-card rounded-xl overflow-x-auto">
-        <table className="w-full text-sm min-w-[1100px]">
-          <thead>
-            <tr className="text-(--text-muted) border-b border-(--border-color)">
-              <th className="text-left px-3 py-2.5 font-medium sticky left-0 bg-(--bg-card)">구분</th>
-              <th className="text-left px-3 py-2.5 font-medium">클럽</th>
-              {isAnnualFee && <th className="text-left px-3 py-2.5 font-medium">납부</th>}
-              {Array.from({ length: 12 }, (_, i) => <th key={i} className="text-right px-2 py-2.5 font-medium">{i + 1}월</th>)}
-              <th className="text-right px-3 py-2.5 font-medium">합계</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sorted.map((r, idx) => {
-              const showSlot = idx === 0 || sorted[idx - 1].court_slot !== r.court_slot
-              return (
+      {isAnnualFee ? (
+        /* ---------- 협회비: 연 1회 ---------- */
+        <div className="glass-card rounded-xl overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
+            <thead>
+              <tr className="text-(--text-muted) border-b border-(--border-color)">
+                <th className="text-left px-3 py-2.5 font-medium">클럽</th>
+                <th className="text-left px-3 py-2.5 font-medium">납부</th>
+                <th className="text-left px-3 py-2.5 font-medium">납부일</th>
+                <th className="text-right px-3 py-2.5 font-medium">{year}년 납부 금액</th>
+                <th className="px-3 py-2.5"><span className="sr-only">입력</span></th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...rows].sort((a, b) => a.club_name.localeCompare(b.club_name, 'ko')).map((r) => (
                 <tr key={r.club_id} className="border-b border-(--border-color)/50 text-(--text-primary)">
-                  <td className="px-3 py-1.5 text-(--text-muted) whitespace-nowrap sticky left-0 bg-(--bg-card)">{showSlot ? (r.court_slot ?? '기타') : ''}</td>
                   <td className="px-3 py-1.5 whitespace-nowrap font-medium">{r.club_name}</td>
-                  {isAnnualFee && (
-                    <td className="px-3 py-1.5 whitespace-nowrap">
+                  <td className="px-3 py-1.5">
+                    <div className="flex items-center gap-2">
+                      <ClubFeeToggle clubId={r.club_id} year={year} paid={!!r.fee_paid} ariaLabel={`${r.club_name} ${year}년 협회비 납부`} onSaved={(paid) => onChanged(paid ? `${r.club_name} 납부 처리 (협회통장에 100,000원 기록)` : `${r.club_name} 미납으로 변경`)} onError={onError} />
                       <Badge variant={r.fee_paid ? 'success' : 'warning'}>{r.fee_paid ? '납부' : '미납'}</Badge>
-                      {r.fee_paid_at && <span className="ml-1.5 text-sm text-(--text-muted)">{formatKoreanDate(r.fee_paid_at)}</span>}
-                    </td>
-                  )}
-                  {r.months.map((amt, i) => {
-                    const unpaid = !isAnnualFee && amt === 0 && i + 1 <= currentMonth && !!r.court_slot
-                    return (
-                      <td key={i} className={`px-2 py-1.5 text-right tabular-nums ${unpaid ? 'bg-(--color-warning-subtle) text-(--color-warning)' : amt === 0 ? 'text-(--text-muted)' : ''}`}>
-                        {amt === 0 ? (unpaid ? '미납' : '-') : formatWon(amt)}
-                      </td>
-                    )
-                  })}
-                  <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{formatWon(r.total)}</td>
+                    </div>
+                  </td>
+                  <td className="px-3 py-1.5 text-(--text-secondary) whitespace-nowrap">{r.fee_paid_at ? formatKoreanDate(r.fee_paid_at) : '-'}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{r.total ? formatWon(r.total) : <span className="text-(--text-muted)">-</span>}</td>
+                  <td className="px-3 py-1.5 text-right">
+                    <button type="button" onClick={() => open(r, null)} className="btn-secondary btn-sm">금액·날짜 입력</button>
+                  </td>
                 </tr>
-              )
-            })}
-            {sorted.length === 0 && <tr><td colSpan={isAnnualFee ? 16 : 15} className="px-3 py-8 text-center text-(--text-muted)">집계할 거래가 없습니다. 원장에서 거래에 클럽을 연결해주세요.</td></tr>}
-          </tbody>
-          <tfoot>
-            <tr className="font-bold text-(--text-primary) bg-(--bg-secondary)/50">
-              <td className="px-3 py-2 sticky left-0 bg-(--bg-secondary)" colSpan={2}>합계</td>
-              {isAnnualFee && <td className="px-3 py-2 whitespace-nowrap">납부 {paidCount} / {rows.length}</td>}
-              {monthTotals.map((t, i) => <td key={i} className="px-2 py-2 text-right tabular-nums">{formatWon(t)}</td>)}
-              <td className="px-3 py-2 text-right tabular-nums">{formatWon(grandTotal)}</td>
-            </tr>
-          </tfoot>
-        </table>
-      </div>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="font-bold text-(--text-primary) bg-(--bg-secondary)/50">
+                <td className="px-3 py-2">합계</td>
+                <td className="px-3 py-2" colSpan={2}>납부 {paidCount} / {rows.length}</td>
+                <td className="px-3 py-2 text-right tabular-nums">{formatWon(grandTotal)}</td>
+                <td />
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      ) : (
+        /* ---------- 코트비 / 발전기금: 월별 ---------- */
+        <div className="glass-card rounded-xl overflow-x-auto">
+          <table className="w-full text-sm min-w-[1100px]">
+            <thead>
+              <tr className="text-(--text-muted) border-b border-(--border-color)">
+                <th className="text-left px-3 py-2.5 font-medium sticky left-0 bg-(--bg-card)">구분</th>
+                <th className="text-left px-3 py-2.5 font-medium">클럽</th>
+                {Array.from({ length: 12 }, (_, i) => <th key={i} className="text-right px-2 py-2.5 font-medium">{i + 1}월</th>)}
+                <th className="text-right px-3 py-2.5 font-medium">합계</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, idx) => {
+                const showSlot = idx === 0 || sorted[idx - 1].court_slot !== r.court_slot
+                return (
+                  <tr key={r.club_id} className="border-b border-(--border-color)/50 text-(--text-primary)">
+                    <td className="px-3 py-1.5 text-(--text-muted) whitespace-nowrap sticky left-0 bg-(--bg-card)">{showSlot ? (r.court_slot ?? '기타') : ''}</td>
+                    <td className="px-3 py-1.5 whitespace-nowrap font-medium">{r.club_name}</td>
+                    {r.months.map((amt, i) => {
+                      const unpaid = amt === 0 && i + 1 <= currentMonth && !!r.court_slot
+                      return (
+                        <td key={i} className={`p-0 text-right tabular-nums ${unpaid ? 'bg-(--color-warning-subtle)' : ''}`}>
+                          <button
+                            type="button"
+                            onClick={() => open(r, i + 1)}
+                            className={`w-full h-full px-2 py-1.5 text-right hover:bg-(--accent-color)/10 transition-colors ${unpaid ? 'text-(--color-warning)' : amt === 0 ? 'text-(--text-muted)' : ''}`}
+                            aria-label={`${r.club_name} ${i + 1}월 ${amt ? formatWon(amt) + '원' : '미입력'} — 클릭하여 입력`}
+                          >
+                            {amt === 0 ? (unpaid ? '미납' : '-') : formatWon(amt)}
+                          </button>
+                        </td>
+                      )
+                    })}
+                    <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{formatWon(r.total)}</td>
+                  </tr>
+                )
+              })}
+              {sorted.length === 0 && <tr><td colSpan={15} className="px-3 py-8 text-center text-(--text-muted)">표시할 클럽이 없습니다. 설정에서 클럽 코트 시간대를 등록하거나 원장에서 거래에 클럽을 연결하세요.</td></tr>}
+            </tbody>
+            <tfoot>
+              <tr className="font-bold text-(--text-primary) bg-(--bg-secondary)/50">
+                <td className="px-3 py-2 sticky left-0 bg-(--bg-secondary)" colSpan={2}>합계</td>
+                {monthTotals.map((t, i) => <td key={i} className="px-2 py-2 text-right tabular-nums">{formatWon(t)}</td>)}
+                <td className="px-3 py-2 text-right tabular-nums">{formatWon(grandTotal)}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      )}
+
       <p className="text-sm text-(--text-muted)">
         {isAnnualFee
-          ? '납부 여부는 클럽 관리의 연회비 스위치(club_fee_payments) 기준이고, 월별 금액은 협회통장 "협회비" 거래 중 클럽이 연결된 것만 집계됩니다. 엑셀에서 가져온 협회비 입금은 클럽이 연결된 경우에만 표시됩니다.'
-          : '"미납"은 코트 시간대가 등록된 클럽이 이번 달까지 해당 월 거래가 없을 때 표시됩니다. 두 달치를 한 번에 낸 경우 해당 월에 합산되어 나타납니다.'}
+          ? '협회비는 연 1회 납부입니다. 스위치를 켜면 협회통장에 100,000원 거래가 자동 기록되고, 금액·날짜가 다르면 "금액·날짜 입력"으로 수정하세요. 클럽 관리 화면의 연회비 스위치와 같은 데이터입니다.'
+          : '셀을 클릭하면 해당 달의 납부 기록을 보고 직접 입력·삭제할 수 있습니다. "미납"은 코트 시간대가 등록된 클럽이 이번 달까지 기록이 없을 때 표시됩니다. 입력한 금액은 원장 거래로 저장됩니다.'}
       </p>
+
+      <ClubPaymentModal target={target} onClose={() => setTarget(null)} onChanged={onChanged} onError={onError} />
+      <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type="success" />
+      <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title="오류" message={alert.message} type="error" />
     </div>
   )
 }
