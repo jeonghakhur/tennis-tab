@@ -13,7 +13,7 @@ const ALL_EXTENSIONS = `${IMAGE_EXTENSIONS},${DOCUMENT_EXTENSIONS}`
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-const MAX_ATTACHMENTS = 10
+const MAX_ATTACHMENTS = 20
 
 /** 파일 확장자로 타입 판별 */
 function getFileType(file: File): 'image' | 'document' | null {
