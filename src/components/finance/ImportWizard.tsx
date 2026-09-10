@@ -6,7 +6,7 @@ import { Upload, CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { FinanceAccount, FinanceCategory, AccountType, CategoryKind } from '@/lib/finance/types'
 import { ACCOUNT_TYPE_LABELS } from '@/lib/finance/types'
 import type { ParseResult } from '@/lib/finance/excelImport'
-import { commitImport, type ClubOption, type ImportTransactionRow } from '@/lib/finance/actions'
+import { commitImport, upsertClubAlias, type ClubOption, type ImportTransactionRow } from '@/lib/finance/actions'
 import { formatWon } from '@/lib/finance/ledger'
 import { Toast, AlertDialog, ConfirmDialog } from '@/components/common/AlertDialog'
 import { LoadingOverlay } from '@/components/common/LoadingOverlay'
@@ -36,6 +36,8 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
   const [parsed, setParsed] = useState<ParseResult | null>(null)
   const [categoryMap, setCategoryMap] = useState<CategoryMap>({})
   const [clubMap, setClubMap] = useState<ClubMap>({})
+  /** 가져올 시트 (기본: 거래가 있는 시트 전부) */
+  const [selectedSheets, setSelectedSheets] = useState<Set<string>>(new Set())
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [result, setResult] = useState<{ inserted: number; skipped: number } | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
@@ -46,11 +48,16 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
   const aliasMap = useMemo(() => new Map(aliases.map((a) => [a.alias, a.club_id])), [aliases])
 
   /** 파싱 결과의 분류·클럽 힌트 집합 (매핑 UI용) */
+  const activeTransactions = useMemo(
+    () => (parsed?.transactions ?? []).filter((t) => selectedSheets.has(t.sheet)),
+    [parsed, selectedSheets],
+  )
+
   const distinct = useMemo(() => {
     if (!parsed) return { cats: [] as Array<{ key: string; accountType: AccountType; kind: CategoryKind; raw: string; count: number }>, hints: [] as Array<{ hint: string; count: number }> }
     const cats = new Map<string, { key: string; accountType: AccountType; kind: CategoryKind; raw: string; count: number }>()
     const hints = new Map<string, number>()
-    for (const t of parsed.transactions) {
+    for (const t of activeTransactions) {
       const k = catKey(t.accountType, t.kind, t.rawCategory)
       const c = cats.get(k)
       if (c) c.count++
@@ -61,7 +68,7 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
       cats: [...cats.values()].sort((a, b) => a.key.localeCompare(b.key)),
       hints: [...hints.entries()].map(([hint, count]) => ({ hint, count })).sort((a, b) => b.count - a.count),
     }
-  }, [parsed])
+  }, [parsed, activeTransactions])
 
   const handleFile = async (file: File) => {
     setParsing(true)
@@ -81,6 +88,7 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
         return
       }
       setParsed(json)
+      setSelectedSheets(new Set(json.sheetCounts.filter((sc) => sc.count > 0).map((sc) => sc.sheet)))
       // 자동 매핑: 분류명 일치 / 클럽명·별칭 일치
       const cm: CategoryMap = {}
       for (const t of json.transactions) {
@@ -112,10 +120,10 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
   }
 
   const unmappedCats = distinct.cats.filter((c) => !categoryMap[c.key])
-  const missingAccounts = [...new Set((parsed?.transactions ?? []).map((t) => t.accountType))].filter((t) => !accountByType[t])
+  const missingAccounts = [...new Set(activeTransactions.map((t) => t.accountType))].filter((t) => !accountByType[t])
 
   const buildRows = (): ImportTransactionRow[] =>
-    (parsed?.transactions ?? []).map((t) => ({
+    activeTransactions.map((t) => ({
       account_id: accountByType[t.accountType]!.id,
       category_id: categoryMap[catKey(t.accountType, t.kind, t.rawCategory)],
       occurred_at: t.occurredAt,
@@ -130,20 +138,44 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
     setConfirmOpen(false)
     setCommitting(true)
     const r = await commitImport(buildRows())
-    setCommitting(false)
     if (r.error) {
+      setCommitting(false)
       setAlert({ isOpen: true, message: r.error })
       return
     }
+    // 수동으로 연결한 클럽 힌트는 별칭으로 저장해 다음 가져오기에서 자동 매핑
+    const newAliases = distinct.hints
+      .map((h) => ({ alias: h.hint, clubId: clubMap[h.hint] }))
+      .filter((a) => a.clubId && !clubByName.has(a.alias) && aliasMap.get(a.alias) !== a.clubId)
+    await Promise.all(newAliases.map((a) => upsertClubAlias(a.alias, a.clubId)))
+    setCommitting(false)
     setResult({ inserted: r.inserted ?? 0, skipped: r.skipped ?? 0 })
     setStep('done')
     setToast({ isOpen: true, message: `${r.inserted}건을 가져왔습니다.` })
     router.refresh()
   }
 
-  const total = parsed?.transactions.length ?? 0
-  const sumIncome = parsed?.transactions.filter((t) => t.kind === 'INCOME').reduce((a, t) => a + t.amount, 0) ?? 0
-  const sumExpense = parsed?.transactions.filter((t) => t.kind === 'EXPENSE').reduce((a, t) => a + t.amount, 0) ?? 0
+  const total = activeTransactions.length
+  const sumIncome = activeTransactions.filter((t) => t.kind === 'INCOME').reduce((a, t) => a + t.amount, 0)
+  const sumExpense = activeTransactions.filter((t) => t.kind === 'EXPENSE').reduce((a, t) => a + t.amount, 0)
+
+  const toggleSheet = (sheet: string) =>
+    setSelectedSheets((prev) => {
+      const next = new Set(prev)
+      if (next.has(sheet)) next.delete(sheet)
+      else next.add(sheet)
+      return next
+    })
+  const toggleAccountSheets = (accountType: AccountType, on: boolean) =>
+    setSelectedSheets((prev) => {
+      const next = new Set(prev)
+      for (const sc of parsed?.sheetCounts ?? []) {
+        if (sc.accountType !== accountType || sc.count === 0) continue
+        if (on) next.add(sc.sheet)
+        else next.delete(sc.sheet)
+      }
+      return next
+    })
 
   return (
     <div className="space-y-6">
@@ -171,9 +203,34 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
             <Stat label="지출 합계" value={formatWon(sumExpense)} />
             <Stat label="건너뜀" value={`${parsed.skipped.length}행`} />
           </div>
-          <p className="text-sm text-(--text-muted)">
-            {parsed.sheetCounts.filter((s) => s.count > 0).map((s) => `${s.sheet} ${s.count}`).join(' · ')}
-          </p>
+          {/* 가져올 시트 선택 — 이미 반영된 통장(예: 카카오뱅크로 교체한 이사회비)은 체크 해제 */}
+          <section className="glass-card rounded-xl p-4 space-y-3">
+            <h2 className="font-semibold text-(--text-primary)">가져올 시트 <span className="text-sm font-normal text-(--text-muted)">(이미 가져온 거래는 어차피 건너뜁니다. 다른 방법으로 반영한 통장만 해제하세요)</span></h2>
+            {(['CONSIGNMENT', 'ASSOCIATION', 'BOARD'] as const).map((accountType) => {
+              const sheets = parsed.sheetCounts.filter((sc) => sc.accountType === accountType && sc.count > 0)
+              if (sheets.length === 0) return null
+              const allOn = sheets.every((sc) => selectedSheets.has(sc.sheet))
+              return (
+                <div key={accountType} className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-(--text-primary)">{ACCOUNT_TYPE_LABELS[accountType]}</span>
+                    <button type="button" onClick={() => toggleAccountSheets(accountType, !allOn)} className="text-sm text-(--accent-color) hover:underline">{allOn ? '전체 해제' : '전체 선택'}</button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sheets.map((sc) => {
+                      const on = selectedSheets.has(sc.sheet)
+                      return (
+                        <label key={sc.sheet} className={`px-3 py-1.5 rounded-full text-sm cursor-pointer border ${on ? 'bg-(--accent-color) text-(--bg-primary) border-transparent' : 'bg-(--bg-secondary) text-(--text-muted) border-(--border-color) line-through'}`}>
+                          <input type="checkbox" className="sr-only" checked={on} onChange={() => toggleSheet(sc.sheet)} />
+                          {sc.sheet} {sc.count}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
+          </section>
           {missingAccounts.length > 0 && (
             <Warn>다음 통장이 설정에 없습니다: {missingAccounts.map((t) => ACCOUNT_TYPE_LABELS[t]).join(', ')}. 마이그레이션(60_finance_ledger.sql)이 적용되었는지 확인하세요.</Warn>
           )}
@@ -237,8 +294,8 @@ export function ImportWizard({ accounts, categories, clubs, aliases }: Props) {
             <button
               type="button"
               onClick={() => setConfirmOpen(true)}
-              disabled={unmappedCats.length > 0 || missingAccounts.length > 0}
-              title={unmappedCats.length > 0 ? `미지정 분류 ${unmappedCats.length}개를 먼저 선택하세요` : undefined}
+              disabled={unmappedCats.length > 0 || missingAccounts.length > 0 || total === 0}
+              title={unmappedCats.length > 0 ? `미지정 분류 ${unmappedCats.length}개를 먼저 선택하세요` : total === 0 ? '가져올 시트를 선택하세요' : undefined}
               className="btn-primary btn-sm disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span className="relative z-10">{unmappedCats.length > 0 ? `미지정 분류 ${unmappedCats.length}개` : `${total}건 가져오기`}</span>
