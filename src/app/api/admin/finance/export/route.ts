@@ -3,11 +3,9 @@ import * as XLSX from 'xlsx'
 import { createClient, getVerifiedUser } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { hasMinimumRole } from '@/lib/auth/roles'
-import { getKSTYearRange, sumByKind, subtotalByCategory, buildMonthlyTotals, toKSTParts } from '@/lib/finance/ledger'
-import { formatKoreanDateTime } from '@/lib/utils/formatDate'
+import { getKSTYearRange, sumByKind, subtotalByCategory, buildMonthlyTotals, toKSTParts, computeRunningBalances } from '@/lib/finance/ledger'
+import { buildMonthWorksheet, monthSheetName, type Cell } from '@/lib/finance/excelExport'
 import type { FinanceAccount, FinanceCategory, FinanceTransaction } from '@/lib/finance/types'
-
-type Cell = string | number
 const TX_SELECT = '*, category:finance_categories!inner(name, kind), club:clubs(name)'
 
 /** 연간 결산서 엑셀 — 기존 양식(통장별 월 시트 + 월별수지결산)과 같은 구성 */
@@ -47,39 +45,21 @@ export async function GET(request: Request) {
     let running = yearOpening
     for (let m = 1; m <= 12; m++) {
       const inMonth = inYear.filter((t) => toKSTParts(t.occurred_at).month === m)
-      const opening = running
       const { income, expense } = sumByKind(inMonth)
-      const subtotals = subtotalByCategory(inMonth, accCategories)
-
-      const rows: Cell[][] = [
-        [`${account.name} ${m}월 수지결산서`],
-        [],
-        ['구분', '분류', '수입금액', '지출금액', '비고'],
-        ['수입', '이월잔액', opening, ''],
-        ...subtotals.filter((s) => s.kind === 'INCOME').map((s) => ['수입', s.name, s.amount, ''] as Cell[]),
-        ...subtotals.filter((s) => s.kind === 'EXPENSE').map((s) => ['지출', s.name, '', s.amount] as Cell[]),
-        ['합계', '', opening + income, expense, opening + income - expense],
-        [],
-        ['일시', '적요', '분류', '클럽', '입금액', '출금액', '비고', '잔액'],
-      ]
-      for (const t of inMonth) {
-        running += t.category.kind === 'INCOME' ? t.amount : -t.amount
-        rows.push([
-          formatKoreanDateTime(t.occurred_at),
-          t.description,
-          t.category.name,
-          t.club?.name ?? '',
-          t.category.kind === 'INCOME' ? t.amount : '',
-          t.category.kind === 'EXPENSE' ? t.amount : '',
-          t.memo ?? '',
-          running,
-        ])
-      }
-      rows.push(['', '', '', '합계', income, expense, '', running])
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      ws['!cols'] = [{ wch: 18 }, { wch: 24 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 14 }]
-      const sheetName = account.account_type === 'CONSIGNMENT' ? `${m}월` : account.account_type === 'ASSOCIATION' ? `협회${m}월` : `${account.name}${m}월`
-      XLSX.utils.book_append_sheet(wb, ws, sheetName.slice(0, 31))
+      const ws = buildMonthWorksheet(
+        {
+          accountName: account.name,
+          month: m,
+          openingBalance: running,
+          totalIncome: income,
+          totalExpense: expense,
+          subtotals: subtotalByCategory(inMonth, accCategories),
+          rows: computeRunningBalances(running, inMonth),
+        },
+        XLSX,
+      )
+      XLSX.utils.book_append_sheet(wb, ws, monthSheetName(account.account_type, account.name, m))
+      running += income - expense
     }
 
     // 요약 블록

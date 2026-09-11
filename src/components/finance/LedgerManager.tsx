@@ -3,9 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Pencil, Trash2, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Pencil, Trash2, Plus, Download } from 'lucide-react'
 import type { FinanceAccount, LedgerRow, MonthLedger, TransactionInput } from '@/lib/finance/types'
 import { formatWon } from '@/lib/finance/ledger'
+import { buildMonthLedgerWorkbook, monthLedgerFileName } from '@/lib/finance/excelExport'
 import { createTransaction, updateTransaction, deleteTransaction, type ClubOption } from '@/lib/finance/actions'
 import { formatKoreanDateTime } from '@/lib/utils/formatDate'
 import { Modal } from '@/components/common/Modal'
@@ -30,6 +31,7 @@ export function LedgerManager({ ledger, clubs, accounts }: Props) {
   const [deleteBusy, setDeleteBusy] = useState(false)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
+  const [exporting, setExporting] = useState(false)
 
   const showError = (message: string) => setAlert({ isOpen: true, message })
   const showSuccess = (message: string) => { setToast({ isOpen: true, message }); router.refresh() }
@@ -57,6 +59,19 @@ export function LedgerManager({ ledger, clubs, accounts }: Props) {
     showSuccess('거래가 삭제되었습니다.')
   }
 
+  // 엑셀 내보내기 — 화면에 있는 원장 데이터로 생성 (서버 왕복 없음), xlsx는 클릭 시에만 로드
+  const handleExport = async () => {
+    setExporting(true)
+    try {
+      const xlsx = await import('xlsx')
+      xlsx.writeFile(buildMonthLedgerWorkbook(ledger, xlsx), monthLedgerFileName(ledger))
+    } catch {
+      showError('엑셀 파일 생성에 실패했습니다.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const incomeSubtotals = ledger.subtotals.filter((s) => s.kind === 'INCOME')
   const expenseSubtotals = ledger.subtotals.filter((s) => s.kind === 'EXPENSE')
 
@@ -75,6 +90,17 @@ export function LedgerManager({ ledger, clubs, accounts }: Props) {
           <Link href={href(prev.year, prev.month)} className="p-2 rounded-lg hover:bg-(--bg-card) text-(--text-secondary)" aria-label="이전 달"><ChevronLeft className="w-5 h-5" /></Link>
           <span className="text-lg font-bold text-(--text-primary) min-w-[7rem] text-center">{year}년 {month}월</span>
           <Link href={href(next.year, next.month)} className="p-2 rounded-lg hover:bg-(--bg-card) text-(--text-secondary)" aria-label="다음 달"><ChevronRight className="w-5 h-5" /></Link>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            aria-busy={exporting}
+            className="btn-secondary btn-sm flex items-center gap-1 ml-2 disabled:opacity-60"
+            aria-label={`${year}년 ${month}월 ${account.name} 엑셀 내보내기`}
+          >
+            <Download className="w-4 h-4" />
+            <span>{exporting ? '생성 중…' : '엑셀 내보내기'}</span>
+          </button>
         </div>
       </div>
 
