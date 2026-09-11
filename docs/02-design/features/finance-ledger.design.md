@@ -9,7 +9,7 @@ src/lib/finance/
 ├── types.ts          # 도메인 타입 (Account/Category/Transaction/Ledger/Budget/Matrix)
 ├── ledger.ts         # 순수 계산: KST 월 경계, 누적 잔액, 분류 소계, 월별 합계, 달성률
 ├── excelImport.ts    # 결산서 엑셀 파서 (순수, 브라우저/서버 공용)
-├── actions.ts        # Server Actions (ADMIN 이상) — 계정/분류/거래/원장/연간요약/매트릭스/예산/별칭/가져오기
+├── actions.ts        # Server Actions (SUPER_ADMIN 전용) — 계정/분류/거래/원장/연간요약/매트릭스/예산/별칭/가져오기
 ├── pageAuth.ts       # 페이지 인증 헬퍼 (getVerifiedUser + role ≥ ADMIN)
 └── __tests__/        # ledger·validation·excelImport (실데이터 대조 포함)
 
@@ -43,7 +43,7 @@ src/components/finance/
 | `clubs.monthly_court_fee` | 월 코트비 기준 금액 (61_clubs_monthly_court_fee.sql) | NULL 허용·0 이상 정수. 코트비 셀 입력 기본값 + 매트릭스 "월 코트비" 컬럼. 재정 설정에서 입력 |
 | `clubs.monthly_dev_fund` | 월 발전기금 기준 금액 (62_clubs_monthly_dev_fund.sql) | 위와 동일 구조. 발전기금 탭 셀 입력 기본값 + "월 발전기금" 컬럼 |
 
-RLS: 5개 테이블 모두 `profiles.role IN ('ADMIN','SUPER_ADMIN')`만 ALL.
+RLS: 5개 테이블 모두 `profiles.role IN ('ADMIN','SUPER_ADMIN')`만 ALL. 앱 레벨(페이지 가드·Server Action·사이드바)은 SUPER_ADMIN만 허용 — 실제 접근은 admin client(Service Role)로 이뤄지므로 앱 가드가 유효 경계.
 
 ## 핵심 규칙
 

@@ -69,7 +69,7 @@ const menuItems = [
     name: '재정 관리',
     href: '/admin/finance',
     icon: Wallet,
-    roles: ['SUPER_ADMIN', 'ADMIN'] as UserRole[],
+    roles: ['SUPER_ADMIN'] as UserRole[],
   },
   {
     name: '레슨 관리',

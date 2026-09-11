@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { getCurrentUser } from '@/lib/auth/actions'
-import { hasMinimumRole } from '@/lib/auth/roles'
+import { isSuperAdmin } from '@/lib/auth/roles'
 import { sanitizeObject, validateTransactionInput, hasValidationErrors } from '@/lib/utils/validation'
 import {
   buildMonthlyTotals,
@@ -33,11 +33,11 @@ import type {
 
 const TX_SELECT = '*, category:finance_categories!inner(name, kind), club:clubs(name)'
 
-/** 시스템 ADMIN 이상 검증 */
+/** SUPER_ADMIN 검증 — 재정 관리는 최고 관리자 전용 */
 async function requireAdmin(): Promise<{ userId: string } | { error: string }> {
   const user = await getCurrentUser()
-  if (!user || !hasMinimumRole(user.role, 'ADMIN')) {
-    return { error: '재정 관리는 협회 관리자만 접근할 수 있습니다.' }
+  if (!user || !isSuperAdmin(user.role)) {
+    return { error: '재정 관리는 최고 관리자만 접근할 수 있습니다.' }
   }
   return { userId: user.id }
 }

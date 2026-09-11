@@ -604,7 +604,8 @@ src/components/admin/BracketManager/
 ## 재정 관리 (Finance Ledger)
 설계: `docs/02-design/features/finance-ledger.design.md` · 마이그레이션: `60_finance_ledger.sql`
 
-- 모듈: `src/lib/finance/` — `ledger.ts`(순수 계산), `excelImport.ts`(엑셀 파서), `actions.ts`(Server Actions, ADMIN 이상)
+- 모듈: `src/lib/finance/` — `ledger.ts`(순수 계산), `excelImport.ts`(엑셀 파서), `actions.ts`(Server Actions, **SUPER_ADMIN 전용**)
+- 접근 권한: 페이지(`pageAuth.ts`)·Server Action·사이드바 모두 SUPER_ADMIN만. 클럽 연회비 스위치(`clubs/feeActions.ts`)는 클럽 관리 기능이라 ADMIN 이상 유지
 - **잔액은 저장하지 않음**: `opening_balance + Σ수입 − Σ지출`로 항상 계산. 월 경계는 KST(`getKSTMonthRange`)
 - 금액은 양의 정수(원) 하나, 방향은 `finance_categories.kind`(INCOME/EXPENSE)
 - 엑셀 가져오기 검증 기준은 각 월 시트의 **마지막 잔액**(은행 실잔액). 요약 시트 수식은 신뢰하지 않음
