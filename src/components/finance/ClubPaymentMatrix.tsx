@@ -4,7 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import type { ClubPaymentRow } from '@/lib/finance/types'
+import { COURT_SLOTS, type ClubPaymentRow } from '@/lib/finance/types'
 import type { ClubPaymentKind } from '@/lib/finance/actions'
 import { formatWon } from '@/lib/finance/ledger'
 import { formatKoreanDate } from '@/lib/utils/formatDate'
@@ -20,7 +20,7 @@ interface Props {
 }
 
 const KIND_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '월 임대료(코트비)', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비(연 1회)' }
-const SLOT_ORDER = ['조기', '주중오전', '주중오후', '주중1회', '주말1회', '주말오전', '주말오후', '주말오전,오후']
+const SLOT_ORDER: readonly string[] = COURT_SLOTS
 
 /** 클럽 × 월 납부 매트릭스 — 셀 클릭으로 수동 입력·삭제, 협회비는 연 1회 */
 export function ClubPaymentMatrix({ year, kind, rows }: Props) {
@@ -31,6 +31,13 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
 
   const href = (y: number, k: ClubPaymentKind) => `/admin/finance/clubs?year=${y}&kind=${k}`
   const isAnnualFee = kind === 'ANNUAL_FEE'
+  /** 월별 탭의 기준 금액 컬럼 — 코트비/발전기금 (협회비는 없음) */
+  const baseAmountOf = (r: ClubPaymentRow): number | null => {
+    if (kind === 'COURT_FEE') return r.monthly_court_fee
+    if (kind === 'DEV_FUND') return r.monthly_dev_fund
+    return null
+  }
+  const baseLabel = kind === 'COURT_FEE' ? '월 코트비' : '월 발전기금'
   const currentMonth = new Date().getFullYear() === year ? new Date().getMonth() + 1 : 12
 
   const sorted = [...rows].sort((a, b) => {
@@ -41,6 +48,7 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
   })
   const monthTotals = Array.from({ length: 12 }, (_, i) => rows.reduce((s, r) => s + r.months[i], 0))
   const grandTotal = monthTotals.reduce((a, b) => a + b, 0)
+  const baseAmountTotal = rows.reduce((s, r) => s + (baseAmountOf(r) ?? 0), 0)
   const paidCount = rows.filter((r) => r.fee_paid).length
 
   const onChanged = (message: string) => { setToast({ isOpen: true, message }); router.refresh() }
@@ -113,6 +121,7 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
               <tr className="text-(--text-muted) border-b border-(--border-color)">
                 <th className="text-left px-3 py-2.5 font-medium sticky left-0 bg-(--bg-card)">구분</th>
                 <th className="text-left px-3 py-2.5 font-medium">클럽</th>
+                <th className="text-right px-2 py-2.5 font-medium whitespace-nowrap">{baseLabel}</th>
                 {Array.from({ length: 12 }, (_, i) => <th key={i} className="text-right px-2 py-2.5 font-medium">{i + 1}월</th>)}
                 <th className="text-right px-3 py-2.5 font-medium">합계</th>
               </tr>
@@ -124,6 +133,9 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
                   <tr key={r.club_id} className="border-b border-(--border-color)/50 text-(--text-primary)">
                     <td className="px-3 py-1.5 text-(--text-muted) whitespace-nowrap sticky left-0 bg-(--bg-card)">{showSlot ? (r.court_slot ?? '기타') : ''}</td>
                     <td className="px-3 py-1.5 whitespace-nowrap font-medium">{r.club_name}</td>
+                    <td className="px-2 py-1.5 text-right tabular-nums text-(--text-secondary)">
+                      {baseAmountOf(r) !== null ? formatWon(baseAmountOf(r) ?? 0) : <span className="text-(--text-muted)">-</span>}
+                    </td>
                     {r.months.map((amt, i) => {
                       const unpaid = amt === 0 && i + 1 <= currentMonth && !!r.court_slot
                       return (
@@ -143,11 +155,12 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
                   </tr>
                 )
               })}
-              {sorted.length === 0 && <tr><td colSpan={15} className="px-3 py-8 text-center text-(--text-muted)">표시할 클럽이 없습니다. 설정에서 클럽 코트 시간대를 등록하거나 원장에서 거래에 클럽을 연결하세요.</td></tr>}
+              {sorted.length === 0 && <tr><td colSpan={16} className="px-3 py-8 text-center text-(--text-muted)">표시할 클럽이 없습니다. <Link href="/admin/finance/settings" className="underline">재정 설정</Link>에서 클럽 코트 시간대를 등록하거나 원장에서 거래에 클럽을 연결하세요.</td></tr>}
             </tbody>
             <tfoot>
               <tr className="font-bold text-(--text-primary) bg-(--bg-secondary)/50">
                 <td className="px-3 py-2 sticky left-0 bg-(--bg-secondary)" colSpan={2}>합계</td>
+                <td className="px-2 py-2 text-right tabular-nums">{formatWon(baseAmountTotal)}</td>
                 {monthTotals.map((t, i) => <td key={i} className="px-2 py-2 text-right tabular-nums">{formatWon(t)}</td>)}
                 <td className="px-3 py-2 text-right tabular-nums">{formatWon(grandTotal)}</td>
               </tr>
@@ -159,7 +172,7 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
       <p className="text-sm text-(--text-muted)">
         {isAnnualFee
           ? '협회비는 연 1회 납부입니다. 스위치를 켜면 협회통장에 100,000원 거래가 자동 기록되고, 금액·날짜가 다르면 "금액·날짜 입력"으로 수정하세요. 클럽 관리 화면의 연회비 스위치와 같은 데이터입니다.'
-          : '셀을 클릭하면 해당 달의 납부 기록을 보고 직접 입력·삭제할 수 있습니다. "미납"은 코트 시간대가 등록된 클럽이 이번 달까지 기록이 없을 때 표시됩니다. 입력한 금액은 원장 거래로 저장됩니다.'}
+          : '셀을 클릭하면 해당 달의 납부 기록을 보고 직접 입력·삭제할 수 있습니다. "미납"은 코트 시간대가 등록된 클럽이 이번 달까지 기록이 없을 때 표시됩니다. 입력한 금액은 원장 거래로 저장됩니다. 월 코트비·월 발전기금 기준 금액과 코트 시간대는 재정 설정에서 입력합니다.'}
       </p>
 
       <ClubPaymentModal target={target} onClose={() => setTarget(null)} onChanged={onChanged} onError={onError} />

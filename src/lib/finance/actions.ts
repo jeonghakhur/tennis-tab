@@ -15,6 +15,7 @@ import {
   toKSTParts,
   achievementRate,
 } from './ledger'
+import { COURT_SLOTS } from './types'
 import type {
   AccountAnnualSummary,
   BudgetReportRow,
@@ -395,7 +396,7 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
 
   const isAnnualFee = kind === 'ANNUAL_FEE'
   const [clubsRes, txRes, feeRes] = await Promise.all([
-    admin.from('clubs').select('id, name, court_slot').eq('is_active', true).order('name'),
+    admin.from('clubs').select('id, name, court_slot, monthly_court_fee, monthly_dev_fund').eq('is_active', true).order('name'),
     admin
       .from('finance_transactions')
       .select('club_id, occurred_at, amount, category:finance_categories!inner(name, kind, account:finance_accounts!inner(account_type))')
@@ -427,12 +428,26 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
   }
 
   // 코트비·발전기금: 코트 시간대가 있는 클럽 + 거래가 있는 클럽 / 협회비: 전체 활성 클럽
-  const clubs = (clubsRes.data ?? []) as Array<{ id: string; name: string; court_slot: string | null }>
+  const clubs = (clubsRes.data ?? []) as Array<{
+    id: string
+    name: string
+    court_slot: string | null
+    monthly_court_fee: number | null
+    monthly_dev_fund: number | null
+  }>
   return clubs
     .filter((c) => isAnnualFee || c.court_slot || byClub.has(c.id))
     .map((c) => {
       const months = byClub.get(c.id) ?? new Array<number>(12).fill(0)
-      const row: ClubPaymentRow = { club_id: c.id, club_name: c.name, court_slot: c.court_slot, months, total: months.reduce((a, b) => a + b, 0) }
+      const row: ClubPaymentRow = {
+        club_id: c.id,
+        club_name: c.name,
+        court_slot: c.court_slot,
+        monthly_court_fee: c.monthly_court_fee,
+        monthly_dev_fund: c.monthly_dev_fund,
+        months,
+        total: months.reduce((a, b) => a + b, 0),
+      }
       if (isAnnualFee) {
         row.fee_paid = feePaidMap.has(c.id)
         row.fee_paid_at = feePaidMap.get(c.id) ?? null
@@ -475,7 +490,7 @@ export async function getClubPaymentDetail(
 
   const range = month ? getKSTMonthRange(year, month) : getKSTYearRange(year)
   const [clubRes, txRes, lastRes] = await Promise.all([
-    admin.from('clubs').select('id, name').eq('id', clubId).single(),
+    admin.from('clubs').select('id, name, monthly_court_fee, monthly_dev_fund').eq('id', clubId).single(),
     admin
       .from('finance_transactions')
       .select('id, occurred_at, description, amount, memo, source')
@@ -495,12 +510,18 @@ export async function getClubPaymentDetail(
   ])
   if (clubRes.error || !clubRes.data) return { error: '클럽을 찾을 수 없습니다.' }
 
+  // 코트비·발전기금은 설정된 월 기준 금액을 우선, 없으면 최근 납부 금액
+  const monthlyBase: Record<ClubPaymentKind, number | null> = {
+    COURT_FEE: clubRes.data.monthly_court_fee,
+    DEV_FUND: clubRes.data.monthly_dev_fund,
+    ANNUAL_FEE: null,
+  }
   return {
     data: {
-      club: clubRes.data,
+      club: { id: clubRes.data.id, name: clubRes.data.name },
       account_id: target.account_id,
       category_id: target.category_id,
-      suggestedAmount: lastRes.data?.amount ?? null,
+      suggestedAmount: monthlyBase[kind] || lastRes.data?.amount || null,
       transactions: (txRes.data ?? []) as ClubPaymentDetail['transactions'],
     },
   }
@@ -682,14 +703,55 @@ export interface ClubOption {
   id: string
   name: string
   court_slot: string | null
+  monthly_court_fee: number | null
+  monthly_dev_fund: number | null
 }
 
 export async function getClubsForFinance(): Promise<ClubOption[]> {
   const auth = await requireAdmin()
   if ('error' in auth) return []
   const admin = createAdminClient()
-  const { data } = await admin.from('clubs').select('id, name, court_slot').eq('is_active', true).order('name')
+  const { data } = await admin.from('clubs').select('id, name, court_slot, monthly_court_fee, monthly_dev_fund').eq('is_active', true).order('name')
   return (data ?? []) as ClubOption[]
+}
+
+const MAX_MONTHLY_AMOUNT = 100_000_000
+
+/** 월 기준 금액 검증 — null(미설정) 또는 0 이상 정수 */
+function isValidMonthlyAmount(v: number | null): boolean {
+  return v === null || (Number.isInteger(v) && v >= 0 && v <= MAX_MONTHLY_AMOUNT)
+}
+
+/**
+ * 클럽 코트 설정 — 코트 시간대 + 월 코트비·월 발전기금 기준 금액
+ * - court_slot: COURT_SLOTS 중 하나 또는 null(미배정)
+ * - monthlyCourtFee / monthlyDevFund: 0 이상 정수(원) 또는 null(미설정)
+ */
+export async function updateClubCourtSettings(input: {
+  clubId: string
+  courtSlot: string | null
+  monthlyCourtFee: number | null
+  monthlyDevFund: number | null
+}): Promise<{ error?: string }> {
+  const auth = await requireAdmin()
+  if ('error' in auth) return auth
+
+  const courtSlot = input.courtSlot ? sanitizeObject({ s: input.courtSlot }).s.trim() : null
+  if (courtSlot && !(COURT_SLOTS as readonly string[]).includes(courtSlot)) {
+    return { error: '코트 시간대 값이 올바르지 않습니다.' }
+  }
+  if (!isValidMonthlyAmount(input.monthlyCourtFee)) return { error: '월 코트비는 0 이상의 정수(원)로 입력해주세요.' }
+  if (!isValidMonthlyAmount(input.monthlyDevFund)) return { error: '월 발전기금은 0 이상의 정수(원)로 입력해주세요.' }
+
+  const admin = createAdminClient()
+  const { error } = await admin
+    .from('clubs')
+    .update({ court_slot: courtSlot || null, monthly_court_fee: input.monthlyCourtFee, monthly_dev_fund: input.monthlyDevFund })
+    .eq('id', input.clubId)
+  if (error) return { error: '클럽 코트 설정 저장에 실패했습니다.' }
+
+  revalidateFinance()
+  return {}
 }
 
 export async function getClubAliases(): Promise<Array<{ alias: string; club_id: string; club_name: string }>> {

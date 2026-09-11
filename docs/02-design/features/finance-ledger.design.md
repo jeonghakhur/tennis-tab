@@ -27,7 +27,7 @@ src/app/api/admin/finance/
 src/components/finance/
 ├── FinanceOverview.tsx, LedgerManager.tsx, TransactionForm.tsx, ClubCombobox.tsx
 ├── ClubPaymentMatrix.tsx, ImportWizard.tsx, FinanceSettings.tsx
-└── settings/{Account,Category,Alias,Budget}Settings.tsx
+└── settings/{Account,Category,ClubCourt,Alias,Budget}Settings.tsx
 ```
 
 ## 데이터 모델 (60_finance_ledger.sql)
@@ -39,7 +39,9 @@ src/components/finance/
 | `finance_transactions` | 거래 원장 | amount > 0, 방향은 category.kind, `import_key` UNIQUE, club_id/tournament_id 선택 |
 | `finance_club_aliases` | 엑셀 약칭 → 클럽 | alias PK |
 | `finance_budgets` | 연간 운영계획 | UNIQUE(year, account_id, label), `category_ids[]`로 실적 집계 |
-| `clubs.court_slot` | 코트 시간대 그룹 | 매트릭스 그룹핑 |
+| `clubs.court_slot` | 코트 시간대 그룹 | 매트릭스 그룹핑, `COURT_SLOTS` 중 하나. 재정 설정(클럽 코트 설정)에서 입력 |
+| `clubs.monthly_court_fee` | 월 코트비 기준 금액 (61_clubs_monthly_court_fee.sql) | NULL 허용·0 이상 정수. 코트비 셀 입력 기본값 + 매트릭스 "월 코트비" 컬럼. 재정 설정에서 입력 |
+| `clubs.monthly_dev_fund` | 월 발전기금 기준 금액 (62_clubs_monthly_dev_fund.sql) | 위와 동일 구조. 발전기금 탭 셀 입력 기본값 + "월 발전기금" 컬럼 |
 
 RLS: 5개 테이블 모두 `profiles.role IN ('ADMIN','SUPER_ADMIN')`만 ALL.
 

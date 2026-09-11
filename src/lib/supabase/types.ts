@@ -584,6 +584,8 @@ export interface Database {
           max_members: number | null
           is_active: boolean
           court_slot?: string | null
+          monthly_court_fee?: number | null
+          monthly_dev_fund?: number | null
           created_by: string
           created_at: string
           updated_at: string
@@ -601,6 +603,9 @@ export interface Database {
           association_id?: string | null
           max_members?: number | null
           is_active?: boolean
+          court_slot?: string | null
+          monthly_court_fee?: number | null
+          monthly_dev_fund?: number | null
           created_by: string
           created_at?: string
           updated_at?: string
@@ -618,6 +623,9 @@ export interface Database {
           association_id?: string | null
           max_members?: number | null
           is_active?: boolean
+          court_slot?: string | null
+          monthly_court_fee?: number | null
+          monthly_dev_fund?: number | null
           created_by?: string
           updated_at?: string
         }

@@ -133,11 +133,18 @@ export interface BudgetReportRow extends FinanceBudget {
   achievement: number | null
 }
 
+/** 코트 시간대 목록 — 매트릭스 정렬 순서이자 설정 select 옵션 */
+export const COURT_SLOTS = ['조기', '주중오전', '주중오후', '주중1회', '주말1회', '주말오전', '주말오후', '주말오전,오후'] as const
+
 /** 클럽 납부 매트릭스 */
 export interface ClubPaymentRow {
   club_id: string
   club_name: string
   court_slot: string | null
+  /** 월 코트비 기준 금액 (재정 설정에서 입력, NULL = 미설정) */
+  monthly_court_fee: number | null
+  /** 월 발전기금 기준 금액 (재정 설정에서 입력, NULL = 미설정) */
+  monthly_dev_fund: number | null
   /** index 0 = 1월 … 11 = 12월 */
   months: number[]
   total: number
@@ -151,7 +158,7 @@ export interface ClubPaymentDetail {
   club: { id: string; name: string }
   account_id: string
   category_id: string
-  /** 해당 클럽의 같은 항목 최근 납부 금액 (입력 기본값) */
+  /** 입력 기본값 — 코트비·발전기금은 클럽 월 기준 금액 설정, 없으면 같은 항목 최근 납부 금액 */
   suggestedAmount: number | null
   transactions: Array<{
     id: string

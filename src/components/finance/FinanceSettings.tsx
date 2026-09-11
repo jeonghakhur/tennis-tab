@@ -8,6 +8,7 @@ import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { AccountSettings } from './settings/AccountSettings'
 import { CategorySettings } from './settings/CategorySettings'
 import { AliasSettings } from './settings/AliasSettings'
+import { ClubCourtSettings } from './settings/ClubCourtSettings'
 import { BudgetSettings } from './settings/BudgetSettings'
 
 interface Props {
@@ -34,6 +35,7 @@ export function FinanceSettings({ accounts, categoriesByAccount, aliases, clubs,
     <div className="space-y-10">
       <AccountSettings accounts={accounts} {...feedback} />
       <CategorySettings accounts={accounts} categoriesByAccount={categoriesByAccount} {...feedback} />
+      <ClubCourtSettings clubs={clubs} {...feedback} />
       <AliasSettings aliases={aliases} clubs={clubs} {...feedback} />
       <BudgetSettings accounts={accounts} categoriesByAccount={categoriesByAccount} budgets={budgets} year={year} {...feedback} />
 

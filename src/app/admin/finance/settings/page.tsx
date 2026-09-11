@@ -30,7 +30,7 @@ export default async function FinanceSettingsPage({ searchParams }: PageProps) {
         </Link>
         <div>
           <h1 className="font-display text-2xl font-bold text-(--text-primary)">재정 설정</h1>
-          <p className="text-(--text-secondary) mt-1">통장·분류·클럽 별칭·연간 운영계획을 관리합니다.</p>
+          <p className="text-(--text-secondary) mt-1">통장·분류·클럽 코트(시간대·월 코트비)·클럽 별칭·연간 운영계획을 관리합니다.</p>
         </div>
       </div>
       <FinanceSettings
