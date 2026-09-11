@@ -5,13 +5,15 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { COURT_SLOTS, type ClubPaymentRow } from '@/lib/finance/types'
-import type { ClubPaymentKind } from '@/lib/finance/actions'
+import type { ClubPaymentKind, MonthlyPaymentKind } from '@/lib/finance/actions'
 import { formatWon } from '@/lib/finance/ledger'
 import { formatKoreanDate } from '@/lib/utils/formatDate'
 import { Badge } from '@/components/common/Badge'
 import { Toast, AlertDialog } from '@/components/common/AlertDialog'
 import { ClubFeeToggle } from '@/components/clubs/ClubFeeToggle'
 import { ClubPaymentModal, type ClubPaymentTarget } from './ClubPaymentModal'
+import { ClubFeeDateModal, type ClubFeeDateTarget } from './ClubFeeDateModal'
+import { CLUB_ANNUAL_FEE_AMOUNT } from '@/lib/clubs/fee'
 
 interface Props {
   year: number
@@ -20,12 +22,14 @@ interface Props {
 }
 
 const KIND_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '월 임대료(코트비)', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비(연 1회)' }
+const ANNUAL_FEE_LABEL = `${formatWon(CLUB_ANNUAL_FEE_AMOUNT)}원`
 const SLOT_ORDER: readonly string[] = COURT_SLOTS
 
-/** 클럽 × 월 납부 매트릭스 — 셀 클릭으로 수동 입력·삭제, 협회비는 연 1회 */
+/** 클럽 × 월 납부 매트릭스 — 셀 클릭으로 수동 입력·삭제. 협회비는 연 1회 고정 금액, 원장 미연동 */
 export function ClubPaymentMatrix({ year, kind, rows }: Props) {
   const router = useRouter()
   const [target, setTarget] = useState<ClubPaymentTarget | null>(null)
+  const [feeTarget, setFeeTarget] = useState<ClubFeeDateTarget | null>(null)
   const [toast, setToast] = useState({ isOpen: false, message: '' })
   const [alert, setAlert] = useState({ isOpen: false, message: '' })
 
@@ -47,13 +51,17 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
     return a.club_name.localeCompare(b.club_name, 'ko')
   })
   const monthTotals = Array.from({ length: 12 }, (_, i) => rows.reduce((s, r) => s + r.months[i], 0))
-  const grandTotal = monthTotals.reduce((a, b) => a + b, 0)
+  const grandTotal = isAnnualFee ? rows.reduce((s, r) => s + r.total, 0) : monthTotals.reduce((a, b) => a + b, 0)
   const baseAmountTotal = rows.reduce((s, r) => s + (baseAmountOf(r) ?? 0), 0)
   const paidCount = rows.filter((r) => r.fee_paid).length
 
   const onChanged = (message: string) => { setToast({ isOpen: true, message }); router.refresh() }
   const onError = (message: string) => setAlert({ isOpen: true, message })
-  const open = (r: ClubPaymentRow, month: number | null) => setTarget({ clubId: r.club_id, clubName: r.club_name, kind, year, month })
+  const open = (r: ClubPaymentRow, month: number) => {
+    if (isAnnualFee) return
+    setTarget({ clubId: r.club_id, clubName: r.club_name, kind: kind as MonthlyPaymentKind, year, month })
+  }
+  const openFeeDate = (r: ClubPaymentRow) => setFeeTarget({ clubId: r.club_id, clubName: r.club_name, year, paidAt: r.fee_paid_at ?? null })
 
   return (
     <div className="space-y-4">
@@ -81,8 +89,8 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
                 <th className="text-left px-3 py-2.5 font-medium">클럽</th>
                 <th className="text-left px-3 py-2.5 font-medium">납부</th>
                 <th className="text-left px-3 py-2.5 font-medium">납부일</th>
-                <th className="text-right px-3 py-2.5 font-medium">{year}년 납부 금액</th>
-                <th className="px-3 py-2.5"><span className="sr-only">입력</span></th>
+                <th className="text-right px-3 py-2.5 font-medium">협회비</th>
+                <th className="px-3 py-2.5"><span className="sr-only">납부일 수정</span></th>
               </tr>
             </thead>
             <tbody>
@@ -91,14 +99,14 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
                   <td className="px-3 py-1.5 whitespace-nowrap font-medium">{r.club_name}</td>
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-2">
-                      <ClubFeeToggle clubId={r.club_id} year={year} paid={!!r.fee_paid} ariaLabel={`${r.club_name} ${year}년 협회비 납부`} onSaved={(paid) => onChanged(paid ? `${r.club_name} 납부 처리 (협회통장에 100,000원 기록)` : `${r.club_name} 미납으로 변경`)} onError={onError} />
+                      <ClubFeeToggle clubId={r.club_id} year={year} paid={!!r.fee_paid} ariaLabel={`${r.club_name} ${year}년 협회비 납부`} onSaved={(paid) => onChanged(paid ? `${r.club_name} 협회비 납부 처리` : `${r.club_name} 미납으로 변경`)} onError={onError} />
                       <Badge variant={r.fee_paid ? 'success' : 'warning'}>{r.fee_paid ? '납부' : '미납'}</Badge>
                     </div>
                   </td>
                   <td className="px-3 py-1.5 text-(--text-secondary) whitespace-nowrap">{r.fee_paid_at ? formatKoreanDate(r.fee_paid_at) : '-'}</td>
-                  <td className="px-3 py-1.5 text-right tabular-nums">{r.total ? formatWon(r.total) : <span className="text-(--text-muted)">-</span>}</td>
+                  <td className="px-3 py-1.5 text-right tabular-nums">{r.fee_paid ? ANNUAL_FEE_LABEL : <span className="text-(--text-muted)">-</span>}</td>
                   <td className="px-3 py-1.5 text-right">
-                    <button type="button" onClick={() => open(r, null)} className="btn-secondary btn-sm">금액·날짜 입력</button>
+                    <button type="button" onClick={() => openFeeDate(r)} className="btn-secondary btn-sm">{r.fee_paid ? '납부일 수정' : '납부일 지정'}</button>
                   </td>
                 </tr>
               ))}
@@ -171,11 +179,12 @@ export function ClubPaymentMatrix({ year, kind, rows }: Props) {
 
       <p className="text-sm text-(--text-muted)">
         {isAnnualFee
-          ? '협회비는 연 1회 납부입니다. 스위치를 켜면 협회통장에 100,000원 거래가 자동 기록되고, 금액·날짜가 다르면 "금액·날짜 입력"으로 수정하세요. 클럽 관리 화면의 연회비 스위치와 같은 데이터입니다.'
+          ? `협회비는 클럽별 ${ANNUAL_FEE_LABEL} 연 1회 고정이며 통장 원장에는 기록되지 않습니다. 스위치로 납부 여부를, "납부일 수정"으로 날짜를 바꿀 수 있습니다. 클럽 관리 화면의 연회비 스위치와 같은 데이터입니다.`
           : '셀을 클릭하면 해당 달의 납부 기록을 보고 직접 입력·삭제할 수 있습니다. "미납"은 코트 시간대가 등록된 클럽이 이번 달까지 기록이 없을 때 표시됩니다. 입력한 금액은 원장 거래로 저장됩니다. 월 코트비·월 발전기금 기준 금액과 코트 시간대는 재정 설정에서 입력합니다.'}
       </p>
 
       <ClubPaymentModal target={target} onClose={() => setTarget(null)} onChanged={onChanged} onError={onError} />
+      <ClubFeeDateModal target={feeTarget} onClose={() => setFeeTarget(null)} onChanged={onChanged} onError={onError} />
       <Toast isOpen={toast.isOpen} onClose={() => setToast({ ...toast, isOpen: false })} message={toast.message} type="success" />
       <AlertDialog isOpen={alert.isOpen} onClose={() => setAlert({ ...alert, isOpen: false })} title="오류" message={alert.message} type="error" />
     </div>

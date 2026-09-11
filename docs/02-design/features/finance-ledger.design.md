@@ -62,9 +62,11 @@ RLS: 5개 테이블 모두 `profiles.role IN ('ADMIN','SUPER_ADMIN')`만 ALL.
 - 분류 매핑: 파서가 오타·약칭 보정(`동회회`→`동호회코트비`, `체육회장배`→`체육회장배대회`) 후 위저드에서 확정. 미매핑 분류가 있으면 가져오기 버튼 비활성
 - 클럽 매핑: 클럽명 일치 → `finance_club_aliases` → 수동. 클럽이 아닌 힌트(`2월발전기금` 등)는 "연결 안 함"
 
-## 연회비 연동
+## 연회비 (원장 미연동)
 
-`setClubFeePaid` 납부 → 협회통장 `협회비`(INCOME) 거래 upsert (`import_key = club_fee:{club}:{year}`, 100,000원). 미납 전환 → 해당 거래 삭제. 재정 테이블이 없으면 조용히 건너뜀.
+- 협회비는 클럽별 **고정 100,000원**(`CLUB_ANNUAL_FEE_AMOUNT`, `src/lib/clubs/fee.ts`)이며 `club_fee_payments`(club_id, year, paid_at)로만 관리한다. 협회통장 원장에는 기록하지 않는다 (2026-09-11 연동 제거, 자동 생성됐던 `source='CLUB_FEE'` 거래 36건 삭제).
+- 클럽 납부 현황 협회비 탭: 전체 활성 클럽 × 납부 스위치(`setClubFeePaid`) + 납부일 수정(`setClubFeePaidAt`). 금액 컬럼은 납부 시 고정 금액 표시.
+- 코트비·발전기금만 원장 거래(`MonthlyPaymentKind`)로 셀 입력·집계한다. `finance_transactions.source`의 `CLUB_FEE` 값은 CHECK 제약에 남아 있으나 더 이상 생성하지 않는다.
 
 ## 검증
 

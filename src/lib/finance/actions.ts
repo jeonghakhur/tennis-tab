@@ -16,6 +16,7 @@ import {
   achievementRate,
 } from './ledger'
 import { COURT_SLOTS } from './types'
+import { CLUB_ANNUAL_FEE_AMOUNT } from '@/lib/clubs/fee'
 import type {
   AccountAnnualSummary,
   BudgetReportRow,
@@ -376,26 +377,60 @@ export async function getAnnualSummary(year: number): Promise<AccountAnnualSumma
 // 클럽 납부 매트릭스
 // ============================================================================
 
+/** 매트릭스 탭 — 협회비는 원장과 무관하게 club_fee_payments(고정 금액)로만 표시 */
 export type ClubPaymentKind = 'COURT_FEE' | 'DEV_FUND' | 'ANNUAL_FEE'
+/** 원장 거래로 월별 집계·입력하는 항목 */
+export type MonthlyPaymentKind = Exclude<ClubPaymentKind, 'ANNUAL_FEE'>
 
-/** 매트릭스 집계에 사용할 (계정 유형, 분류명) */
-const CLUB_PAYMENT_SOURCE: Record<ClubPaymentKind, { accountType: FinanceAccount['account_type']; categoryName: string }> = {
+/** 월별 항목 집계에 사용할 (계정 유형, 분류명) */
+const CLUB_PAYMENT_SOURCE: Record<MonthlyPaymentKind, { accountType: FinanceAccount['account_type']; categoryName: string }> = {
   COURT_FEE: { accountType: 'CONSIGNMENT', categoryName: '동호회코트비' },
   DEV_FUND: { accountType: 'ASSOCIATION', categoryName: '발전기금' },
-  ANNUAL_FEE: { accountType: 'ASSOCIATION', categoryName: '협회비' },
 }
 
-/** 클럽 × 월 납부 매트릭스 — club_id가 연결된 거래를 KST 월로 집계 */
+type ClubBaseRow = {
+  id: string
+  name: string
+  court_slot: string | null
+  monthly_court_fee: number | null
+  monthly_dev_fund: number | null
+}
+
+/** 협회비 탭 — 전체 활성 클럽 × club_fee_payments. 금액은 고정(CLUB_ANNUAL_FEE_AMOUNT), 원장 미연동 */
+async function getAnnualFeeMatrix(admin: ReturnType<typeof createAdminClient>, year: number): Promise<ClubPaymentRow[]> {
+  const [clubsRes, feeRes] = await Promise.all([
+    admin.from('clubs').select('id, name, court_slot, monthly_court_fee, monthly_dev_fund').eq('is_active', true).order('name'),
+    admin.from('club_fee_payments').select('club_id, paid_at').eq('year', year),
+  ])
+  const feePaidMap = new Map((feeRes.data ?? []).map((f) => [f.club_id, f.paid_at]))
+  return ((clubsRes.data ?? []) as ClubBaseRow[]).map((c) => {
+    const paid = feePaidMap.has(c.id)
+    return {
+      club_id: c.id,
+      club_name: c.name,
+      court_slot: c.court_slot,
+      monthly_court_fee: c.monthly_court_fee,
+      monthly_dev_fund: c.monthly_dev_fund,
+      months: new Array<number>(12).fill(0),
+      total: paid ? CLUB_ANNUAL_FEE_AMOUNT : 0,
+      fee_paid: paid,
+      fee_paid_at: feePaidMap.get(c.id) ?? null,
+    }
+  })
+}
+
+/** 클럽 × 월 납부 매트릭스 — club_id가 연결된 거래를 KST 월로 집계 (협회비는 getAnnualFeeMatrix) */
 export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind): Promise<ClubPaymentRow[]> {
   const auth = await requireAdmin()
   if ('error' in auth) return []
 
   const admin = createAdminClient()
+  if (kind === 'ANNUAL_FEE') return getAnnualFeeMatrix(admin, year)
+
   const { start, end } = getKSTYearRange(year)
   const source = CLUB_PAYMENT_SOURCE[kind]
 
-  const isAnnualFee = kind === 'ANNUAL_FEE'
-  const [clubsRes, txRes, feeRes] = await Promise.all([
+  const [clubsRes, txRes] = await Promise.all([
     admin.from('clubs').select('id, name, court_slot, monthly_court_fee, monthly_dev_fund').eq('is_active', true).order('name'),
     admin
       .from('finance_transactions')
@@ -403,12 +438,7 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
       .not('club_id', 'is', null)
       .gte('occurred_at', start)
       .lt('occurred_at', end),
-    // 협회비 탭: 클럽 관리 스위치(club_fee_payments) 납부 여부를 함께 표시
-    isAnnualFee
-      ? admin.from('club_fee_payments').select('club_id, paid_at').eq('year', year)
-      : Promise.resolve({ data: [] as Array<{ club_id: string; paid_at: string }> }),
   ])
-  const feePaidMap = new Map((feeRes.data ?? []).map((f) => [f.club_id, f.paid_at]))
 
   type TxRow = {
     club_id: string
@@ -427,19 +457,12 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
     byClub.set(t.club_id, months)
   }
 
-  // 코트비·발전기금: 코트 시간대가 있는 클럽 + 거래가 있는 클럽 / 협회비: 전체 활성 클럽
-  const clubs = (clubsRes.data ?? []) as Array<{
-    id: string
-    name: string
-    court_slot: string | null
-    monthly_court_fee: number | null
-    monthly_dev_fund: number | null
-  }>
-  return clubs
-    .filter((c) => isAnnualFee || c.court_slot || byClub.has(c.id))
+  // 코트 시간대가 있는 클럽 + 거래가 있는 클럽
+  return ((clubsRes.data ?? []) as ClubBaseRow[])
+    .filter((c) => c.court_slot || byClub.has(c.id))
     .map((c) => {
       const months = byClub.get(c.id) ?? new Array<number>(12).fill(0)
-      const row: ClubPaymentRow = {
+      return {
         club_id: c.id,
         club_name: c.name,
         court_slot: c.court_slot,
@@ -448,18 +471,13 @@ export async function getClubPaymentMatrix(year: number, kind: ClubPaymentKind):
         months,
         total: months.reduce((a, b) => a + b, 0),
       }
-      if (isAnnualFee) {
-        row.fee_paid = feePaidMap.has(c.id)
-        row.fee_paid_at = feePaidMap.get(c.id) ?? null
-      }
-      return row
     })
 }
 
 /** 매트릭스 항목의 (계정, 분류) 조회 */
 async function resolveClubPaymentTarget(
   admin: ReturnType<typeof createAdminClient>,
-  kind: ClubPaymentKind
+  kind: MonthlyPaymentKind
 ): Promise<{ account_id: string; category_id: string } | null> {
   const source = CLUB_PAYMENT_SOURCE[kind]
   const { data } = await admin
@@ -473,13 +491,13 @@ async function resolveClubPaymentTarget(
 }
 
 /**
- * 클럽 납부 셀 상세 — 해당 클럽의 항목별 거래 (month=null 이면 연간)
+ * 클럽 납부 셀 상세 — 해당 클럽·월의 항목별 거래 (코트비·발전기금)
  */
 export async function getClubPaymentDetail(
   clubId: string,
-  kind: ClubPaymentKind,
+  kind: MonthlyPaymentKind,
   year: number,
-  month: number | null
+  month: number
 ): Promise<{ data?: ClubPaymentDetail; error?: string }> {
   const auth = await requireAdmin()
   if ('error' in auth) return auth
@@ -488,7 +506,7 @@ export async function getClubPaymentDetail(
   const target = await resolveClubPaymentTarget(admin, kind)
   if (!target) return { error: '해당 항목의 분류(계정)가 설정에 없습니다.' }
 
-  const range = month ? getKSTMonthRange(year, month) : getKSTYearRange(year)
+  const range = getKSTMonthRange(year, month)
   const [clubRes, txRes, lastRes] = await Promise.all([
     admin.from('clubs').select('id, name, monthly_court_fee, monthly_dev_fund').eq('id', clubId).single(),
     admin
@@ -510,11 +528,10 @@ export async function getClubPaymentDetail(
   ])
   if (clubRes.error || !clubRes.data) return { error: '클럽을 찾을 수 없습니다.' }
 
-  // 코트비·발전기금은 설정된 월 기준 금액을 우선, 없으면 최근 납부 금액
-  const monthlyBase: Record<ClubPaymentKind, number | null> = {
+  // 설정된 월 기준 금액을 우선, 없으면 최근 납부 금액
+  const monthlyBase: Record<MonthlyPaymentKind, number | null> = {
     COURT_FEE: clubRes.data.monthly_court_fee,
     DEV_FUND: clubRes.data.monthly_dev_fund,
-    ANNUAL_FEE: null,
   }
   return {
     data: {
@@ -527,15 +544,15 @@ export async function getClubPaymentDetail(
   }
 }
 
-const CLUB_PAYMENT_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '코트비', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비' }
+const CLUB_PAYMENT_LABEL: Record<MonthlyPaymentKind, string> = { COURT_FEE: '코트비', DEV_FUND: '발전기금' }
 
 /**
  * 클럽 납부 수동 입력 — 원장 거래로 저장 (계정·분류는 항목에서 자동 결정)
- * - 협회비(ANNUAL_FEE)는 연 1회: import_key club_fee:{club}:{year} 로 1건 유지(upsert) + club_fee_payments 납부 처리
+ * - 협회비는 원장과 연동하지 않으므로 여기서 다루지 않음 (clubs/feeActions)
  */
 export async function addClubPayment(input: {
   clubId: string
-  kind: ClubPaymentKind
+  kind: MonthlyPaymentKind
   occurredAt: string
   amount: number
   memo?: string | null
@@ -550,11 +567,8 @@ export async function addClubPayment(input: {
   const { data: club } = await admin.from('clubs').select('name').eq('id', input.clubId).single()
   if (!club) return { error: '클럽을 찾을 수 없습니다.' }
 
-  const { year, month } = toKSTParts(input.occurredAt)
-  const isAnnual = input.kind === 'ANNUAL_FEE'
-  const description = isAnnual
-    ? `${club.name} ${year}년 협회비`
-    : `${club.name} ${month}월 ${CLUB_PAYMENT_LABEL[input.kind]}`
+  const { month } = toKSTParts(input.occurredAt)
+  const description = `${club.name} ${month}월 ${CLUB_PAYMENT_LABEL[input.kind]}`
   const row = {
     account_id: target.account_id,
     category_id: target.category_id,
@@ -567,32 +581,16 @@ export async function addClubPayment(input: {
   const errors = validateTransactionInput(row)
   if (hasValidationErrors(errors)) return { error: Object.values(errors).find(Boolean) }
 
-  if (isAnnual) {
-    const importKey = `club_fee:${input.clubId}:${year}`
-    const [txRes, feeRes] = await Promise.all([
-      admin
-        .from('finance_transactions')
-        .upsert({ ...row, source: 'CLUB_FEE', import_key: importKey, created_by: auth.userId }, { onConflict: 'import_key' }),
-      admin
-        .from('club_fee_payments')
-        .upsert({ club_id: input.clubId, year, paid_at: input.occurredAt, recorded_by: auth.userId }, { onConflict: 'club_id,year' }),
-    ])
-    if (txRes.error || feeRes.error) return { error: '협회비 저장에 실패했습니다.' }
-  } else {
-    const { error } = await admin
-      .from('finance_transactions')
-      .insert({ ...row, source: 'MANUAL', created_by: auth.userId })
-    if (error) return { error: '납부 저장에 실패했습니다.' }
-  }
+  const { error } = await admin
+    .from('finance_transactions')
+    .insert({ ...row, source: 'MANUAL', created_by: auth.userId })
+  if (error) return { error: '납부 저장에 실패했습니다.' }
 
   revalidateFinance(target.account_id)
-  revalidatePath('/admin/clubs')
   return {}
 }
 
-/**
- * 클럽 납부 거래 삭제 — 협회비(CLUB_FEE) 거래를 지우면 club_fee_payments 납부도 해제
- */
+/** 클럽 납부 거래 삭제 (코트비·발전기금) */
 export async function deleteClubPayment(transactionId: string): Promise<{ error?: string }> {
   const auth = await requireAdmin()
   if ('error' in auth) return auth
@@ -601,14 +599,9 @@ export async function deleteClubPayment(transactionId: string): Promise<{ error?
     .from('finance_transactions')
     .delete()
     .eq('id', transactionId)
-    .select('account_id, club_id, import_key, occurred_at, source')
+    .select('account_id')
     .maybeSingle()
   if (error) return { error: '삭제에 실패했습니다.' }
-  if (data?.source === 'CLUB_FEE' && data.club_id) {
-    const { year } = toKSTParts(data.occurred_at)
-    await admin.from('club_fee_payments').delete().eq('club_id', data.club_id).eq('year', year)
-    revalidatePath('/admin/clubs')
-  }
   revalidateFinance(data?.account_id)
   return {}
 }

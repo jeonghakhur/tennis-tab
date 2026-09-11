@@ -609,6 +609,7 @@ src/components/admin/BracketManager/
 - 금액은 양의 정수(원) 하나, 방향은 `finance_categories.kind`(INCOME/EXPENSE)
 - 엑셀 가져오기 검증 기준은 각 월 시트의 **마지막 잔액**(은행 실잔액). 요약 시트 수식은 신뢰하지 않음
 - 클럽 납부 매트릭스는 `club_id` 연결 거래 집계. 코트 시간대(`court_slot`)·월 코트비(`monthly_court_fee`)·월 발전기금(`monthly_dev_fund`)은 재정 설정 > 클럽 코트 설정에서 입력하며, 기준 금액은 셀 입력 기본값으로만 쓰이고 집계에는 영향 없음
+- **협회비는 원장 미연동**: 클럽별 고정 100,000원(`src/lib/clubs/fee.ts`), `club_fee_payments`로만 납부 여부·납부일 관리. 협회통장에 협회비 거래를 자동 생성하지 않음
 - 순수 로직 변경 시 `npx vitest run src/lib/finance` 필수 (실데이터 대조 테스트 포함)
 
 ## 솔라피(Solapi) 카카오 알림톡

@@ -148,7 +148,7 @@ export interface ClubPaymentRow {
   /** index 0 = 1월 … 11 = 12월 */
   months: number[]
   total: number
-  /** 협회비 탭 전용: club_fee_payments 기준 납부 여부 (다른 탭은 undefined) */
+  /** 협회비 탭 전용: club_fee_payments 기준 납부 여부 (다른 탭은 undefined). 금액은 고정이며 원장 미연동 */
   fee_paid?: boolean
   fee_paid_at?: string | null
 }
@@ -158,7 +158,7 @@ export interface ClubPaymentDetail {
   club: { id: string; name: string }
   account_id: string
   category_id: string
-  /** 입력 기본값 — 코트비·발전기금은 클럽 월 기준 금액 설정, 없으면 같은 항목 최근 납부 금액 */
+  /** 입력 기본값 — 클럽 월 기준 금액 설정, 없으면 같은 항목 최근 납부 금액 */
   suggestedAmount: number | null
   transactions: Array<{
     id: string

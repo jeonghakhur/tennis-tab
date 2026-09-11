@@ -5,7 +5,7 @@ import { Trash2 } from 'lucide-react'
 import { Modal } from '@/components/common/Modal'
 import { ConfirmDialog } from '@/components/common/AlertDialog'
 import type { ClubPaymentDetail } from '@/lib/finance/types'
-import { getClubPaymentDetail, addClubPayment, deleteClubPayment, type ClubPaymentKind } from '@/lib/finance/actions'
+import { getClubPaymentDetail, addClubPayment, deleteClubPayment, type MonthlyPaymentKind } from '@/lib/finance/actions'
 import { formatWon } from '@/lib/finance/ledger'
 import { formatKoreanDate } from '@/lib/utils/formatDate'
 import { toDatetimeLocal } from './TransactionForm'
@@ -13,10 +13,9 @@ import { toDatetimeLocal } from './TransactionForm'
 export interface ClubPaymentTarget {
   clubId: string
   clubName: string
-  kind: ClubPaymentKind
+  kind: MonthlyPaymentKind
   year: number
-  /** null = 연간(협회비) */
-  month: number | null
+  month: number
 }
 
 interface Props {
@@ -26,18 +25,17 @@ interface Props {
   onError: (message: string) => void
 }
 
-const KIND_LABEL: Record<ClubPaymentKind, string> = { COURT_FEE: '코트비', DEV_FUND: '발전기금', ANNUAL_FEE: '협회비' }
-const SOURCE_LABEL: Record<string, string> = { IMPORT: '가져옴', CLUB_FEE: '연회비', MANUAL: '수동', TOSS: '토스' }
+const KIND_LABEL: Record<MonthlyPaymentKind, string> = { COURT_FEE: '코트비', DEV_FUND: '발전기금' }
+const SOURCE_LABEL: Record<string, string> = { IMPORT: '가져옴', MANUAL: '수동', TOSS: '토스' }
 
-/** 셀 기본 날짜: 이번 달이면 오늘, 아니면 그 달 1일 정오 (협회비는 올해면 오늘, 아니면 1/1) */
-function defaultDate(year: number, month: number | null): string {
+/** 셀 기본 날짜: 이번 달이면 오늘, 아니면 그 달 1일 정오 */
+function defaultDate(year: number, month: number): string {
   const now = new Date()
-  const m = month ?? 1
-  const same = now.getFullYear() === year && (month === null || now.getMonth() + 1 === month)
-  return toDatetimeLocal((same ? now : new Date(year, m - 1, 1, 12, 0)).toISOString())
+  const same = now.getFullYear() === year && now.getMonth() + 1 === month
+  return toDatetimeLocal((same ? now : new Date(year, month - 1, 1, 12, 0)).toISOString())
 }
 
-/** 클럽 × 항목 × 기간 납부 상세 — 기존 거래 목록 + 수동 입력 */
+/** 클럽 × 항목 × 월 납부 상세 — 기존 거래 목록 + 수동 입력 (코트비·발전기금) */
 export function ClubPaymentModal({ target, onClose, onChanged, onError }: Props) {
   const [detail, setDetail] = useState<ClubPaymentDetail | null>(null)
   const [loading, setLoading] = useState(false)
@@ -57,7 +55,7 @@ export function ClubPaymentModal({ target, onClose, onChanged, onError }: Props)
       return
     }
     setDetail(r.data)
-    setAmount(r.data.suggestedAmount ? String(r.data.suggestedAmount) : t.kind === 'ANNUAL_FEE' ? '100000' : '')
+    setAmount(r.data.suggestedAmount ? String(r.data.suggestedAmount) : '')
   }
 
   useEffect(() => {
@@ -92,7 +90,7 @@ export function ClubPaymentModal({ target, onClose, onChanged, onError }: Props)
     await load(target)
   }
 
-  const title = target ? `${target.clubName} · ${target.month ? `${target.month}월 ` : `${target.year}년 `}${KIND_LABEL[target.kind]}` : ''
+  const title = target ? `${target.clubName} · ${target.month}월 ${KIND_LABEL[target.kind]}` : ''
   const total = detail?.transactions.reduce((s, t) => s + t.amount, 0) ?? 0
 
   return (
@@ -126,9 +124,7 @@ export function ClubPaymentModal({ target, onClose, onChanged, onError }: Props)
 
             {/* 입력 */}
             <form onSubmit={handleAdd} noValidate className="space-y-3 pt-3 border-t border-(--border-color)">
-              <p className="text-sm font-medium text-(--text-muted)">
-                {target?.kind === 'ANNUAL_FEE' ? '협회비 납부 입력 (연 1회 — 다시 입력하면 금액·날짜가 갱신됩니다)' : '납부 추가'}
-              </p>
+              <p className="text-sm font-medium text-(--text-muted)">납부 추가</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="cp-date" className="block text-sm text-(--text-muted) mb-1">납부일</label>
