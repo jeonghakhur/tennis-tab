@@ -138,7 +138,7 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
               src={tournament.poster_url}
               alt={tournament.title}
               fill
-              className="object-cover"
+              className="object-cover object-top"
               unoptimized
               onError={() => setImgError(true)}
             />
