@@ -614,7 +614,10 @@ export default async function TournamentDetailPage({ params }: Props) {
                           style={{ color: "var(--text-muted)" }}
                         >
                           {division.max_teams && (
-                            <span>{division.max_teams}팀 모집</span>
+                            <span>
+                              {division.max_teams}
+                              {division.solo_entry && tournament.match_type === "INDIVIDUAL_DOUBLES" ? "명" : "팀"} 모집
+                            </span>
                           )}
                           {/* 단체전에서만 팀당 인원 표시 — 개인전(SINGLES/DOUBLES)은 의미 없음 */}
                           {isTeamMatch && division.team_member_limit > 0 && (

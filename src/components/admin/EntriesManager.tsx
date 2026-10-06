@@ -71,6 +71,8 @@ type Division = {
   id: string;
   name: string;
   max_teams: number | null;
+  /** 개인 접수 부서 — 정원/신청 단위가 팀이 아닌 명 */
+  solo_entry?: boolean | null;
 };
 
 /** clubMembersMap 값 타입 — joined_at 포함 */
@@ -753,6 +755,7 @@ export function EntriesManager({
       id: division.id,
       name: division.name,
       maxTeams: division.max_teams,
+      unit: division.solo_entry ? "명" : "팀",
       total: divisionEntries.length,
       approved: divisionEntries.filter(
         (e) => normalizeStatus(e.status) === "APPROVED",
@@ -831,7 +834,7 @@ export function EntriesManager({
                     </span>
                     {div.maxTeams && (
                       <span className="text-sm text-(--text-muted)">
-                        / {div.maxTeams}팀
+                        / {div.maxTeams}{div.unit}
                       </span>
                     )}
                   </div>

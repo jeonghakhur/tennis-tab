@@ -536,14 +536,17 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                         />
                                     </div>
                                     <div>
-                                        <label className={labelClass}>모집 팀 수</label>
+                                        {/* 개인 접수 부서는 엔트리 1건 = 1명이므로 인원 단위로 입력 */}
+                                        <label className={labelClass}>
+                                            {isIndividualDoubles && division.solo_entry ? '모집 인원 (명)' : '모집 팀 수'}
+                                        </label>
                                         <input
                                             type="text"
                                             inputMode="numeric"
                                             value={division.max_teams || ''}
                                             onChange={(e) => updateDivision(index, 'max_teams', e.target.value ? parseInt(e.target.value) : null)}
                                             className={inputClass}
-                                            placeholder="예: 16"
+                                            placeholder={isIndividualDoubles && division.solo_entry ? '예: 32' : '예: 16'}
                                         />
                                     </div>
                                     <div>
@@ -585,7 +588,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                                         <div>
                                             <div className="text-sm font-medium text-(--text-primary)">개인 접수</div>
                                             <div className="text-xs text-(--text-muted) mt-0.5">
-                                                체크 시 이 부서는 파트너 정보 없이 본인만 신청 가능합니다.
+                                                체크 시 이 부서는 파트너 정보 없이 본인만 신청하고, 대회 당일 파트너를 추첨해 복식 경기를 진행합니다. 모집 정원은 인원(명) 기준입니다.
                                             </div>
                                         </div>
                                     </label>
