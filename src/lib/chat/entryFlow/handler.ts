@@ -9,6 +9,7 @@ import {
   parseTeamOrder,
   parseTeamMemberInput,
   formatEntryFee,
+  getDivisionEntryFee,
   buildDivisionListMessage,
 } from './steps'
 import { createEntry, searchPartnerByName } from '@/lib/entries/actions'
@@ -171,6 +172,7 @@ async function handleSelectDivisionStep(
 
   session.data.divisionId = selected.id
   session.data.divisionName = selected.name
+  session.data.soloEntry = selected.soloEntry
 
   // 경기 타입에 따른 다음 step 분기
   return routeAfterDivisionSelect(session, waitlistNotice)
@@ -181,7 +183,7 @@ async function routeAfterDivisionSelect(
   session: EntryFlowSession,
   waitlistNotice: string,
 ): Promise<EntryFlowResult> {
-  const { matchType, phone } = session.data
+  const { matchType, phone, soloEntry } = session.data
 
   // 전화번호 없으면 INPUT_PHONE 삽입
   if (!phone) {
@@ -194,8 +196,8 @@ async function routeAfterDivisionSelect(
     }
   }
 
-  // 복식 → 파트너 입력
-  if (matchType === 'INDIVIDUAL_DOUBLES') {
+  // 복식 → 파트너 입력 (개인 접수 부서는 당일 추첨이므로 생략)
+  if (matchType === 'INDIVIDUAL_DOUBLES' && !soloEntry) {
     session.step = 'INPUT_PARTNER'
     await setSession(session.userId, session)
     return {
@@ -552,9 +554,9 @@ async function handleConfirmStep(
   // 성공 메시지
   let successMsg = `참가 신청이 완료되었습니다!\n\n📋 ${data.tournamentTitle} — ${data.divisionName}`
   if (data.entryFee > 0 && data.bankAccount) {
-    successMsg += `\n💰 참가비: ${formatEntryFee(data.entryFee)}\n🏦 입금 계좌: ${data.bankAccount}`
+    successMsg += `\n💰 참가비: ${formatEntryFee(getDivisionEntryFee(data.entryFee, data.soloEntry))}\n🏦 입금 계좌: ${data.bankAccount}`
   } else if (data.entryFee > 0) {
-    successMsg += `\n💰 참가비: ${formatEntryFee(data.entryFee)}`
+    successMsg += `\n💰 참가비: ${formatEntryFee(getDivisionEntryFee(data.entryFee, data.soloEntry))}`
   }
 
   return {
@@ -589,6 +591,8 @@ function buildConfirmMessage(session: EntryFlowSession, notice: string): string 
   // 복식 파트너
   if (data.partnerData) {
     lines.push(`\n👥 파트너: ${data.partnerData.name} (${data.partnerData.club}, ${data.partnerData.rating}점)`)
+  } else if (data.matchType === 'INDIVIDUAL_DOUBLES' && data.soloEntry) {
+    lines.push(`\n👥 파트너: 대회 당일 추첨`)
   }
 
   // 단체전
@@ -608,7 +612,7 @@ function buildConfirmMessage(session: EntryFlowSession, notice: string): string 
   }
 
   if (data.entryFee > 0) {
-    lines.push(`\n💰 참가비: ${formatEntryFee(data.entryFee)}`)
+    lines.push(`\n💰 참가비: ${formatEntryFee(getDivisionEntryFee(data.entryFee, data.soloEntry))}`)
   }
 
   lines.push('\n위 정보로 신청할까요? (예/아니오/취소)')

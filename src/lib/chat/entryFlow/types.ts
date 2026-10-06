@@ -19,6 +19,8 @@ export interface DivisionInfo {
   name: string
   maxTeams: number | null
   currentCount: number
+  /** 개인 접수 부서 — 파트너 없이 본인만 신청, 정원/신청 단위는 명 */
+  soloEntry: boolean
 }
 
 /** 대회 검색 결과 (진입 시 사용) */
@@ -45,6 +47,8 @@ export interface EntryFlowData {
   // 부서 정보
   divisionId?: string
   divisionName?: string
+  /** 선택한 부서가 개인 접수인지 (복식이어도 파트너 입력 생략) */
+  soloEntry?: boolean
 
   // 프로필 기반 자동 입력
   playerName: string

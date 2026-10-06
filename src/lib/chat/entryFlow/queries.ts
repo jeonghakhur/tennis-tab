@@ -51,7 +51,7 @@ export async function getDivisionsWithCounts(
 
   const { data: divisions, error } = await admin
     .from('tournament_divisions')
-    .select('id, name, max_teams')
+    .select('id, name, max_teams, solo_entry')
     .eq('tournament_id', tournamentId)
 
   if (error || !divisions) return []
@@ -70,6 +70,7 @@ export async function getDivisionsWithCounts(
         name: div.name,
         maxTeams: div.max_teams,
         currentCount: count ?? 0,
+        soloEntry: div.solo_entry ?? false,
       }
     }),
   )

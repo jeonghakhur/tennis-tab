@@ -196,6 +196,11 @@ export function formatEntryFee(fee: number): string {
   return `${fee.toLocaleString('ko-KR')}원`
 }
 
+/** 부서별 실제 참가비 — 개인 접수 부서는 1인 신청이므로 50% (TournamentEntryForm과 동일 규칙) */
+export function getDivisionEntryFee(entryFee: number, soloEntry: boolean | undefined): number {
+  return soloEntry ? Math.round(entryFee / 2) : entryFee
+}
+
 /** 부서 목록 메시지 생성 */
 export function buildDivisionListMessage(
   tournamentTitle: string,
@@ -203,10 +208,12 @@ export function buildDivisionListMessage(
   divisions: DivisionInfo[],
 ): string {
   const lines = divisions.map((d, i) => {
+    const unit = d.soloEntry ? '명' : '팀'
     const capacityStr = d.maxTeams
-      ? `(${d.currentCount}/${d.maxTeams}팀)`
-      : `(${d.currentCount}팀)`
-    return `${i + 1}. ${d.name} ${capacityStr} - 참가비 ${formatEntryFee(entryFee)}`
+      ? `(${d.currentCount}/${d.maxTeams}${unit})`
+      : `(${d.currentCount}${unit})`
+    const soloLabel = d.soloEntry ? ' [개인 접수]' : ''
+    return `${i + 1}. ${d.name}${soloLabel} ${capacityStr} - 참가비 ${formatEntryFee(getDivisionEntryFee(entryFee, d.soloEntry))}`
   })
 
   return `${tournamentTitle}\n참가 가능한 부서:\n${lines.join('\n')}\n\n번호 또는 부서명으로 선택해주세요. (취소: "취소")`

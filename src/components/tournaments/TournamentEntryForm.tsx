@@ -113,7 +113,10 @@ export default function TournamentEntryForm({
   });
 
   // 폼 상태 (수정 모드일 경우 initialData 사용)
-  const [divisionId, setDivisionId] = useState(initialData?.divisionId || "");
+  // 부서가 하나뿐이면 자동 선택 — 미선택 상태에서 개인 접수 여부를 판단하지 못해 파트너 입력이 노출되는 문제 방지
+  const [divisionId, setDivisionId] = useState(
+    initialData?.divisionId || (divisions.length === 1 ? divisions[0].id : ""),
+  );
   const [phone, setPhone] = useState(
     initialData?.phone || userProfile.phone || "",
   );
@@ -353,6 +356,13 @@ export default function TournamentEntryForm({
 
   // 선택된 division 정보
   const selectedDivision = divisions.find((d) => d.id === divisionId);
+
+  // 파트너 입력 필요 여부: 부서 선택 전에는 모든 부서가 개인 접수면 숨김
+  const needsPartner =
+    matchType === "INDIVIDUAL_DOUBLES" &&
+    (selectedDivision
+      ? !selectedDivision.solo_entry
+      : !divisions.every((d) => d.solo_entry));
 
   // 개인 접수 부서(solo_entry)일 때만 참가비 50% 적용
   const displayFee = selectedDivision?.solo_entry
@@ -832,9 +842,15 @@ export default function TournamentEntryForm({
             </div>
           )}
 
+          {/* 개인 접수 부서 안내 — 파트너는 당일 추첨 */}
+          {matchType === "INDIVIDUAL_DOUBLES" && selectedDivision?.solo_entry && (
+            <p className="p-4 rounded-xl text-sm bg-subtle-info">
+              개인 접수 부서입니다. 본인만 신청하며, 파트너는 대회 당일 추첨으로 정해집니다.
+            </p>
+          )}
+
           {/* 개인전 복식 - 파트너 정보 (개인 접수 부서는 파트너 불필요) */}
-          {matchType === "INDIVIDUAL_DOUBLES" &&
-            !selectedDivision?.solo_entry && (
+          {needsPartner && (
               <div className="space-y-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
                 <h3 className="font-semibold text-(--text-primary)">
                   파트너 정보
