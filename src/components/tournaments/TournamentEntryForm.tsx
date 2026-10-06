@@ -364,11 +364,6 @@ export default function TournamentEntryForm({
       ? !selectedDivision.solo_entry
       : !divisions.every((d) => d.solo_entry));
 
-  // 개인 접수 부서(solo_entry)일 때만 참가비 50% 적용
-  const displayFee = selectedDivision?.solo_entry
-    ? Math.round(entryFee / 2)
-    : entryFee;
-
   // 팀원 추가 — limit이 없으면 무제한, 있으면 AlertDialog로 차단
   const addTeamMember = () => {
     const limit = selectedDivision?.team_member_limit;
@@ -507,7 +502,7 @@ export default function TournamentEntryForm({
     }
 
     // 환불 계좌 필수 검증 (참가비 있는 경우)
-    if (displayFee > 0) {
+    if (entryFee > 0) {
       if (!refundBank.trim()) {
         setAlertDialog({
           isOpen: true,
@@ -610,9 +605,9 @@ export default function TournamentEntryForm({
       phone: unformatPhoneNumber(phone),
       playerName,
       playerRating,
-      refundBank: displayFee > 0 ? refundBank || null : null,
-      refundAccount: displayFee > 0 ? refundAccount || null : null,
-      refundHolder: displayFee > 0 ? refundHolder || null : null,
+      refundBank: entryFee > 0 ? refundBank || null : null,
+      refundAccount: entryFee > 0 ? refundAccount || null : null,
+      refundHolder: entryFee > 0 ? refundHolder || null : null,
     };
 
     // 경기 타입별 추가 데이터 (개인 접수 부서는 파트너 데이터 생략)
@@ -1240,13 +1235,13 @@ export default function TournamentEntryForm({
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-(--text-primary)">참가비</h3>
               <span className="text-xl font-bold text-blue-600 dark:text-blue-400">
-                {displayFee === 0
+                {entryFee === 0
                   ? "무료"
-                  : `${displayFee.toLocaleString("ko-KR")}원`}
+                  : `${entryFee.toLocaleString("ko-KR")}원`}
               </span>
             </div>
 
-            {displayFee > 0 && bankAccount && (
+            {entryFee > 0 && bankAccount && (
               <div className="bg-(--bg-input) rounded-lg p-3 space-y-2">
                 <p className="text-sm text-(--text-muted)">입금 계좌</p>
                 <p className="font-medium text-(--text-primary)">
@@ -1270,7 +1265,7 @@ export default function TournamentEntryForm({
               </div>
             )}
 
-            {displayFee > 0 && (
+            {entryFee > 0 && (
               <p className="text-sm text-(--text-muted)">
                 * 참가 신청 후 위 계좌로 참가비를 입금해주세요.
                 <br />* 입금자명은 신청자 이름과 동일하게 해주세요.
@@ -1278,7 +1273,7 @@ export default function TournamentEntryForm({
             )}
 
             {/* 환불 계좌 — 참가비 있는 경우 필수 입력 */}
-            {displayFee > 0 && (
+            {entryFee > 0 && (
               <div className="space-y-3 pt-2 border-t border-blue-200 dark:border-blue-800">
                 <p className="text-sm font-medium text-(--text-secondary)">
                   환불 계좌

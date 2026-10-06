@@ -9,7 +9,6 @@ import {
   parseTeamOrder,
   parseTeamMemberInput,
   formatEntryFee,
-  getDivisionEntryFee,
   buildDivisionListMessage,
 } from './steps'
 import { createEntry, searchPartnerByName } from '@/lib/entries/actions'
@@ -554,9 +553,9 @@ async function handleConfirmStep(
   // 성공 메시지
   let successMsg = `참가 신청이 완료되었습니다!\n\n📋 ${data.tournamentTitle} — ${data.divisionName}`
   if (data.entryFee > 0 && data.bankAccount) {
-    successMsg += `\n💰 참가비: ${formatEntryFee(getDivisionEntryFee(data.entryFee, data.soloEntry))}\n🏦 입금 계좌: ${data.bankAccount}`
+    successMsg += `\n💰 참가비: ${formatEntryFee(data.entryFee)}\n🏦 입금 계좌: ${data.bankAccount}`
   } else if (data.entryFee > 0) {
-    successMsg += `\n💰 참가비: ${formatEntryFee(getDivisionEntryFee(data.entryFee, data.soloEntry))}`
+    successMsg += `\n💰 참가비: ${formatEntryFee(data.entryFee)}`
   }
 
   return {
@@ -612,7 +611,7 @@ function buildConfirmMessage(session: EntryFlowSession, notice: string): string 
   }
 
   if (data.entryFee > 0) {
-    lines.push(`\n💰 참가비: ${formatEntryFee(getDivisionEntryFee(data.entryFee, data.soloEntry))}`)
+    lines.push(`\n💰 참가비: ${formatEntryFee(data.entryFee)}`)
   }
 
   lines.push('\n위 정보로 신청할까요? (예/아니오/취소)')

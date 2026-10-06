@@ -757,13 +757,6 @@ export default function TournamentEntryActions({
                   (d) => d.id === entry.division_id,
                 );
                 const divisionName = division?.name;
-                // 개인 접수(solo_entry) 부서는 참가비 반값 적용
-                const isSoloEntry =
-                  matchType === "INDIVIDUAL_DOUBLES" &&
-                  division?.solo_entry === true;
-                const displayEntryFee = isSoloEntry
-                  ? Math.floor(entryFee / 2)
-                  : entryFee;
 
                 return (
                   <div
@@ -862,7 +855,7 @@ export default function TournamentEntryActions({
                           >
                             {submittingPaymentId === entry.id
                               ? "처리 중..."
-                              : `입금 완료 (${displayEntryFee.toLocaleString("ko-KR")}원)`}
+                              : `입금 완료 (${entryFee.toLocaleString("ko-KR")}원)`}
                           </button>
                         </div>
                       )}
