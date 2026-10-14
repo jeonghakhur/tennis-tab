@@ -15,6 +15,7 @@ import {
   Send,
   CheckCircle2,
   UserPlus,
+  Cake,
 } from "lucide-react";
 import { AdminEntryModal } from "@/components/admin/AdminEntryModal";
 import {
@@ -56,6 +57,8 @@ type Entry = Database["public"]["Tables"]["tournament_entries"]["Row"] & {
     phone: string | null;
     avatar_url: string | null;
     club: string | null;
+    /** profiles.birth_year — 서버에서 복호화된 평문 (미입력 시 null) */
+    birth_year: string | null;
   } | null;
   tournament_divisions: { name: string } | null;
   // 환불 관련 (DB 마이그레이션으로 추가된 컬럼)
@@ -1298,6 +1301,13 @@ export function EntriesManager({
                               <Phone className="w-4 h-4" />
                               {entry.phone || entry.profiles?.phone || "-"}
                             </div>
+                            {/* 출생년도: 신청자 프로필 기준 (미입력 시 숨김) */}
+                            {entry.profiles?.birth_year && (
+                              <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
+                                <Cake className="w-4 h-4" aria-hidden="true" />
+                                <span>{entry.profiles.birth_year}년생</span>
+                              </div>
+                            )}
                           </div>
                           {entry.partner_data && (
                             <div className="pt-2 border-t border-(--border-color)">

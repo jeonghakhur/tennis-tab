@@ -68,7 +68,7 @@ export async function GET(request: Request, context: RouteContext) {
     .from('tournament_entries')
     .select(`
       *,
-      profiles:user_id (name, email, phone, club),
+      profiles:user_id (name, email, phone, club, birth_year),
       tournament_divisions:division_id (name)
     `)
     .eq('tournament_id', tournamentId)
@@ -79,7 +79,7 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json({ error: '데이터 조회 실패' }, { status: 500 })
   }
 
-  // profiles.phone 복호화
+  // profiles.phone, birth_year 복호화
   const entries = (rawEntries ?? []).map((entry) => ({
     ...entry,
     profiles: entry.profiles ? decryptProfile(entry.profiles) : null,
@@ -120,6 +120,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     row['이메일'] = entry.profiles?.email || '-'
     row['전화번호'] = entry.phone || entry.profiles?.phone || '-'
+    row['출생년도'] = entry.profiles?.birth_year || '-'
     row['클럽'] = entry.club_name || entry.profiles?.club || '-'
 
     // 복식: 파트너 정보

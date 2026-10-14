@@ -109,7 +109,7 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
       .from('tournament_entries')
       .select(`
         *,
-        profiles:user_id (name, email, phone, avatar_url, club),
+        profiles:user_id (name, email, phone, avatar_url, club, birth_year),
         tournament_divisions:division_id (name)
       `)
       .eq('tournament_id', id)
