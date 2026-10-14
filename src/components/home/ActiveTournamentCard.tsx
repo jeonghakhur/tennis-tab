@@ -22,7 +22,8 @@ function getStatusBadge(status: string, daysLeft: number): StatusBadgeInfo {
       text: '#f97316',
     }
   }
-  if (daysLeft <= 0) {
+  // CLOSED 상태이거나 OPEN이지만 접수 마감일이 지난 경우
+  if (status === 'CLOSED' || daysLeft <= 0) {
     return {
       label: '마감',
       dot: '#71717a',
@@ -39,7 +40,7 @@ function getStatusBadge(status: string, daysLeft: number): StatusBadgeInfo {
 }
 
 function getDDayLabel(status: string, daysLeft: number): string | null {
-  if (status === 'IN_PROGRESS') return null
+  if (status === 'IN_PROGRESS' || status === 'CLOSED') return null
   if (daysLeft <= 0) return null
   if (daysLeft === 1) return 'D-1'
   return `D-${daysLeft}`
@@ -49,6 +50,10 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
   const badge = getStatusBadge(tournament.status, tournament.daysLeft)
   const ddayLabel = getDDayLabel(tournament.status, tournament.daysLeft)
   const isInProgress = tournament.status === 'IN_PROGRESS'
+  // 접수 마감: CLOSED 상태 또는 OPEN이지만 마감일 경과 → 신청 불가, "대회 보기"로 안내
+  const isClosed =
+    tournament.status === 'CLOSED' ||
+    (tournament.status === 'OPEN' && tournament.daysLeft <= 0)
 
   // 진행률 계산 (0~100)
   // 분모는 부서별 max_teams 합산(팀 단위). tournaments.max_participants는
@@ -77,7 +82,7 @@ export function ActiveTournamentCard({ tournament }: ActiveTournamentCardProps) 
         </Link>
       )
     }
-    if (isInProgress) {
+    if (isInProgress || isClosed) {
       return (
         <Link
           href={`/tournaments/${tournament.id}`}

@@ -16,12 +16,15 @@ export interface DivisionSummary {
   solo_entry: boolean
 }
 
-/** 대회 현황 카드 (모집 중 + 진행 중 통합) */
+/** 대회 현황 카드 상태 — OPEN(모집 중) / CLOSED(접수 마감) / IN_PROGRESS(진행 중) */
+export type ActiveTournamentStatus = 'OPEN' | 'CLOSED' | 'IN_PROGRESS'
+
+/** 대회 현황 카드 (모집 중 + 접수 마감 + 진행 중 통합) */
 export interface ActiveTournament {
   id: string
   title: string
   location: string
-  status: 'OPEN' | 'IN_PROGRESS'
+  status: ActiveTournamentStatus
   entry_end_date: string
   daysLeft: number
   division_count: number
@@ -341,12 +344,13 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
   today.setHours(0, 0, 0, 0)
   const todayStr = today.toISOString().slice(0, 10)
 
-  // IN_PROGRESS: entry_end_date 무관하게 포함
-  // OPEN: 마감일 미도래인 것만 포함
+  // IN_PROGRESS: 대회 기간 무관하게 포함
+  // OPEN / CLOSED: 접수 마감 여부와 무관하게 포함하되, 대회 종료일(end_date)이 지난 건 제외
+  //   → 접수가 마감된 대회도 대회 당일까지는 메인에 노출 (마감 배지 + "대회 보기")
   const { data, error } = await admin
     .from('tournaments')
     .select('id, title, location, status, entry_end_date, max_participants')
-    .or(`status.eq.IN_PROGRESS,and(status.eq.OPEN,or(entry_end_date.is.null,entry_end_date.gte.${todayStr}))`)
+    .or(`status.eq.IN_PROGRESS,and(status.in.(OPEN,CLOSED),end_date.gte.${todayStr})`)
     .order('entry_end_date', { ascending: true, nullsFirst: false })
     .limit(8)
 
@@ -412,7 +416,7 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
       id: t.id,
       title: t.title,
       location: t.location,
-      status: t.status as 'OPEN' | 'IN_PROGRESS',
+      status: t.status as ActiveTournamentStatus,
       entry_end_date: t.entry_end_date ?? '',
       daysLeft: t.entry_end_date ? calcDaysLeft(t.entry_end_date) : 999,
       division_count: divs.length,
