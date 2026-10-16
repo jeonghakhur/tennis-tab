@@ -1,6 +1,14 @@
 'use server'
 
 import { createAdminClient } from '@/lib/supabase/admin'
+import { createClient, getUserWithTimeout } from '@/lib/supabase/server'
+import {
+  validateUploadFile,
+  isAllowedBucket,
+  isSafeFolder,
+  getFileExtension,
+  type UploadFileMeta,
+} from './validation'
 
 // 에러 메시지 추출 헬퍼
 function getErrorMessage(error: unknown): string {
@@ -9,134 +17,72 @@ function getErrorMessage(error: unknown): string {
   return '알 수 없는 오류가 발생했습니다.'
 }
 
-export async function uploadImage(
-  formData: FormData
-): Promise<{ url: string | null; error: string | null }> {
-  const file = formData.get('file') as File
-  const bucket = formData.get('bucket') as string || 'tournaments'
-  const folder = formData.get('folder') as string || 'posters'
-
-  if (!file) {
-    return { url: null, error: '파일이 없습니다.' }
-  }
-
-  // 파일 유효성 검사
-  const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-  if (!allowedTypes.includes(file.type)) {
-    return { url: null, error: 'JPG, PNG, WebP, GIF 형식만 지원됩니다.' }
-  }
-
-  const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
-  if (file.size > MAX_FILE_SIZE) {
-    return { url: null, error: '파일 크기는 10MB 이하여야 합니다.' }
-  }
-
-  try {
-    const supabaseAdmin = createAdminClient()
-
-    // 파일 이름 생성
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
-
-    // ArrayBuffer로 변환
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = new Uint8Array(arrayBuffer)
-
-    // 업로드
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(bucket)
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        cacheControl: '3600',
-        upsert: false,
-      })
-
-    if (uploadError) {
-      return { url: null, error: uploadError.message }
-    }
-
-    // 공개 URL 가져오기
-    const { data: { publicUrl } } = supabaseAdmin.storage
-      .from(bucket)
-      .getPublicUrl(fileName)
-
-    return { url: publicUrl, error: null }
-  } catch (err: unknown) {
-    return { url: null, error: getErrorMessage(err) }
-  }
+export interface SignedUploadInput extends UploadFileMeta {
+  bucket: string
+  folder: string
+  /** true면 이미지만 허용 (포스터·프로필) */
+  imagesOnly?: boolean
 }
 
-// 이미지 + 문서 파일 업로드 (커뮤니티 포스트 등에서 사용)
-const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const DOCUMENT_TYPES = [
-  'application/pdf',                                                             // .pdf
-  'application/msword',                                                          // .doc
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',      // .docx
-  'application/vnd.ms-excel',                                                    // .xls
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',           // .xlsx
-  'application/vnd.ms-powerpoint',                                               // .ppt
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation',   // .pptx
-  'application/x-hwp',                                                           // .hwp
-  'application/haansofthwp',                                                     // .hwp (대체)
-  'application/octet-stream',                                                    // .hwp (브라우저 폴백)
-]
-const DOCUMENT_EXTENSIONS = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.hwp']
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+export interface SignedUploadData {
+  /** 버킷 내 경로 — uploadToSignedUrl에 그대로 전달 */
+  path: string
+  /** 서명 토큰 (기본 2시간 유효) */
+  token: string
+  /** 업로드 완료 후 사용할 공개 URL */
+  publicUrl: string
+}
 
-export async function uploadFile(
-  formData: FormData
-): Promise<{ url: string | null; error: string | null }> {
-  const file = formData.get('file') as File
-  const bucket = (formData.get('bucket') as string) || 'posts'
-  const folder = (formData.get('folder') as string) || 'attachments'
-
-  if (!file) {
-    return { url: null, error: '파일이 없습니다.' }
-  }
-
-  // 확장자 추출
-  const ext = '.' + (file.name.split('.').pop()?.toLowerCase() ?? '')
-  const isImage = IMAGE_TYPES.includes(file.type)
-  const isDocument = DOCUMENT_TYPES.includes(file.type) || DOCUMENT_EXTENSIONS.includes(ext)
-
-  if (!isImage && !isDocument) {
-    return {
-      url: null,
-      error: '지원하지 않는 파일 형식입니다. (이미지: JPG/PNG/WebP/GIF, 문서: PDF/Word/Excel/PPT/HWP)',
-    }
-  }
-
-  if (file.size > MAX_FILE_SIZE) {
-    return { url: null, error: '파일 크기는 10MB 이하여야 합니다.' }
-  }
-
+/**
+ * 브라우저 직접 업로드용 서명 URL 발급
+ *
+ * 파일 바이트는 서버를 거치지 않고 브라우저 → Supabase Storage로 바로 전송된다.
+ * - Vercel 서버리스 요청 본문 제한(4.5MB)을 우회
+ * - 뭄바이 리전 왕복 1회 절약
+ * 서버는 검증(로그인·버킷·폴더·형식·크기)과 경로 생성만 담당한다.
+ */
+export async function createSignedUpload(
+  input: SignedUploadInput
+): Promise<{ data: SignedUploadData | null; error: string | null }> {
   try {
+    const supabase = await createClient()
+    const { data: { user } } = await getUserWithTimeout(supabase, 3000)
+    if (!user) {
+      return { data: null, error: '로그인이 필요합니다.' }
+    }
+
+    if (!isAllowedBucket(input.bucket)) {
+      return { data: null, error: '허용되지 않은 저장소입니다.' }
+    }
+    if (!isSafeFolder(input.folder)) {
+      return { data: null, error: '잘못된 폴더 경로입니다.' }
+    }
+
+    const validationError = validateUploadFile(input, { imagesOnly: input.imagesOnly })
+    if (validationError) {
+      return { data: null, error: validationError }
+    }
+
+    // 확장자는 검증을 통과한 원본 파일명에서만 추출 (영숫자로 제한)
+    const ext = getFileExtension(input.name).replace(/[^a-z0-9.]/g, '')
+    const path = `${input.folder}/${Date.now()}-${Math.random().toString(36).substring(2)}${ext}`
+
     const supabaseAdmin = createAdminClient()
-    const fileExt = file.name.split('.').pop()
-    const fileName = `${folder}/${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`
+    const { data, error } = await supabaseAdmin.storage
+      .from(input.bucket)
+      .createSignedUploadUrl(path)
 
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = new Uint8Array(arrayBuffer)
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from(bucket)
-      .upload(fileName, buffer, {
-        contentType: file.type,
-        cacheControl: '3600',
-        upsert: false,
-      })
-
-    if (uploadError) {
-      return { url: null, error: uploadError.message }
+    if (error || !data) {
+      return { data: null, error: error?.message ?? '업로드 URL 발급에 실패했습니다.' }
     }
 
     const { data: { publicUrl } } = supabaseAdmin.storage
-      .from(bucket)
-      .getPublicUrl(fileName)
+      .from(input.bucket)
+      .getPublicUrl(data.path)
 
-    return { url: publicUrl, error: null }
+    return { data: { path: data.path, token: data.token, publicUrl }, error: null }
   } catch (err: unknown) {
-    return { url: null, error: getErrorMessage(err) }
+    return { data: null, error: getErrorMessage(err) }
   }
 }
 

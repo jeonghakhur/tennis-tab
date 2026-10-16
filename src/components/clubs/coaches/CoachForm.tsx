@@ -6,7 +6,8 @@ import { Modal } from '@/components/common/Modal'
 import { AlertDialog } from '@/components/common/AlertDialog'
 import PhoneInput from '@/components/ui/PhoneInput'
 import { formatPhoneNumber, unformatPhoneNumber } from '@/lib/utils/phone'
-import { uploadImage, uploadFile } from '@/lib/storage/actions'
+import { uploadDirect } from '@/lib/storage/clientUpload'
+import { IMAGE_COMPRESS_PRESETS } from '@/lib/utils/imageCompress'
 import type { Coach, CreateCoachInput } from '@/lib/lessons/types'
 
 interface CoachFormProps {
@@ -48,12 +49,13 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
     if (!file) return
 
     setUploadingImage(true)
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'coaches')
-    formData.append('folder', 'profiles')
-
-    const { url, error } = await uploadImage(formData)
+    // 프로필 이미지: 클라이언트 압축 후 Storage 직접 업로드
+    const { url, error } = await uploadDirect(file, {
+      bucket: 'coaches',
+      folder: 'profiles',
+      imagesOnly: true,
+      compress: IMAGE_COMPRESS_PRESETS.poster,
+    })
     setUploadingImage(false)
 
     if (error || !url) {
@@ -74,12 +76,11 @@ export function CoachForm({ isOpen, onClose, onSubmit, initialData, onDelete }: 
     const uploaded: string[] = []
 
     for (const file of files) {
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('bucket', 'coaches')
-      formData.append('folder', 'certifications')
-
-      const { url, error } = await uploadFile(formData)
+      // 자격증 파일(문서/이미지): Storage 직접 업로드, 압축 없음
+      const { url, error } = await uploadDirect(file, {
+        bucket: 'coaches',
+        folder: 'certifications',
+      })
       if (error || !url) {
         setAlert({ isOpen: true, message: `${file.name}: ${error || '업로드 실패'}`, type: 'error' })
         continue

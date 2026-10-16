@@ -3,7 +3,9 @@
 import { useState, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { X, Upload, FileText, FileSpreadsheet, Presentation, File } from 'lucide-react'
-import { uploadFile, deleteImage } from '@/lib/storage/actions'
+import { deleteImage } from '@/lib/storage/actions'
+import { uploadDirect } from '@/lib/storage/clientUpload'
+import { IMAGE_COMPRESS_PRESETS, MAX_RAW_IMAGE_SIZE, MAX_UPLOAD_SIZE } from '@/lib/utils/imageCompress'
 import type { PostAttachment } from '@/lib/community/types'
 
 // 허용 파일 형식
@@ -12,7 +14,7 @@ const DOCUMENT_EXTENSIONS = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.hwp'
 const ALL_EXTENSIONS = `${IMAGE_EXTENSIONS},${DOCUMENT_EXTENSIONS}`
 
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
+const MAX_FILE_SIZE = MAX_UPLOAD_SIZE // 문서 10MB (이미지는 압축 후 uploadDirect에서 검증)
 const MAX_ATTACHMENTS = 20
 
 /** 파일 확장자로 타입 판별 */
@@ -85,17 +87,19 @@ export function PostAttachments({ value, onChange }: PostAttachmentsProps) {
         continue
       }
 
-      if (file.size > MAX_FILE_SIZE) {
-        setError(`"${file.name}" — 10MB를 초과합니다.`)
+      // 이미지는 압축 후 검증하므로 원본 상한(25MB)만, 문서는 10MB 즉시 검증
+      const rawLimit = fileType === 'image' ? MAX_RAW_IMAGE_SIZE : MAX_FILE_SIZE
+      if (file.size > rawLimit) {
+        setError(`"${file.name}" — ${fileType === 'image' ? '25MB' : '10MB'}를 초과합니다.`)
         continue
       }
 
-      const formData = new FormData()
-      formData.append('file', file)
-      formData.append('bucket', 'posts')
-      formData.append('folder', fileType === 'image' ? 'images' : 'documents')
-
-      const result = await uploadFile(formData)
+      // Storage 직접 업로드 (이미지는 클라이언트 압축 적용)
+      const result = await uploadDirect(file, {
+        bucket: 'posts',
+        folder: fileType === 'image' ? 'images' : 'documents',
+        compress: fileType === 'image' ? IMAGE_COMPRESS_PRESETS.attachment : undefined,
+      })
 
       if (result.error) {
         setError(`"${file.name}" 업로드 실패: ${result.error}`)
@@ -103,10 +107,11 @@ export function PostAttachments({ value, onChange }: PostAttachmentsProps) {
       }
 
       if (result.url) {
+        // 압축됐으면 실제 저장된 파일(.webp)의 이름·크기를 기록
         newAttachments.push({
           url: result.url,
-          name: file.name,
-          size: file.size,
+          name: result.file.name,
+          size: result.file.size,
           type: fileType,
         })
       }

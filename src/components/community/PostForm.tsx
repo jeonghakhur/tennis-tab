@@ -9,7 +9,8 @@ import {
   hasValidationErrors,
   type PostValidationErrors,
 } from '@/lib/utils/validation'
-import { uploadFile } from '@/lib/storage/actions'
+import { uploadDirect } from '@/lib/storage/clientUpload'
+import { IMAGE_COMPRESS_PRESETS, MAX_RAW_IMAGE_SIZE } from '@/lib/utils/imageCompress'
 import type { PostCategory, PostAttachment, CreatePostInput } from '@/lib/community/types'
 import { POST_CATEGORY_LABELS } from '@/lib/community/types'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -28,7 +29,7 @@ const RichTextEditor = dynamic(() => import('@/components/ui/RichTextEditor'), {
 // 상수
 const TITLE_MAX_LENGTH = 100
 const IMAGE_MIME_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-const EDITOR_IMAGE_MAX_SIZE = 10 * 1024 * 1024 // 10MB
+const EDITOR_IMAGE_MAX_SIZE = MAX_RAW_IMAGE_SIZE // 압축 전 원본 상한 (최종 10MB는 압축 후 검증)
 
 // 순차 검증 필드 순서
 const FIELD_ORDER: (keyof PostValidationErrors)[] = ['category', 'title', 'content']
@@ -104,16 +105,17 @@ export function PostForm({ mode, initialData, onSubmit, isAdmin, isSubmitting }:
       return null
     }
     if (file.size > EDITOR_IMAGE_MAX_SIZE) {
-      setAlert({ isOpen: true, message: '이미지 크기는 10MB 이하여야 합니다.', type: 'error' })
+      setAlert({ isOpen: true, message: '이미지 원본이 너무 큽니다. (최대 25MB)', type: 'error' })
       return null
     }
 
-    const formData = new FormData()
-    formData.append('file', file)
-    formData.append('bucket', 'posts')
-    formData.append('folder', 'images')
-
-    const result = await uploadFile(formData)
+    // 클라이언트 압축 후 Storage 직접 업로드 (Vercel 4.5MB 본문 제한 우회)
+    const result = await uploadDirect(file, {
+      bucket: 'posts',
+      folder: 'images',
+      imagesOnly: true,
+      compress: IMAGE_COMPRESS_PRESETS.editor,
+    })
     if (result.error) {
       setAlert({ isOpen: true, message: `이미지 업로드 실패: ${result.error}`, type: 'error' })
       return null
