@@ -6,6 +6,8 @@ export interface Division {
   id: string;
   name: string;
   max_teams: number | null;
+  /** 개인 접수 부서 — 복식 대회면 조편성 전 페어 편성 탭 노출 */
+  solo_entry?: boolean | null;
 }
 
 /** 대회가 마감되어 대진표 수정 불가한 상태 */

@@ -379,7 +379,7 @@ export async function cancelEntryByAdmin(
     // 1. 신청 정보 조회 (상태/division_id/payment_status/refund_bank 필요)
     const { data: entry, error: entryError } = await admin
         .from('tournament_entries')
-        .select('id, user_id, status, division_id, tournament_id, payment_status, refund_bank')
+        .select('id, user_id, status, division_id, tournament_id, payment_status, refund_bank, paired_into_entry_id')
         .eq('id', entryId)
         .eq('user_id', userId)
         .single();
@@ -396,6 +396,26 @@ export async function cancelEntryByAdmin(
 
     if ((bracketCount ?? 0) > 0) {
         return { success: false, error: '대진표에 배정된 참가 신청은 취소할 수 없습니다. 주최자에게 문의하세요.' };
+    }
+
+    // 2-1. 조편성·페어 편성 여부 확인 (개인 접수 복식: 대표/파트너 모두 취소 불가)
+    const [{ count: groupCount }, { count: partnerCount }] = await Promise.all([
+        admin
+            .from('group_teams')
+            .select('id', { count: 'exact', head: true })
+            .eq('entry_id', entryId),
+        admin
+            .from('tournament_entries')
+            .select('id', { count: 'exact', head: true })
+            .eq('paired_into_entry_id', entryId),
+    ]);
+    const isPairedPartner = !!(entry as { paired_into_entry_id?: string | null }).paired_into_entry_id;
+
+    if ((groupCount ?? 0) > 0) {
+        return { success: false, error: '조편성에 배정된 참가 신청은 취소할 수 없습니다. 주최자에게 문의하세요.' };
+    }
+    if (isPairedPartner || (partnerCount ?? 0) > 0) {
+        return { success: false, error: '복식 페어가 편성된 참가 신청은 취소할 수 없습니다. 주최자에게 문의하세요.' };
     }
 
     const wasConfirmed = entry.status === 'CONFIRMED';
@@ -759,6 +779,13 @@ export async function updateEntry(
 
         // 개인 접수 부서: 파트너 정보 강제 NULL
         const isSoloEntry = (division as { solo_entry?: boolean }).solo_entry === true;
+
+        // 페어 편성된 엔트리는 수정 불가 — 대표(개인 접수인데 partner_data 보유) / 파트너(paired_into 보유)
+        // 수정을 허용하면 solo 규칙에 의해 partner_data 가 NULL 로 덮여 페어가 유실됨
+        const pairedFlags = entry as { partner_data: unknown; paired_into_entry_id?: string | null };
+        if (pairedFlags.paired_into_entry_id || (isSoloEntry && pairedFlags.partner_data)) {
+            return { success: false, error: '복식 페어가 편성된 참가 신청은 수정할 수 없습니다. 주최자에게 문의하세요.' };
+        }
 
         // 8. 신청 정보 업데이트 (Service Role로 RLS 우회, 이미 본인 신청 검증됨)
         const admin = createAdminClient();

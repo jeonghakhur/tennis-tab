@@ -614,6 +614,17 @@ src/components/admin/BracketManager/
 - 접근 판정은 `canViewTournament(visibility, role)`, 목록 노출은 `isListedTournament(visibility, role)` 사용 (직접 문자열 비교 금지)
 - 변경 UI: 어드민 엔트리 페이지 헤더 `TournamentVisibilitySelector`, 대회 폼 `공개 범위` 셀렉트. Server Action `updateTournamentVisibility`는 status와 달리 전환 제약·참가자 알림 없음
 
+## 개인 접수 부서 복식 페어 편성 (solo-entry pairing)
+계획: `docs/01-plan/features/solo-entry-pairing.plan.md` · 마이그레이션: `64_solo_entry_pairing.sql` · 순수 로직: `src/lib/bracket/pairing.ts`
+
+- 대상: `tournament_divisions.solo_entry = true` **그리고** 대회 `match_type = INDIVIDUAL_DOUBLES`
+- 데이터: 대표(A) 행 `partner_data` = 파트너 정보 복사, 파트너(B) 행 `paired_into_entry_id = A.id`. `partner_user_id`는 사용하지 않음(대리 등록으로 user_id가 본인이 아닐 수 있음)
+- 편성/해제는 DB 함수 `pair_solo_entries_batch` / `unpair_solo_entries`(RAISE EXCEPTION → 전체 롤백). 조편성 생성 후(`bracket_configs.status != DRAFT` 또는 `preliminary_groups` 존재)에는 변경 불가
+- `autoGenerateGroups` 풀은 `paired_into_entry_id IS NULL`. 개인 접수 복식 부서에 미편성 인원이 남으면 조편성 차단
+- 페어된 엔트리는 사용자 취소·수정, 어드민 상태 변경(CONFIRMED 외)·일괄 변경·삭제 모두 거부(`getPairingBlockReason`). `adminUpdateEntry`는 대표의 `partner_data`를 덮어쓰지 않음
+- UI: BracketManager `PairingTab`(설정 → 페어 편성 → 조편성), EntriesManager "페어 대표/파트너" 배지. 집계는 B행 CONFIRMED 유지로 "명" 단위 불변, PDF 참가자 수만 B행 0명 처리
+- **새 엔트리 조회·집계 경로 추가 시**: 팀 단위가 필요하면 `paired_into_entry_id IS NULL` 필터, 인원 단위면 필터 없이 사용
+
 ## 재정 관리 (Finance Ledger)
 설계: `docs/02-design/features/finance-ledger.design.md` · 마이그레이션: `60_finance_ledger.sql`
 

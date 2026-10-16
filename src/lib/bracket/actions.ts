@@ -8,6 +8,7 @@ import { revalidatePath } from 'next/cache'
 import type { BracketStatus, MatchPhase, MatchStatus, MatchType, PartnerData, SetDetail, TeamMember, TournamentStatus } from '@/lib/supabase/types'
 import { createNotification, createBulkNotifications } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
+import { buildAutoPairs, type PairingStrategy, type SoloPairingEntry } from '@/lib/bracket/pairing'
 
 // ============================================================================
 // 타입 정의
@@ -443,15 +444,35 @@ export async function autoGenerateGroups(configId: string, divisionId: string) {
   const groupSize = bracketConfig?.group_size ?? 3
 
   // 승인된 참가팀 조회 (CONFIRMED 상태만)
-  const { data: entries, error: entriesError } = await supabaseAdmin
-    .from('tournament_entries')
-    .select('id, player_name, club_name')
-    .eq('division_id', divisionId)
-    .eq('status', 'CONFIRMED')
-    .order('created_at', { ascending: true })
+  // 개인 접수 복식 페어의 파트너 행(paired_into_entry_id 보유)은 대표 행에 합쳐졌으므로 풀에서 제외
+  const [{ data: entries, error: entriesError }, { data: divisionRow }] = await Promise.all([
+    supabaseAdmin
+      .from('tournament_entries')
+      .select('id, player_name, club_name, partner_data')
+      .eq('division_id', divisionId)
+      .eq('status', 'CONFIRMED')
+      .is('paired_into_entry_id', null)
+      .order('created_at', { ascending: true }),
+    supabaseAdmin
+      .from('tournament_divisions')
+      .select('solo_entry, tournaments!inner(match_type)')
+      .eq('id', divisionId)
+      .single(),
+  ])
 
   if (entriesError || !entries) {
     return { error: '참가팀 조회에 실패했습니다.' }
+  }
+
+  // 개인 접수 복식 부서: 페어가 없는 인원이 남아 있으면 단식 대진이 되므로 차단
+  const divisionMatchType = (divisionRow?.tournaments as { match_type?: string | null } | null)?.match_type
+  if (divisionRow?.solo_entry === true && divisionMatchType === 'INDIVIDUAL_DOUBLES') {
+    const unpairedCount = entries.filter((e) => !e.partner_data).length
+    if (unpairedCount > 0) {
+      return {
+        error: `페어 편성이 완료되지 않았습니다. 미편성 ${unpairedCount}명을 페어 편성 탭에서 먼저 편성하거나 신청을 취소 처리하세요.`,
+      }
+    }
   }
 
   if (entries.length < 2) {
@@ -3600,4 +3621,211 @@ export async function registerBracketAwards(
 
   revalidatePath('/awards')
   return { data: { ranks, competition: info.competition }, error: null }
+}
+
+// ============================================================================
+// 개인 접수 부서 복식 페어 편성
+//   - 대표(A) 행: partner_data 에 파트너 정보 복사 → 대진표에 올라감
+//   - 파트너(B) 행: paired_into_entry_id = A.id → 조편성 풀에서 제외
+//   - 편성/해제는 DB 함수(pair_solo_entries_batch / unpair_solo_entries)로 원자 처리
+//   순수 로직: src/lib/bracket/pairing.ts
+// ============================================================================
+
+export interface SoloPairingState {
+  entries: SoloPairingEntry[]
+  /** 페어 편성/해제 가능 여부 (조편성 전 + 마감 전) */
+  editable: boolean
+  /** 편집 불가 사유 (editable=false 일 때) */
+  lockReason: string | null
+}
+
+const PAIRING_STRATEGIES: PairingStrategy[] = ['RANDOM', 'RATING_BALANCED']
+
+/** 부서의 페어 편집 가능 여부 — DB 함수(assert_solo_pairing_editable)와 동일 규칙을 화면 안내용으로 선계산 */
+async function getSoloPairingLock(divisionId: string): Promise<{ editable: boolean; lockReason: string | null; tournamentId: string | null }> {
+  const supabaseAdmin = createAdminClient()
+
+  const { data: division } = await supabaseAdmin
+    .from('tournament_divisions')
+    .select('solo_entry, tournament_id, tournaments!inner(match_type, status)')
+    .eq('id', divisionId)
+    .single()
+
+  if (!division) {
+    return { editable: false, lockReason: '부서를 찾을 수 없습니다.', tournamentId: null }
+  }
+
+  // !inner JOIN 결과는 타입상 배열로 추론될 수 있어 unknown 경유 (단건 FK라 객체로 반환됨)
+  const tournament = division.tournaments as unknown as { match_type: string | null; status: TournamentStatus } | null
+  if (division.solo_entry !== true) {
+    return { editable: false, lockReason: '개인 접수 부서에서만 페어 편성을 사용할 수 있습니다.', tournamentId: division.tournament_id }
+  }
+  if (tournament?.match_type !== 'INDIVIDUAL_DOUBLES') {
+    return { editable: false, lockReason: '복식 대회에서만 페어 편성을 사용할 수 있습니다.', tournamentId: division.tournament_id }
+  }
+  if (tournament && CLOSED_TOURNAMENT_STATUSES.includes(tournament.status)) {
+    return { editable: false, lockReason: '마감된 대회는 페어를 변경할 수 없습니다.', tournamentId: division.tournament_id }
+  }
+
+  const { data: config } = await supabaseAdmin
+    .from('bracket_configs')
+    .select('id, status, preliminary_groups(count)')
+    .eq('division_id', divisionId)
+    .maybeSingle()
+
+  if (config) {
+    const groupCount = (config.preliminary_groups as { count: number }[] | null)?.[0]?.count ?? 0
+    if (config.status !== 'DRAFT' || groupCount > 0) {
+      return {
+        editable: false,
+        lockReason: '조편성이 생성된 후에는 페어를 변경할 수 없습니다. 조편성 탭에서 조편성을 삭제한 뒤 수정하세요.',
+        tournamentId: division.tournament_id,
+      }
+    }
+  }
+
+  return { editable: true, lockReason: null, tournamentId: division.tournament_id }
+}
+
+/** 부서의 승인 엔트리(개인) 목록 + 편집 가능 여부 */
+export async function getSoloPairingState(divisionId: string): Promise<{ data: SoloPairingState | null; error: string | null }> {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { data: null, error: authResult.error }
+
+  const idError = validateId(divisionId, '부서 ID')
+  if (idError) return { data: null, error: idError }
+
+  const supabaseAdmin = createAdminClient()
+
+  const [lock, { data: entries, error }] = await Promise.all([
+    getSoloPairingLock(divisionId),
+    supabaseAdmin
+      .from('tournament_entries')
+      .select('id, player_name, club_name, player_rating, partner_data, paired_into_entry_id')
+      .eq('division_id', divisionId)
+      .eq('status', 'CONFIRMED')
+      .order('created_at', { ascending: true })
+      .order('id', { ascending: true }),
+  ])
+
+  if (error) return { data: null, error: '참가자 조회에 실패했습니다.' }
+
+  return {
+    data: {
+      entries: (entries ?? []) as SoloPairingEntry[],
+      editable: lock.editable,
+      lockReason: lock.lockReason,
+    },
+    error: null,
+  }
+}
+
+/** DB 함수 호출 공통: 예외 메시지를 그대로 사용자에게 노출 (RAISE EXCEPTION 메시지가 한국어 안내) */
+async function callPairingRpc(
+  fn: 'pair_solo_entries_batch' | 'unpair_solo_entries',
+  params: Record<string, unknown>,
+): Promise<{ count: number; error: string | null }> {
+  const supabaseAdmin = createAdminClient()
+  const { data, error } = await supabaseAdmin.rpc(fn, params)
+  if (error) {
+    return { count: 0, error: error.message || '페어 처리에 실패했습니다.' }
+  }
+  return { count: typeof data === 'number' ? data : 0, error: null }
+}
+
+function revalidatePairing(tournamentId: string | null) {
+  revalidatePath('/admin/tournaments')
+  if (tournamentId) {
+    revalidatePath(`/admin/tournaments/${tournamentId}/entries`)
+    revalidatePath(`/tournaments/${tournamentId}`)
+  }
+}
+
+/** 수동 페어 편성: 대표(captain) + 파트너(partner) 1쌍 */
+export async function pairSoloEntries(divisionId: string, captainId: string, partnerId: string) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError =
+    validateId(divisionId, '부서 ID') || validateId(captainId, '대표 엔트리 ID') || validateId(partnerId, '파트너 엔트리 ID')
+  if (idError) return { error: idError }
+  if (captainId === partnerId) return { error: '같은 참가자를 페어로 묶을 수 없습니다.' }
+
+  const lock = await getSoloPairingLock(divisionId)
+  if (!lock.editable) return { error: lock.lockReason }
+
+  const result = await callPairingRpc('pair_solo_entries_batch', {
+    p_division_id: divisionId,
+    p_pairs: [{ captain_id: captainId, partner_id: partnerId }],
+  })
+  if (result.error) return { error: result.error }
+
+  revalidatePairing(lock.tournamentId)
+  return { error: null, pairedCount: result.count }
+}
+
+/**
+ * 자동 페어 편성: 미편성 인원만 대상으로 전략에 따라 일괄 편성
+ * 기존 페어는 유지. 홀수면 1명이 미편성으로 남는다.
+ */
+export async function autoPairSoloEntries(divisionId: string, strategy: PairingStrategy) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(divisionId, '부서 ID')
+  if (idError) return { error: idError }
+  if (!PAIRING_STRATEGIES.includes(strategy)) return { error: '편성 방식이 올바르지 않습니다.' }
+
+  const state = await getSoloPairingState(divisionId)
+  if (state.error || !state.data) return { error: state.error ?? '참가자 조회에 실패했습니다.' }
+  if (!state.data.editable) return { error: state.data.lockReason }
+
+  // 미편성 = 대표도 파트너도 아닌 엔트리 (partner_data 없음 + paired_into 없음)
+  const unpaired = state.data.entries.filter((e) => !e.partner_data && !e.paired_into_entry_id)
+  if (unpaired.length < 2) {
+    return { error: '편성할 미편성 인원이 2명 미만입니다.' }
+  }
+
+  const { pairs, leftover } = buildAutoPairs(unpaired, strategy)
+
+  const result = await callPairingRpc('pair_solo_entries_batch', {
+    p_division_id: divisionId,
+    p_pairs: pairs.map((p) => ({ captain_id: p.captain.id, partner_id: p.partner.id })),
+  })
+  if (result.error) return { error: result.error }
+
+  revalidatePairing(null)
+  return {
+    error: null,
+    pairedCount: result.count,
+    leftoverName: leftover?.player_name ?? null,
+  }
+}
+
+/** 페어 해제: captainIds 가 null 이면 부서 전체 해제 */
+export async function unpairSoloEntries(divisionId: string, captainIds: string[] | null) {
+  const authResult = await checkBracketManagementAuth()
+  if (authResult.error) return { error: authResult.error }
+
+  const idError = validateId(divisionId, '부서 ID')
+  if (idError) return { error: idError }
+  if (captainIds !== null) {
+    if (captainIds.length === 0) return { error: '해제할 페어를 선택하세요.' }
+    for (const id of captainIds) {
+      const err = validateId(id, '대표 엔트리 ID')
+      if (err) return { error: err }
+    }
+  }
+
+  const lock = await getSoloPairingLock(divisionId)
+  if (!lock.editable) return { error: lock.lockReason }
+
+  const result = await callPairingRpc('unpair_solo_entries', {
+    p_division_id: divisionId,
+    p_captain_ids: captainIds,
+  })
+  if (result.error) return { error: result.error }
+
+  revalidatePairing(lock.tournamentId)
+  return { error: null, unpairedCount: result.count }
 }

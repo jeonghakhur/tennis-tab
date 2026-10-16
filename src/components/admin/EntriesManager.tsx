@@ -42,6 +42,7 @@ import {
 import { updateRefundStatus } from "@/lib/entries/actions";
 import { AlertDialog, ConfirmDialog } from "@/components/common/AlertDialog";
 import { Modal } from "@/components/common/Modal";
+import { Badge } from "@/components/common/Badge";
 import {
   Select,
   SelectContent,
@@ -1255,6 +1256,21 @@ export function EntriesManager({
                                   />
                                 );
                               })()}
+                              {/* 개인 접수 복식 페어: 파트너 행(대표를 가리킴) / 대표 행(개인 접수인데 partner_data 보유) */}
+                              {entry.paired_into_entry_id ? (
+                                <Badge variant="info" className="ml-2 align-middle">
+                                  페어 파트너
+                                </Badge>
+                              ) : (
+                                entry.partner_data &&
+                                divisions.some(
+                                  (d) => d.id === entry.division_id && d.solo_entry,
+                                ) && (
+                                  <Badge variant="info" className="ml-2 align-middle">
+                                    페어 대표
+                                  </Badge>
+                                )
+                              )}
                               {/* 단체전: 신청자의 선수 참가 여부 배지 */}
                               {isTeamMatch &&
                                 (entry.applicant_participates === false ? (

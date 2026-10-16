@@ -63,7 +63,7 @@ export async function GET(_request: Request, context: RouteContext) {
     .from('tournament_entries')
     .select(`
       id, division_id, player_name, club_name, phone,
-      partner_data, team_members, applicant_participates,
+      partner_data, team_members, applicant_participates, paired_into_entry_id,
       profiles:user_id (name, phone, club),
       tournament_divisions:division_id (name)
     `)
@@ -110,8 +110,13 @@ export async function GET(_request: Request, context: RouteContext) {
 
     let personCount = 1 // 개인전 기본
     if (isDoubles) {
-      // 복식: 신청자 + 파트너 = 2명
-      personCount = 2
+      // 복식: 파트너가 있는 행은 2명, 개인 접수 페어의 파트너 행은 대표 행에서 집계되므로 0명,
+      // 아직 페어가 없는 개인 접수 행은 1명
+      if (e.paired_into_entry_id) {
+        personCount = 0
+      } else if (e.partner_data) {
+        personCount = 2
+      }
     } else if (isTeamMatch) {
       // 단체전: 팀원 수 + (본인 참가 시 +1)
       const members = (e.team_members as TeamMember[] | null) ?? []

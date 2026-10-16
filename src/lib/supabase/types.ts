@@ -265,6 +265,8 @@ export interface Database {
           team_order: string | null
           partner_data: PartnerData | null
           partner_user_id: string | null
+          /** 개인 접수 복식 페어: 파트너 행이 가리키는 대표 엔트리 id */
+          paired_into_entry_id: string | null
           team_members: TeamMember[] | null
           applicant_participates: boolean
           payment_status: PaymentStatus
@@ -285,6 +287,7 @@ export interface Database {
           team_order?: string | null
           partner_data?: PartnerData | null
           partner_user_id?: string | null
+          paired_into_entry_id?: string | null
           team_members?: TeamMember[] | null
           applicant_participates?: boolean
           payment_status?: PaymentStatus
@@ -305,6 +308,7 @@ export interface Database {
           team_order?: string | null
           partner_data?: PartnerData | null
           partner_user_id?: string | null
+          paired_into_entry_id?: string | null
           team_members?: TeamMember[] | null
           applicant_participates?: boolean
           payment_status?: PaymentStatus

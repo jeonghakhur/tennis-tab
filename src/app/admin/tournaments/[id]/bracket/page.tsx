@@ -36,7 +36,7 @@ export default async function TournamentBracketPage({ params }: PageProps) {
     .select(`
       *,
       profiles:organizer_id (name, email),
-      tournament_divisions (id, name, max_teams)
+      tournament_divisions (id, name, max_teams, solo_entry)
     `)
     .eq('id', id)
     .single()

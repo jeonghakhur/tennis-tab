@@ -13,6 +13,39 @@ import { formatKoreanDateTime } from '@/lib/utils/formatDate'
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SupabaseAdminClient = ReturnType<typeof createSupabaseClient<any>>
 
+/** 페어 편성된 엔트리는 상태 변경·삭제 시 안내할 메시지 */
+const PAIRED_ENTRY_BLOCK_MESSAGE =
+  '페어 편성된 참가 신청입니다. 대진표 관리 > 페어 편성에서 먼저 해제하세요.'
+
+/**
+ * 개인 접수 복식 페어에 묶인 엔트리(대표 또는 파트너)가 포함되어 있으면 안내 메시지 반환
+ * - 파트너: paired_into_entry_id 보유
+ * - 대표: 다른 엔트리의 paired_into_entry_id 가 자신을 가리킴
+ */
+async function getPairingBlockReason(
+  supabaseAdmin: SupabaseAdminClient,
+  entryIds: string[],
+): Promise<string | null> {
+  if (entryIds.length === 0) return null
+  const [{ data: partners }, { data: captains }] = await Promise.all([
+    supabaseAdmin
+      .from('tournament_entries')
+      .select('id')
+      .in('id', entryIds)
+      .not('paired_into_entry_id', 'is', null)
+      .limit(1),
+    supabaseAdmin
+      .from('tournament_entries')
+      .select('id')
+      .in('paired_into_entry_id', entryIds)
+      .limit(1),
+  ])
+  if ((partners?.length ?? 0) > 0 || (captains?.length ?? 0) > 0) {
+    return PAIRED_ENTRY_BLOCK_MESSAGE
+  }
+  return null
+}
+
 /** 대기자 자동 승격: 해당 부서에서 가장 오래된 WAITLISTED를 CONFIRMED로 변경 */
 async function autoPromoteWaitlisted(
   supabaseAdmin: SupabaseAdminClient,
@@ -96,6 +129,12 @@ export async function updateEntryStatus(entryId: string, status: EntryStatus) {
 
   let dbStatus = toDbEntryStatus(status)
   const previousStatus = entry.status as string
+
+  // 페어 편성된 엔트리는 CONFIRMED 를 벗어나는 상태 변경 불가 (페어 무결성 유지)
+  if (dbStatus !== 'CONFIRMED') {
+    const blocked = await getPairingBlockReason(supabaseAdmin, [entryId])
+    if (blocked) return { error: blocked }
+  }
 
   // 승인(CONFIRMED) 시 정원 체크: max_teams 초과이면 WAITLISTED로 전환
   if (dbStatus === 'CONFIRMED' && entry.division_id) {
@@ -382,6 +421,15 @@ export async function adminUpdateEntry(
 
   const admin = createAdminClient()
 
+  // 개인 접수 페어의 대표 엔트리면 partner_data 는 페어 편성 탭이 관리 → 폼 값으로 덮어쓰지 않음
+  const { data: pairedPartner } = await admin
+    .from('tournament_entries')
+    .select('id')
+    .eq('paired_into_entry_id', entryId)
+    .limit(1)
+    .maybeSingle()
+  const isPairingCaptain = !!pairedPartner
+
   const { error } = await admin
     .from('tournament_entries')
     .update({
@@ -390,7 +438,7 @@ export async function adminUpdateEntry(
       phone: unformatPhoneNumber(data.phone),
       club_name: data.clubName?.trim() || null,
       player_rating: data.playerRating ?? null,
-      partner_data: data.partnerData ?? null,
+      ...(isPairingCaptain ? {} : { partner_data: data.partnerData ?? null }),
       team_members: data.teamMembers ?? null,
       applicant_participates: data.applicantParticipates ?? true,
       updated_at: new Date().toISOString(),
@@ -483,6 +531,12 @@ export async function bulkUpdateEntryStatus(
   )
 
   const dbStatus = toDbEntryStatus(status)
+
+  // 페어 편성된 엔트리가 포함되면 CONFIRMED 외 상태로의 일괄 변경 불가
+  if (dbStatus !== 'CONFIRMED') {
+    const blocked = await getPairingBlockReason(supabaseAdmin, entryIds)
+    if (blocked) return { error: blocked }
+  }
 
   // 승인(CONFIRMED) 시 부서별 정원 체크
   if (dbStatus === 'CONFIRMED') {
@@ -736,6 +790,10 @@ export async function deleteEntry(entryId: string) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceRoleKey
   )
+  // 페어 편성된 엔트리는 삭제 불가 (ON DELETE SET NULL 로 대표/파트너 정보가 어긋남)
+  const blocked = await getPairingBlockReason(supabaseAdmin, [entryId])
+  if (blocked) return { error: blocked }
+
   const { error } = await supabaseAdmin
     .from('tournament_entries')
     .delete()

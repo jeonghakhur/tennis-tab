@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Settings, Users, Play, Trophy, Eye, EyeOff } from "lucide-react";
+import { Settings, Users, Play, Trophy, Eye, EyeOff, Link2 } from "lucide-react";
 import {
   AlertDialog,
   ConfirmDialog,
@@ -42,6 +42,7 @@ import {
   type RealtimeMatchPayload,
 } from "@/lib/realtime/useMatchesRealtime";
 import { SettingsTab } from "./SettingsTab";
+import { PairingTab } from "./PairingTab";
 import { GroupsTab } from "./GroupsTab";
 import { PreliminaryTab } from "./PreliminaryTab";
 import { MainBracketTab } from "./MainBracketTab";
@@ -57,7 +58,7 @@ import type {
 } from "./types";
 import { CLOSED_TOURNAMENT_STATUSES, phaseLabels } from "./types";
 
-type TabType = "settings" | "groups" | "preliminary" | "main";
+type TabType = "settings" | "pairing" | "groups" | "preliminary" | "main";
 
 export function BracketManager({
   tournamentId,
@@ -77,6 +78,9 @@ export function BracketManager({
   const [selectedDivision, setSelectedDivision] = useState(
     divisions.length > 0 ? divisions[0] : null,
   );
+  // 개인 접수 + 복식 대회 부서 → 조편성 전에 2명을 1팀으로 묶는 "페어 편성" 탭 노출
+  const isSoloDoublesDivision =
+    matchType === "INDIVIDUAL_DOUBLES" && selectedDivision?.solo_entry === true;
   const [config, setConfig] = useState<BracketConfig | null>(null);
   const [groups, setGroups] = useState<PreliminaryGroup[]>([]);
   const [preliminaryMatches, setPreliminaryMatches] = useState<BracketMatch[]>(
@@ -285,6 +289,13 @@ export function BracketManager({
     if (!selectedDivision) return;
     loadBracketData();
   }, [selectedDivision, loadBracketData]);
+
+  // 페어 편성 탭은 개인 접수 복식 부서에서만 유효 — 다른 부서로 전환되면 설정 탭으로 복귀
+  useEffect(() => {
+    if (activeTab === "pairing" && !isSoloDoublesDivision) {
+      setActiveTab("settings");
+    }
+  }, [activeTab, isSoloDoublesDivision]);
 
   // Realtime 구독 — config가 있을 때만 활성화
   // Realtime payload에는 JOIN 데이터(team1/team2 이름)가 없으므로 기존 상태와 병합
@@ -967,6 +978,19 @@ export function BracketManager({
                       <Settings className="hidden sm:inline-block w-4 h-4" />
                       설정
                     </button>
+                    {isSoloDoublesDivision && (
+                      <button
+                        onClick={() => setActiveTab("pairing")}
+                        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
+                          activeTab === "pairing"
+                            ? "bg-(--accent-color)"
+                            : "hover:bg-white/10 text-(--text-secondary)"
+                        }`}
+                      >
+                        <Link2 className="hidden sm:inline-block w-4 h-4" />
+                        페어 편성
+                      </button>
+                    )}
                     <button
                       onClick={() => setActiveTab("groups")}
                       className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-(--bg-primary) ${
@@ -1051,6 +1075,15 @@ export function BracketManager({
                     ? undefined
                     : () => setShowDeleteBracketConfirm(true)
                 }
+              />
+            )}
+
+            {activeTab === "pairing" && isSoloDoublesDivision && selectedDivision && (
+              <PairingTab
+                divisionId={selectedDivision.id}
+                readOnly={isClosed}
+                onError={(msg) => showError("페어 편성 오류", msg)}
+                onChanged={loadBracketData}
               />
             )}
 
