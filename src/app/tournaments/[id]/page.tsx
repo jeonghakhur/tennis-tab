@@ -7,7 +7,7 @@ import { getTournamentForMeta } from "@/lib/meta/fetchers";
 import { buildSportsEventJsonLd } from "@/lib/meta/jsonld";
 import Link from "next/link";
 import { TournamentPosterImage } from "@/components/tournaments/TournamentPosterImage";
-import { TournamentStatus, MatchType } from "@/lib/supabase/types";
+import { TournamentStatus, MatchType, type TournamentVisibility } from "@/lib/supabase/types";
 import TournamentMap from "@/components/tournaments/TournamentMap";
 import TournamentEntryActionsNew from "@/components/tournaments/TournamentEntryActionsNew";
 import { DivisionEntryButton } from "@/components/tournaments/DivisionEntryButton";
@@ -16,6 +16,7 @@ import { decryptProfile } from "@/lib/crypto/profileCrypto";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 import { PaymentSuccessToast } from "@/components/tournaments/PaymentSuccessToast";
 import { KakaoShareButton } from "@/components/common/KakaoShareButton";
+import { canViewTournament, VISIBILITY_CONFIG } from "@/lib/tournaments/visibility";
 
 interface Props {
   params: Promise<{ id: string }>;
@@ -94,6 +95,19 @@ export default async function TournamentDetailPage({ params }: Props) {
 
   if (error || !tournament) {
     notFound();
+  }
+
+  // 조인 select 때문에 tournament가 any로 추론되므로 공개 범위만 명시 타입으로 고정
+  const tournamentVisibility = (tournament.visibility ?? "PUBLIC") as TournamentVisibility;
+
+  // 비공개(HIDDEN) 대회: 대회 관리 권한(MANAGER 이상)이 없으면 404 — 존재 자체를 노출하지 않음
+  if (tournamentVisibility === "HIDDEN") {
+    const { data: viewerProfile } = user
+      ? await supabase.from("profiles").select("role").eq("id", user.id).single()
+      : { data: null };
+    if (!canViewTournament("HIDDEN", viewerProfile?.role)) {
+      notFound();
+    }
   }
 
   const divisionIds = (tournament.tournament_divisions || []).map(
@@ -326,6 +340,12 @@ export default async function TournamentDetailPage({ params }: Props) {
               <Badge variant={statusBadgeVariant}>
                 {statusLabel}
               </Badge>
+              {/* 공개 범위 배지 — 관리자/주최자에게만, PUBLIC이 아닐 때 */}
+              {(isAdmin || isOrganizer) && tournamentVisibility !== "PUBLIC" && (
+                <Badge variant={VISIBILITY_CONFIG[tournamentVisibility].variant}>
+                  {VISIBILITY_CONFIG[tournamentVisibility].label}
+                </Badge>
+              )}
               <span
                 className="text-sm"
                 style={{ color: "var(--text-muted)" }}

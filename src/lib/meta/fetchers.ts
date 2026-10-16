@@ -37,7 +37,8 @@ export const getTournamentForMeta = cache(async (id: string): Promise<Tournament
     .from('tournaments')
     .select('id, title, start_date, end_date, location, host, poster_url, organizer_name')
     .eq('id', id)
-    .single()
+    .neq('visibility', 'HIDDEN')  // 비공개 대회는 OG 메타도 노출하지 않음
+    .maybeSingle()
   return data
 })
 

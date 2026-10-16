@@ -251,6 +251,7 @@ async function toolSearchTournaments(args: Record<string, unknown>): Promise<Too
   let query = admin
     .from('tournaments')
     .select('id, title, location, address, start_date, end_date, status, entry_fee, max_participants')
+    .eq('visibility', 'PUBLIC')  // 목록 검색은 공개 대회만
     .order('start_date', { ascending: true })
     .limit(8)
 
@@ -311,6 +312,7 @@ async function toolGetTournamentDetail(args: Record<string, unknown>): Promise<T
     `)
     .ilike('title', `%${escapeLike(name)}%`)
     .not('status', 'in', '("DRAFT","CANCELLED")')  // DRAFT/취소 대회 노출 차단
+    .neq('visibility', 'HIDDEN')  // 비공개 대회 노출 차단
     .limit(1)
 
   if (!data || data.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }
@@ -370,6 +372,7 @@ async function toolGetBracket(args: Record<string, unknown>): Promise<ToolResult
     .from('tournaments')
     .select('id, title, status')
     .ilike('title', `%${escapeLike(name)}%`)
+    .neq('visibility', 'HIDDEN')
     .limit(1)
 
   if (!tournaments || tournaments.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }
@@ -439,6 +442,7 @@ async function toolGetMatchResults(args: Record<string, unknown>): Promise<ToolR
     .from('tournaments')
     .select('id, title')
     .ilike('title', `%${escapeLike(name)}%`)
+    .neq('visibility', 'HIDDEN')
     .limit(1)
 
   if (!tournaments || tournaments.length === 0) return { content: `"${name}" 대회를 찾을 수 없습니다.` }

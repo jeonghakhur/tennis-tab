@@ -30,6 +30,7 @@ export async function handleViewRequirements(
     .from('tournaments')
     .select('id, title, location, address, start_date, end_date, status, entry_fee, max_participants, format, match_type, description')
     .ilike('title', `%${entities.tournament_name.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`)
+    .neq('visibility', 'HIDDEN')
     .limit(1)
 
   if (!tournaments || tournaments.length === 0) {

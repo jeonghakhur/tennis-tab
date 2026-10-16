@@ -8,7 +8,8 @@ import { MapPin, Copy } from 'lucide-react';
 import { Database } from '@/lib/supabase/types';
 import { Badge, type BadgeVariant } from '@/components/common/Badge';
 import { useAuth } from '@/components/AuthProvider';
-import { isAdmin, isSuperAdmin } from '@/lib/auth/roles';
+import { isAdmin, isSuperAdmin, canManageTournaments } from '@/lib/auth/roles';
+import { VISIBILITY_CONFIG } from '@/lib/tournaments/visibility';
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'];
 
@@ -28,6 +29,11 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
   const { profile } = useAuth();
   const [imgError, setImgError] = useState(false);
   const canManage = isAdmin(profile?.role);
+  // 관리자(MANAGER 이상)에게만 비공개/링크 공개 배지 표시
+  const visibilityBadge =
+    canManageTournaments(profile?.role) && tournament.visibility !== 'PUBLIC'
+      ? VISIBILITY_CONFIG[tournament.visibility]
+      : null;
   // 대회 복사(=새 생성)는 SUPER_ADMIN만
   const canCreate = isSuperAdmin(profile?.role);
 
@@ -159,7 +165,12 @@ export default function TournamentCard({ tournament }: TournamentCardProps) {
             ) : (
               <span />
             )}
-            {getStatusBadge(tournament.status)}
+            <span className="flex items-center gap-1.5">
+              {visibilityBadge && (
+                <Badge variant={visibilityBadge.variant}>{visibilityBadge.label}</Badge>
+              )}
+              {getStatusBadge(tournament.status)}
+            </span>
           </div>
         </div>
         

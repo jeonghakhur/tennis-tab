@@ -2,8 +2,9 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { parseVisibility, DEFAULT_TOURNAMENT_VISIBILITY } from '@/lib/tournaments/visibility'
 import { revalidatePath } from 'next/cache'
-import { MatchType, UserRole } from '@/lib/supabase/types'
+import { MatchType, UserRole, TournamentVisibility } from '@/lib/supabase/types'
 import { createBulkNotifications } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
 
@@ -77,6 +78,7 @@ type TournamentData = {
   format?: 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
   organizer_id?: string
   status?: 'DRAFT' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+  visibility?: TournamentVisibility
 }
 
 export async function createTournament(formData: FormData): Promise<CreateTournamentResult> {
@@ -185,6 +187,8 @@ export async function createTournament(formData: FormData): Promise<CreateTourna
     format: 'SINGLE_ELIMINATION' as const,
     organizer_id: profile.id,
     status: 'DRAFT' as const,
+    // 공개 범위: 폼 값이 없거나 잘못되면 PUBLIC
+    visibility: parseVisibility(formData.get('visibility')) ?? DEFAULT_TOURNAMENT_VISIBILITY,
   }
 
   // Use supabaseAdmin
@@ -376,6 +380,10 @@ export async function updateTournament(
     },
   }
 
+  // 공개 범위: 폼에 유효한 값이 있을 때만 갱신 (없으면 기존 값 유지)
+  const parsedVisibility = parseVisibility(formData.get('visibility'))
+  if (parsedVisibility) tournamentData.visibility = parsedVisibility
+
   let { error: updateError } = await supabaseAdmin
     .from('tournaments')
     .update(tournamentData)
@@ -551,6 +559,59 @@ export async function deleteTournament(tournamentId: string): Promise<DeleteTour
 export type UpdateTournamentStatusResult =
   | { success: true }
   | { success: false; error: string }
+
+/**
+ * 대회 공개 범위 변경 (주최자 본인 또는 ADMIN 이상)
+ * - status와 달리 전환 제약 없음, 참가자 알림도 보내지 않음 (노출 설정일 뿐 대회 진행과 무관)
+ */
+export async function updateTournamentVisibility(
+  tournamentId: string,
+  visibility: TournamentVisibility
+): Promise<UpdateTournamentStatusResult> {
+  if (!parseVisibility(visibility)) {
+    return { success: false, error: '올바르지 않은 공개 범위입니다.' }
+  }
+
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, error: '로그인이 필요합니다.' }
+  }
+
+  const supabaseAdmin = createAdminClient()
+  const [{ data: tournament, error: tournamentError }, { data: profile }] = await Promise.all([
+    supabaseAdmin.from('tournaments').select('organizer_id, visibility').eq('id', tournamentId).single(),
+    supabase.from('profiles').select('role').eq('id', user.id).single(),
+  ])
+
+  if (tournamentError || !tournament) {
+    return { success: false, error: '대회를 찾을 수 없습니다.' }
+  }
+
+  const isAdminOrHigher = ['ADMIN', 'SUPER_ADMIN'].includes(profile?.role ?? '')
+  if (!isAdminOrHigher && tournament.organizer_id !== user.id) {
+    return { success: false, error: '대회 공개 범위를 변경할 권한이 없습니다.' }
+  }
+
+  if (tournament.visibility === visibility) {
+    return { success: false, error: '이미 해당 공개 범위입니다.' }
+  }
+
+  const { error: updateError } = await supabaseAdmin
+    .from('tournaments')
+    .update({ visibility })
+    .eq('id', tournamentId)
+
+  if (updateError) {
+    return { success: false, error: '공개 범위 변경에 실패했습니다. 다시 시도해주세요.' }
+  }
+
+  revalidatePath('/')
+  revalidatePath('/tournaments')
+  revalidatePath(`/tournaments/${tournamentId}`)
+  revalidatePath('/admin/tournaments')
+  return { success: true }
+}
 
 export async function updateTournamentStatus(
   tournamentId: string,

@@ -5,7 +5,8 @@ import { ChevronLeft, Trophy } from 'lucide-react'
 import { BracketView } from '@/components/tournaments/BracketView'
 import { TournamentRealtimeRefresher } from '@/components/tournaments/TournamentRealtimeRefresher'
 import { getPlayerEntryIds } from '@/lib/bracket/actions'
-import type { MatchType, TournamentStatus } from '@/lib/supabase/types'
+import type { MatchType, TournamentStatus, UserRole } from '@/lib/supabase/types'
+import { canViewTournament } from '@/lib/tournaments/visibility'
 import { Badge, type BadgeVariant } from '@/components/common/Badge'
 import { KakaoShareButton } from '@/components/common/KakaoShareButton'
 import { sortDivisions } from '@/lib/tournaments/divisionSort'
@@ -55,16 +56,22 @@ export default async function TournamentBracketPage({ params, searchParams }: Pa
   // 관리자 여부 판정 (ADMIN/SUPER_ADMIN: 전체, MANAGER: 본인 대회만)
   const user = userResult.data.user
   let canManageThisTournament = false
+  let viewerRole: UserRole | null = null
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
       .single()
-    const role = profile?.role
-    const isAdminLevel = role === 'ADMIN' || role === 'SUPER_ADMIN'
-    const isOrganizerManager = role === 'MANAGER' && tournament.organizer_id === user.id
+    viewerRole = profile?.role ?? null
+    const isAdminLevel = viewerRole === 'ADMIN' || viewerRole === 'SUPER_ADMIN'
+    const isOrganizerManager = viewerRole === 'MANAGER' && tournament.organizer_id === user.id
     canManageThisTournament = isAdminLevel || isOrganizerManager
+  }
+
+  // 비공개(HIDDEN) 대회의 대진표는 관리 권한자만 (상세 페이지와 동일 기준)
+  if (!canViewTournament(tournament.visibility, viewerRole)) {
+    notFound()
   }
 
   const divisions = sortDivisions(

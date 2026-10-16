@@ -58,6 +58,7 @@ export default async function TournamentEditPage({ params }: Props) {
         max_participants: tournament.max_participants,
         entry_fee: tournament.entry_fee,
         team_match_count: tournament.team_match_count,
+        visibility: tournament.visibility,
         tournament_divisions: tournament.tournament_divisions || [],
     };
 

@@ -21,6 +21,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Toast } from '@/components/common/AlertDialog'
 import { Modal } from '@/components/common/Modal'
 import { deleteTournament } from '@/lib/tournaments/actions'
+import { VISIBILITY_CONFIG } from '@/lib/tournaments/visibility'
 
 type Tournament = Database['public']['Tables']['tournaments']['Row'] & {
   profiles: { name: string; email: string } | null
@@ -341,9 +342,16 @@ export function TournamentsTable({
                         </div>
                       </td>
                       <td className="p-4">
-                        <Badge variant={statusConfig[tournament.status].variant}>
-                          {statusConfig[tournament.status].label}
-                        </Badge>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Badge variant={statusConfig[tournament.status].variant}>
+                            {statusConfig[tournament.status].label}
+                          </Badge>
+                          {tournament.visibility !== 'PUBLIC' && (
+                            <Badge variant={VISIBILITY_CONFIG[tournament.visibility].variant}>
+                              {VISIBILITY_CONFIG[tournament.visibility].label}
+                            </Badge>
+                          )}
+                        </div>
                       </td>
                       <td className="p-4 hidden lg:table-cell">
                         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
@@ -438,9 +446,16 @@ export function TournamentsTable({
               <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
                 {tournament.title}
               </span>
-              <Badge variant={statusConfig[tournament.status].variant}>
-                {statusConfig[tournament.status].label}
-              </Badge>
+              <span className="flex items-center gap-1.5">
+                {tournament.visibility !== 'PUBLIC' && (
+                  <Badge variant={VISIBILITY_CONFIG[tournament.visibility].variant}>
+                    {VISIBILITY_CONFIG[tournament.visibility].label}
+                  </Badge>
+                )}
+                <Badge variant={statusConfig[tournament.status].variant}>
+                  {statusConfig[tournament.status].label}
+                </Badge>
+              </span>
             </div>
             <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
               상세보기 →

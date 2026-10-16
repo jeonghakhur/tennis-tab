@@ -21,11 +21,15 @@ export async function searchTournamentForEntry(
     .from('tournaments')
     .select('id, title, status, match_type, start_date, entry_fee, bank_account, team_match_count')
     .eq('status', 'OPEN')
+    .neq('visibility', 'HIDDEN')  // 비공개 대회는 챗봇 신청 불가
     .order('start_date', { ascending: true })
     .limit(5)
 
   if (tournamentName) {
     query = query.ilike('title', `%${escapeLike(tournamentName)}%`)
+  } else {
+    // 대회명 없이 전체 조회할 때는 공개 대회만 (UNLISTED는 링크로만 접근)
+    query = query.eq('visibility', 'PUBLIC')
   }
 
   const { data: tournaments, error } = await query
@@ -106,6 +110,7 @@ export async function getTournamentStatus(
     .select('title, status')
     .ilike('title', `%${escapeLike(tournamentName)}%`)
     .not('status', 'in', '("DRAFT","CANCELLED")')
+    .neq('visibility', 'HIDDEN')
     .limit(1)
     .maybeSingle()
   return data ?? null

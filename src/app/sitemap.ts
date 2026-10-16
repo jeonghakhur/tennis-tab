@@ -21,6 +21,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     .from('tournaments')
     .select('id, updated_at')
     .neq('status', 'DRAFT')
+    .eq('visibility', 'PUBLIC')
     .order('updated_at', { ascending: false })
     .limit(500)
 

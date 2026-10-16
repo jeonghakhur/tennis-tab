@@ -5,6 +5,7 @@ import { redirect, notFound } from 'next/navigation'
 import { canManageTournaments } from '@/lib/auth/roles'
 import { EntriesManager, type ClubMemberInfo } from '@/components/admin/EntriesManager'
 import { TournamentStatusSelector } from '@/components/admin/TournamentStatusSelector'
+import { TournamentVisibilitySelector } from '@/components/admin/TournamentVisibilitySelector'
 import { decryptProfile } from '@/lib/crypto/profileCrypto'
 import type { PartnerData } from '@/lib/supabase/types'
 import Link from 'next/link'
@@ -229,6 +230,10 @@ export default async function TournamentEntriesPage({ params }: PageProps) {
             <TournamentStatusSelector
               tournamentId={tournament.id}
               currentStatus={tournament.status}
+            />
+            <TournamentVisibilitySelector
+              tournamentId={tournament.id}
+              currentVisibility={tournament.visibility}
             />
             <Link
               href={`/admin/tournaments/${tournament.id}/bracket`}

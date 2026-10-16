@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createTournament, updateTournament, DivisionInput } from '@/lib/tournaments/actions';
 import { useAuth } from '../AuthProvider';
-import { UserRole, MatchType } from '@/lib/supabase/types';
+import { UserRole, MatchType, TournamentVisibility } from '@/lib/supabase/types';
+import { TOURNAMENT_VISIBILITIES, VISIBILITY_CONFIG, DEFAULT_TOURNAMENT_VISIBILITY } from '@/lib/tournaments/visibility';
 import RichTextEditor from '@/components/ui/RichTextEditor';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -78,6 +79,8 @@ export interface TournamentFormData {
     eligibility: string | null;
     max_participants: number;
     entry_fee: number;
+    /** 공개 범위 — 생략 시 PUBLIC */
+    visibility?: TournamentVisibility;
     tournament_divisions?: Array<{
         id?: string;  // 기존 부서는 id 포함
         name: string;
@@ -109,6 +112,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
     const [description, setDescription] = useState(initialData?.description || '');
     const [posterUrl, setPosterUrl] = useState<string | null>(initialData?.poster_url || null);
     const [matchType, setMatchType] = useState<MatchType | ''>(initialData?.match_type || '');
+    const [visibility, setVisibility] = useState<TournamentVisibility>(initialData?.visibility ?? DEFAULT_TOURNAMENT_VISIBILITY);
     const [divisions, setDivisions] = useState<DivisionInput[]>(
         initialData?.tournament_divisions?.map(div => ({
             id: div.id,  // 기존 부서 id 보존
@@ -187,6 +191,7 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
         formData.set('poster_url', posterUrl || '');
         // shadcn Select는 실제 DOM select가 아니므로 FormData에 수동 추가
         formData.set('match_type', matchType || '');
+        formData.set('visibility', visibility);
 
         const result = isEditMode && initialData
             ? await updateTournament(initialData.id, formData)
@@ -339,6 +344,21 @@ export default function TournamentForm({ mode = 'create', initialData }: Tournam
                             </SelectContent>
                         </Select>
                     </div>
+                </div>
+
+                <div>
+                    <label id="visibility-label" className={labelClass}>공개 범위</label>
+                    <Select value={visibility} onValueChange={(v) => setVisibility(v as TournamentVisibility)}>
+                        <SelectTrigger name="visibility" aria-labelledby="visibility-label" className={inputClass}>
+                            <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                            {TOURNAMENT_VISIBILITIES.map((key) => (
+                                <SelectItem key={key} value={key}>{VISIBILITY_CONFIG[key].label}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <p className="text-sm text-gray-500 mt-1">{VISIBILITY_CONFIG[visibility].description}</p>
                 </div>
 
                 {isTeamMatch && (

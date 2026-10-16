@@ -116,6 +116,7 @@ export async function getUpcomingDeadlineTournaments(): Promise<DeadlineTourname
     .from('tournaments')
     .select('id, title, location, entry_end_date, poster_url')
     .eq('status', 'OPEN')
+    .eq('visibility', 'PUBLIC')
     // 마감일 있으면 이미 지난 건 제외, 없으면 포함
     .or(`entry_end_date.is.null,entry_end_date.gte.${todayStr}`)
     .order('entry_end_date', { ascending: true, nullsFirst: false })
@@ -241,6 +242,7 @@ export async function getLiveResults(): Promise<LiveTournament[]> {
     .from('tournaments')
     .select('id, title')
     .eq('status', 'IN_PROGRESS')
+    .eq('visibility', 'PUBLIC')
     .order('start_date', { ascending: false })
     .limit(5)
 
@@ -350,6 +352,7 @@ export async function getActiveTournaments(): Promise<ActiveTournament[]> {
   const { data, error } = await admin
     .from('tournaments')
     .select('id, title, location, status, entry_end_date, max_participants')
+    .eq('visibility', 'PUBLIC')  // 메인은 공개 대회만
     .or(`status.eq.IN_PROGRESS,and(status.in.(OPEN,CLOSED),end_date.gte.${todayStr})`)
     .order('entry_end_date', { ascending: true, nullsFirst: false })
     .limit(8)

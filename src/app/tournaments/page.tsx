@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient, getUserWithTimeout } from "@/lib/supabase/server";
 import { TournamentRealtimeRefresher } from "@/components/tournaments/TournamentRealtimeRefresher";
 import { UserRole } from "@/lib/supabase/types";
+import { isListedTournament } from "@/lib/tournaments/visibility";
 import type { Database } from "@/lib/supabase/types";
 import TournamentsClient from "./_components/TournamentsClient";
 
@@ -17,7 +18,7 @@ export default async function TournamentsPage() {
   // 2. 프로필 + 대회 목록 병렬 조회
   const tournamentQuery = supabase
     .from("tournaments")
-    .select("id, title, status, start_date, end_date, location, poster_url")
+    .select("id, title, status, visibility, start_date, end_date, location, poster_url")
     .order("start_date", { ascending: false });
 
   const [profileResult, { data: allTournaments, error }] = await Promise.all([
@@ -30,10 +31,11 @@ export default async function TournamentsPage() {
 
   // DRAFT 대회는 SUPER_ADMIN만 노출 — ADMIN/MANAGER는 자신이 작성 중인 DRAFT를
   // 확인하려면 admin 대회 관리 페이지(/admin/tournaments)를 사용
+  // 공개 범위: 관리자(MANAGER 이상)는 전부, 일반 사용자는 PUBLIC만 (UNLISTED/HIDDEN은 목록 제외)
   const isSuperAdmin = role === "SUPER_ADMIN";
-  const tournaments = (isSuperAdmin
-    ? allTournaments
-    : allTournaments?.filter((t) => t.status !== "DRAFT")) ?? [];
+  const tournaments = (allTournaments ?? [])
+    .filter((t) => isSuperAdmin || t.status !== "DRAFT")
+    .filter((t) => isListedTournament(t.visibility, role as UserRole | null));
 
   if (error) {
     console.error("Error fetching tournaments:", error);

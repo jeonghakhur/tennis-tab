@@ -116,10 +116,14 @@ async function handleBracketAll(entities: ChatEntities): Promise<HandlerResult> 
   let tournamentsQuery = admin
     .from('tournaments')
     .select('id, title, status')
+    .neq('visibility', 'HIDDEN')
     .limit(5)
 
   if (entities.tournament_name) {
     tournamentsQuery = tournamentsQuery.ilike('title', `%${escapeLike(entities.tournament_name)}%`)
+  } else {
+    // 대회명 없는 목록 조회는 공개 대회만
+    tournamentsQuery = tournamentsQuery.eq('visibility', 'PUBLIC')
   }
   if (entities.status) {
     const mapped = STATUS_MAP[entities.status]

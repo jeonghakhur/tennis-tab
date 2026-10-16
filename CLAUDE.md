@@ -601,6 +601,19 @@ src/components/admin/BracketManager/
 - 환경변수 미설정 시 throw (fallback 키 금지)
 - 입력값: `validateId()`, `validateNonNegativeInteger()`, 동점 서버 사이드 검증
 
+## 대회 공개 범위 (visibility)
+마이그레이션: `63_tournaments_visibility.sql` · 헬퍼: `src/lib/tournaments/visibility.ts`
+
+| 값 | 목록(메인·대회일정·사이트맵·챗봇 검색) | 상세·대진표·신청 |
+|----|------|------|
+| `PUBLIC` (기본) | 노출 | 누구나 |
+| `UNLISTED` | 제외 (관리자는 목록에서 봄) | 링크로 누구나 |
+| `HIDDEN` | 제외 (관리자는 목록에서 봄) | MANAGER 이상만, 그 외 404 |
+
+- 목록 쿼리는 `.eq('visibility', 'PUBLIC')`, 이름 검색·단건 조회는 `.neq('visibility', 'HIDDEN')` — 새 조회 경로 추가 시 같은 규칙 적용
+- 접근 판정은 `canViewTournament(visibility, role)`, 목록 노출은 `isListedTournament(visibility, role)` 사용 (직접 문자열 비교 금지)
+- 변경 UI: 어드민 엔트리 페이지 헤더 `TournamentVisibilitySelector`, 대회 폼 `공개 범위` 셀렉트. Server Action `updateTournamentVisibility`는 status와 달리 전환 제약·참가자 알림 없음
+
 ## 재정 관리 (Finance Ledger)
 설계: `docs/02-design/features/finance-ledger.design.md` · 마이그레이션: `60_finance_ledger.sql`
 

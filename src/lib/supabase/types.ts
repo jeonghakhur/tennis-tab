@@ -21,6 +21,8 @@ export type ClubJoinType = 'OPEN' | 'APPROVAL' | 'INVITE_ONLY'
 export type ClubMemberRole = 'OWNER' | 'ADMIN' | 'MEMBER'
 export type ClubMemberStatus = 'PENDING' | 'INVITED' | 'ACTIVE' | 'LEFT' | 'REMOVED'
 export type TournamentStatus = 'DRAFT' | 'UPCOMING' | 'OPEN' | 'CLOSED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED'
+/** 대회 공개 범위 — PUBLIC(전체 노출) / UNLISTED(링크로만 접근) / HIDDEN(관리자 전용) */
+export type TournamentVisibility = 'PUBLIC' | 'UNLISTED' | 'HIDDEN'
 export type TournamentFormat = 'SINGLE_ELIMINATION' | 'DOUBLE_ELIMINATION' | 'LEAGUE' | 'MIXED'
 export type MatchType = 'INDIVIDUAL_SINGLES' | 'INDIVIDUAL_DOUBLES' | 'TEAM_SINGLES' | 'TEAM_DOUBLES'
 export type EntryStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CONFIRMED' | 'WAITLISTED' | 'CANCELLED'
@@ -121,6 +123,7 @@ export interface Database {
           max_participants: number
           entry_fee: number
           status: TournamentStatus
+          visibility: TournamentVisibility
           format: TournamentFormat
           match_type: MatchType | null
           host: string | null
@@ -149,6 +152,7 @@ export interface Database {
           max_participants: number
           entry_fee?: number
           status?: TournamentStatus
+          visibility?: TournamentVisibility
           format: TournamentFormat
           match_type?: MatchType | null
           host?: string | null
@@ -177,6 +181,7 @@ export interface Database {
           max_participants?: number
           entry_fee?: number
           status?: TournamentStatus
+          visibility?: TournamentVisibility
           format?: TournamentFormat
           match_type?: MatchType | null
           host?: string | null

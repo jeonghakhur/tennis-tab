@@ -1,7 +1,8 @@
 'use server';
 
 import { createClient, getUserWithTimeout } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
+import { createAdminClient } from '@/lib/supabase/admin'
+import { canViewTournament } from '@/lib/tournaments/visibility';
 import { revalidatePath } from 'next/cache';
 import { createNotification } from '@/lib/notifications/actions'
 import { NotificationType } from '@/lib/notifications/types'
@@ -200,6 +201,11 @@ export async function createEntry(
         // 3. 대회 상태 확인 (OPEN 상태에서만 신청 가능, 어드민은 스킵)
         if (!isAdminUser && tournament.status !== 'OPEN') {
             return { success: false, error: '현재 접수 기간이 아닙니다.' };
+        }
+
+        // 3-1. 비공개(HIDDEN) 대회는 관리 권한자 외 신청 불가 (상세 페이지 404와 동일 기준)
+        if (!canViewTournament(tournament.visibility, userProfile?.role)) {
+            return { success: false, error: '대회를 찾을 수 없습니다.' };
         }
 
         // 4. 부서 정보 확인

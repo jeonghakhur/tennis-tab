@@ -119,6 +119,7 @@ async function handleResultsAll(entities: ChatEntities): Promise<HandlerResult> 
     .from('tournaments')
     .select('id, title')
     .ilike('title', `%${entities.tournament_name.replace(/%/g, '\\%').replace(/_/g, '\\_')}%`)
+    .neq('visibility', 'HIDDEN')
     .limit(1)
 
   if (!tournaments || tournaments.length === 0) {

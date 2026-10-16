@@ -317,6 +317,7 @@ async function handleSearchAll(entities: ChatEntities): Promise<HandlerResult> {
       entry_start_date, entry_end_date, opening_ceremony,
       tournament_divisions(name, match_date, match_location, prize_winner, prize_runner_up, notes)
     `)
+    .eq('visibility', 'PUBLIC')  // 목록 검색은 공개 대회만
     .order('start_date', { ascending: true })
     .limit(5)
 

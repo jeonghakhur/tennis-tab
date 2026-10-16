@@ -52,6 +52,7 @@ CREATE TABLE tournaments (
   max_participants INTEGER NOT NULL,
   entry_fee INTEGER NOT NULL DEFAULT 0,
   status tournament_status NOT NULL DEFAULT 'DRAFT',
+  visibility TEXT NOT NULL DEFAULT 'PUBLIC' CHECK (visibility IN ('PUBLIC', 'UNLISTED', 'HIDDEN')),
   format tournament_format NOT NULL,
   match_type match_type,
   host TEXT,
