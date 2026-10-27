@@ -12,6 +12,10 @@ import type { Database } from '@/lib/supabase/types'
 type Entry = Database['public']['Tables']['tournament_entries']['Row'] & {
   profiles: { name: string; email: string; phone: string | null; avatar_url: string | null; club: string | null } | null
   tournament_divisions: { name: string } | null
+  // 생성 타입에 아직 반영 안 된 환불 계좌 컬럼 (select('*')로 내려옴)
+  refund_bank?: string | null
+  refund_account?: string | null
+  refund_holder?: string | null
 }
 
 type Division = { id: string; name: string; max_teams: number | null }
@@ -348,6 +352,35 @@ export function AdminEntryModal({
                   <span className="text-sm text-(--text-primary)">신청자 본인도 선수로 참가</span>
                 </label>
               </div>
+            )}
+
+            {/* 환불 계좌 (수정 모드 전용, 읽기 전용) */}
+            {!isCreateMode && entry && (
+              <section
+                aria-labelledby="admin-entry-refund-heading"
+                className="pt-3 border-t border-(--border-color)"
+              >
+                <h3
+                  id="admin-entry-refund-heading"
+                  className="text-sm font-semibold text-(--text-secondary) mb-2"
+                >
+                  환불 계좌
+                </h3>
+                {entry.refund_bank ? (
+                  <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 p-3 rounded-lg bg-(--bg-secondary) text-sm">
+                    <dt className="text-(--text-muted)">은행</dt>
+                    <dd className="font-medium text-(--text-primary)">{entry.refund_bank}</dd>
+                    <dt className="text-(--text-muted)">계좌번호</dt>
+                    <dd className="font-medium font-mono text-(--text-primary) select-all">
+                      {entry.refund_account || '-'}
+                    </dd>
+                    <dt className="text-(--text-muted)">예금주</dt>
+                    <dd className="font-medium text-(--text-primary)">{entry.refund_holder || '-'}</dd>
+                  </dl>
+                ) : (
+                  <p className="text-sm text-(--text-muted)">등록된 환불 계좌 정보가 없습니다.</p>
+                )}
+              </section>
             )}
           </div>
         </Modal.Body>
