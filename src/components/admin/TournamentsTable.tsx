@@ -79,6 +79,171 @@ const statusConfig: Record<
   },
 }
 
+type EntryCounts = {
+  total: number
+  pending: number
+  approved: number
+  paid: number
+  totalMaxTeams: number
+}
+
+function getEntryCounts(
+  entries: Tournament['tournament_entries'],
+  divisions: Tournament['tournament_divisions']
+): EntryCounts {
+  const total = entries?.length ?? 0
+  const pending = entries?.filter((e) => e.status === 'PENDING').length ?? 0
+  const approved = entries?.filter((e) => ['APPROVED', 'CONFIRMED'].includes(e.status)).length ?? 0
+  const paid = entries?.filter((e) => e.payment_status === 'COMPLETED').length ?? 0
+
+  // 부서별 모집팀 총합
+  const totalMaxTeams = divisions?.reduce((sum, d) => sum + (d.max_teams ?? 0), 0) ?? 0
+
+  return { total, pending, approved, paid, totalMaxTeams }
+}
+
+/** DRAFT가 아닌 대진이 하나라도 있으면 대진 보기 노출 */
+function hasActiveBracket(divisions: Tournament['tournament_divisions']): boolean {
+  return divisions?.some((d) => d.bracket_configs != null && d.bracket_configs.status !== 'DRAFT') ?? false
+}
+
+function TournamentDateRange({ start, end }: { start: string; end: string }) {
+  return (
+    <span>
+      {formatKoreanDate(start)}
+      {start !== end && <> ~ {formatKoreanDate(end)}</>}
+    </span>
+  )
+}
+
+function EntryCountsSummary({ counts }: { counts: EntryCounts }) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <Users className="w-4 h-4 text-gray-500 dark:text-gray-400" aria-hidden="true" />
+        <span className="text-sm font-medium text-(--text-primary)">
+          {counts.total}
+          {counts.totalMaxTeams > 0 && (
+            <span className="text-gray-500 dark:text-gray-400 font-normal">
+              /{counts.totalMaxTeams}팀
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="flex gap-3 text-sm font-medium">
+        {counts.pending > 0 && (
+          <span className="text-orange-600 dark:text-orange-400">
+            대기 {counts.pending}
+          </span>
+        )}
+        <span className="text-emerald-600 dark:text-emerald-400">
+          승인 {counts.approved}
+        </span>
+        <span className="text-blue-600 dark:text-blue-400">
+          결제 {counts.paid}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+interface TournamentMobileCardProps {
+  tournament: Tournament
+  counts: EntryCounts
+  hasBracket: boolean
+  showOrganizer: boolean
+  onDelete?: () => void
+}
+
+/**
+ * 모바일 대회 카드.
+ * 카드 전체 클릭은 제목 링크의 ::after 확장(stretched link)으로 처리하고,
+ * 대진/삭제 버튼은 z-10으로 올려 링크 중첩 없이 독립 동작시킨다.
+ */
+function TournamentMobileCard({
+  tournament,
+  counts,
+  hasBracket,
+  showOrganizer,
+  onDelete,
+}: TournamentMobileCardProps) {
+  const status = statusConfig[tournament.status]
+
+  return (
+    <article className="relative p-4 glass-card rounded-xl border border-gray-200 dark:border-gray-800 hover:border-emerald-500 dark:hover:border-emerald-400 focus-within:border-emerald-500 transition-colors">
+      {/* 상태 배지 */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-2">
+        <Badge variant={status.variant}>{status.label}</Badge>
+        {tournament.visibility !== 'PUBLIC' && (
+          <Badge variant={VISIBILITY_CONFIG[tournament.visibility].variant}>
+            {VISIBILITY_CONFIG[tournament.visibility].label}
+          </Badge>
+        )}
+      </div>
+
+      <h2 className="text-base font-semibold leading-snug text-(--text-primary) break-keep">
+        <Link
+          href={`/admin/tournaments/${tournament.id}/entries`}
+          className="after:absolute after:inset-0 after:rounded-xl focus:outline-none"
+        >
+          {tournament.title}
+        </Link>
+      </h2>
+
+      {/* 일정·장소·주최 */}
+      <dl className="mt-2 space-y-1 text-sm text-gray-600 dark:text-gray-400">
+        <div className="flex items-start gap-2">
+          <dt className="sr-only">일정</dt>
+          <Calendar className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+          <dd>
+            <TournamentDateRange start={tournament.start_date} end={tournament.end_date} />
+          </dd>
+        </div>
+        {tournament.location && (
+          <div className="flex items-start gap-2">
+            <dt className="sr-only">장소</dt>
+            <MapPin className="w-4 h-4 mt-0.5 shrink-0" aria-hidden="true" />
+            <dd className="break-keep">{tournament.location}</dd>
+          </div>
+        )}
+        {showOrganizer && tournament.profiles && (
+          <div className="flex items-start gap-2">
+            <dt className="shrink-0">주최</dt>
+            <dd>{tournament.profiles.name}</dd>
+          </div>
+        )}
+      </dl>
+
+      {/* 참가 현황 + 액션 */}
+      <div className="mt-3 pt-3 flex items-end justify-between gap-3 border-t border-gray-200 dark:border-gray-800">
+        <EntryCountsSummary counts={counts} />
+        <div className="relative z-10 flex items-center gap-1 shrink-0">
+          {hasBracket && (
+            <Link
+              href={`/admin/tournaments/${tournament.id}/bracket`}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors whitespace-nowrap"
+              aria-label={`${tournament.title} 대진표 보기`}
+            >
+              <GitFork className="w-4 h-4" aria-hidden="true" />
+              대진
+            </Link>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={onDelete}
+              aria-label={`${tournament.title} 삭제`}
+              className="p-2.5 text-gray-400 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+            >
+              <Trash2 className="w-4 h-4" aria-hidden="true" />
+            </button>
+          )}
+        </div>
+      </div>
+    </article>
+  )
+}
+
 export function TournamentsTable({
   tournaments,
   showOrganizer = false,
@@ -197,30 +362,16 @@ export function TournamentsTable({
     }
   }
 
-  const getEntryCounts = (
-    entries: Tournament['tournament_entries'],
-    divisions: Tournament['tournament_divisions']
-  ) => {
-    const total = entries?.length ?? 0
-    const pending = entries?.filter((e) => e.status === 'PENDING').length ?? 0
-    const approved = entries?.filter((e) => ['APPROVED', 'CONFIRMED'].includes(e.status)).length ?? 0
-    const paid = entries?.filter((e) => e.payment_status === 'COMPLETED').length ?? 0
-
-    // 부서별 모집팀 총합
-    const totalMaxTeams = divisions?.reduce((sum, d) => sum + (d.max_teams ?? 0), 0) ?? 0
-
-    return { total, pending, approved, paid, totalMaxTeams }
-  }
-
   return (
     <div className="space-y-4">
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
         {/* Search */}
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 dark:text-gray-500" />
           <input
-            type="text"
+            type="search"
+            aria-label="대회 검색"
             placeholder="대회명, 장소, 주최자로 검색..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -243,7 +394,7 @@ export function TournamentsTable({
       </div>
 
       {/* Stats */}
-      <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-gray-600 dark:text-gray-400">
         <span>
           총 <strong className="text-gray-900 dark:text-gray-100">{tournaments.length}</strong>
           개 대회
@@ -260,7 +411,7 @@ export function TournamentsTable({
       </div>
 
       {/* Table */}
-      <div className="glass-card rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
+      <div className="hidden md:block glass-card rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 dark:bg-gray-800/50">
@@ -311,9 +462,7 @@ export function TournamentsTable({
               {filteredAndSortedTournaments.length > 0 ? (
                 filteredAndSortedTournaments.map((tournament) => {
                   const counts = getEntryCounts(tournament.tournament_entries, tournament.tournament_divisions)
-                  const hasBracket = tournament.tournament_divisions?.some(
-                    (d) => d.bracket_configs != null && d.bracket_configs.status !== 'DRAFT',
-                  ) ?? false
+                  const hasBracket = hasActiveBracket(tournament.tournament_divisions)
 
                   return (
                     <tr
@@ -356,41 +505,11 @@ export function TournamentsTable({
                       <td className="p-4 hidden lg:table-cell">
                         <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                           <Calendar className="w-4 h-4" />
-                          <span>
-                            {formatKoreanDate(tournament.start_date)}
-                            {tournament.start_date !== tournament.end_date && (
-                              <> ~ {formatKoreanDate(tournament.end_date)}</>
-                            )}
-                          </span>
+                          <TournamentDateRange start={tournament.start_date} end={tournament.end_date} />
                         </div>
                       </td>
                       <td className="p-4">
-                        <div className="space-y-1.5">
-                          <div className="flex items-center gap-2">
-                            <Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                            <span className="text-sm font-medium text-(--text-primary)">
-                              {counts.total}
-                              {counts.totalMaxTeams > 0 && (
-                                <span className="text-gray-500 dark:text-gray-400 font-normal">
-                                  /{counts.totalMaxTeams}팀
-                                </span>
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex gap-3 text-sm font-medium">
-                            {counts.pending > 0 && (
-                              <span className="text-orange-600 dark:text-orange-400">
-                                대기 {counts.pending}
-                              </span>
-                            )}
-                            <span className="text-emerald-600 dark:text-emerald-400">
-                              승인 {counts.approved}
-                            </span>
-                            <span className="text-blue-600 dark:text-blue-400">
-                              결제 {counts.paid}
-                            </span>
-                          </div>
-                        </div>
+                        <EntryCountsSummary counts={counts} />
                       </td>
                       <td className="p-4">
                         {hasBracket && (
@@ -434,35 +553,31 @@ export function TournamentsTable({
         </div>
       </div>
 
-      {/* Mobile Actions */}
-      <div className="sm:hidden space-y-2">
-        {filteredAndSortedTournaments.map((tournament) => (
-          <Link
-            key={tournament.id}
-            href={`/tournaments/${tournament.id}`}
-            className="block p-4 glass-card rounded-xl border border-gray-200 dark:border-gray-800 hover:border-emerald-500 dark:hover:border-emerald-400 transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                {tournament.title}
-              </span>
-              <span className="flex items-center gap-1.5">
-                {tournament.visibility !== 'PUBLIC' && (
-                  <Badge variant={VISIBILITY_CONFIG[tournament.visibility].variant}>
-                    {VISIBILITY_CONFIG[tournament.visibility].label}
-                  </Badge>
-                )}
-                <Badge variant={statusConfig[tournament.status].variant}>
-                  {statusConfig[tournament.status].label}
-                </Badge>
-              </span>
-            </div>
-            <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-1">
-              상세보기 →
-            </p>
-          </Link>
-        ))}
-      </div>
+      {/* Mobile Cards — 테이블 대신 카드로 전체 정보 표시 */}
+      <ul className="md:hidden space-y-3" aria-label="대회 목록">
+        {filteredAndSortedTournaments.length > 0 ? (
+          filteredAndSortedTournaments.map((tournament) => (
+            <li key={tournament.id}>
+              <TournamentMobileCard
+                tournament={tournament}
+                counts={getEntryCounts(tournament.tournament_entries, tournament.tournament_divisions)}
+                hasBracket={hasActiveBracket(tournament.tournament_divisions)}
+                showOrganizer={showOrganizer}
+                onDelete={
+                  showDelete
+                    ? () => setDeleteTarget({ id: tournament.id, title: tournament.title })
+                    : undefined
+                }
+              />
+            </li>
+          ))
+        ) : (
+          <li className="flex flex-col items-center gap-2 py-12 text-gray-500 dark:text-gray-400">
+            <Trophy className="w-12 h-12 opacity-50" aria-hidden="true" />
+            <p>검색 결과가 없습니다.</p>
+          </li>
+        )}
+      </ul>
 
       {/* 대회 삭제 확인 모달 — 대회명 직접 입력 */}
       <Modal
