@@ -40,6 +40,7 @@ import {
   bulkSendConfirmAlimtalk,
 } from "@/lib/admin/entries";
 import { updateRefundStatus } from "@/lib/entries/actions";
+import { unformatPhoneNumber } from "@/lib/utils/phone";
 import { AlertDialog, ConfirmDialog } from "@/components/common/AlertDialog";
 import { Modal } from "@/components/common/Modal";
 import { Badge } from "@/components/common/Badge";
@@ -1313,10 +1314,26 @@ export function EntriesManager({
                                 </div>
                               ) : null;
                             })()}
-                            <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
-                              <Phone className="w-4 h-4" />
-                              {entry.phone || entry.profiles?.phone || "-"}
-                            </div>
+                            {(() => {
+                              const phone =
+                                entry.phone || entry.profiles?.phone;
+                              return (
+                                <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
+                                  <Phone className="w-4 h-4" aria-hidden="true" />
+                                  {phone ? (
+                                    // href는 숫자만 사용 (하이픈 등 서식 제거)
+                                    <a
+                                      href={`tel:${unformatPhoneNumber(phone)}`}
+                                      className="hover:text-(--accent-color) hover:underline"
+                                    >
+                                      {phone}
+                                    </a>
+                                  ) : (
+                                    "-"
+                                  )}
+                                </div>
+                              );
+                            })()}
                             {/* 출생년도: 신청자 프로필 기준 (미입력 시 숨김) */}
                             {entry.profiles?.birth_year && (
                               <div className="flex items-center gap-1.5 text-sm text-(--text-secondary)">
